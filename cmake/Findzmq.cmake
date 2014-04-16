@@ -1,0 +1,26 @@
+#
+# Authors: zhengyu li <zhengyu_li@gmail.com>
+#
+
+MESSAGE (STATUS "Using bundled find zmq")
+
+FIND_PATH (
+  LIBZMQ_INCLUDE_DIR
+  NAMES zmq.h
+  PATHS /usr/include /usr/local/include/)
+
+FIND_LIBRARY (
+  LIBZMQ_LIBRARY
+  NAMES zmq
+  PATHS /usr/lib/ /usr/local/lib/ /usr/lib64/ /usr/lcocal/lib64/)
+
+IF (LIBZMQ_INCLUDE_DIR AND LIBZMQ_LIBRARY)
+  SET (ZMQ_FOUND 1)
+  INCLUDE_DIRECTORIES (${LIBZMQ_INCLUDE_DIR})
+ELSE (LIBZMQ_INCLUDE_DIR AND LIBZMQ_LIBRARY)
+  SET (ZMQ_FOUND 0)
+ENDIF (LIBZMQ_INCLUDE_DIR AND LIBZMQ_LIBRARY)
+
+MARK_AS_ADVANCED (
+  LIBZMQ_INCLUDE_DIR
+  LIBZMQ_LIBRARY)

@@ -1,0 +1,201 @@
+#+TITLE: SSL notes
+#+AUTHOR: zhengyu li
+#+OPTIONS: ^:nil
+
+* Session state
+ 1. session identifier:  An arbitrary byte sequence chosen by the server
+    to identify an active or resumable session state.
+
+ 2. peer certificate:  X509.v3 [X509] certificate of the peer.  This
+    element of the state may be null.
+
+ 3. compression method:  The algorithm used to compress data prior to
+    encryption.
+
+ 4. cipher spec:  Specifies the bulk data encryption algorithm (such as
+    null, DES, etc.) and a MAC algorithm (such as MD5 or SHA).  It
+    also defines cryptographic attributes such as the hash_size.  (See
+    Appendix A.7 for formal definition.)
+
+ 5. master secret:  48-byte secret shared between the client and server.
+
+ 6. is resumable:  A flag indicating whether the session can be used to
+    initiate new connections.
+
+* SSL connection state
+1. server and client random:  Byte sequences that are chosen by the
+   server and client for each connection.
+
+2. server write MAC secret:  The secret used in MAC operations on data
+   written by the server.
+
+3. client write MAC secret:  The secret used in MAC operations on data
+   written by the client.
+
+4. server write key:  The bulk cipher key for data encrypted by the
+   server and decrypted by the client.
+
+5. client write key:  The bulk cipher key for data encrypted by the
+   client and decrypted by the server.
+
+6. initialization vectors:  When a block cipher in Cipher Block Chaining
+   (CBC) mode is used, an initialization vector (IV) is maintained
+   for each key.  This field is first initialized by the SSL
+   handshake protocol.  Thereafter, the final ciphertext block from
+   each record is preserved for use with the following record.
+
+7. sequence numbers:  Each party maintains separate sequence numbers for
+   transmitted and received messages for each connection.  When a
+   party sends or receives a change cipher spec message, the
+   appropriate sequence number is set to zero.  Sequence numbers are
+   of type uint64 and may not exceed 2^64-1.
+
+* Fragmentation
+The record layer fragments information blocks into SSLPlaintext
+records of 2^14 bytes or less.  Client message boundaries are not
+preserved in the record layer (i.e., multiple client messages of the
+same ContentType may be coalesced into a single SSLPlaintext record).
+
+#+BEGIN_SRC c
+  struct {
+      uint8 major, minor;
+  } ProtocolVersion;
+  
+  enum {
+      change_cipher_spec(20), alert(21), handshake(22),
+      application_data(23), (255)
+  } ContentType;
+  
+  struct {
+      ContentType type;
+      ProtocolVersion version;
+      uint16 length;
+      opaque fragment[SSLPlaintext.length];
+  } SSLPlaintext;
+#+END_SRC
+
+1. type:  The higher level protocol used to process the enclosed
+   fragment.
+
+2. version:  The version of protocol being employed.  This document
+   describes SSL version 3.0 (see Appendix A.1).
+
+3. length:  The length (in bytes) of the following
+   SSLPlaintext.fragment.  The length should not exceed 2^14.
+
+4. fragment:  The application data.  This data is transparent and
+   treated as an independent block to be dealt with by the higher
+   level protocol specified by the type field.
+
+* The MAC is generated as:
+#+BEGIN_SRC c
+  hash(MAC_write_secret + pad_2 + hash(MAC_write_secret + pad_1 + seq_num +
+                                       SSLCompressed.type + SSLCompressed.length +
+                                       SSLCompressed.fragment));
+#+END_SRC
+
+where "+" denotes concatenation.
+
+pad_1:  The character 0x36 repeated 48 times for MD5 or 40 times for
+SHA.
+
+pad_2:  The character 0x5c repeated 48 times for MD5 or 40 times for
+SHA.
+
+seq_num:  The sequence number for this message.
+
+hash:  Hashing algorithm derived from the cipher suite.
+
+Note that the MAC is computed before encryption.  The stream cipher
+encrypts the entire block, including the MAC.  For stream ciphers
+that do not use a synchronization vector (such as RC4), the stream
+cipher state from the end of one record is simply used on the
+subsequent packet.  If the CipherSuite is SSL_NULL_WITH_NULL_NULL,
+encryption consists of the identity operation (i.e., the data is not
+encrypted and the MAC size is zero implying that no MAC is used).
+SSLCiphertext.length is SSLCompressed.length plus
+CipherSpec.hash_size.
+
+* CBC Block Cipher
+
+For block ciphers (such as RC2 or DES), the encryption and MAC
+functions convert SSLCompressed.fragment structures to and from block
+SSLCiphertext.fragment structures.
+
+#+BEGIN_SRC c
+  block-ciphered struct {
+      opaque content[SSLCompressed.length];
+      opaque MAC[CipherSpec.hash_size];
+      uint8 padding[GenericBlockCipher.padding_length];
+      uint8 padding_length;
+  } GenericBlockCipher;
+#+END_SRC
+
+The MAC is generated as described in Section 5.2.3.1.
+
+padding:  Padding that is added to force the length of the plaintext
+to be a multiple of the block cipher's block length.
+
+* For negotiation purposes, 2.0 CLIENT-HELLO is interpreted the same
+way as a ClientHello with a "null" compression method and no
+extensions.  Note that this message MUST be sent directly on the
+wire, not wrapped as a TLS record.  For the purposes of calculating
+Finished and CertificateVerify, the msg_length field is not
+considered to be a part of the handshake message.
+
+#+BEGIN_SRC c
+  uint8 V2CipherSpec[3];
+  struct {
+      uint16 msg_length;
+      uint8 msg_type;
+      Version version;
+      uint16 cipher_spec_length;
+      uint16 session_id_length;
+      uint16 challenge_length;
+      V2CipherSpec cipher_specs[V2ClientHello.cipher_spec_length];
+      opaque session_id[V2ClientHello.session_id_length];
+      opaque challenge[V2ClientHello.challenge_length;
+  } V2ClientHello;
+#+END_SRC
+
+msg_length
+The highest bit MUST be 1; the remaining bits contain the length
+of the following data in bytes.
+
+msg_type
+This field, in conjunction with the version field, identifies a
+version 2 ClientHello message.  The value MUST be 1.
+
+version
+Equal to ClientHello.client_version.
+
+cipher_spec_length
+This field is the total length of the field cipher_specs.  It
+cannot be zero and MUST be a multiple of the V2CipherSpec length
+(3).
+
+session_id_length
+This field MUST have a value of zero for a client that claims to
+support TLS 1.2.
+
+challenge_length
+The length in bytes of the client's challenge to the server to
+authenticate itself.  Historically, permissible values are between
+16 and 32 bytes inclusive.  When using the SSLv2 backward-
+compatible handshake the client SHOULD use a 32-byte challenge.
+
+cipher_specs
+This is a list of all CipherSpecs the client is willing and able
+to use.  In addition to the 2.0 cipher specs defined in [SSL2],
+this includes the TLS cipher suites normally sent in
+ClientHello.cipher_suites, with each cipher suite prefixed by a
+zero byte.  For example, the TLS cipher suite {0x00,0x0A} would be
+sent as {0x00,0x00,0x0A}.
+
+session_id
+This field MUST be empty.
+
+challenge
+Corresponds to ClientHello.random.  If the challenge length is
+less than 32, the TLS server will pad the data with leading (note:
+not trailing) zero bytes to make it 32 bytes long.

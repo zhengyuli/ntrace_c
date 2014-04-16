@@ -1,0 +1,89 @@
+#!/bin/bash
+
+### BEGIN INIT INFO
+# Provides:          logd
+# Required-Start:
+# Required-Stop:
+# X-Start-Before:
+# Default-Start:    2 3 4 5
+# Default-Stop:
+# Short-Description: logd service script
+# Description: Provide log capability for wdm agent.
+### END INIT INFO
+
+EXEC=/usr/sbin/logd
+PID_FILE=/var/run/logd.pid
+PROC_NAME=logd
+
+start () {
+    if [ -f $PID_FILE ]
+    then
+        echo "Logd is running"
+    else
+        echo -n "Start logd: "
+        $EXEC -d -f $PID_FILE
+        loop=1
+        while [ ${loop} -gt 0 ]
+        do
+            sleep 1
+            if [ -f $PID_FILE ]
+            then
+                echo "[OK]"
+                exit 0
+            else
+                loop=$(($loop - 1))
+            fi
+        done
+        echo "[Failed]"
+    fi
+}
+
+stop () {
+    if [ ! -f $PID_FILE ]
+    then
+        echo "Logd is not running"
+    else
+		echo -n "Stop logd: "
+        PID=$(cat $PID_FILE)
+        # Send SIGINT signal to logd process
+        kill -2 ${PID}
+        while [ -x /proc/${PID} ]
+        do
+            sleep 1
+        done
+        echo "[Done]"
+    fi
+}
+
+restart () {
+    stop
+    start
+}
+
+status () {
+    echo -n "Logd status: "
+    if [ ! -f $PID_FILE ]
+    then
+        echo "[Stopped]"
+    else
+        echo "[Runing]"
+    fi
+}
+
+case "$1" in
+    start)
+        start
+        ;;
+    stop)
+        stop
+        ;;
+    restart)
+        restart
+        ;;
+    status)
+        status
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart|status}"
+        ;;
+esac

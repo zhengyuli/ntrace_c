@@ -1,0 +1,26 @@
+#
+# Authors: zhengyu li <zhengyu_li@gmail.com>
+#
+
+MESSAGE (STATUS "Using bundled find pcap")
+
+FIND_PATH (
+  LIBPCAP_INCLUDE_DIR
+  NAMES pcap.h
+  PATHS /usr/include /usr/local/include/)
+
+FIND_LIBRARY (
+  LIBPCAP_LIBRARY
+  NAMES pcap
+  PATHS /usr/lib/ /usr/local/lib/ /usr/lib64/ /usr/lcocal/lib64/)
+
+IF (LIBPCAP_INCLUDE_DIR AND LIBPCAP_LIBRARY)
+  SET (PCAP_FOUND 1)
+  INCLUDE_DIRECTORIES (${LIBPCAP_INCLUDE_DIR})
+ELSE (LIBPCAP_INCLUDE_DIR AND LIBPCAP_LIBRARY)
+  SET (PCAP_FOUND 0)
+ENDIF (LIBPCAP_INCLUDE_DIR AND LIBPCAP_LIBRARY)
+
+MARK_AS_ADVANCED (
+  LIBPCAP_INCLUDE_DIR
+  LIBPCAP_LIBRARY)

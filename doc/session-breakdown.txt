@@ -1,0 +1,144 @@
+					 _____________________________
+
+					  SESSION BREAKDOWN INTERFACE
+
+							   zhengyu li
+					 _____________________________
+
+
+Table of Contents
+_________________
+
+1 Tcp common breakdown interface
+2 Default breakdown interface
+3 Http breakdown interface
+4 Mysql breakdown interface
+
+
+
+
+
+1 Tcp common breakdown interface
+================================
+
+  ----------------+-------------------+---------------------------+-------------------------------------------------------------
+   variable type  | variable name     | breakdown name            | description                                                 
+  ----------------+-------------------+---------------------------+-------------------------------------------------------------
+   uint64_t       | bkdId             | breakdown_id              | Global breakdown id                                         
+   uint64_t       | timestamp         | timestamp                 | Timestamp in seconds                                        
+   protoType      | proto             | protocol                  | Tcp application level protocol type                         
+   struct in_addr | srcIp             | source_ip                 | Source ip                                                   
+   uint16_t       | srcPort           | source_port               | Source port                                                 
+   struct in_addr | svcIp             | service_ip                | Service ip                                                  
+   uint16_t       | svcPort           | service_port              | Service port                                                
+   uint64_t       | connId            | tcp_connection_id         | Global tcp connection id                                    
+   uint64_t       | retries           | tcp_retries               | Tcp retries                                                 
+   uint64_t       | retriesLatency    | tcp_retries_latency       | Tcp retries latency in milliseconds                         
+   uint64_t       | dupSynAcks        | tcp_duplicate_synacks     | Tcp duplicate syn/ack packages                              
+   uint64_t       | rtt               | tcp_rtt                   | Tcp round trip latency                                      
+   uint8_t        | state             | tcp_state                 | Tcp state                                                   
+   uint64_t       | connLatency       | tcp_connection_latency    | Tcp connection latency in milliseconds                      
+   uint64_t       | totalPkts         | tcp_total_packets         | Tcp total packages                                          
+   uint64_t       | tinyPkts          | tcp_tiny_packets          | Tcp tiny packets                                            
+   uint64_t       | pawsPkts          | tcp_paws_packets          | Tcp PAWS (Protect Against Wrapped Sequence numbers) packets 
+   uint64_t       | retransmittedPkts | tcp_retransmitted_packets | Tcp retransmitted packets                                   
+   uint64_t       | outOfOrderPkts    | tcp_out_of_order_packets  | Tcp out of order packets                                    
+   uint64_t       | zeroWindows       | tcp_zero_windows          | Tcp zero windows                                            
+   uint64_t       | dupAcks           | tcp_duplicate_acks        | Tcp duplicate acks                                          
+   uint64_t       | mss               | tcp_mss                   | Tcp mss (maxium segment size)                               
+  ----------------+-------------------+---------------------------+-------------------------------------------------------------
+
+  Notes: Tcp state for tcp breakdown
+  ,----
+  | typedef enum {
+  |     TCP_CONNECTED = 0,                  /**< Tcp connection connected */
+  |     TCP_DATA_EXCHANGING,                /**< Tcp connection data exchanging */
+  |     TCP_CLOSED,                         /**< Tcp connection closed */
+  |     TCP_RESET_TYPE1,                    /**< Tcp connection reset type1 (from client and before connected) */
+  |     TCP_RESET_TYPE2,                    /**< Tcp connection reset type2 (from server and before connected) */
+  |     TCP_RESET_TYPE3,                    /**< Tcp connection reset type3 (from client and after connected) */
+  |     TCP_RESET_TYPE4                     /**< Tcp connection reset type4 (from server and after connected) */
+  | } tcpState;
+  `----
+
+
+2 Default breakdown interface
+=============================
+
+  ---------------+---------------+------------------------+-----------------------------
+   variable type | variable name | breakdown name         | description                 
+  ---------------+---------------+------------------------+-----------------------------
+   uint64_t      | serverLatency | default_server_latency | Default server latency      
+   uint64_t      | exchangeSize  | default_exchange_size  | Default data size exchanged 
+  ---------------+---------------+------------------------+-----------------------------
+
+
+3 Http breakdown interface
+==========================
+
+  ---------------+-----------------+--------------------------+-------------------------------------
+   variable type | variable name   | breakdown name           | description                         
+  ---------------+-----------------+--------------------------+-------------------------------------
+   uint8_t       | version         | http_protocol_version    | Http protocol version               
+   char *        | method          | http_method              | Http request method                 
+   char *        | url             | http_url                 | Http request url                    
+   char *        | host            | http_host                | Http server host                    
+   char *        | userAgent       | http_user_agent          | Http request user agent             
+   char *        | referUrl        | http_refer_url           | Http request refer url              
+   char *        | accept          | http_accept              | Http request accept sourses         
+   char *        | acceptLanguage  | http_accept_language     | Http request accept language        
+   char *        | acceptEncoding  | http_accept_encoding     | Http request accept encoding        
+   char *        | xForwardedFor   | http_x_forwarded_for     | Http request x forwarded for        
+   char *        | contentType     | http_content_type        | Http response content type          
+   char *        | reqConnection   | http_request_connection  | Http request connection             
+   char *        | respConnection  | http_response_connection | Http response connection            
+   uint8_t       | state           | http_state               | Http state                          
+   uint16_t      | statusCode      | http_status_code         | Http status code                    
+   uint64_t      | reqSize         | http_request_size        | Http request size                   
+   uint64_t      | respSize        | http_response_size       | Http response size                  
+   uint64_t      | pageSize        | http_page_size           | Http page size                      
+   uint64_t      | serverLatency   | http_server_latency      | Http Server latency to first buffer 
+   uint64_t      | downloadLatency | http_download_latency    | Http download latency               
+  ---------------+-----------------+--------------------------+-------------------------------------
+
+  Notes: Http state for http breakdown
+  ,----
+  | typedef enum {
+  |     HTTP_OK = 0,
+  |     HTTP_ERROR,
+  |     HTTP_RESET_TYPE1,             /**< reset during request */
+  |     HTTP_RESET_TYPE2,             /**< reset before response */
+  |     HTTP_RESET_TYPE3              /**< reset during response */
+  | } httpState;
+  `----
+
+
+4 Mysql breakdown interface
+===========================
+
+  ---------------+---------------+-------------------------+-------------------------
+   variable type | variable name | breakdown name          | description             
+  ---------------+---------------+-------------------------+-------------------------
+   char *        | serverVer     | mysql_server_version    | Mysql server version    
+   char *        | userName      | mysql_user_name         | Mysql user name         
+   uint64_t      | conId         | mysql_connection_id     | Mysql connection id     
+   char *        | reqStmt       | mysql_request_statement | Mysql request statement 
+   uint16_t      | state         | mysql_state             | Mysql state             
+   uint16_t      | errCode       | mysql_error_code        | Mysql error code        
+   uint32_t      | sqlState      | mysql_sql_state         | Mysql sql state         
+   char *        | errMsg        | mysql_error_message     | Mysql error message     
+   uint64_t      | reqSize       | mysql_request_size      | Mysql request size      
+   uint64_t      | respSize      | mysql_response_size     | Mysql response size     
+   uint64_t      | respLatency   | mysql_response_latency  | Mysql response latency  
+  ---------------+---------------+-------------------------+-------------------------
+
+  Notes: Mysql state for mysql breakdown
+  ,----
+  | typedef enum {
+  |     MYSQL_OK = 0,
+  |     MYSQL_ERROR,               
+  |     MYSQL_RESET_TYPE1,          /**< reset during request */  
+  |     MYSQL_RESET_TYPE2,          /**< reset before response */ 
+  |     MYSQL_RESET_TYPE3           /**< reset during response */ 
+  | } mysqlState
+  `----

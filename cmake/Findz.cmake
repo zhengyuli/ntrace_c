@@ -1,0 +1,26 @@
+#
+# Authors: zhengyu li <zhengyu_li@gmail.com>
+#
+
+MESSAGE (STATUS "Using bundled find zlib")
+
+FIND_PATH (
+  LIBZLIB_INCLUDE_DIR
+  NAMES zlib.h
+  PATHS /usr/include /usr/local/include/)
+
+FIND_LIBRARY (
+  LIBZLIB_LIBRARY
+  NAMES z
+  PATHS /usr/lib/ /usr/local/lib/ /usr/lib64/ /usr/lcocal/lib64/)
+
+IF (LIBZLIB_INCLUDE_DIR AND LIBZLIB_LIBRARY)
+  SET (ZLIB_FOUND 1)
+  INCLUDE_DIRECTORIES (${LIBZLIB_INCLUDE_DIR})
+ELSE (LIBZLIB_INCLUDE_DIR AND LIBZLIB_LIBRARY)
+  SET (ZLIB_FOUND 0)
+ENDIF (LIBZLIB_INCLUDE_DIR AND LIBZLIB_LIBRARY)
+
+MARK_AS_ADVANCED (
+  LIBZLIB_INCLUDE_DIR
+  LIBZLIB_LIBRARY)

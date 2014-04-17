@@ -9,6 +9,8 @@ int
 getTimeStampOption (struct tcphdr *tcph, u_int *ts);
 int
 getTcpWindowScaleOption (struct tcphdr *tcph, u_int *ws);
+int
+getTcpMssOption (struct tcphdr *tcph, u_int *mss);
 /*=======================Interfaces definition end=========================*/
 
 #endif /* __WDM_AGENT_TCP_OPTIONS_H__ */

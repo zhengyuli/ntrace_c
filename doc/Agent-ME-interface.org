@@ -1,0 +1,121 @@
+#+TITLE: Agent-ME restful interface
+#+AUTHOR: zhengyu li
+#+OPTIONS: ^:nil
+
+Http request url: http://host:port/post-command
+
+* Add agent
+** request:
+#+BEGIN_SRC js
+  {
+      "command":"add-agent"
+      "body":{
+          "ip":"192.168.1.100"
+          "port":"4499"
+          "agent-id":"1"
+      }
+  }
+#+END_SRC
+
+** response:
+#+BEGIN_SRC js
+  {
+      "code":"0"
+      "body":{
+          "status":"ready"
+      }
+  }
+#+END_SRC
+
+* Remove agent
+** request:
+#+BEGIN_SRC js
+  {
+      "command":"remove-agent"
+      "body":{
+          "agent-id":"1"
+      }
+  }
+#+END_SRC
+
+** response:
+#+BEGIN_SRC js
+  {
+      "code":"0"
+  }
+#+END_SRC
+
+* Start agent
+** request:
+#+BEGIN_SRC js
+  {
+      "command":"start-agent"
+      "body":{
+          "agent-id":"1"
+      }
+  }
+#+END_SRC
+
+** response:
+#+BEGIN_SRC js
+  {
+      "code":"0"
+  }
+#+END_SRC
+
+* Stop agent
+** request:
+#+BEGIN_SRC js
+  {
+      "command":"stop-agent"
+      "body":{
+          "agent-id":"1"
+      }
+  }
+#+END_SRC
+
+** response:
+#+BEGIN_SRC js
+  {
+      "code":"0"
+  }
+#+END_SRC
+
+* Heartbeat
+** request:
+#+BEGIN_SRC js
+  {
+      "command":"heart-beat"
+      "body":{
+          "agent-id":"1"
+      }
+  }
+#+END_SRC
+
+** response:
+#+BEGIN_SRC js
+  {
+      "code":"0"
+      "body":{
+          "status":"running"
+      }
+  }
+#+END_SRC
+* Push profile
+** request:
+#+BEGIN_SRC js
+  {
+      "command":"push-profile"
+      "body":{
+          "agent-id":"1"
+          "service-list":[{"service-id":"1" ...}, {"service-id":"2" ...}]
+      }
+  }
+#+END_SRC
+
+** response:
+#+BEGIN_SRC js
+  {
+      "code":"0"
+  }
+#+END_SRC

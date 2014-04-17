@@ -81,15 +81,17 @@ struct _tcpStream {
     protoType proto;                    /**< Service protocol type */
     protoParserPtr parser;              /**< Protocol parser */
     tuple4 addr;                        /**< Tcp stream 4-tuple address */
+    uint64_t tcpConnId;                 /**< Global tcp connection id */
     streamState state;                  /**< Tcp stream state */
     halfStream client;                  /**< Tcp stream client halfStream */
     halfStream server;                  /**< Tcp stream server halfStream */
     uint64_t synTime;                   /**< First syn timestamp */
-    uint64_t retryTime;                 /**< Last retry timestamp */
-    uint64_t retryNum;                  /**< Retry counts */
+    uint64_t retries;                   /**< Retry counts */
+    uint64_t retriesTime;               /**< Last retry timestamp */
     uint64_t synAckTime;                /**< Syn/ack timestamp of three handshake */
     uint64_t dupSynAcks;                /**< Duplicate syn/ack Packets */
     uint64_t estbTime;                  /**< Tcp connection success timestamp */
+    uint64_t rtt;                       /**< Tcp round trip latency */    
     uint64_t totalPkts;                 /**< Tcp total packets */
     uint64_t tinyPkts;                  /**< Tcp tiny packets */
     uint64_t pawsPkts;                  /**< Tcp PAWS packets */

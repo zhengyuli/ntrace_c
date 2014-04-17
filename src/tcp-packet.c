@@ -34,8 +34,10 @@
 #define TCP_STREAM_HASH_FORMAT "%s:%d:%s:%d"
 
 /* Debug statistic data */
+#ifndef NDEBUG
 static uint32_t tcpStreamsAlloc = 0;
 static uint32_t tcpStreamsFree = 0;
+#endif
 
 /* Tcp stream list */
 static __thread listHead tcpStreamList;
@@ -180,9 +182,12 @@ delTcpStreamFromHash (tcpStreamPtr stream) {
              inet_ntoa (addr->daddr), addr->dest);
     if (hashDel (tcpStreamHashTable, key) < 0)
         LOGE ("Delete stream from hash map error.\n");
-    else
+    else {
+        #ifndef NDEBUG
         LOGD ("tcpStreamsAlloc: %u<------->tcpStreamsFree: %u\n", ATOMIC_ADD_AND_FETCH (&tcpStreamsAlloc, 0),
               ATOMIC_INC (&tcpStreamsFree));
+        #endif
+    }
 }
 
 /*
@@ -286,6 +291,7 @@ newTcpStream (protoType proto) {
     stream->client.wscaleOn = 0;
     stream->client.currTs = 0;
     stream->client.wscale = 0;
+    stream->client.mss = 0;
     initListHead (&stream->client.head);
     stream->client.rmemAlloc = 0;
     /* Init client halfStream end */
@@ -309,6 +315,7 @@ newTcpStream (protoType proto) {
     stream->server.wscaleOn = 0;
     stream->server.currTs = 0;
     stream->server.wscale = 0;
+    stream->server.mss = 0;
     initListHead (&stream->server.head);
     stream->server.rmemAlloc = 0;
     /* Init server halfStream end */
@@ -438,7 +445,9 @@ addNewTcpStream (struct tcphdr *tcph, struct ip *iph, timeValPtr tm) {
     if (ret < 0)
         return NULL;
     else {
+        #ifndef NDEBUG
         ATOMIC_INC (&tcpStreamsAlloc);
+        #endif
         return stream;
     }
 }

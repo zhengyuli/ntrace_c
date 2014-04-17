@@ -1,0 +1,197 @@
+					  ____________________________
+
+					   AGENT-ME RESTFUL INTERFACE
+
+							   zhengyu li
+					  ____________________________
+
+
+Table of Contents
+_________________
+
+1 Add agent
+.. 1.1 request:
+.. 1.2 response:
+2 Remove agent
+.. 2.1 request:
+.. 2.2 response:
+3 Start agent
+.. 3.1 request:
+.. 3.2 response:
+4 Stop agent
+.. 4.1 request:
+.. 4.2 response:
+5 Heartbeat
+.. 5.1 request:
+.. 5.2 response:
+6 Push profile
+.. 6.1 request:
+.. 6.2 response:
+
+
+Http request url: [http://host:port/post-command]
+
+
+1 Add agent
+===========
+
+1.1 request:
+~~~~~~~~~~~~
+
+  ,----
+  | {
+  |     "command":"add-agent"
+  |     "body":{
+  |         "ip":"192.168.1.100"
+  |         "port":"4499"
+  |         "agent-id":"1"
+  |     }
+  | }
+  `----
+
+
+1.2 response:
+~~~~~~~~~~~~~
+
+  ,----
+  | {
+  |     "code":"0"
+  |     "body":{
+  |         "status":"ready"
+  |     }
+  | }
+  `----
+
+
+2 Remove agent
+==============
+
+2.1 request:
+~~~~~~~~~~~~
+
+  ,----
+  | {
+  |     "command":"remove-agent"
+  |     "body":{
+  |         "agent-id":"1"
+  |     }
+  | }
+  `----
+
+
+2.2 response:
+~~~~~~~~~~~~~
+
+  ,----
+  | {
+  |     "code":"0"
+  | }
+  `----
+
+
+3 Start agent
+=============
+
+3.1 request:
+~~~~~~~~~~~~
+
+  ,----
+  | {
+  |     "command":"start-agent"
+  |     "body":{
+  |         "agent-id":"1"
+  |     }
+  | }
+  `----
+
+
+3.2 response:
+~~~~~~~~~~~~~
+
+  ,----
+  | {
+  |     "code":"0"
+  | }
+  `----
+
+
+4 Stop agent
+============
+
+4.1 request:
+~~~~~~~~~~~~
+
+  ,----
+  | {
+  |     "command":"stop-agent"
+  |     "body":{
+  |         "agent-id":"1"
+  |     }
+  | }
+  `----
+
+
+4.2 response:
+~~~~~~~~~~~~~
+
+  ,----
+  | {
+  |     "code":"0"
+  | }
+  `----
+
+
+5 Heartbeat
+===========
+
+5.1 request:
+~~~~~~~~~~~~
+
+  ,----
+  | {
+  |     "command":"heart-beat"
+  |     "body":{
+  |         "agent-id":"1"
+  |     }
+  | }
+  `----
+
+
+5.2 response:
+~~~~~~~~~~~~~
+
+  ,----
+  | {
+  |     "code":"0"
+  |     "body":{
+  |         "status":"running"
+  |     }
+  | }
+  `----
+
+
+6 Push profile
+==============
+
+6.1 request:
+~~~~~~~~~~~~
+
+  ,----
+  | {
+  |     "command":"push-profile"
+  |     "body":{
+  |         "agent-id":"1"
+  |         "service-list":[{"service-id":"1" ...}, {"service-id":"2" ...}]
+  |     }
+  | }
+  `----
+
+
+6.2 response:
+~~~~~~~~~~~~~
+
+  ,----
+  | {
+  |     "code":"0"
+  | }
+  `----

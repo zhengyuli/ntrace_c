@@ -143,6 +143,7 @@ struct _tcpBreakdown {
     uint64_t retriesLatency;            /**< Tcp retries latency in milliseconds */
     uint64_t dupSynAcks;                /**< Tcp duplicate syn/ack packages */
     uint64_t rtt;                       /**< Tcp round trip latency */
+    uint64_t mss;                       /**< Tcp mss (maxium segment size) */
     uint8_t state;                      /**< Tcp state */
     uint64_t connLatency;               /**< Tcp connection latency in milliseconds */
     uint64_t totalPkts;                 /**< Tcp total packets */
@@ -152,7 +153,6 @@ struct _tcpBreakdown {
     uint64_t outOfOrderPkts;            /**< Tcp out of order packets */
     uint64_t zeroWindows;               /**< Tcp zero windows */
     uint64_t dupAcks;                   /**< Tcp duplicate acks */
-    uint64_t mss;                       /**< Tcp mss (maxium segment size) */
     void *sessionBreakdown;             /**< Application level session breakdown */
 };
 

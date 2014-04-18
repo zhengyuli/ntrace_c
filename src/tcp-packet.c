@@ -33,7 +33,9 @@
 /* Tcp stream hash key format string */
 #define TCP_STREAM_HASH_FORMAT "%s:%d:%s:%d"
 
+/* Global tcp connection id */
 static uint64_t tcpConnectionId = 0;
+/* Global tcp breakdown id */
 static uint64_t tcpBreakdownId = 0;
 
 /* Debug statistic data */
@@ -439,21 +441,15 @@ addNewTcpStream (struct tcphdr *tcph, struct ip *iph, timeValPtr tm) {
         stream->client.wscale = 1;
     /* Set server halfStream */
     stream->server.state = TCP_CLOSE;
-    /* Set sessionDetail */
-    stream->synTime = timeVal2MilliSecond (tm);
-    stream->retriesTime = stream->synTime;
-    stream->totalPkts++;
-    if (!ntohs (tcph->window))
-        stream->zeroWindows++
 
-                /* Check the number of tcp streams. If the number of tcp streams exceed eighty
-                 * percent of tcpStreamHashTable size limit then remove the oldest tcp stream
-                 * from global tcp stream list head.
-                 */
-                if (hashSize (tcpStreamHashTable) >= (hashLimit (tcpStreamHashTable) * 0.8)) {
-                    listFirstEntry (tmp, &tcpStreamList, node);
-                    delTcpStreamFromHash (stream);
-                }
+    /* Check the number of tcp streams. If the number of tcp streams exceed eighty
+     * percent of tcpStreamHashTable size limit then remove the oldest tcp stream
+     * from global tcp stream list head.
+     */
+    if (hashSize (tcpStreamHashTable) >= (hashLimit (tcpStreamHashTable) * 0.8)) {
+        listFirstEntry (tmp, &tcpStreamList, node);
+        delTcpStreamFromHash (stream);
+    }
     /* Add to global tcp stream list */
     listAddTail (&stream->node, &tcpStreamList);
     /* Add to global tcp stream hash table */
@@ -593,7 +589,7 @@ static void publishTcpBreakdown (tcpStreamPtr stream, timeValPtr tm) {
 /* Tcp connection establishment handler callback */
 static void
 handleEstb (tcpStreamPtr stream, timeValPtr tm) {
-
+    
 }
 
 static void
@@ -819,7 +815,7 @@ tcpQueue (tcpStreamPtr stream, struct tcphdr *tcph, halfStreamPtr snd, halfStrea
     if (!after (curSeq, EXP_SEQ)) {
         /* Accumulate out of order packets */
         if (before (curSeq, EXP_SEQ))
-            stream->pktsOutOfOrder++;
+            stream->retransmittedPkts;
 
         if (after (curSeq + dataLen + tcph->fin, EXP_SEQ)) {
             /* The packet straddles our window end */
@@ -843,7 +839,7 @@ tcpQueue (tcpStreamPtr stream, struct tcphdr *tcph, halfStreamPtr snd, halfStrea
             return;
     } else {
         /* Accumulate out of order packets */
-        stream->pktsOutOfOrder++;
+        stream->outOfOrderPkts++;
         /* Alloc new skbuff */
         skbuf = (skbuffPtr) malloc (sizeof (skbuff));
         if (skbuf == NULL) {
@@ -946,6 +942,11 @@ tcpProcess (u_char *data, int skbLen, timeValPtr tm) {
                 LOGE ("Add new tcp stream error.\n");
                 return;
             }
+            stream->synTime = timeVal2MilliSecond (tm);
+            stream->retriesTime = stream->synTime;
+            stream->totalPkts++;
+            if (!ntohs (tcph->window))
+                stream->zeroWindows++;
         }
         return;
     }
@@ -961,63 +962,61 @@ tcpProcess (u_char *data, int skbLen, timeValPtr tm) {
     /* Accumulate totoal packets */
     stream->totalPkts++;
     /* Tcp window check */
-    if (!ntohs (tcph->window))
+    snd->window = ntohs (tcph->window);
+    if (!snd->window)
         stream->zeroWindows++;
 
     if (tcph->syn) {
-        if (fromClient || stream->client.state != TCP_SYN_SENT ||
-            stream->server.state != TCP_CLOSE || !tcph->ack) {
+        if (fromClient || (stream->client.state != TCP_SYN_SENT) ||
+            (stream->server.state != TCP_CLOSE) || !tcph->ack) {
             /* Tcp connect retry */
-            if (fromClient && stream->client.state == TCP_SYN_SENT) {
+            if (fromClient && (stream->client.state == TCP_SYN_SENT)) {
                 stream->retries++;
                 stream->retriesTime = timeVal2MilliSecond (tm);
-                if (!getTcpMssOption (tcph, stream->client.mss))
-                    LOGW ("MSS from client is null.\n");
+            } else if (!fromClient && (stream->server.state == TCP_SYN_RECV)) { /* Tcp syn/ack retry */
+                stream->synAckTime = timeVal2MilliSecond (tm);
+                stream->dupSynAcks++;
+                stream->dupAcks++;
             }
 
             stream->retransmittedPkts++;
             return;
-        }
+        } else {
+            /* Tcp connect syn/ack */
+            if (stream->client.seq != ntohl (tcph->ack_seq))
+                return;
 
-        /* Tcp connect syn/ack */
-        if (stream->client.seq != ntohl (tcph->ack_seq))
-            return;
+            stream->server.state = TCP_SYN_RECV;
+            stream->server.seq = ntohl (tcph->seq) + 1;
+            stream->server.firstDataSeq = stream->server.seq;
+            stream->server.ackSeq = ntohl (tcph->ack_seq);
+            stream->server.window = ntohs (tcph->window);
 
-        /* Retransmitted syn/ack packet */
-        if (stream->server.state == TCP_SYN_RECV) {
-            stream->dupSynAcks++;
-            stream->retransmittedPkts++;
-            stream->dupAcks++;
-        }
-        stream->server.state = TCP_SYN_RECV;
-        stream->server.seq = ntohl (tcph->seq) + 1;
-        stream->server.firstDataSeq = stream->server.seq;
-        stream->server.ackSeq = ntohl (tcph->ack_seq);
-        stream->server.window = ntohs (tcph->window);
+            if (stream->client.tsOn) {
+                stream->server.tsOn = getTimeStampOption (tcph, &stream->server.currTs);
+                if (!stream->server.tsOn)
+                    stream->client.tsOn = 0;
+            } else
+                stream->server.tsOn = 0;
 
-        if (stream->client.tsOn) {
-            stream->server.tsOn = getTimeStampOption (tcph, &stream->server.currTs);
-            if (!stream->server.tsOn)
-                stream->client.tsOn = 0;
-        } else
-            stream->server.tsOn = 0;
-
-        if (stream->client.wscaleOn) {
-            stream->server.wscaleOn = getTcpWindowScaleOption (tcph, &stream->server.wscale);
-            if (!stream->server.wscaleOn) {
-                stream->client.wscaleOn = 0;
-                stream->client.wscale  = 1;
+            if (stream->client.wscaleOn) {
+                stream->server.wscaleOn = getTcpWindowScaleOption (tcph, &stream->server.wscale);
+                if (!stream->server.wscaleOn) {
+                    stream->client.wscaleOn = 0;
+                    stream->client.wscale  = 1;
+                    stream->server.wscale = 1;
+                }
+            } else {
+                stream->server.wscaleOn = 0;
                 stream->server.wscale = 1;
             }
-        } else {
-            stream->server.wscaleOn = 0;
-            stream->server.wscale = 1;
+
+            if (!getTcpMssOption (tcph, &stream->server.mss))
+                LOGW ("MSS from server is null.\n");
+
+            stream->synAckTime = timeVal2MilliSecond (tm);
         }
 
-        if (!getTcpMssOption (tcph, &stream->server.mss))
-            LOGW ("MSS from server is null.\n");
-
-        stream->synAckTime = timeVal2MilliSecond (tm);
         return;
     }
 
@@ -1033,8 +1032,6 @@ tcpProcess (u_char *data, int skbLen, timeValPtr tm) {
         /* Accumulate retransmitted packets */
         if (before (ntohl (tcph->seq) + tcpDataLen, rcv->ackSeq))
             stream->pktsRetransmit++;
-        else
-            stream->outOfOrderPkts++;
         return;
     }
 
@@ -1045,30 +1042,33 @@ tcpProcess (u_char *data, int skbLen, timeValPtr tm) {
         return;
     }
 
-
     if (tcph->ack) {
         if (fromClient) {
+            /* The last packet of tcp three handshake */
             if (stream->client.state == TCP_SYN_SENT && stream->server.state == TCP_SYN_RECV) {
                 if (ntohl (tcph->ack_seq) == stream->server.seq) {
                     stream->client.state = TCP_ESTABLISHED;
-                    stream->client.ackSeq = ntohl (tcph->ack_seq);
                     stream->server.state = TCP_ESTABLISHED;
                     stream->state = STREAM_JUST_EST;
                     stream->estbTime = timeVal2MilliSecond (tm);
+                    stream->rtt = abs ((int) (stream->synAckTime - stream->retriesTime));
+                    stream->mss = MIN (stream->client.mss, stream->service.mss);
                     handleEstb (stream, tm);
                     stream->state = STREAM_DATA;
                 } else
                     stream->outOfOrderPkts++;
-            } else if ((stream->client.state == TCP_ESTABLISHED) &&
-                       (stream->server.state == TCP_ESTABLISHED)) {
-                stream->dupAcks++;
-            } else
-                stream->outOfOrderPkts++;
+            }
         }
 
         if (ntohl (tcph->ack_seq) > snd->ackSeq)
             snd->ackSeq = ntohl (tcph->ack_seq);
-
+        else if (!tcpDataLen) {
+            /* For out of order packets, if receiver doesn't receive all packets, it
+             * will send a single ack packet to ackownledge the last received successive
+             *, in that case, client will resend the dropped packet again */
+            stream->dupAcks++;
+        }
+        
         if (rcv->state == TCP_FIN_SENT)
             rcv->state = TCP_FIN_CONFIRMED;
         if (rcv->state == TCP_FIN_CONFIRMED && snd->state == TCP_FIN_CONFIRMED) {
@@ -1079,11 +1079,11 @@ tcpProcess (u_char *data, int skbLen, timeValPtr tm) {
     }
 
     if (tcpDataLen + tcph->fin > 0) {
+        if (tcpDataLen == 1)
+            stream->tinyPkts++;
         tcpQueue (stream, tcph, snd, rcv, (u_char *) tcph + 4 * tcph->doff,
                   tcpDataLen, skbLen, tm);
     }
-
-    snd->window = ntohs (tcph->window);
 }
 
 /* Init tcp process context */

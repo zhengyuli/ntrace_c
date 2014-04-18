@@ -36,6 +36,7 @@ _________________
    uint64_t       | retriesLatency    | tcp_retries_latency       | Tcp retries latency in milliseconds                         
    uint64_t       | dupSynAcks        | tcp_duplicate_synacks     | Tcp duplicate syn/ack packages                              
    uint64_t       | rtt               | tcp_rtt                   | Tcp round trip latency                                      
+   uint64_t       | mss               | tcp_mss                   | Tcp mss (maxium segment size)                               
    uint8_t        | state             | tcp_state                 | Tcp state                                                   
    uint64_t       | connLatency       | tcp_connection_latency    | Tcp connection latency in milliseconds                      
    uint64_t       | totalPkts         | tcp_total_packets         | Tcp total packages                                          
@@ -45,7 +46,6 @@ _________________
    uint64_t       | outOfOrderPkts    | tcp_out_of_order_packets  | Tcp out of order packets                                    
    uint64_t       | zeroWindows       | tcp_zero_windows          | Tcp zero windows                                            
    uint64_t       | dupAcks           | tcp_duplicate_acks        | Tcp duplicate acks                                          
-   uint64_t       | mss               | tcp_mss                   | Tcp mss (maxium segment size)                               
   ----------------+-------------------+---------------------------+-------------------------------------------------------------
 
   Notes: Tcp state for tcp breakdown

@@ -33,10 +33,13 @@
 /* Tcp stream hash key format string */
 #define TCP_STREAM_HASH_FORMAT "%s:%d:%s:%d"
 
+static uint64_t tcpConnectionId = 0;
+static uint64_t tcpBreakdownId = 0;
+
 /* Debug statistic data */
 #ifndef NDEBUG
-static uint32_t tcpStreamsAlloc = 0;
-static uint32_t tcpStreamsFree = 0;
+static uint64_t tcpStreamsAlloc = 0;
+static uint64_t tcpStreamsFree = 0;
 #endif
 
 /* Tcp stream list */
@@ -183,10 +186,10 @@ delTcpStreamFromHash (tcpStreamPtr stream) {
     if (hashDel (tcpStreamHashTable, key) < 0)
         LOGE ("Delete stream from hash map error.\n");
     else {
-        #ifndef NDEBUG
+#ifndef NDEBUG
         LOGD ("tcpStreamsAlloc: %u<------->tcpStreamsFree: %u\n", ATOMIC_ADD_AND_FETCH (&tcpStreamsAlloc, 0),
               ATOMIC_INC (&tcpStreamsFree));
-        #endif
+#endif
     }
 }
 
@@ -270,6 +273,7 @@ newTcpStream (protoType proto) {
     stream->addr.source = 0;
     stream->addr.daddr.s_addr = 0;
     stream->addr.dest = 0;
+    stream->connId = ATOMIC_FETCH_AND_ADD (&tcpConnectionId, 1);
     stream->state = STREAM_INIT;
     /* Init client halfStream */
     stream->client.state = TCP_CLOSE;
@@ -320,23 +324,29 @@ newTcpStream (protoType proto) {
     stream->server.rmemAlloc = 0;
     /* Init server halfStream end */
     /* Init tcp session detail */
-    stream->firstReq = 1;
     stream->synTime = 0;
-    stream->retryTime = 0;
-    stream->retryNum = 0;
+    stream->retries = 0;
+    stream->retriesTime = 0;
     stream->synAckTime = 0;
+    stream->dupSynAcks = 0;
     stream->estbTime = 0;
-    stream->connectSuccess = 0;
-    stream->pktsRetransmit = 0;
-    stream->pktsOutOfOrder = 0;
+    stream->rtt = 0;
+    stream->mss = 0;
+    stream->totalPkts = 0;
+    stream->tinyPkts = 0;
+    stream->pawsPkts = 0;
+    stream->retransmittedPkts = 0;
+    stream->outOfOrderPkts = 0;
+    stream->zeroWindows = 0;
+    stream->dupAcks = 0;
     stream->sessionDetail = (*stream->parser->newSessionDetail) ();
     if (stream->sessionDetail == NULL) {
         LOGE (" newSessionDetail error.\n");
         free (stream);
         return NULL;
     }
-    stream->closeTime = 0;
     stream->inClosingTimeout = 0;
+    stream->closeTime = 0;
     initListHead (&stream->node);
 
     return stream;
@@ -401,7 +411,7 @@ addNewTcpStream (struct tcphdr *tcph, struct ip *iph, timeValPtr tm) {
     snprintf (key, sizeof (key) - 1, "%s:%d", inet_ntoa (iph->ip_dst), ntohs (tcph->dest));
     proto = lookupServiceProtoType (key);
     if (proto == PROTO_UNKNOWN) {
-        LOGE ("Service (%s:%d) has not been registered.\n",
+        LOGD ("Service (%s:%d) has not been registered.\n",
               inet_ntoa (iph->ip_dst), ntohs (tcph->dest));
         return NULL;
     }
@@ -423,21 +433,27 @@ addNewTcpStream (struct tcphdr *tcph, struct ip *iph, timeValPtr tm) {
     stream->client.window = ntohs (tcph->window);
     stream->client.tsOn = getTimeStampOption (tcph, &stream->client.currTs);
     stream->client.wscaleOn = getTcpWindowScaleOption (tcph, &stream->client.wscale);
+    if (!getTcpMssOption (tcph, &stream->client.mss))
+        LOGW ("MSS from client is null.\n");
     if (!stream->client.wscaleOn)
         stream->client.wscale = 1;
     /* Set server halfStream */
     stream->server.state = TCP_CLOSE;
     /* Set sessionDetail */
     stream->synTime = timeVal2MilliSecond (tm);
-    stream->retryTime = stream->synTime;
-    /* Check the number of tcp streams. If the number of tcp streams exceed eighty
-     * percent of tcpStreamHashTable size limit then remove the oldest tcp stream
-     * from global tcp stream list head.
-     */
-    if (hashSize (tcpStreamHashTable) >= (hashLimit (tcpStreamHashTable) * 0.8)) {
-        listFirstEntry (tmp, &tcpStreamList, node);
-        delTcpStreamFromHash (stream);
-    }
+    stream->retriesTime = stream->synTime;
+    stream->totalPkts++;
+    if (!ntohs (tcph->window))
+        stream->zeroWindows++
+
+                /* Check the number of tcp streams. If the number of tcp streams exceed eighty
+                 * percent of tcpStreamHashTable size limit then remove the oldest tcp stream
+                 * from global tcp stream list head.
+                 */
+                if (hashSize (tcpStreamHashTable) >= (hashLimit (tcpStreamHashTable) * 0.8)) {
+                    listFirstEntry (tmp, &tcpStreamList, node);
+                    delTcpStreamFromHash (stream);
+                }
     /* Add to global tcp stream list */
     listAddTail (&stream->node, &tcpStreamList);
     /* Add to global tcp stream hash table */
@@ -445,9 +461,9 @@ addNewTcpStream (struct tcphdr *tcph, struct ip *iph, timeValPtr tm) {
     if (ret < 0)
         return NULL;
     else {
-        #ifndef NDEBUG
+#ifndef NDEBUG
         ATOMIC_INC (&tcpStreamsAlloc);
-        #endif
+#endif
         return stream;
     }
 }
@@ -572,6 +588,12 @@ static void publishTcpBreakdown (tcpStreamPtr stream, timeValPtr tm) {
 
     free (jsonStr);
     (*stream->parser->freeSessionBreakdown) (tbd.sessionBreakdown);
+}
+
+/* Tcp connection establishment handler callback */
+static void
+handleEstb (tcpStreamPtr stream, timeValPtr tm) {
+
 }
 
 static void
@@ -936,15 +958,24 @@ tcpProcess (u_char *data, int skbLen, timeValPtr tm) {
         snd = &stream->server;
     }
 
+    /* Accumulate totoal packets */
+    stream->totalPkts++;
+    /* Tcp window check */
+    if (!ntohs (tcph->window))
+        stream->zeroWindows++;
+
     if (tcph->syn) {
         if (fromClient || stream->client.state != TCP_SYN_SENT ||
             stream->server.state != TCP_CLOSE || !tcph->ack) {
             /* Tcp connect retry */
             if (fromClient && stream->client.state == TCP_SYN_SENT) {
-                stream->retryNum += 1;
-                stream->retryTime = timeVal2MilliSecond (tm);
+                stream->retries++;
+                stream->retriesTime = timeVal2MilliSecond (tm);
+                if (!getTcpMssOption (tcph, stream->client.mss))
+                    LOGW ("MSS from client is null.\n");
             }
 
+            stream->retransmittedPkts++;
             return;
         }
 
@@ -952,6 +983,12 @@ tcpProcess (u_char *data, int skbLen, timeValPtr tm) {
         if (stream->client.seq != ntohl (tcph->ack_seq))
             return;
 
+        /* Retransmitted syn/ack packet */
+        if (stream->server.state == TCP_SYN_RECV) {
+            stream->dupSynAcks++;
+            stream->retransmittedPkts++;
+            stream->dupAcks++;
+        }
         stream->server.state = TCP_SYN_RECV;
         stream->server.seq = ntohl (tcph->seq) + 1;
         stream->server.firstDataSeq = stream->server.seq;
@@ -976,6 +1013,10 @@ tcpProcess (u_char *data, int skbLen, timeValPtr tm) {
             stream->server.wscaleOn = 0;
             stream->server.wscale = 1;
         }
+
+        if (!getTcpMssOption (tcph, &stream->server.mss))
+            LOGW ("MSS from server is null.\n");
+
         stream->synAckTime = timeVal2MilliSecond (tm);
         return;
     }
@@ -992,26 +1033,37 @@ tcpProcess (u_char *data, int skbLen, timeValPtr tm) {
         /* Accumulate retransmitted packets */
         if (before (ntohl (tcph->seq) + tcpDataLen, rcv->ackSeq))
             stream->pktsRetransmit++;
+        else
+            stream->outOfOrderPkts++;
         return;
     }
 
     /* PAWS (Protect Against Wrapped Sequence numbers) check */
     if (rcv->tsOn && getTimeStampOption (tcph, &tmpTs) &&
-        before (tmpTs, snd->currTs))
+        before (tmpTs, snd->currTs)) {
+        stream->pawsPkts++;
         return;
+    }
+
 
     if (tcph->ack) {
-        if (fromClient && stream->client.state == TCP_SYN_SENT &&
-            stream->server.state == TCP_SYN_RECV) {
-            if (ntohl (tcph->ack_seq) == stream->server.seq) {
-                stream->client.state = TCP_ESTABLISHED;
-                stream->client.ackSeq = ntohl (tcph->ack_seq);
-                stream->server.state = TCP_ESTABLISHED;
-                stream->state = STREAM_JUST_EST;
-                stream->connectSuccess = 1;
-                stream->estbTime = timeVal2MilliSecond (tm);
-                stream->state = STREAM_DATA;
-            }
+        if (fromClient) {
+            if (stream->client.state == TCP_SYN_SENT && stream->server.state == TCP_SYN_RECV) {
+                if (ntohl (tcph->ack_seq) == stream->server.seq) {
+                    stream->client.state = TCP_ESTABLISHED;
+                    stream->client.ackSeq = ntohl (tcph->ack_seq);
+                    stream->server.state = TCP_ESTABLISHED;
+                    stream->state = STREAM_JUST_EST;
+                    stream->estbTime = timeVal2MilliSecond (tm);
+                    handleEstb (stream, tm);
+                    stream->state = STREAM_DATA;
+                } else
+                    stream->outOfOrderPkts++;
+            } else if ((stream->client.state == TCP_ESTABLISHED) &&
+                       (stream->server.state == TCP_ESTABLISHED)) {
+                stream->dupAcks++;
+            } else
+                stream->outOfOrderPkts++;
         }
 
         if (ntohl (tcph->ack_seq) > snd->ackSeq)
@@ -1030,6 +1082,7 @@ tcpProcess (u_char *data, int skbLen, timeValPtr tm) {
         tcpQueue (stream, tcph, snd, rcv, (u_char *) tcph + 4 * tcph->doff,
                   tcpDataLen, skbLen, tm);
     }
+
     snd->window = ntohs (tcph->window);
 }
 

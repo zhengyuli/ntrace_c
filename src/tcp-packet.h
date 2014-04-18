@@ -81,7 +81,7 @@ struct _tcpStream {
     protoType proto;                    /**< Service protocol type */
     protoParserPtr parser;              /**< Protocol parser */
     tuple4 addr;                        /**< Tcp stream 4-tuple address */
-    uint64_t tcpConnId;                 /**< Global tcp connection id */
+    uint64_t connId;                    /**< Global tcp connection id */
     streamState state;                  /**< Tcp stream state */
     halfStream client;                  /**< Tcp stream client halfStream */
     halfStream server;                  /**< Tcp stream server halfStream */
@@ -91,7 +91,8 @@ struct _tcpStream {
     uint64_t synAckTime;                /**< Syn/ack timestamp of three handshake */
     uint64_t dupSynAcks;                /**< Duplicate syn/ack Packets */
     uint64_t estbTime;                  /**< Tcp connection success timestamp */
-    uint64_t rtt;                       /**< Tcp round trip latency */    
+    uint64_t rtt;                       /**< Tcp round trip latency */
+    uint64_t mss;                       /**< Tcp MSS */
     uint64_t totalPkts;                 /**< Tcp total packets */
     uint64_t tinyPkts;                  /**< Tcp tiny packets */
     uint64_t pawsPkts;                  /**< Tcp PAWS packets */
@@ -101,6 +102,7 @@ struct _tcpStream {
     uint64_t dupAcks;                   /**< Tcp duplicate acks */
     void *sessionDetail;                /**< Appliction session detail */
     int inClosingTimeout;               /**< In closing timeout list */
+    uint64_t closeTime;                 /**< Tcp close time */
     listHead node;                      /**< Tcp stream list node */
 };
 

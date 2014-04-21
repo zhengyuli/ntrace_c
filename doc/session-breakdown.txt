@@ -21,32 +21,32 @@ _________________
 1 Tcp common breakdown interface
 ================================
 
-  ----------------+-------------------+---------------------------+-------------------------------------------------------------
-   variable type  | variable name     | breakdown name            | description                                                 
-  ----------------+-------------------+---------------------------+-------------------------------------------------------------
-   uint64_t       | bkdId             | breakdown_id              | Global breakdown id                                         
-   uint64_t       | timestamp         | timestamp                 | Timestamp in seconds                                        
-   protoType      | proto             | protocol                  | Tcp application level protocol type                         
-   struct in_addr | srcIp             | source_ip                 | Source ip                                                   
-   uint16_t       | srcPort           | source_port               | Source port                                                 
-   struct in_addr | svcIp             | service_ip                | Service ip                                                  
-   uint16_t       | svcPort           | service_port              | Service port                                                
-   uint64_t       | connId            | tcp_connection_id         | Global tcp connection id                                    
-   uint64_t       | retries           | tcp_retries               | Tcp retries                                                 
-   uint64_t       | retriesLatency    | tcp_retries_latency       | Tcp retries latency in milliseconds                         
-   uint64_t       | dupSynAcks        | tcp_duplicate_synacks     | Tcp duplicate syn/ack packages                              
-   uint64_t       | rtt               | tcp_rtt                   | Tcp round trip latency                                      
-   uint64_t       | mss               | tcp_mss                   | Tcp mss (maxium segment size)                               
-   uint8_t        | state             | tcp_state                 | Tcp state                                                   
-   uint64_t       | connLatency       | tcp_connection_latency    | Tcp connection latency in milliseconds                      
-   uint64_t       | totalPkts         | tcp_total_packets         | Tcp total packages                                          
-   uint64_t       | tinyPkts          | tcp_tiny_packets          | Tcp tiny packets                                            
-   uint64_t       | pawsPkts          | tcp_paws_packets          | Tcp PAWS (Protect Against Wrapped Sequence numbers) packets 
-   uint64_t       | retransmittedPkts | tcp_retransmitted_packets | Tcp retransmitted packets                                   
-   uint64_t       | outOfOrderPkts    | tcp_out_of_order_packets  | Tcp out of order packets                                    
-   uint64_t       | zeroWindows       | tcp_zero_windows          | Tcp zero windows                                            
-   uint64_t       | dupAcks           | tcp_duplicate_acks        | Tcp duplicate acks                                          
-  ----------------+-------------------+---------------------------+-------------------------------------------------------------
+  -------------------+-------------------+----------------+---------------------------+-------------------------------------------------------------
+   variable type     | variable name     | breakdown type | breakdown name            | description                                                 
+  -------------------+-------------------+----------------+---------------------------+-------------------------------------------------------------
+   uint64_t          | bkdId             | uint64_t       | breakdown_id              | Global breakdown id                                         
+   uint64_t          | timestamp         | uint64_t       | timestamp                 | Timestamp in seconds                                        
+   protoType         | proto             | char *         | protocol                  | Tcp application level protocol type                         
+   struct in_addr    | srcIp             | char *         | source_ip                 | Source ip                                                   
+   uint16_t          | srcPort           | uint16_t       | source_port               | Source port                                                 
+   struct in_addr    | svcIp             | char *         | service_ip                | Service ip                                                  
+   uint16_t          | svcPort           | uint16_t       | service_port              | Service port                                                
+   uint64_t          | connId            | uint64_t       | tcp_connection_id         | Global tcp connection id                                    
+   uint64_t          | retries           | uint64_t       | tcp_retries               | Tcp retries                                                 
+   uint64_t          | retriesLatency    | uint64_t       | tcp_retries_latency       | Tcp retries latency in milliseconds                         
+   uint64_t          | dupSynAcks        | uint64_t       | tcp_duplicate_synacks     | Tcp duplicate syn/ack packages                              
+   uint64_t          | rtt               | uint64_t       | tcp_rtt                   | Tcp round trip latency                                      
+   uint64_t          | mss               | uint64_t       | tcp_mss                   | Tcp mss (maxium segment size)                               
+   tcpBreakdownState | state             | uint32_t       | tcp_state                 | Tcp state                                                   
+   uint64_t          | connLatency       | uint64_t       | tcp_connection_latency    | Tcp connection latency in milliseconds                      
+   uint64_t          | totalPkts         | uint64_t       | tcp_total_packets         | Tcp total packages                                          
+   uint64_t          | tinyPkts          | uint64_t       | tcp_tiny_packets          | Tcp tiny packets                                            
+   uint64_t          | pawsPkts          | uint64_t       | tcp_paws_packets          | Tcp PAWS (Protect Against Wrapped Sequence numbers) packets 
+   uint64_t          | retransmittedPkts | uint64_t       | tcp_retransmitted_packets | Tcp retransmitted packets                                   
+   uint64_t          | outOfOrderPkts    | uint64_t       | tcp_out_of_order_packets  | Tcp out of order packets                                    
+   uint64_t          | zeroWindows       | uint64_t       | tcp_zero_windows          | Tcp zero windows                                            
+   uint64_t          | dupAcks           | uint64_t       | tcp_duplicate_acks        | Tcp duplicate acks                                          
+  -------------------+-------------------+----------------+---------------------------+-------------------------------------------------------------
 
   Notes: Tcp state for tcp breakdown
   ,----
@@ -58,50 +58,50 @@ _________________
   |     TCP_RESET_TYPE2,                    /**< Tcp connection reset type2 (from server and before connected) */
   |     TCP_RESET_TYPE3,                    /**< Tcp connection reset type3 (from client and after connected) */
   |     TCP_RESET_TYPE4                     /**< Tcp connection reset type4 (from server and after connected) */
-  | } tcpState;
+  | } tcpBreakdownState;
   `----
 
 
 2 Default breakdown interface
 =============================
 
-  ---------------+---------------+------------------------+-----------------------------
-   variable type | variable name | breakdown name         | description                 
-  ---------------+---------------+------------------------+-----------------------------
-   uint64_t      | serverLatency | default_server_latency | Default server latency      
-   uint64_t      | exchangeSize  | default_exchange_size  | Default data size exchanged 
-  ---------------+---------------+------------------------+-----------------------------
+  ---------------+---------------+----------------+------------------------+-----------------------------
+   variable type | variable name | breakdown type | breakdown name         | description                 
+  ---------------+---------------+----------------+------------------------+-----------------------------
+   uint64_t      | serverLatency | uint64_t       | default_server_latency | Default server latency      
+   uint64_t      | exchangeSize  | uint64_t       | default_exchange_size  | Default data size exchanged 
+  ---------------+---------------+----------------+------------------------+-----------------------------
 
 
 3 Http breakdown interface
 ==========================
 
-  ---------------+-----------------+---------------------------+-------------------------------------
-   variable type | variable name   | breakdown name            | description                         
-  ---------------+-----------------+---------------------------+-------------------------------------
-   char *        | reqVer          | http_request_version      | Http protocol request version       
-   char *        | method          | http_method               | Http request method                 
-   char *        | url             | http_url                  | Http request url                    
-   char *        | host            | http_host                 | Http server host                    
-   char *        | userAgent       | http_user_agent           | Http request user agent             
-   char *        | referUrl        | http_refer_url            | Http request refer url              
-   char *        | accept          | http_accept               | Http request accept sourses         
-   char *        | acceptLanguage  | http_accept_language      | Http request accept language        
-   char *        | acceptEncoding  | http_accept_encoding      | Http request accept encoding        
-   char *        | xForwardedFor   | http_x_forwarded_for      | Http request x forwarded for        
-   char *        | reqConnection   | http_request_connection   | Http request connection             
-   char *        | respVer         | http_response_version     | Http protocol response version      
-   char *        | contentType     | http_content_type         | Http response content type          
-   char *        | respConnection  | http_response_connection  | Http response connection            
-   uint8_t       | state           | http_state                | Http state                          
-   uint16_t      | statusCode      | http_status_code          | Http status code                    
-   uint64_t      | reqHeaderSize   | http_request_header_size  | Http request header size            
-   uint64_t      | reqBodySize     | http_request_body_size    | Http request body size              
-   uint64_t      | respHeaderSize  | http_response_header_size | Http response header size           
-   uint64_t      | pageSize        | http_page_size            | Http page size                      
-   uint64_t      | serverLatency   | http_server_latency       | Http Server latency to first buffer 
-   uint64_t      | downloadLatency | http_download_latency     | Http download latency               
-  ---------------+-----------------+---------------------------+-------------------------------------
+  --------------------+-----------------+----------------+---------------------------+-------------------------------------
+   variable type      | variable name   | breakdown type | breakdown name            | description                         
+  --------------------+-----------------+----------------+---------------------------+-------------------------------------
+   char *             | reqVer          | char *         | http_request_version      | Http protocol request version       
+   char *             | method          | char *         | http_method               | Http request method                 
+   char *             | url             | char *         | http_url                  | Http request url                    
+   char *             | host            | char *         | http_host                 | Http server host                    
+   char *             | userAgent       | char *         | http_user_agent           | Http request user agent             
+   char *             | referUrl        | char *         | http_refer_url            | Http request refer url              
+   char *             | accept          | char *         | http_accept               | Http request accept sourses         
+   char *             | acceptLanguage  | char *         | http_accept_language      | Http request accept language        
+   char *             | acceptEncoding  | char *         | http_accept_encoding      | Http request accept encoding        
+   char *             | xForwardedFor   | char *         | http_x_forwarded_for      | Http request x forwarded for        
+   char *             | reqConnection   | char *         | http_request_connection   | Http request connection             
+   char *             | respVer         | char *         | http_response_version     | Http protocol response version      
+   char *             | contentType     | char *         | http_content_type         | Http response content type          
+   char *             | respConnection  | char *         | http_response_connection  | Http response connection            
+   httpBreakdownState | state           | uint32_t       | http_state                | Http state                          
+   uint16_t           | statusCode      | uint16_t       | http_status_code          | Http status code                    
+   uint64_t           | reqHeaderSize   | uint64_t       | http_request_header_size  | Http request header size            
+   uint64_t           | reqBodySize     | uint64_t       | http_request_body_size    | Http request body size              
+   uint64_t           | respHeaderSize  | uint64_t       | http_response_header_size | Http response header size           
+   uint64_t           | pageSize        | uint64_t       | http_page_size            | Http page size                      
+   uint64_t           | serverLatency   | uint64_t       | http_server_latency       | Http Server latency to first buffer 
+   uint64_t           | downloadLatency | uint64_t       | http_download_latency     | Http download latency               
+  --------------------+-----------------+----------------+---------------------------+-------------------------------------
 
   Notes: Http state for http breakdown
   ,----
@@ -111,28 +111,28 @@ _________________
   |     HTTP_RESET_TYPE1,             /**< reset during request */
   |     HTTP_RESET_TYPE2,             /**< reset before response */
   |     HTTP_RESET_TYPE3              /**< reset during response */
-  | } httpState;
+  | } httpBreakdownState;
   `----
 
 
 4 Mysql breakdown interface
 ===========================
 
-  ---------------+---------------+-------------------------+-------------------------
-   variable type | variable name | breakdown name          | description             
-  ---------------+---------------+-------------------------+-------------------------
-   char *        | serverVer     | mysql_server_version    | Mysql server version    
-   char *        | userName      | mysql_user_name         | Mysql user name         
-   uint64_t      | conId         | mysql_connection_id     | Mysql connection id     
-   char *        | reqStmt       | mysql_request_statement | Mysql request statement 
-   uint16_t      | state         | mysql_state             | Mysql state             
-   uint16_t      | errCode       | mysql_error_code        | Mysql error code        
-   uint32_t      | sqlState      | mysql_sql_state         | Mysql sql state         
-   char *        | errMsg        | mysql_error_message     | Mysql error message     
-   uint64_t      | reqSize       | mysql_request_size      | Mysql request size      
-   uint64_t      | respSize      | mysql_response_size     | Mysql response size     
-   uint64_t      | respLatency   | mysql_response_latency  | Mysql response latency  
-  ---------------+---------------+-------------------------+-------------------------
+  ---------------------+---------------+----------------+-------------------------+-------------------------
+   variable type       | variable name | breakdown type | breakdown name          | description             
+  ---------------------+---------------+----------------+-------------------------+-------------------------
+   char *              | serverVer     | char *         | mysql_server_version    | Mysql server version    
+   char *              | userName      | char *         | mysql_user_name         | Mysql user name         
+   uint64_t            | conId         | uint64_t       | mysql_connection_id     | Mysql connection id     
+   char *              | reqStmt       | char *         | mysql_request_statement | Mysql request statement 
+   mysqlBreakdownState | state         | uint32_t       | mysql_state             | Mysql state             
+   uint16_t            | errCode       | uint16_t       | mysql_error_code        | Mysql error code        
+   uint32_t            | sqlState      | uint32_t       | mysql_sql_state         | Mysql sql state         
+   char *              | errMsg        | char *         | mysql_error_message     | Mysql error message     
+   uint64_t            | reqSize       | uint64_t       | mysql_request_size      | Mysql request size      
+   uint64_t            | respSize      | uint64_t       | mysql_response_size     | Mysql response size     
+   uint64_t            | respLatency   | uint64_t       | mysql_response_latency  | Mysql response latency  
+  ---------------------+---------------+----------------+-------------------------+-------------------------
 
   Notes: Mysql state for mysql breakdown
   ,----
@@ -142,5 +142,5 @@ _________________
   |     MYSQL_RESET_TYPE1,          /**< reset during request */  
   |     MYSQL_RESET_TYPE2,          /**< reset before response */ 
   |     MYSQL_RESET_TYPE3           /**< reset during response */ 
-  | } mysqlState
+  | } mysqlBreakdownState
   `----

@@ -1152,6 +1152,7 @@ protoParser mysqlParser = {
     .freeSessionBreakdown = freeMysqlSessionBreakdown,
     .generateSessionBreakdown = generateMysqlSessionBreakdown,
     .sessionBreakdown2Json = mysqlSessionBreakdown2Json,
+    .sessionProcessEstb = NULL,
     .sessionProcessUrgData = NULL,
     .sessionProcessData = mysqlSessionProcessData,
     .sessionProcessReset = NULL,

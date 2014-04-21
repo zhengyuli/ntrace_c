@@ -196,26 +196,6 @@ delTcpStreamFromHash (tcpStreamPtr stream) {
 }
 
 /*
- * @brief Check tcp stream timeout list and remove timeout
- *        tcp stream.
- *
- * @param tm timestamp for current packet
- */
-static void
-tcpCheckTimeout (timeValPtr tm) {
-    tcpTimeoutPtr pos, tmp;
-
-    listForEachEntrySafe (pos, tmp, &tcpStreamTimoutList, node) {
-        if (pos->timeout > tm->tv_sec)
-            return;
-        else {
-            pos->stream->state = STREAM_TIMED_OUT;
-            delTcpStreamFromHash (pos->stream);
-        }
-    }
-}
-
-/*
  * @brief Find tcp stream from global hash table
  *
  * @param tcph tcp header
@@ -278,7 +258,7 @@ newTcpStream (protoType proto) {
     stream->connId = ATOMIC_FETCH_AND_ADD (&tcpConnectionId, 1);
     stream->state = STREAM_INIT;
     /* Init client halfStream */
-    stream->client.state = TCP_CLOSE;
+    stream->client.state = TCP_CLOSED;
     stream->client.rcvBuf = NULL;
     stream->client.bufSize = 0;
     stream->client.offset = 0;
@@ -302,7 +282,7 @@ newTcpStream (protoType proto) {
     stream->client.rmemAlloc = 0;
     /* Init client halfStream end */
     /* Init server halfStream */
-    stream->server.state = TCP_CLOSE;
+    stream->server.state = TCP_CLOSED;
     stream->server.rcvBuf = NULL;
     stream->server.bufSize = 0;
     stream->server.offset = 0;
@@ -329,8 +309,8 @@ newTcpStream (protoType proto) {
     stream->synTime = 0;
     stream->retries = 0;
     stream->retriesTime = 0;
-    stream->synAckTime = 0;
     stream->dupSynAcks = 0;
+    stream->synAckTime = 0;
     stream->estbTime = 0;
     stream->rtt = 0;
     stream->mss = 0;
@@ -341,6 +321,7 @@ newTcpStream (protoType proto) {
     stream->outOfOrderPkts = 0;
     stream->zeroWindows = 0;
     stream->dupAcks = 0;
+
     stream->sessionDetail = (*stream->parser->newSessionDetail) ();
     if (stream->sessionDetail == NULL) {
         LOGE (" newSessionDetail error.\n");
@@ -436,11 +417,14 @@ addNewTcpStream (struct tcphdr *tcph, struct ip *iph, timeValPtr tm) {
     stream->client.tsOn = getTimeStampOption (tcph, &stream->client.currTs);
     stream->client.wscaleOn = getTcpWindowScaleOption (tcph, &stream->client.wscale);
     if (!getTcpMssOption (tcph, &stream->client.mss))
-        LOGW ("MSS from client is null.\n");
+        LOGW ("Tcp MSS from client is null.\n");
     if (!stream->client.wscaleOn)
         stream->client.wscale = 1;
-    /* Set server halfStream */
-    stream->server.state = TCP_CLOSE;
+    stream->synTime = timeVal2MilliSecond (tm);
+    stream->retriesTime = timeVal2MilliSecond (tm);
+    stream->totalPkts++;
+    if (!stream->client.window)
+        stream->zeroWindows++;
 
     /* Check the number of tcp streams. If the number of tcp streams exceed eighty
      * percent of tcpStreamHashTable size limit then remove the oldest tcp stream
@@ -454,9 +438,10 @@ addNewTcpStream (struct tcphdr *tcph, struct ip *iph, timeValPtr tm) {
     listAddTail (&stream->node, &tcpStreamList);
     /* Add to global tcp stream hash table */
     ret = addTcpStreamToHash (stream, freeTcpStream);
-    if (ret < 0)
+    if (ret < 0) {
+        LOGE ("Add tcp stream to stream hash table error.\n");
         return NULL;
-    else {
+    } else {
 #ifndef NDEBUG
         ATOMIC_INC (&tcpStreamsAlloc);
 #endif
@@ -483,40 +468,95 @@ tcpBreakdown2Json (tcpStreamPtr stream, tcpBreakdownPtr tbd) {
         return NULL;
     }
 
+    /* Tcp breakdown id */
+    UINT64_TO_STRING (buf, tbd->bkdId);
+    json_object_object_add (root, COMMON_SKBD_BREAKDOWN_ID,
+                            json_object_new_string (buf));
+    /* Tcp breakdown timestamp */
     UINT64_TO_STRING (buf, tbd->timestamp);
-    json_object_object_add (root, COMMON_SKBD_TIMESTAMP, json_object_new_string (buf));
-
-    json_object_object_add (root, COMMON_SKBD_SERVICE_TYPE, json_object_new_string (protoName));
-
-    json_object_object_add (root, COMMON_SKBD_SERVICE_IP, json_object_new_string (inet_ntoa (tbd->svcIp)));
-
-    UINT16_TO_STRING (buf, tbd->svcPort);
-    json_object_object_add (root, COMMON_SKBD_SERVICE_PORT, json_object_new_string (buf));
-
-    json_object_object_add (root, COMMON_SKBD_SOURCE_IP, json_object_new_string (inet_ntoa (tbd->srcIp)));
-
+    json_object_object_add (root, COMMON_SKBD_TIMESTAMP,
+                            json_object_new_string (buf));
+    /* Tcp application layer protocol */
+    json_object_object_add (root, COMMON_SKBD_PROTOCOL,
+                            json_object_new_string (protoName));
+    /* Tcp source ip */
+    json_object_object_add (root, COMMON_SKBD_SOURCE_IP,
+                            json_object_new_string (inet_ntoa (tbd->srcIp)));
+    /* Tcp source port */
     UINT16_TO_STRING (buf, tbd->srcPort);
-    json_object_object_add (root, COMMON_SKBD_SOURCE_PORT, json_object_new_string (buf));
+    json_object_object_add (root, COMMON_SKBD_SOURCE_PORT,
+                            json_object_new_string (buf));
+    /* Tcp service ip */
+    json_object_object_add (root, COMMON_SKBD_SERVICE_IP,
+                            json_object_new_string (inet_ntoa (tbd->svcIp)));
+    /* Tcp service port */
+    UINT16_TO_STRING (buf, tbd->svcPort);
+    json_object_object_add (root, COMMON_SKBD_SERVICE_PORT,
+                            json_object_new_string (buf));
+    /* Tcp connection id */
+    UINT64_TO_STRING (buf, tbd->connId);
+    json_object_object_add (root, COMMON_SKBD_TCP_CONNECTION_ID,
+                            json_object_new_string (buf));
+    /* Tcp state */
+    UINT32_TO_STRING (buf, tbd->state);
+    json_object_object_add (root, COMMON_SKBD_TCP_STATE,
+                            json_object_new_string (buf));
+    /* Tcp retries */
+    UINT64_TO_STRING (buf, tbd->retries);
+    json_object_object_add (root, COMMON_SKBD_TCP_RETRIES,
+                            json_object_new_string (buf));
+    /* Tcp retries latency */
+    UINT64_TO_STRING (buf, tbd->retriesLatency);
+    json_object_object_add (root, COMMON_SKBD_TCP_RETRIES_LATENCY,
+                            json_object_new_string (buf));
+    /* Tcp duplicate syn/ack packets */
+    UINT64_TO_STRING (buf, tbd->dupSynAcks);
+    json_object_object_add (root, COMMON_SKBD_TCP_DUPLICATE_SYNACKS,
+                            json_object_new_string (buf));
+    /* Tcp rtt */
+    UINT64_TO_STRING (buf, tbd->rtt);
+    json_object_object_add (root, COMMON_SKBD_TCP_RTT,
+                            json_object_new_string (buf));
+    /* Tcpp mss */
+    UINT64_TO_STRING (buf, tbd->mss);
+    json_object_object_add (root, COMMON_SKBD_TCP_MSS,
+                            json_object_new_string (buf));
+    /* Tcp connection latency */
+    UINT64_TO_STRING (buf, tbd->connLatency);
+    json_object_object_add (root, COMMON_SKBD_TCP_CONNECTION_LATENCY,
+                            json_object_new_string (buf));
+    /* Tcp total packets */
+    UINT64_TO_STRING (buf, tbd->totalPkts);
+    json_object_object_add (root, COMMON_SKBD_TCP_TOTAL_PACKETS,
+                            json_object_new_string (buf));
+    /* Tcp tiny packets */
+    UINT64_TO_STRING (buf, tbd->tinyPkts);
+    json_object_object_add (root, COMMON_SKBD_TCP_TINY_PACKETS,
+                            json_object_new_string (buf));
+    /* Tcp PAWS packets */
+    UINT64_TO_STRING (buf, tbd->pawsPkts);
+    json_object_object_add (root, COMMON_SKBD_TCP_PAWS_PACKETS,
+                            json_object_new_string (buf));
+    /* Tcp retransmitted packets */
+    UINT64_TO_STRING (buf, tbd->retransmittedPkts);
+    json_object_object_add (root, COMMON_SKBD_TCP_RETRANSMITTED_PACKETS,
+                            json_object_new_string (buf));
+    /* Tcp out of order packets */
+    UINT64_TO_STRING (buf, tbd->outOfOrderPkts);
+    json_object_object_add (root, COMMON_SKBD_TCP_OUT_OF_ORDER_PACKETS,
+                            json_object_new_string (buf));
+    /* Tcp zero windows */
+    UINT64_TO_STRING (buf, tbd->zeroWindows);
+    json_object_object_add (root, COMMON_SKBD_TCP_ZERO_WINDOWS,
+                            json_object_new_string (buf));
+    /* Tcp duplicate acks */
+    UINT64_TO_STRING (buf, tbd->dupAcks);
+    json_object_object_add (root, COMMON_SKBD_TCP_DUPLICATE_ACKS,
+                            json_object_new_string (buf));
 
-    UINT64_TO_STRING (buf, tbd->retryTime);
-    json_object_object_add (root, COMMON_SKBD_TCP_RETRY_TIME, json_object_new_string (buf));
-
-    UINT64_TO_STRING (buf, tbd->retryNum);
-    json_object_object_add (root, COMMON_SKBD_TCP_RETRY_NUMBER, json_object_new_string (buf));
-
-    UINT8_TO_STRING (buf, tbd->connectSuccess);
-    json_object_object_add (root, COMMON_SKBD_CONNECT_SUCCESS, json_object_new_string (buf));
-
-    UINT64_TO_STRING (buf, tbd->connectTime);
-    json_object_object_add (root, COMMON_SKBD_CONNECT_TIME, json_object_new_string (buf));
-
-    UINT64_TO_STRING (buf, tbd->pktsRetransmit);
-    json_object_object_add (root, COMMON_SKBD_PACKETS_RETRANSMIT, json_object_new_string (buf));
-
-    UINT64_TO_STRING (buf, tbd->pktsOutOfOrder);
-    json_object_object_add (root, COMMON_SKBD_PACKETS_OUT_OF_ORDER, json_object_new_string (buf));
-
-    if (tbd->connectSuccess)
+    if ((tbd->state == TCP_DATA_EXCHANGING) ||
+        (tbd->state == TCP_RESET_TYPE3) ||
+        (tbd->state == TCP_RESET_TYPE4))
         (*stream->parser->sessionBreakdown2Json) (root, stream->sessionDetail, tbd->sessionBreakdown);
 
     out = strdup (json_object_to_json_string (root));
@@ -532,44 +572,95 @@ static void publishTcpBreakdown (tcpStreamPtr stream, timeValPtr tm) {
 
     tbd.sessionBreakdown = (*stream->parser->newSessionBreakdown) ();
     if (tbd.sessionBreakdown == NULL) {
-        LOGE ("New sessionBreakdown error.\n");
+        LOGE ("Create new sessionBreakdown error.\n");
         return;
     }
 
+    tbd.bkdId = ATOMIC_FETCH_AND_ADD (&tcpBreakdownId, 1);
     tbd.timestamp = tm->tv_sec;
     tbd.proto = stream->proto;
-    tbd.svcIp = stream->addr.daddr;
-    tbd.svcPort = stream->addr.dest;
     tbd.srcIp = stream->addr.saddr;
     tbd.srcPort = stream->addr.source;
-    tbd.connectSuccess = stream->connectSuccess;
-    tbd.pktsRetransmit = stream->pktsRetransmit;
-    tbd.pktsOutOfOrder = stream->pktsOutOfOrder;
-    /* Reset stream packets retransmit and out of order */
-    stream->pktsRetransmit = 0;
-    stream->pktsOutOfOrder = 0;
-    if (tbd.connectSuccess) {
-        if (stream->firstReq) {
-            stream->firstReq = 0;
-            tbd.retryTime = stream->retryTime - stream->synTime;
-            tbd.retryNum = stream->retryNum;
-            tbd.connectTime = stream->estbTime - stream->retryTime;
-        } else {
-            tbd.retryTime = 0;
-            tbd.retryNum = 0;
-            tbd.connectTime = 0;
-        }
+    tbd.svcIp = stream->addr.daddr;
+    tbd.svcPort = stream->addr.dest;
+    tbd.connId = stream->connId;
 
+    switch (stream->state) {
+        case STREAM_CONNECTED:
+            tbd.state = TCP_CONNECTED;
+            break;
+
+        case STREAM_DATA_EXCHANGING:
+        case STREAM_CLOSING:
+            tbd.state = TCP_DATA_EXCHANGING;
+            break;
+
+        case STREAM_TIME_OUT:
+        case STREAM_CLOSED:
+            tbd.state = TCP_CLOSED;
+            break;
+
+        case STREAM_RESET_TYPE1:
+            tbd.state = TCP_RESET_TYPE1;
+            break;
+
+        case STREAM_RESET_TYPE2:
+            tbd.state = TCP_RESET_TYPE2;
+            break;
+
+        case STREAM_RESET_TYPE3:
+            tbd.state = TCP_RESET_TYPE3;
+            break;
+
+        case STREAM_RESET_TYPE4:
+            tbd.state = TCP_RESET_TYPE4;
+            break;
+
+        default:
+            (*stream->parser->freeSessionBreakdown) (tbd.sessionBreakdown);
+            LOGE ("Unsupported stream state for breakdown.\n");
+            return;
+    }
+
+    switch (tbd.state) {
+        case TCP_CONNECTED:
+            tbd.retries = stream->retries;
+            tbd.retriesLatency = stream->retriesTime - stream->synTime;
+            tbd.dupSynAcks = stream->dupSynAcks;
+            tbd.rtt = stream->rtt;
+            tbd.mss = stream->mss;
+            tbd.connLatency = stream->estbTime - stream->retriesTime;
+            break;
+
+        default:
+            tbd.retries = 0;
+            tbd.retriesLatency = 0;
+            tbd.dupSynAcks = 0;
+            tbd.rtt = 0;
+            tbd.mss = 0;
+            tbd.connLatency = 0;
+            break;
+    }
+
+    tbd.totalPkts = stream->totalPkts;
+    tbd.tinyPkts = stream->tinyPkts;
+    tbd.pawsPkts = stream->pawsPkts;
+    tbd.retransmittedPkts = stream->retransmittedPkts;
+    tbd.outOfOrderPkts = stream->outOfOrderPkts;
+    tbd.zeroWindows = stream->zeroWindows;
+    tbd.dupAcks = stream->dupAcks;
+
+    /* For TCP_DATA_EXCHANGING, TCP_RESET_TYPE3 and TCP_RESET_TYPE4 breakdown,
+     * there is application layer breakdown */
+    if ((tbd.state == TCP_DATA_EXCHANGING) ||
+        (tbd.state == TCP_RESET_TYPE3) ||
+        (tbd.state == TCP_RESET_TYPE4)) {
         ret = (*stream->parser->generateSessionBreakdown) (stream->sessionDetail, tbd.sessionBreakdown);
         if (ret < 0) {
             LOGE ("GenerateSessionBreakdown error.\n");
             (*stream->parser->freeSessionBreakdown) (tbd.sessionBreakdown);
             return;
         }
-    } else {
-        tbd.retryTime = 0;
-        tbd.retryNum = 0;
-        tbd.connectTime = 0;
     }
 
     jsonStr = tcpBreakdown2Json (stream, &tbd);
@@ -582,14 +673,35 @@ static void publishTcpBreakdown (tcpStreamPtr stream, timeValPtr tm) {
     /* Push session breakdown to redis server */
     publishTcpBreakdownFunc (jsonStr, publishTcpBreakdownArgs);
 
+    /* Free json string and application layer session breakdown */
     free (jsonStr);
     (*stream->parser->freeSessionBreakdown) (tbd.sessionBreakdown);
+
+    /* Reset some statistic fields of tcp stream */
+    stream->totalPkts = 0;
+    stream->tinyPkts = 0;
+    stream->pawsPkts = 0;
+    stream->retransmittedPkts = 0;
+    stream->outOfOrderPkts = 0;
+    stream->zeroWindows = 0;
+    stream->dupAcks = 0;
 }
 
 /* Tcp connection establishment handler callback */
 static void
 handleEstb (tcpStreamPtr stream, timeValPtr tm) {
-    
+    /* Set tcp state */
+    stream->client.state = TCP_ESTABLISHED;
+    stream->server.state = TCP_ESTABLISHED;
+    stream->state = STREAM_CONNECTED;
+    stream->estbTime = timeVal2MilliSecond (tm);
+    stream->rtt = abs ((int) (stream->synAckTime - stream->retriesTime));
+    stream->mss = MIN_NUM (stream->client.mss, stream->server.mss);
+
+    if (stream->parser->sessionProcessEstb)
+        (*stream->parser->sessionProcessEstb) (stream->sessionDetail, tm);
+    /* Publish tcp establishment breakdown */
+    publishTcpBreakdown (stream, tm);
 }
 
 static void
@@ -602,7 +714,8 @@ handleUrgData (tcpStreamPtr stream, halfStreamPtr snd, char urgData, timeValPtr 
         fromClient = 0;
 
     if (stream->parser->sessionProcessUrgData)
-        (*stream->parser->sessionProcessUrgData) (fromClient, urgData, stream->sessionDetail, tm);
+        (*stream->parser->sessionProcessUrgData) (fromClient, urgData,
+                                                  stream->sessionDetail, tm);
 }
 
 /* Tcp data handler callback */
@@ -617,12 +730,10 @@ handleData (tcpStreamPtr stream, halfStreamPtr snd, u_char *data, int dataLen, t
     else
         fromClient = 0;
 
-    if (stream->parser->sessionProcessData) {
-        parseCount = (*stream->parser->sessionProcessData) (fromClient, data, dataLen, stream->sessionDetail, tm, &sessionDone);
-        if (sessionDone)
-            publishTcpBreakdown (stream, tm);
-    } else
-        parseCount = dataLen;
+    parseCount = (*stream->parser->sessionProcessData) (fromClient, data, dataLen,
+                                                        stream->sessionDetail, tm, &sessionDone);
+    if (sessionDone)
+        publishTcpBreakdown (stream, tm);
 
     return parseCount;
 }
@@ -631,23 +742,29 @@ handleData (tcpStreamPtr stream, halfStreamPtr snd, u_char *data, int dataLen, t
 static void
 handleReset (tcpStreamPtr stream, halfStreamPtr snd, timeValPtr tm) {
     int fromClient;
-    int sessionDone = 0;
 
-    if (stream->connectSuccess) {
-        if (snd == &stream->client)
-            fromClient = 1;
+    if (snd == &stream->client)
+        fromClient = 1;
+    else
+        fromClient = 0;
+
+    if (stream->state == STREAM_INIT) {
+        if (fromClient)
+            stream->state = STREAM_RESET_TYPE1;
         else
-            fromClient = 0;
+            stream->state = STREAM_RESET_TYPE2;
+    } else {
+        if (fromClient)
+            stream->state = STREAM_RESET_TYPE3;
+        else
+            stream->state = STREAM_RESET_TYPE4;
+        /* If reset after connected */
+        if (stream->parser->sessionProcessReset)
+            (*stream->parser->sessionProcessReset) (fromClient, stream->sessionDetail, tm);
+    }
 
-        if (stream->parser->sessionProcessReset) {
-            (*stream->parser->sessionProcessReset) (fromClient, stream->sessionDetail, tm, &sessionDone);
-            if (sessionDone)
-                publishTcpBreakdown (stream, tm);
-        }
-    } else
-        publishTcpBreakdown (stream, tm);
+    publishTcpBreakdown (stream, tm);
 
-    stream->state = STREAM_RESET;
     /* Remove stream from tcpStream hash map */
     delTcpStreamFromHash (stream);
 }
@@ -667,8 +784,6 @@ handleFin (tcpStreamPtr stream, halfStreamPtr snd, timeValPtr tm) {
         rcv = &stream->client;
     }
 
-    stream->closeTime = timeVal2MilliSecond (tm);
-
     if (stream->parser->sessionProcessFin) {
         (*stream->parser->sessionProcessFin) (fromClient, stream->sessionDetail, tm, &sessionDone);
         if (sessionDone)
@@ -678,6 +793,40 @@ handleFin (tcpStreamPtr stream, halfStreamPtr snd, timeValPtr tm) {
     snd->state = TCP_FIN_SENT;
     stream->state = STREAM_CLOSING;
     addTcpStreamToClosingTimeoutList (stream, tm);
+}
+
+/*
+ * @brief Close tcp stream
+ * 
+ * @param stream Stream to close
+ * @param tm Timestamp to close
+ */
+static void tcpStreamClose (tcpStreamPtr stream, timeValPtr tm) {
+    stream->closeTime = timeVal2MilliSecond (tm);
+    
+    /* Publish tcp close breakdown */
+    publishTcpBreakdown (stream, tm);
+    delTcpStreamFromHash (stream);
+}
+
+/*
+ * @brief Check tcp stream timeout list and remove timeout
+ *        tcp stream.
+ *
+ * @param tm timestamp for current packet
+ */
+static void
+tcpCheckTimeout (timeValPtr tm) {
+    tcpTimeoutPtr pos, tmp;
+
+    listForEachEntrySafe (pos, tmp, &tcpStreamTimoutList, node) {
+        if (pos->timeout > tm->tv_sec)
+            return;
+        else {
+            pos->stream->state = STREAM_TIME_OUT;
+            tcpStreamClose (pos->stream, tm);
+        }
+    }
 }
 
 /*
@@ -936,17 +1085,13 @@ tcpProcess (u_char *data, int skbLen, timeValPtr tm) {
 
     stream = findTcpStream (tcph, iph, &fromClient);
     if (stream == NULL) {
+        /* The first packet of tcp three handshake */
         if (tcph->syn && !tcph->ack && !tcph->rst) {
             stream = addNewTcpStream (tcph, iph, tm);
             if (stream == NULL) {
-                LOGE ("Add new tcp stream error.\n");
+                LOGE ("Create new tcp stream error.\n");
                 return;
             }
-            stream->synTime = timeVal2MilliSecond (tm);
-            stream->retriesTime = stream->synTime;
-            stream->totalPkts++;
-            if (!ntohs (tcph->window))
-                stream->zeroWindows++;
         }
         return;
     }
@@ -968,23 +1113,26 @@ tcpProcess (u_char *data, int skbLen, timeValPtr tm) {
 
     if (tcph->syn) {
         if (fromClient || (stream->client.state != TCP_SYN_SENT) ||
-            (stream->server.state != TCP_CLOSE) || !tcph->ack) {
-            /* Tcp connect retry */
+            (stream->server.state != TCP_CLOSED) || !tcph->ack) {
+            /* Tcp syn retries */
             if (fromClient && (stream->client.state == TCP_SYN_SENT)) {
                 stream->retries++;
                 stream->retriesTime = timeVal2MilliSecond (tm);
-            } else if (!fromClient && (stream->server.state == TCP_SYN_RECV)) { /* Tcp syn/ack retry */
-                stream->synAckTime = timeVal2MilliSecond (tm);
+            } else if (!fromClient && (stream->server.state == TCP_SYN_RECV)) {
+                /* Tcp syn/ack retries */
                 stream->dupSynAcks++;
+                stream->synAckTime = timeVal2MilliSecond (tm);
                 stream->dupAcks++;
             }
 
             stream->retransmittedPkts++;
             return;
         } else {
-            /* Tcp connect syn/ack */
-            if (stream->client.seq != ntohl (tcph->ack_seq))
+            /* The second packet of tcp three handshake */
+            if (stream->client.seq != ntohl (tcph->ack_seq)) {
+                LOGW ("Error ack sequence number of syn/ack packet.\n");
                 return;
+            }
 
             stream->server.state = TCP_SYN_RECV;
             stream->server.seq = ntohl (tcph->seq) + 1;
@@ -1012,7 +1160,7 @@ tcpProcess (u_char *data, int skbLen, timeValPtr tm) {
             }
 
             if (!getTcpMssOption (tcph, &stream->server.mss))
-                LOGW ("MSS from server is null.\n");
+                LOGW ("Tcp MSS from server is null.\n");
 
             stream->synAckTime = timeVal2MilliSecond (tm);
         }
@@ -1031,13 +1179,12 @@ tcpProcess (u_char *data, int skbLen, timeValPtr tm) {
          !before (ntohl (tcph->seq), (rcv->ackSeq + rcv->window * rcv->wscale)))) {
         /* Accumulate retransmitted packets */
         if (before (ntohl (tcph->seq) + tcpDataLen, rcv->ackSeq))
-            stream->pktsRetransmit++;
+            stream->retransmittedPkts++;
         return;
     }
 
     /* PAWS (Protect Against Wrapped Sequence numbers) check */
-    if (rcv->tsOn && getTimeStampOption (tcph, &tmpTs) &&
-        before (tmpTs, snd->currTs)) {
+    if (rcv->tsOn && getTimeStampOption (tcph, &tmpTs) && before (tmpTs, snd->currTs)) {
         stream->pawsPkts++;
         return;
     }
@@ -1047,14 +1194,8 @@ tcpProcess (u_char *data, int skbLen, timeValPtr tm) {
             /* The last packet of tcp three handshake */
             if (stream->client.state == TCP_SYN_SENT && stream->server.state == TCP_SYN_RECV) {
                 if (ntohl (tcph->ack_seq) == stream->server.seq) {
-                    stream->client.state = TCP_ESTABLISHED;
-                    stream->server.state = TCP_ESTABLISHED;
-                    stream->state = STREAM_JUST_EST;
-                    stream->estbTime = timeVal2MilliSecond (tm);
-                    stream->rtt = abs ((int) (stream->synAckTime - stream->retriesTime));
-                    stream->mss = MIN (stream->client.mss, stream->service.mss);
                     handleEstb (stream, tm);
-                    stream->state = STREAM_DATA;
+                    stream->state = STREAM_DATA_EXCHANGING;
                 } else
                     stream->outOfOrderPkts++;
             }
@@ -1065,15 +1206,15 @@ tcpProcess (u_char *data, int skbLen, timeValPtr tm) {
         else if (!tcpDataLen) {
             /* For out of order packets, if receiver doesn't receive all packets, it
              * will send a single ack packet to ackownledge the last received successive
-             *, in that case, client will resend the dropped packet again */
+             * packet, in that case, client will resend the dropped packet again */
             stream->dupAcks++;
         }
-        
+
         if (rcv->state == TCP_FIN_SENT)
             rcv->state = TCP_FIN_CONFIRMED;
         if (rcv->state == TCP_FIN_CONFIRMED && snd->state == TCP_FIN_CONFIRMED) {
-            stream->state = STREAM_CLOSE;
-            delTcpStreamFromHash (stream);
+            stream->state = STREAM_CLOSED;
+            tcpStreamClose (stream, tm);
             return;
         }
     }

@@ -23,12 +23,12 @@ typedef void * (*newSessionBreakdownCB) (void);
 typedef void (*freeSessionBreakdownCB) (void *sbd);
 typedef int (*generateSessionBreakdownCB) (void *sd, void *sbd);
 typedef void (*sessionBreakdown2JsonCB) (struct json_object *root, void *sd, void *sbd);
+typedef void (*sessionProcessEstbCB) (void *sd, timeValPtr tm);
 typedef void (*sessionProcessUrgeDataCB) (int fromClient, char urgData, void *sd,
                                           timeValPtr tm);
 typedef int (*sessionProcessDataCB) (int fromClient, const u_char *data, int dataLen,
                                      void *sd, timeValPtr tm, int *sessionDone);
-typedef void (*sessionProcessResetCB) (int fromClient, void *sd, timeValPtr tm,
-                                       int *sessionDone);
+typedef void (*sessionProcessResetCB) (int fromClient, void *sd, timeValPtr tm);
 typedef void (*sessionProcessFinCB) (int fromClient, void *sd, timeValPtr tm,
                                      int *sessionDone);
 
@@ -37,18 +37,19 @@ typedef protoParser *protoParserPtr;
 
 /* Protocol parser callback */
 struct _protoParser {
-    initProtoCB initProto;
-    destroyProtoCB destroyProto;
-    newSessionDetailCB newSessionDetail;
-    freeSessionDetailCB freeSessionDetail;
-    newSessionBreakdownCB newSessionBreakdown;
-    freeSessionBreakdownCB freeSessionBreakdown;
-    generateSessionBreakdownCB generateSessionBreakdown;
-    sessionBreakdown2JsonCB sessionBreakdown2Json;
-    sessionProcessUrgeDataCB sessionProcessUrgData;
-    sessionProcessDataCB sessionProcessData;
-    sessionProcessResetCB sessionProcessReset;
-    sessionProcessFinCB sessionProcessFin;
+    initProtoCB initProto;                               /**< Protocol init callback <optional> */
+    destroyProtoCB destroyProto;                         /**< Protocol destroy callback <optional> */
+    newSessionDetailCB newSessionDetail;                 /**< Create new session detail callback <mandatory> */
+    freeSessionDetailCB freeSessionDetail;               /**< Free session detail callback <mandatory> */
+    newSessionBreakdownCB newSessionBreakdown;           /**< Create new session breakdown callback <mandatory> */
+    freeSessionBreakdownCB freeSessionBreakdown;         /**< Free session breakdown callback <mandatory> */
+    generateSessionBreakdownCB generateSessionBreakdown; /**< Generate session breakdown callback <mandatory> */
+    sessionBreakdown2JsonCB sessionBreakdown2Json;       /**< Translate session breakdown to json callback <mandatory> */
+    sessionProcessEstbCB sessionProcessEstb;             /**< Tcp establishment callback <optional> */
+    sessionProcessUrgeDataCB sessionProcessUrgData;      /**< Urgency data processing callback <optional> */
+    sessionProcessDataCB sessionProcessData;             /**< Data processing callback <mandatory> */
+    sessionProcessResetCB sessionProcessReset;           /**< Tcp reset processing callback <optional> */
+    sessionProcessFinCB sessionProcessFin;               /**< Tcp fin processing callback <optional> */
 };
 
 typedef struct _protoInfo protoInfo;

@@ -65,12 +65,15 @@ struct _tuple4 {
 /* Tcp stream state */
 typedef enum {
     STREAM_INIT,
-    STREAM_JUST_EST,
-    STREAM_DATA,
-    STREAM_RESET,
+    STREAM_CONNECTED,
+    STREAM_DATA_EXCHANGING,
     STREAM_CLOSING,
-    STREAM_TIMED_OUT,
-    STREAM_CLOSE
+    STREAM_TIME_OUT,
+    STREAM_CLOSED,
+    STREAM_RESET_TYPE1,                 /**< Tcp connection reset type1 (from client and before connected) */
+    STREAM_RESET_TYPE2,                 /**< Tcp connection reset type2 (from server and before connected) */
+    STREAM_RESET_TYPE3,                 /**< Tcp connection reset type3 (from client and after connected) */ 
+    STREAM_RESET_TYPE4,                 /**< Tcp connection reset type4 (from server and after connected) */ 
 } streamState;
 
 typedef struct _tcpStream tcpStream;
@@ -85,11 +88,11 @@ struct _tcpStream {
     streamState state;                  /**< Tcp stream state */
     halfStream client;                  /**< Tcp stream client halfStream */
     halfStream server;                  /**< Tcp stream server halfStream */
-    uint64_t synTime;                   /**< First syn timestamp */
-    uint64_t retries;                   /**< Retry counts */
-    uint64_t retriesTime;               /**< Last retry timestamp */
+    uint64_t synTime;                   /**< Syn timestamp of three handshake */
+    uint64_t retries;                   /**< Retries count */
+    uint64_t retriesTime;               /**< The last retry timestamp */
+    uint64_t dupSynAcks;                /**< Duplicate syn/acks of three handshake */
     uint64_t synAckTime;                /**< Syn/ack timestamp of three handshake */
-    uint64_t dupSynAcks;                /**< Duplicate syn/ack Packets */
     uint64_t estbTime;                  /**< Tcp connection success timestamp */
     uint64_t rtt;                       /**< Tcp round trip latency */
     uint64_t mss;                       /**< Tcp MSS */
@@ -125,7 +128,7 @@ typedef enum {
     TCP_RESET_TYPE2,                    /**< Tcp connection reset type2 (from server and before connected) */
     TCP_RESET_TYPE3,                    /**< Tcp connection reset type3 (from client and after connected) */
     TCP_RESET_TYPE4                     /**< Tcp connection reset type4 (from server and after connected) */
-} tcpState;
+} tcpBreakdownState;
 
 typedef struct _tcpBreakdown tcpBreakdown;
 typedef tcpBreakdown *tcpBreakdownPtr;
@@ -138,13 +141,13 @@ struct _tcpBreakdown {
     uint16_t srcPort;                   /**< Source port */
     struct in_addr svcIp;               /**< Service ip */
     uint16_t svcPort;                   /**< Service port */
-    uint64_t tcpConnId;                 /**< Global tcp connection id */
+    uint64_t connId;                    /**< Global tcp connection id */
+    tcpBreakdownState state;            /**< Tcp state */
     uint64_t retries;                   /**< Tcp retries */
     uint64_t retriesLatency;            /**< Tcp retries latency in milliseconds */
     uint64_t dupSynAcks;                /**< Tcp duplicate syn/ack packages */
     uint64_t rtt;                       /**< Tcp round trip latency */
     uint64_t mss;                       /**< Tcp mss (maxium segment size) */
-    uint8_t state;                      /**< Tcp state */
     uint64_t connLatency;               /**< Tcp connection latency in milliseconds */
     uint64_t totalPkts;                 /**< Tcp total packets */
     uint64_t tinyPkts;                  /**< Tcp tiny packets */
@@ -165,11 +168,12 @@ struct _tcpBreakdown {
 #define COMMON_SKBD_SERVICE_IP                   "service_ip"
 #define COMMON_SKBD_SERVICE_PORT                 "service_port"
 #define COMMON_SKBD_TCP_CONNECTION_ID            "tcp_connection_id"
+#define COMMON_SKBD_TCP_STATE                    "tcp_state"
 #define COMMON_SKBD_TCP_RETRIES                  "tcp_retries"
 #define COMMON_SKBD_TCP_RETRIES_LATENCY          "tcp_retries_latency"
 #define COMMON_SKBD_TCP_DUPLICATE_SYNACKS        "tcp_duplicate_synacks"
 #define COMMON_SKBD_TCP_RTT                      "tcp_rtt"
-#define COMMON_SKBD_TCP_STATE                    "tcp_state"
+#define COMMON_SKBD_TCP_MSS                      "tcp_mss"
 #define COMMON_SKBD_TCP_CONNECTION_LATENCY       "tcp_connection_latency"
 #define COMMON_SKBD_TCP_TOTAL_PACKETS            "tcp_total_packets"
 #define COMMON_SKBD_TCP_TINY_PACKETS             "tcp_tiny_packets"
@@ -178,7 +182,6 @@ struct _tcpBreakdown {
 #define COMMON_SKBD_TCP_OUT_OF_ORDER_PACKETS     "tcp_out_of_order_packets"
 #define COMMON_SKBD_TCP_ZERO_WINDOWS             "tcp_zero_windows"
 #define COMMON_SKBD_TCP_DUPLICATE_ACKS           "tcp_duplicate_acks"
-#define COMMON_SKBD_TCP_MSS                      "tcp_mss"
 
 /* Tcp session breakdown callback */
 typedef void * (*publishTcpBreakdownCB) (const char *tcpBreakdown, void *args);

@@ -12,8 +12,8 @@
 #define STRNEQ(s1, s2) (strcmp ((s1), (s2)))
 #define STRPREFIX(s1, s2) (strncmp (s1, s2, strlen (s2)) == 0)
 
-#define MAX(n1, n2) ((n1) > (n2) ? (n1) : (n2))
-#define MIN(n1, n2) ((n1) > (n2) ? (n2) : (n1))
+#define MAX_NUM(n1, n2) ((n1) > (n2) ? (n1) : (n2))
+#define MIN_NUM(n1, n2) ((n1) > (n2) ? (n2) : (n1))
 
 /* Number to string interfaces */
 #define INT8_TO_STRING(dst, val) sprintf (dst, "%"PRId8, val)

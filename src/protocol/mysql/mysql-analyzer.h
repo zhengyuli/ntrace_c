@@ -248,7 +248,7 @@ typedef enum {
     MYSQL_RESET_TYPE1,          /**< reset during request */
     MYSQL_RESET_TYPE2,          /**< reset before response */
     MYSQL_RESET_TYPE3           /**< reset during response */
-} mysqlState
+} mysqlBreakdownState;
 
 typedef struct _mysqlSessionDetail mysqlSessionDetail;
 typedef mysqlSessionDetail *mysqlSessionDetailPtr;

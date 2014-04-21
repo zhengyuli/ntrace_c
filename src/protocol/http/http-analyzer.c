@@ -13,10 +13,12 @@ typedef enum {
     HTTP_HEADER_HOST = 1,
     HTTP_HEADER_USER_AGENT,
     HTTP_HEADER_REFER_URL,
+    HTTP_HEADER_ACCEPT,
     HTTP_HEADER_ACCEPT_LANGUAGE,
     HTTP_HEADER_ACCEPT_ENCODING,
     HTTP_HEADER_X_FORWARDED_FOR,
     HTTP_HEADER_CONTENT_TYPE,
+    HTTP_HEADER_CONNECTION,
     HTTP_HEADER_IGNORE
 } httpHeaderType;
 
@@ -61,8 +63,8 @@ onReqUrl (http_parser *parser, const char *from, size_t length) {
         return 0;
 
     currNode->method = strdup (http_method_str (parser->method));
-    currNode->reqUrl = strndup (from, length);
-    if (currNode->reqUrl == NULL)
+    currNode->url = strndup (from, length);
+    if (currNode->url == NULL)
         LOGE ("Get http request url error.\n");
 
     return 0;
@@ -82,6 +84,16 @@ onReqHeaderField (http_parser *parser, const char* from, size_t length) {
         currHeaderType = HTTP_HEADER_USER_AGENT;
     else if (strncmp ("Referer", from, length) == 0)
         currHeaderType = HTTP_HEADER_REFER;
+    else if (strncmp ("Accept", from, length) == 0)
+        currHeaderType = HTTP_HEADER_ACCEPT;
+    else if (strncmp ("Accept-Language", from, length) == 0)
+        currHeaderType = HTTP_HEADER_ACCEPT_LANGUAGE;
+    else if (strncmp ("Accept-Encoding", from, length) == 0)
+        currHeaderType = HTTP_HEADER_ACCEPT_ENCODING;
+    else if (strncmp ("X-Forwarded-For", from, length) == 0)
+        currHeaderType = HTTP_HEADER_X_FORWARDED_FOR;
+    else if (strncmp ("Connection", from, length) == 0)
+        currHeaderType = HTTP_HEADER_CONNECTION;
 
     return 0;
 }
@@ -98,7 +110,7 @@ onReqHeaderValue (http_parser *parser, const char* from, size_t length) {
         case HTTP_HEADER_HOST:
             currNode->host = strndup (from, length);
             if (currNode->host == NULL)
-                LOGE ("Get host field error.\n");
+                LOGE ("Get Host field error.\n");
             break;
 
         case HTTP_HEADER_USER_AGENT:
@@ -110,13 +122,31 @@ onReqHeaderValue (http_parser *parser, const char* from, size_t length) {
         case HTTP_HEADER_REFER:
             currNode->referUrl = strndup (from, length);
             if (currNode->referUrl == NULL)
-                LOGE ("Get refer field error.\n");
+                LOGE ("Get Refer field error.\n");
             break;
 
-        case HTTP_HEADER_CONTENT_TYPE:
-            currNode->contentType = strndup (from, length);
-            if (currNode->contentType == NULL)
-                LOGE ("Get content type field error.\n");
+        case HTTP_HEADER_ACCEPT_LANGUAGE:
+            currNode->acceptLanguage = strndup (from, length);
+            if (currNode->acceptLanguage == NULL)
+                LOGE ("Get Accept-Language field error.\n");
+            break;
+
+        case HTTP_HEADER_ACCEPT_ENCODING:
+            currNode->acceptEncoding = strndup (from, length);
+            if (currNode->acceptEncoding == NULL)
+                LOGE ("Get Accept-Encoding field error.\n");
+            break;
+
+        case HTTP_HEADER_X_FORWARDED_FOR:
+            currNode->xForwardedFor = strndup (from, length);
+            if (currNode->xForwardedFor == NULL)
+                LOGE ("Get X-Forwarded-For field error.\n");
+            break;
+
+        case HTTP_HEADER_CONNECTION:
+            currNode->reqConnection = strndup (from, length);
+            if (currNode->reqConnection == NULL)
+                LOGE ("Get Connection field error.\n");
             break;
 
         default:
@@ -124,16 +154,35 @@ onReqHeaderValue (http_parser *parser, const char* from, size_t length) {
     }
 
     currHeaderType = HTTP_HEADER_IGNORE;
+
     return 0;
 }
 
 static int
 onReqHeadersComplete (http_parser *parser) {
+    httpSessionDetailNodePtr currNode;
+
+    listTailEntry (currNode, &currSessionDetail->head, node);
+    if (currNode == NULL)
+        return 0;
+
+    snprintf(currNode->reqVer, HTTP_VERSION_LENGTH - 1, "HTTP/%d.%d",
+             parser->http_major, parser->http_minor);
+    currNode->reqHeaderSize = parser->nread;
+
     return 0;
 }
 
 static int
 onReqBody (http_parser *parser, const char* from, size_t length) {
+    httpSessionDetailNodePtr currNode;
+
+    listTailEntry (currNode, &currSessionDetail->head, node);
+    if (currNode == NULL)
+        return 0;
+
+    currNode->reqBodySize += length;
+
     return 0;
 }
 
@@ -171,6 +220,8 @@ onRespHeaderField (http_parser *parser, const char* from, size_t length) {
 
     if (strncmp ("Content-Type", from, length) == 0)
         currHeaderType = HTTP_HEADER_CONTENT_TYPE;
+    else if (strncmp ("Connection", from, length) == 0)
+        currHeaderType = HTTP_HEADER_CONNECTION;
 
     return 0;
 }
@@ -187,19 +238,35 @@ onRespHeaderValue (http_parser *parser, const char* from, size_t length) {
         case HTTP_HEADER_CONTENT_TYPE:
             currNode->contentType = strndup (from, length);
             if (currNode->contentType == NULL)
-                LOGE ("Get content type field error.\n");
+                LOGE ("Get Content-Type field error.\n");
+            break;
+
+        case HTTP_HEADER_CONNECTION:
+            currNode->respConnection = strndup (from, length);
+            if (currNode->reqConnection == NULL)
+                LOGE ("Get Connection field error.\n");
             break;
 
         default:
             break;
     }
-
     currHeaderType = HTTP_HEADER_IGNORE;
+
     return 0;
 }
 
 static int
 onRespHeadersComplete (http_parser *parser) {
+    httpSessionDetailNodePtr currNode;
+
+    listTailEntry (currNode, &currSessionDetail->head, node);
+    if (currNode == NULL)
+        return 0;
+
+    snprintf(currNode->respVer, HTTP_VERSION_LENGTH - 1, "HTTP/%d.%d",
+             parser->http_major, parser->http_minor);
+    currNode->respHeaderSize = parser->nread;
+
     return 0;
 }
 
@@ -211,8 +278,9 @@ onRespBody (http_parser *parser, const char* from, size_t length) {
     if (currNode == NULL)
         return 0;
 
-    currNode->downloadSize += length;
+    currNode->pageSize += length;
     currNode->downloadTimeEnd = timeVal2MilliSecond (currTime);
+
     return 0;
 }
 
@@ -585,60 +653,6 @@ httpSessionBreakdown2Json (struct json_object *root, void *sd, void *sbd) {
     json_object_object_add (root, HTTP_SBKD_DOWNLOAD_SIZE, json_object_new_string (buf));
 }
 
-static void
-httpSessionProcessSyn (void *sd, timeValPtr tm) {
-    httpSessionDetailPtr hsd = (httpSessionDetailPtr) sd;
-
-    hsd->misc.tcpSynTime = timeVal2MilliSecond (tm);
-    return;
-}
-
-static void
-httpSessionProcessSynAck (void *sd, timeValPtr tm) {
-    httpSessionDetailPtr hsd = (httpSessionDetailPtr) sd;
-
-    hsd->misc.tcpSynAckTime = timeVal2MilliSecond (tm);
-    return;
-}
-
-static void
-httpSessionProcessEstb (void *sd, timeValPtr tm) {
-    httpSessionDetailPtr hsd = (httpSessionDetailPtr) sd;
-
-    hsd->misc.tcpEstbTime = timeVal2MilliSecond (tm);
-    return;
-}
-
-static void
-httpSessionProcessAck (int fromClient, u_int ackNum, int withData, void *sd, timeValPtr tm) {
-    httpSessionDetailNodePtr sdn;
-    httpSessionDetailPtr hsd = (httpSessionDetailPtr) sd;
-
-    /* Ack from server */
-    if (!fromClient) {
-        listTailEntry (sdn, &hsd->head, node);
-        if (sdn == NULL)
-            return;
-        /* If requestAckTime has been set, return directly */
-        if (sdn->requestAckTime)
-            return;
-
-        if (!withData) {
-            listForEachEntryReverse (sdn, &hsd->head, node) {
-                if (!sdn->requestTime || sdn->requestAckTime)
-                    break;
-                sdn->requestAckTime = timeVal2MilliSecond (tm);
-            }
-        } else {
-            listForEachEntryReverse (sdn, &hsd->head, node) {
-                if (!sdn->requestTime || sdn->requestAckTime)
-                    break;
-                sdn->requestAckTime = sdn->requestTime + (hsd->misc.tcpSynAckTime - hsd->misc.tcpSynTime);
-            }
-        }
-    }
-}
-
 static int
 httpSessionProcessData (int fromClient, const u_char *data, int dataLen, void *sd, timeValPtr tm, int *sessionDone) {
     int parseCount;
@@ -660,7 +674,7 @@ httpSessionProcessData (int fromClient, const u_char *data, int dataLen, void *s
 }
 
 static void
-httpSessionProcessReset (int fromClient, void *sd, timeValPtr tm, int *sessionDone) {
+httpSessionProcessReset (int fromClient, void *sd, timeValPtr tm) {
     httpSessionDetailNodePtr currNode;
     httpSessionDetailPtr hsd = (httpSessionDetailPtr) sd;
 
@@ -699,10 +713,7 @@ protoParser httpParser = {
     .freeSessionBreakdown = freeHttpSessionBreakdown,
     .generateSessionBreakdown = generateHttpSessionBreakdown,
     .sessionBreakdown2Json = httpSessionBreakdown2Json,
-    .sessionProcessSyn = httpSessionProcessSyn,
-    .sessionProcessSynAck = httpSessionProcessSynAck,
-    .sessionProcessEstb = httpSessionProcessEstb,
-    .sessionProcessAck = httpSessionProcessAck,
+    .sessionProcessEstb = NULL,
     .sessionProcessUrgData = NULL,
     .sessionProcessData = httpSessionProcessData,
     .sessionProcessReset = httpSessionProcessReset,

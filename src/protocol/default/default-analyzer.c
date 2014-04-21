@@ -72,22 +72,26 @@ defaultSessionBreakdown2Json (struct json_object *root, void *sd, void *sbd) {
     json_object_object_add (root, DEFAULT_SBKD_EXCHANGE_SIZE, json_object_new_string (buf));
 }
 
+static void
+defaultSessionProcessEstb (void *sd, timeValPtr tm) {
+    defaultSessionDetailPtr dsd = (defaultSessionDetailPtr) sd;
+
+    dsd->serverTimeBegin = timeVal2MilliSecond (tm);
+}
+
 static int
 defaultSessionProcessData (int fromClient, const u_char *data, int dataLen, void *sd, timeValPtr tm, int *sessionDone) {
     defaultSessionDetailPtr dsd = (defaultSessionDetailPtr) sd;
 
-    if (!dsd->serverTimeBegin)
-        dsd->serverTimeBegin = timeVal2MilliSecond (tm);
     dsd->exchangeSize += dataLen;
     return dataLen;
 }
 
 static void
-defaultSessionProcessReset (int fromClient, void *sd, timeValPtr tm, int *sessionDone) {
+defaultSessionProcessReset (int fromClient, void *sd, timeValPtr tm) {
     defaultSessionDetailPtr dsd = (defaultSessionDetailPtr) sd;
 
     dsd->serverTimeEnd = timeVal2MilliSecond (tm);
-    *sessionDone = 1;
 }
 
 static void
@@ -111,6 +115,7 @@ protoParser defaultParser = {
     .freeSessionBreakdown = freeDefaultSessionBreakdown,
     .generateSessionBreakdown = generateDefaultSessionBreakdown,
     .sessionBreakdown2Json = defaultSessionBreakdown2Json,
+    .sessionProcessEstb = defaultSessionProcessEstb,
     .sessionProcessUrgData = NULL,
     .sessionProcessData = defaultSessionProcessData,
     .sessionProcessReset = defaultSessionProcessReset,

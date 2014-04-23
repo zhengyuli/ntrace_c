@@ -37,19 +37,19 @@ typedef protoParser *protoParserPtr;
 
 /* Protocol parser callback */
 struct _protoParser {
-    initProtoCB initProto;                               /**< Protocol init callback <optional> */
-    destroyProtoCB destroyProto;                         /**< Protocol destroy callback <optional> */
-    newSessionDetailCB newSessionDetail;                 /**< Create new session detail callback <mandatory> */
-    freeSessionDetailCB freeSessionDetail;               /**< Free session detail callback <mandatory> */
-    newSessionBreakdownCB newSessionBreakdown;           /**< Create new session breakdown callback <mandatory> */
-    freeSessionBreakdownCB freeSessionBreakdown;         /**< Free session breakdown callback <mandatory> */
-    generateSessionBreakdownCB generateSessionBreakdown; /**< Generate session breakdown callback <mandatory> */
-    sessionBreakdown2JsonCB sessionBreakdown2Json;       /**< Translate session breakdown to json callback <mandatory> */
-    sessionProcessEstbCB sessionProcessEstb;             /**< Tcp establishment callback <optional> */
-    sessionProcessUrgeDataCB sessionProcessUrgData;      /**< Urgency data processing callback <optional> */
-    sessionProcessDataCB sessionProcessData;             /**< Data processing callback <mandatory> */
-    sessionProcessResetCB sessionProcessReset;           /**< Tcp reset processing callback <optional> */
-    sessionProcessFinCB sessionProcessFin;               /**< Tcp fin processing callback <optional> */
+    initProtoCB initProto;                               /**< Protocol init callback */
+    destroyProtoCB destroyProto;                         /**< Protocol destroy callback */
+    newSessionDetailCB newSessionDetail;                 /**< Create new session detail callback */
+    freeSessionDetailCB freeSessionDetail;               /**< Free session detail callback */
+    newSessionBreakdownCB newSessionBreakdown;           /**< Create new session breakdown callback */
+    freeSessionBreakdownCB freeSessionBreakdown;         /**< Free session breakdown callback */
+    generateSessionBreakdownCB generateSessionBreakdown; /**< Generate session breakdown callback */
+    sessionBreakdown2JsonCB sessionBreakdown2Json;       /**< Translate session breakdown to json callback */
+    sessionProcessEstbCB sessionProcessEstb;             /**< Tcp establishment callback */
+    sessionProcessUrgeDataCB sessionProcessUrgData;      /**< Urgency data processing callback */
+    sessionProcessDataCB sessionProcessData;             /**< Data processing callback */
+    sessionProcessResetCB sessionProcessReset;           /**< Tcp reset processing callback */
+    sessionProcessFinCB sessionProcessFin;               /**< Tcp fin processing callback */
 };
 
 typedef struct _protoInfo protoInfo;

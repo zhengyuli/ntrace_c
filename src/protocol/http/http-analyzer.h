@@ -32,6 +32,7 @@ struct _httpSessionDetailNode {
     char *acceptEncoding;               /**< Http request accept encoding */
     char *xForwardedFor;                /**< Http request x forwarded for */
     char *reqConnection;                /**< Http request connection */
+    int reqComplete;                    /**< Http request complete flag */
     char respVer [HTTP_VERSION_LENGTH]; /**< Http protocol response version */
     char *contentType;                  /**< Http content type */
     char *respConnection;               /**< Http response connection */
@@ -78,7 +79,7 @@ struct _httpSessionBreakdown {
     char *respVer;                      /**< Http protocol response version */
     char *contentType;                  /**< Http response content type */
     char *respConnection;               /**< Http response connection */
-    uint8_t state;                      /**< Http state */
+    httpBreakdownState state;           /**< Http state */
     uint16_t statusCode;                /**< Http status code */
     uint64_t reqHeaderSize;             /**< Http request size */
     uint64_t reqBodySize;               /**< Http request size */

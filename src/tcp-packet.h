@@ -13,12 +13,12 @@ typedef skbuff *skbuffPtr;
 
 struct _skbuff {
     u_char *data;                       /**< Skbuff data */
-    uint32_t len;                       /**< Skbuff length */
-    uint32_t truesize;                  /**< Skbuff true size */
-    uint32_t seq;                       /**< Skbuff sequence number */
-    uint32_t ack;                       /**< Skbuff ack number */
+    u_int len;                          /**< Skbuff length */
+    u_int truesize;                     /**< Skbuff true size */
+    u_int seq;                          /**< Skbuff sequence number */
+    u_int ack;                          /**< Skbuff ack number */
     char urg;                           /**< Skbuff urgency data flag */
-    uint32_t urgPtr;                    /**< Skbuff urgency pointer */
+    u_int urgPtr;                       /**< Skbuff urgency pointer */
     char psh;                           /**< Skbuff push flag */
     char fin;                           /**< Skbuff fin flag */
     listHead node;                      /**< Skbuff list node */
@@ -30,15 +30,15 @@ typedef halfStream *halfStreamPtr;
 struct _halfStream {
     int state;                          /**< Half stream state */
     u_char *rcvBuf;                     /**< Half stream receive buffer */
-    int bufSize;                        /**< Half stream receive buffer size */
-    int offset;                         /**< Half stream read offset */
-    int count;                          /**< Half stream total data received */
-    int countNew;                       /**< Half stream new data received */
+    u_int bufSize;                      /**< Half stream receive buffer size */
+    u_int offset;                       /**< Half stream read offset */
+    u_int count;                        /**< Half stream total data received */
+    u_int countNew;                     /**< Half stream new data received */
     u_int seq;                          /**< Half stream send sequence number */
     u_int ackSeq;                       /**< Half stream ack sequence number */
     u_int firstDataSeq;                 /**< Half stream first data send sequence number */
-    int urgCount;                       /**< Half stream urg data received */
-    int urgCountNew;                    /**< Half stream new urg data count received */
+    u_int urgCount;                     /**< Half stream urg data received */
+    u_int urgCountNew;                  /**< Half stream new urg data count received */
     u_char urgData;                     /**< Half stream new urg data received */
     u_char urgSeen;                     /**< Half stream has new urg data flag */
     u_int urgPtr;                       /**< Half stream urg data pointer */
@@ -49,7 +49,7 @@ struct _halfStream {
     u_int wscale;                       /**< Half stream window scale size */
     u_int mss;                          /**< Half stream MSS (Maxium Segment Size) */
     listHead head;                      /**< Half stream skbuff list head */
-    int rmemAlloc;                      /**< Half stream memory allocated for skbuff */
+    u_int rmemAlloc;                    /**< Half stream memory allocated for skbuff */
 };
 
 typedef struct _tuple4 tuple4;

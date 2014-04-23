@@ -416,10 +416,10 @@ addNewTcpStream (struct tcphdr *tcph, struct ip *iph, timeValPtr tm) {
     stream->client.window = ntohs (tcph->window);
     stream->client.tsOn = getTimeStampOption (tcph, &stream->client.currTs);
     stream->client.wscaleOn = getTcpWindowScaleOption (tcph, &stream->client.wscale);
-    if (!getTcpMssOption (tcph, &stream->client.mss))
-        LOGW ("Tcp MSS from client is null.\n");
     if (!stream->client.wscaleOn)
         stream->client.wscale = 1;
+    if (!getTcpMssOption (tcph, &stream->client.mss))
+        LOGW ("Tcp MSS from client is null.\n");
     stream->synTime = timeVal2MilliSecond (tm);
     stream->retriesTime = timeVal2MilliSecond (tm);
     stream->totalPkts++;
@@ -687,6 +687,40 @@ static void publishTcpBreakdown (tcpStreamPtr stream, timeValPtr tm) {
     stream->dupAcks = 0;
 }
 
+/*
+ * @brief Close tcp stream
+ * 
+ * @param stream Stream to close
+ * @param tm Timestamp to close
+ */
+static void tcpStreamClose (tcpStreamPtr stream, timeValPtr tm) {
+    stream->closeTime = timeVal2MilliSecond (tm);
+    
+    /* Publish tcp close breakdown */
+    publishTcpBreakdown (stream, tm);
+    delTcpStreamFromHash (stream);
+}
+
+/*
+ * @brief Check tcp stream timeout list and remove timeout
+ *        tcp stream.
+ *
+ * @param tm timestamp for current packet
+ */
+static void
+tcpCheckTimeout (timeValPtr tm) {
+    tcpTimeoutPtr pos, tmp;
+
+    listForEachEntrySafe (pos, tmp, &tcpStreamTimoutList, node) {
+        if (pos->timeout > tm->tv_sec)
+            return;
+        else {
+            pos->stream->state = STREAM_TIME_OUT;
+            tcpStreamClose (pos->stream, tm);
+        }
+    }
+}
+
 /* Tcp connection establishment handler callback */
 static void
 handleEstb (tcpStreamPtr stream, timeValPtr tm) {
@@ -698,9 +732,8 @@ handleEstb (tcpStreamPtr stream, timeValPtr tm) {
     stream->rtt = abs ((int) (stream->synAckTime - stream->retriesTime));
     stream->mss = MIN_NUM (stream->client.mss, stream->server.mss);
 
-    if (stream->parser->sessionProcessEstb)
-        (*stream->parser->sessionProcessEstb) (stream->sessionDetail, tm);
-    /* Publish tcp establishment breakdown */
+    (*stream->parser->sessionProcessEstb) (stream->sessionDetail, tm);
+    /* Publish tcp connected breakdown */
     publishTcpBreakdown (stream, tm);
 }
 
@@ -713,9 +746,7 @@ handleUrgData (tcpStreamPtr stream, halfStreamPtr snd, char urgData, timeValPtr 
     else
         fromClient = 0;
 
-    if (stream->parser->sessionProcessUrgData)
-        (*stream->parser->sessionProcessUrgData) (fromClient, urgData,
-                                                  stream->sessionDetail, tm);
+    (*stream->parser->sessionProcessUrgData) (fromClient, urgData, stream->sessionDetail, tm);
 }
 
 /* Tcp data handler callback */
@@ -758,15 +789,10 @@ handleReset (tcpStreamPtr stream, halfStreamPtr snd, timeValPtr tm) {
             stream->state = STREAM_RESET_TYPE3;
         else
             stream->state = STREAM_RESET_TYPE4;
-        /* If reset after connected */
-        if (stream->parser->sessionProcessReset)
-            (*stream->parser->sessionProcessReset) (fromClient, stream->sessionDetail, tm);
+        (*stream->parser->sessionProcessReset) (fromClient, stream->sessionDetail, tm);
     }
 
-    publishTcpBreakdown (stream, tm);
-
-    /* Remove stream from tcpStream hash map */
-    delTcpStreamFromHash (stream);
+    tcpStreamClose (stream, tm);
 }
 
 /* Tcp fin handler callback */
@@ -784,49 +810,13 @@ handleFin (tcpStreamPtr stream, halfStreamPtr snd, timeValPtr tm) {
         rcv = &stream->client;
     }
 
-    if (stream->parser->sessionProcessFin) {
-        (*stream->parser->sessionProcessFin) (fromClient, stream->sessionDetail, tm, &sessionDone);
-        if (sessionDone)
-            publishTcpBreakdown (stream, tm);
-    }
+    (*stream->parser->sessionProcessFin) (fromClient, stream->sessionDetail, tm, &sessionDone);
+    if (sessionDone)
+        publishTcpBreakdown (stream, tm);
 
     snd->state = TCP_FIN_SENT;
     stream->state = STREAM_CLOSING;
     addTcpStreamToClosingTimeoutList (stream, tm);
-}
-
-/*
- * @brief Close tcp stream
- * 
- * @param stream Stream to close
- * @param tm Timestamp to close
- */
-static void tcpStreamClose (tcpStreamPtr stream, timeValPtr tm) {
-    stream->closeTime = timeVal2MilliSecond (tm);
-    
-    /* Publish tcp close breakdown */
-    publishTcpBreakdown (stream, tm);
-    delTcpStreamFromHash (stream);
-}
-
-/*
- * @brief Check tcp stream timeout list and remove timeout
- *        tcp stream.
- *
- * @param tm timestamp for current packet
- */
-static void
-tcpCheckTimeout (timeValPtr tm) {
-    tcpTimeoutPtr pos, tmp;
-
-    listForEachEntrySafe (pos, tmp, &tcpStreamTimoutList, node) {
-        if (pos->timeout > tm->tv_sec)
-            return;
-        else {
-            pos->stream->state = STREAM_TIME_OUT;
-            tcpStreamClose (pos->stream, tm);
-        }
-    }
 }
 
 /*
@@ -1045,14 +1035,12 @@ tcpProcess (u_char *data, int skbLen, timeValPtr tm) {
     halfStreamPtr snd, rcv;
     struct ip *iph;
     struct tcphdr *tcph;
-    int withData;
 
     iph = (struct ip *) data;
     tcph = (struct tcphdr *) (data + iph->ip_hl * 4);
     ipLen = ntohs (iph->ip_len);
     tcpLen = ipLen - iph->ip_hl * 4;
     tcpDataLen = ipLen - (iph->ip_hl * 4) - (tcph->doff * 4);
-    withData = tcpDataLen ? 1 : 0;
 
     tm->tv_sec = ntoh64 (tm->tv_sec);
     tm->tv_usec = ntoh64 (tm->tv_usec);
@@ -1138,7 +1126,6 @@ tcpProcess (u_char *data, int skbLen, timeValPtr tm) {
             stream->server.seq = ntohl (tcph->seq) + 1;
             stream->server.firstDataSeq = stream->server.seq;
             stream->server.ackSeq = ntohl (tcph->ack_seq);
-            stream->server.window = ntohs (tcph->window);
 
             if (stream->client.tsOn) {
                 stream->server.tsOn = getTimeStampOption (tcph, &stream->server.currTs);

@@ -22,11 +22,9 @@ initProto (void) {
 
     for (i = 0; i < TABLE_SIZE (protoInfoTable); i++) {
         parser = protoInfoTable [i].parser;
-        if (parser->initProto) {
-            ret = (*parser->initProto) ();
-            if (ret < 0)
-                return -1;
-        }
+        ret = (*parser->initProto) ();
+        if (ret < 0)
+            return -1;
     }
 
     return 0;

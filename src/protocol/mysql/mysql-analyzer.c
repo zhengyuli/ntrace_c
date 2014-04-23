@@ -899,6 +899,11 @@ initMysqlProto (void) {
     return 0;
 }
 
+static void
+destroyMysqlProto (void) {
+    return;
+}
+
 static int
 initMysqlParser (mysqlParserStatePtr parser) {
     parser->protoVer = 0;
@@ -1130,6 +1135,16 @@ mysqlSessionBreakdown2Json (struct json_object *root, void *sd, void *sbd) {
     }
 }
 
+static void
+mysqlSessionProcessEstb (void *sd, timeValPtr tm) {
+    return;
+}
+
+static void
+mysqlSessionProcessUrgeData (int fromClient, char urgData, void *sd, timeValPtr tm) {
+    return;
+}
+
 static int
 mysqlSessionProcessData (int fromClient, const u_char *data, int dataLen, void *sd, timeValPtr tm, int *sessionDone) {
     int parseCount;
@@ -1143,18 +1158,28 @@ mysqlSessionProcessData (int fromClient, const u_char *data, int dataLen, void *
     return parseCount;
 }
 
+static void
+mysqlSessionProcessReset (int fromClient, void *sd, timeValPtr tm) {
+    return;
+}
+
+static void
+mysqlSessionProcessFin (int fromClient, void *sd, timeValPtr tm, int *sessionDone) {
+    return;
+}
+
 protoParser mysqlParser = {
     .initProto = initMysqlProto,
-    .destroyProto = NULL,
+    .destroyProto = destroyMysqlProto,
     .newSessionDetail = newMysqlSessionDetail,
     .freeSessionDetail = freeMysqlSessionDetail,
     .newSessionBreakdown = newMysqlSessionBreakdown,
     .freeSessionBreakdown = freeMysqlSessionBreakdown,
     .generateSessionBreakdown = generateMysqlSessionBreakdown,
     .sessionBreakdown2Json = mysqlSessionBreakdown2Json,
-    .sessionProcessEstb = NULL,
-    .sessionProcessUrgData = NULL,
+    .sessionProcessEstb = mysqlSessionProcessEstb,
+    .sessionProcessUrgData = mysqlSessionProcessUrgData,
     .sessionProcessData = mysqlSessionProcessData,
-    .sessionProcessReset = NULL,
-    .sessionProcessFin = NULL
+    .sessionProcessReset = mysqlSessionProcessReset,
+    .sessionProcessFin = mysqlSessionProcessFin
 };

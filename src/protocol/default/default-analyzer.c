@@ -7,6 +7,16 @@
 #include "byte-order.h"
 #include "default-analyzer.h"
 
+static int
+initDefaultProto (void) {
+    return 0;
+}
+
+static void
+destroyDefaultProto (void) {
+    return;
+}
+
 static void *
 newDefaultSessionDetail (void) {
     defaultSessionDetailPtr dsd;
@@ -79,6 +89,11 @@ defaultSessionProcessEstb (void *sd, timeValPtr tm) {
     dsd->serverTimeBegin = timeVal2MilliSecond (tm);
 }
 
+static void
+defaultSessionProcessUrgData (int fromClient, char urgData, void *sd, timeValPtr tm) {
+    return;
+}
+
 static int
 defaultSessionProcessData (int fromClient, const u_char *data, int dataLen, void *sd, timeValPtr tm, int *sessionDone) {
     defaultSessionDetailPtr dsd = (defaultSessionDetailPtr) sd;
@@ -107,8 +122,8 @@ defaultSessionProcessFin (int fromClient, void *sd, timeValPtr tm, int *sessionD
 }
 
 protoParser defaultParser = {
-    .initProto = NULL,
-    .destroyProto = NULL,
+    .initProto = initDefaultProto,
+    .destroyProto = destroyDefaultProto,
     .newSessionDetail = newDefaultSessionDetail,
     .freeSessionDetail = freeDefaultSessionDetail,
     .newSessionBreakdown = newDefaultSessionBreakdown,
@@ -116,7 +131,7 @@ protoParser defaultParser = {
     .generateSessionBreakdown = generateDefaultSessionBreakdown,
     .sessionBreakdown2Json = defaultSessionBreakdown2Json,
     .sessionProcessEstb = defaultSessionProcessEstb,
-    .sessionProcessUrgData = NULL,
+    .sessionProcessUrgData = defaultSessionProcessUrgData,
     .sessionProcessData = defaultSessionProcessData,
     .sessionProcessReset = defaultSessionProcessReset,
     .sessionProcessFin = defaultSessionProcessFin

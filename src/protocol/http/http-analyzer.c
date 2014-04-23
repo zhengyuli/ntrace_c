@@ -152,7 +152,6 @@ onReqHeaderValue (http_parser *parser, const char* from, size_t length) {
         default:
             break;
     }
-
     currHeaderType = HTTP_HEADER_IGNORE;
 
     return 0;
@@ -166,8 +165,8 @@ onReqHeadersComplete (http_parser *parser) {
     if (currNode == NULL)
         return 0;
 
-    snprintf(currNode->reqVer, HTTP_VERSION_LENGTH - 1, "HTTP/%d.%d",
-             parser->http_major, parser->http_minor);
+    snprintf (currNode->reqVer, HTTP_VERSION_LENGTH - 1, "HTTP/%d.%d",
+              parser->http_major, parser->http_minor);
     currNode->reqHeaderSize = parser->nread;
 
     return 0;
@@ -188,6 +187,14 @@ onReqBody (http_parser *parser, const char* from, size_t length) {
 
 static int
 onReqMessageComplete (http_parser *parser) {
+    httpSessionDetailNodePtr currNode;
+
+    listTailEntry (currNode, &currSessionDetail->head, node);
+    if (currNode == NULL)
+        return 0;
+
+    currNode->reqComplete = 1;
+
     return 0;
 }
 
@@ -243,7 +250,7 @@ onRespHeaderValue (http_parser *parser, const char* from, size_t length) {
 
         case HTTP_HEADER_CONNECTION:
             currNode->respConnection = strndup (from, length);
-            if (currNode->reqConnection == NULL)
+            if (currNode->respConnection == NULL)
                 LOGE ("Get Connection field error.\n");
             break;
 
@@ -299,18 +306,38 @@ onRespMessageComplete (http_parser *parser) {
 }
 /* Http_parser callback end */
 
+static int
+initHttpProto (void) {
+    return 0;
+}
+
+static void
+destroyHttpProto (void) {
+    return;
+}
+
 static httpSessionDetailNodePtr
 newHttpSessionDetailNode (void) {
     httpSessionDetailNodePtr hsdn;
 
     hsdn = (httpSessionDetailNodePtr) malloc (sizeof (httpSessionDetailNode));
     if (hsdn) {
+        memset (hsdn->reqVer, 0, HTTP_VERSION_LENGTH);
         hsdn->method = NULL;
-        hsdn->reqUrl = NULL;
+        hsdn->url = NULL;
         hsdn->host = NULL;
         hsdn->userAgent = NULL;
         hsdn->referUrl = NULL;
+        hsdn->accept = NULL;
+        hsdn->acceptLanguage = NULL;
+        hsdn->acceptEncoding = NULL;
+        hsdn->xForwardedFor = NULL;
+        hsdn->reqConnection = NULL;
+        hsdn->reqComplete = 0;
+        memset (hsdn->respVer, 0, HTTP_VERSION_LENGTH);
         hsdn->contentType = NULL;
+        hsdn->respConnection = NULL;
+        hsdn->state = 0;
         hsdn->statusCode = 0;
         hsdn->requestTime = 0;
         hsdn->requestAckTime = 0;
@@ -653,6 +680,16 @@ httpSessionBreakdown2Json (struct json_object *root, void *sd, void *sbd) {
     json_object_object_add (root, HTTP_SBKD_DOWNLOAD_SIZE, json_object_new_string (buf));
 }
 
+static void
+httpSessionProcessEstb (void *sd, timeValPtr tm) {
+    return;
+}
+
+static void
+httpSessionProcessUrgData (int fromClient, char urgData, void *sd, timeValPtr tm) {
+    return;
+}
+
 static int
 httpSessionProcessData (int fromClient, const u_char *data, int dataLen, void *sd, timeValPtr tm, int *sessionDone) {
     int parseCount;
@@ -705,16 +742,16 @@ httpSessionProcessFin (int fromClient, void *sd, timeValPtr tm, int *sessionDone
 }
 
 protoParser httpParser = {
-    .initProto = NULL,
-    .destroyProto = NULL,
+    .initProto = initHttpProto,
+    .destroyProto = destroyHttpProto,
     .newSessionDetail = newHttpSessionDetail,
     .freeSessionDetail = freeHttpSessionDetail,
     .newSessionBreakdown = newHttpSessionBreakdown,
     .freeSessionBreakdown = freeHttpSessionBreakdown,
     .generateSessionBreakdown = generateHttpSessionBreakdown,
     .sessionBreakdown2Json = httpSessionBreakdown2Json,
-    .sessionProcessEstb = NULL,
-    .sessionProcessUrgData = NULL,
+    .sessionProcessEstb = httpSessionProcessEstb,
+    .sessionProcessUrgData = httpSessionProcessUrgData,
     .sessionProcessData = httpSessionProcessData,
     .sessionProcessReset = httpSessionProcessReset,
     .sessionProcessFin = httpSessionProcessFin

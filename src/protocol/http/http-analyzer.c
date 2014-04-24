@@ -272,8 +272,9 @@ onRespHeadersComplete (http_parser *parser) {
 
     snprintf(currNode->respVer, HTTP_VERSION_LENGTH - 1, "HTTP/%d.%d",
              parser->http_major, parser->http_minor);
+    currNode->statusCode = parser->status_code;
     currNode->respHeaderSize = parser->nread;
-
+    
     return 0;
 }
 
@@ -299,7 +300,6 @@ onRespMessageComplete (http_parser *parser) {
     if (currNode == NULL)
         return 0;
 
-    currNode->statusCode = parser->status_code;
     currSessionDone = 1;
 
     return 0;
@@ -333,17 +333,19 @@ newHttpSessionDetailNode (void) {
         hsdn->acceptEncoding = NULL;
         hsdn->xForwardedFor = NULL;
         hsdn->reqConnection = NULL;
-        hsdn->reqComplete = 0;
         memset (hsdn->respVer, 0, HTTP_VERSION_LENGTH);
         hsdn->contentType = NULL;
         hsdn->respConnection = NULL;
-        hsdn->state = 0;
+        hsdn->state = HTTP_INIT;
         hsdn->statusCode = 0;
         hsdn->requestTime = 0;
-        hsdn->requestAckTime = 0;
-        hsdn->downloadTimeBegin = 0;
-        hsdn->downloadTimeEnd = 0;
-        hsdn->downloadSize = 0;
+        hsdn->reqHeaderSize = 0;
+        hsdn->reqBodySize = 0;
+        hsdn->reqComplete = 0;
+        hsdn->respTimeBegin = 0;
+        hsdn->respHeaderSize = 0;
+        hsdn->respBodySize = 0;
+        hsdn->respTimeEnd = 0;
         initListHead (&hsdn->node);
         return hsdn;
     } else
@@ -360,9 +362,9 @@ freeHttpSessionDetailNode (httpSessionDetailNodePtr hsdn) {
         hsdn->method = NULL;
     }
 
-    if (hsdn->reqUrl) {
-        free (hsdn->reqUrl);
-        hsdn->reqUrl = NULL;
+    if (hsdn->url) {
+        free (hsdn->url);
+        hsdn->url = NULL;
     }
 
     if (hsdn->host) {
@@ -380,9 +382,39 @@ freeHttpSessionDetailNode (httpSessionDetailNodePtr hsdn) {
         hsdn->referUrl = NULL;
     }
 
+    if (hsdn->accept) {
+        free (hsdn->accept);
+        hsdn->accept = NULL;
+    }
+
+    if (hsdn->acceptLanguage) {
+        free (hsdn->acceptLanguage);
+        hsdn->acceptLanguage = NULL;
+    }
+
+    if (hsdn->acceptEncoding) {
+        free (hsdn->acceptEncoding);
+        hsdn->acceptEncoding = NULL;
+    }
+
+    if (hsdn->xForwardedFor) {
+        free (hsdn->xForwardedFor);
+        hsdn->xForwardedFor = NULL;
+    }
+
+    if (hsdn->reqConnection) {
+        free (hsdn->reqConnection);
+        hsdn->reqConnection = NULL;
+    }
+
     if (hsdn->contentType) {
         free (hsdn->contentType);
         hsdn->contentType = NULL;
+    }
+
+    if (hsdn->respConnection) {
+        free (hsdn->respConnection);
+        hsdn->respConnection = NULL;
     }
 
     free (hsdn);
@@ -399,8 +431,6 @@ newHttpSessionDetail (void) {
     hsd = (httpSessionDetailPtr) malloc (sizeof (httpSessionDetail));
     if (hsd) {
         /* Init http session detail */
-        memset (&hsd->misc, 0, sizeof (tcpMisc));
-
         reqParser = &hsd->reqParser;
         reqParserSettings = &hsd->reqParserSettings;
         memset (reqParserSettings, 0, sizeof (*reqParserSettings));
@@ -453,17 +483,28 @@ newHttpSessionBreakdown (void) {
 
     hsbd = (httpSessionBreakdownPtr) malloc (sizeof (httpSessionBreakdown));
     if (hsbd) {
-        hsbd->method = NULL;
-        hsbd->reqUrl = NULL;
-        hsbd->host = NULL;
-        hsbd->userAgent = NULL;
-        hsbd->referUrl = NULL;
-        hsbd->contentType = NULL;
-        hsbd->statusCode = 0;
-        hsbd->networkTime = 0;
-        hsbd->serverTime = 0;
-        hsbd->downloadTime = 0;
-        hsbd->downloadSize = 0;
+        hsdn->reqVer = NULL;
+        hsdn->method = NULL;
+        hsdn->url = NULL;
+        hsdn->host = NULL;
+        hsdn->userAgent = NULL;
+        hsdn->referUrl = NULL;
+        hsdn->accept = NULL;
+        hsdn->acceptLanguage = NULL;
+        hsdn->acceptEncoding = NULL;
+        hsdn->xForwardedFor = NULL;
+        hsdn->reqConnection = NULL;
+        hsdn->respVer = NULL;
+        hsdn->contentType = NULL;
+        hsdn->respConnection = NULL;
+        hsdn->state = HTTP_ERROR;
+        hsdn->statusCode = 0;
+        hsdn->reqHeaderSize = 0;
+        hsdn->reqBodySize = 0;
+        hsdn->respHeaderSize = 0;
+        hsdn->respBodySize = 0;
+        hsdn->serverLatency = 0;
+        hsdn->responseLatency = 0;
         return hsbd;
     } else
         return NULL;
@@ -476,14 +517,19 @@ freeHttpSessionBreakdown (void *sbd) {
     if (hsbd == NULL)
         return;
 
+    if (hsbd->reqVer) {
+        free (hsbd->reqVer);
+        hsbd->reqVer = NULL;
+    }
+
     if (hsbd->method) {
         free (hsbd->method);
         hsbd->method = NULL;
     }
 
-    if (hsbd->reqUrl) {
-        free (hsbd->reqUrl);
-        hsbd->reqUrl = NULL;
+    if (hsbd->url) {
+        free (hsbd->url);
+        hsbd->url = NULL;
     }
 
     if (hsbd->host) {
@@ -501,9 +547,44 @@ freeHttpSessionBreakdown (void *sbd) {
         hsbd->referUrl = NULL;
     }
 
+    if (hsbd->accept) {
+        free (hsbd->accept);
+        hsbd->accept = NULL;
+    }
+
+    if (hsbd->acceptLanguage) {
+        free (hsbd->acceptLanguage);
+        hsbd->acceptLanguage = NULL;
+    }
+
+    if (hsbd->acceptEncoding) {
+        free (hsbd->acceptEncoding);
+        hsbd->acceptEncoding = NULL;
+    }
+
+    if (hsbd->xForwardedFor) {
+        free (hsbd->xForwardedFor);
+        hsbd->xForwardedFor = NULL;
+    }
+
+    if (hsbd->reqConnection) {
+        free (hsbd->reqConnection);
+        hsbd->reqConnection = NULL;
+    }
+
+    if (hsbd->respVer) {
+        free (hsbd->respVer);
+        hsbd->respVer = NULL;
+    }
+
     if (hsbd->contentType) {
         free (hsbd->contentType);
         hsbd->contentType = NULL;
+    }
+
+    if (hsbd->respConnection) {
+        free (hsbd->respConnection);
+        hsbd->respConnection = NULL;
     }
 
     free (sbd);
@@ -518,9 +599,17 @@ generateHttpSessionBreakdown (void *sd, void *sbd) {
     listFirstEntry (hsdn, &hsd->head, node);
     if (hsdn == NULL)
         return -1;
-
     /* Remove from httpSessionDetailNode list */
     listDel (&hsdn->node);
+
+    if (hsdn->reqVer) {
+        hsbd->reqVer = strdup (hsdn->reqVer);
+        if (hsbd->reqVer == NULL) {
+            LOGE ("Strdup httpSessionBreakdown reqVer error: %s.\n", strerror (errno));
+            freeHttpSessionDetailNode (hsdn);
+            return -1;
+        }
+    }
 
     if (hsdn->method) {
         hsbd->method = strdup (hsdn->method);
@@ -529,23 +618,15 @@ generateHttpSessionBreakdown (void *sd, void *sbd) {
             freeHttpSessionDetailNode (hsdn);
             return -1;
         }
-    } else {
-        LOGE ("Http method is NULL.\n");
-        freeHttpSessionDetailNode (hsdn);
-        return -1;
     }
 
-    if (hsdn->reqUrl) {
-        hsbd->reqUrl = strdup (hsdn->reqUrl);
-        if (hsbd->reqUrl == NULL) {
+    if (hsdn->url) {
+        hsbd->url = strdup (hsdn->url);
+        if (hsbd->url == NULL) {
             LOGE ("Strdup httpSessionBreakdown request url error: %s.\n", strerror (errno));
             freeHttpSessionDetailNode (hsdn);
             return -1;
         }
-    } else {
-        LOGE ("Http request url is NULL.\n");
-        freeHttpSessionDetailNode (hsdn);
-        return -1;
     }
 
     if (hsdn->host) {
@@ -575,10 +656,73 @@ generateHttpSessionBreakdown (void *sd, void *sbd) {
         }
     }
 
+    if (hsdn->accept) {
+        hsbd->accept = strdup (hsdn->accept);
+        if (hsbd->accept == NULL) {
+            LOGE ("Strdup httpSessionBreakdown accept error: %s.\n", strerror (errno));
+            freeHttpSessionDetailNode (hsdn);
+            return -1;
+        }
+    }
+
+    if (hsdn->acceptLanguage) {
+        hsbd->acceptLanguage = strdup (hsdn->acceptLanguage);
+        if (hsbd->acceptLanguage == NULL) {
+            LOGE ("Strdup httpSessionBreakdown acceptLanguage error: %s.\n", strerror (errno));
+            freeHttpSessionDetailNode (hsdn);
+            return -1;
+        }
+    }
+
+    if (hsdn->acceptEncoding) {
+        hsbd->acceptEncoding = strdup (hsdn->acceptEncoding);
+        if (hsbd->acceptEncoding == NULL) {
+            LOGE ("Strdup httpSessionBreakdown acceptEncoding error: %s.\n", strerror (errno));
+            freeHttpSessionDetailNode (hsdn);
+            return -1;
+        }
+    }
+
+    if (hsdn->xForwardedFor) {
+        hsbd->xForwardedFor = strdup (hsdn->xForwardedFor);
+        if (hsbd->xForwardedFor == NULL) {
+            LOGE ("Strdup httpSessionBreakdown xForwardedFor error: %s.\n", strerror (errno));
+            freeHttpSessionDetailNode (hsdn);
+            return -1;
+        }
+    }
+
+    if (hsdn->reqConnection) {
+        hsbd->reqConnection = strdup (hsdn->reqConnection);
+        if (hsbd->reqConnection == NULL) {
+            LOGE ("Strdup httpSessionBreakdown reqConnection error: %s.\n", strerror (errno));
+            freeHttpSessionDetailNode (hsdn);
+            return -1;
+        }
+    }
+
+    if (hsdn->respVer) {
+        hsbd->respVer = strdup (hsdn->respVer);
+        if (hsbd->respVer == NULL) {
+            LOGE ("Strdup httpSessionBreakdown respVer error: %s.\n", strerror (errno));
+            freeHttpSessionDetailNode (hsdn);
+            return -1;
+        }
+    }
+
     if (hsdn->contentType) {
         hsbd->contentType = strdup (hsdn->contentType);
         if (hsbd->contentType == NULL) {
             LOGE ("Strdup httpSessionBreakdown Content-Type error: %s.\n", strerror (errno));
+            freeHttpSessionDetailNode (hsdn);
+            return -1;
+        }
+    }
+
+    if (hsdn->respConnection) {
+        hsbd->respConnection = strdup (hsdn->respConnection);
+        if (hsbd->respConnection == NULL) {
+            LOGE ("Strdup httpSessionBreakdown respConnection error: %s.\n", strerror (errno));
             freeHttpSessionDetailNode (hsdn);
             return -1;
         }
@@ -719,7 +863,12 @@ httpSessionProcessReset (int fromClient, void *sd, timeValPtr tm) {
     if (currNode == NULL)
         return;
 
-    currNode->statusCode = HTTP_RESET_CLOSE;
+    if (!currNode->reqComplete)
+        currNode->state = HTTP_RESET_TYPE1;
+    else if (currNode->reqComplete && !currNode->respTimeBegin)
+        currNode->state = HTTP_RESET_TYPE2;
+    else
+        currNode->state = HTTP_RESET_TYPE3;
     *sessionDone = 1;
 }
 

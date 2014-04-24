@@ -10,12 +10,15 @@
 #define HTTP_VERSION_LENGTH 16
 
 typedef enum {
-    HTTP_OK = 0,                        /**< Http request ok */
-    HTTP_ERROR,                         /**< Http request error */
+    HTTP_INIT = 0,                      /**< Http session init */
+    HTTP_REQUEST,                       /**< Http request */
+    HTTP_REQUEST_COMPLETE,              /**< Http request complete */
+    HTTP_RESPONSE,                      /**< Http response */
+    HTTP_RESPONSE_COMPLETE,             /**< Http response complete */
     HTTP_RESET_TYPE1,                   /**< reset during request */
     HTTP_RESET_TYPE2,                   /**< reset after request and before response */
     HTTP_RESET_TYPE3                    /**< reset during response */
-} httpBreakdownState;
+} httpState;
 
 typedef struct _httpSessionDetailNode httpSessionDetailNode;
 typedef httpSessionDetailNode *httpSessionDetailNodePtr;
@@ -32,19 +35,19 @@ struct _httpSessionDetailNode {
     char *acceptEncoding;               /**< Http request accept encoding */
     char *xForwardedFor;                /**< Http request x forwarded for */
     char *reqConnection;                /**< Http request connection */
-    int reqComplete;                    /**< Http request complete flag */
     char respVer [HTTP_VERSION_LENGTH]; /**< Http protocol response version */
     char *contentType;                  /**< Http content type */
     char *respConnection;               /**< Http response connection */
-    uint8_t state;                      /**< Http state */
+    httpState state;                    /**< Http state */
     uint16_t statusCode;                /**< Http status code */
+    uint64_t requestTime;               /**< Http request time */
     uint64_t reqHeaderSize;             /**< Http request header size */
     uint64_t reqBodySize;               /**< Http request body size */
+    uint8_t reqComplete;                /**< Http request complete flag */
+    uint64_t respTimeBegin;             /**< Http response time begin */
     uint64_t respHeaderSize;            /**< Http response header size */
-    uint64_t pageSize;                  /**< Http page size */
-    uint64_t requestTime;               /**< Http request time */
-    uint64_t downloadTimeBegin;         /**< Http download begin time */
-    uint64_t downloadTimeEnd;           /**< Http download end time */
+    uint64_t respBodySize;              /**< Http response body size */
+    uint64_t respTimeEnd;               /**< Http response time end */
     listHead node;                      /**< Http session detail node */
 };
 
@@ -59,6 +62,14 @@ struct _httpSessionDetail {
     http_parser_settings resParserSettings;  /**< Http response parser settings */
     listHead head;                           /**< HttpSessionDetailNode list */
 };
+
+typedef enum {
+    HTTP_OK = 0,                        /**< Http request ok */
+    HTTP_ERROR,                         /**< Http request error */
+    HTTP_RESET_TYPE1,                   /**< reset during request */
+    HTTP_RESET_TYPE2,                   /**< reset after request and before response */
+    HTTP_RESET_TYPE3                    /**< reset during response */
+} httpBreakdownState;
 
 typedef struct _httpSessionBreakdown httpSessionBreakdown;
 typedef httpSessionBreakdown *httpSessionBreakdownPtr;
@@ -81,12 +92,12 @@ struct _httpSessionBreakdown {
     char *respConnection;               /**< Http response connection */
     httpBreakdownState state;           /**< Http state */
     uint16_t statusCode;                /**< Http status code */
-    uint64_t reqHeaderSize;             /**< Http request size */
-    uint64_t reqBodySize;               /**< Http request size */
-    uint64_t respHeaderSize;            /**< Http response size */
-    uint64_t pageSize;                  /**< Http page size */
-    uint64_t serverLatency;             /**< Http Server latency to first buffer */
-    uint64_t downloadLatency;           /**<  Http download latency */
+    uint64_t reqHeaderSize;             /**< Http request heaer size */
+    uint64_t reqBodySize;               /**< Http request body size */
+    uint64_t respHeaderSize;            /**< Http response header size */
+    uint64_t respBodySize;              /**< Http response body size */
+    uint64_t serverLatency;             /**< Http Server latency */
+    uint64_t responseLatency;           /**< Http response latency */
 };
 
 /* Http session breakdown json key definitions */

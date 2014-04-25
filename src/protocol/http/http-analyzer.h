@@ -10,14 +10,40 @@
 #define HTTP_VERSION_LENGTH 16
 
 typedef enum {
-    HTTP_INIT = 0,                      /**< Http session init */
-    HTTP_REQUEST,                       /**< Http request */
-    HTTP_REQUEST_COMPLETE,              /**< Http request complete */
-    HTTP_RESPONSE,                      /**< Http response */
-    HTTP_RESPONSE_COMPLETE,             /**< Http response complete */
-    HTTP_RESET_TYPE1,                   /**< reset during request */
-    HTTP_RESET_TYPE2,                   /**< reset after request and before response */
-    HTTP_RESET_TYPE3                    /**< reset during response */
+    HTTP_HEADER_HOST = 1,
+    HTTP_HEADER_USER_AGENT,
+    HTTP_HEADER_REFERER,
+    HTTP_HEADER_ACCEPT,
+    HTTP_HEADER_ACCEPT_LANGUAGE,
+    HTTP_HEADER_ACCEPT_ENCODING,
+    HTTP_HEADER_X_FORWARDED_FOR,
+    HTTP_HEADER_CONTENT_TYPE,
+    HTTP_HEADER_CONNECTION,
+    HTTP_HEADER_IGNORE
+} httpHeaderType;
+
+#define HTTP_HEADER_HOST_STRING "Host"
+#define HTTP_HEADER_USER_AGENT_STRING "User-Agent"
+#define HTTP_HEADER_REFERER_STRING "Referer"
+#define HTTP_HEADER_ACCEPT_STRING "Accept"
+#define HTTP_HEADER_ACCEPT_LANGUAGE_STRING "Accept-Language"
+#define HTTP_HEADER_ACCEPT_ENCODING_STRING "Accept-Encoding"
+#define HTTP_HEADER_X_FORWARDED_FOR_STRING "X-Forwarded-For"
+#define HTTP_HEADER_CONTENT_TYPE_STRING "Content-Type"
+#define HTTP_HEADER_CONNECTION_STRING "Connection"
+
+typedef enum {
+    HTTP_REQUEST_HEADER = 0,            /**< Http request header begin*/
+    HTTP_REQUEST_HEADER_COMPLETE,       /**< Http request header complete */
+    HTTP_REQUEST_BODY,                  /**< Http request body begin */
+    HTTP_REQUEST_BODY_COMPLETE,         /**< Http request complete */
+    HTTP_RESPONSE_HEADER,               /**< Http response header begin */
+    HTTP_RESPONSE_HEADER_COMPLETE,      /**< Http response header complete */
+    HTTP_RESPONSE_BODY,                 /**< Http response body beigin */
+    HTTP_RESPONSE_BODY_COMPLETE,        /**< Http response complete */
+    HTTP_RESET_TYPE1,                   /**< Http reset during request */
+    HTTP_RESET_TYPE2,                   /**< Http reset after request and before response */
+    HTTP_RESET_TYPE3                    /**< Http reset during response */
 } httpState;
 
 typedef struct _httpSessionDetailNode httpSessionDetailNode;
@@ -29,7 +55,7 @@ struct _httpSessionDetailNode {
     char *url;                          /**< Http request url */
     char *host;                         /**< Http server host */
     char *userAgent;                    /**< Http request user agent */
-    char *referUrl;                     /**< Http request refer url */
+    char *referer;                      /**< Http request referer url */
     char *accept;                       /**< Http request accept sources */
     char *acceptLanguage;               /**< Http request accept language */
     char *acceptEncoding;               /**< Http request accept encoding */
@@ -40,10 +66,9 @@ struct _httpSessionDetailNode {
     char *respConnection;               /**< Http response connection */
     httpState state;                    /**< Http state */
     uint16_t statusCode;                /**< Http status code */
-    uint64_t requestTime;               /**< Http request time */
+    uint64_t reqTime;                   /**< Http request time */
     uint64_t reqHeaderSize;             /**< Http request header size */
     uint64_t reqBodySize;               /**< Http request body size */
-    uint8_t reqComplete;                /**< Http request complete flag */
     uint64_t respTimeBegin;             /**< Http response time begin */
     uint64_t respHeaderSize;            /**< Http response header size */
     uint64_t respBodySize;              /**< Http response body size */
@@ -64,11 +89,11 @@ struct _httpSessionDetail {
 };
 
 typedef enum {
-    HTTP_OK = 0,                        /**< Http request ok */
-    HTTP_ERROR,                         /**< Http request error */
-    HTTP_RESET_TYPE1,                   /**< reset during request */
-    HTTP_RESET_TYPE2,                   /**< reset after request and before response */
-    HTTP_RESET_TYPE3                    /**< reset during response */
+    HTTP_BREAKDOWN_OK,                  /**< Http breakdown state request ok */
+    HTTP_BREAKDOWN_ERROR,               /**< Http breakdown state request error */
+    HTTP_BREAKDOWN_RESET_TYPE1,         /**< Http breakdown state reset during request */
+    HTTP_BREAKDOWN_RESET_TYPE2,         /**< Http breakdown state reset after request and before response */
+    HTTP_BREAKDOWN_RESET_TYPE3          /**< Http breakdown state reset during response */
 } httpBreakdownState;
 
 typedef struct _httpSessionBreakdown httpSessionBreakdown;
@@ -81,7 +106,7 @@ struct _httpSessionBreakdown {
     char *url;                          /**< Http request url */
     char *host;                         /**< Http server host */
     char *userAgent;                    /**< Http request user agent */
-    char *referUrl;                     /**< Http request refer url */
+    char *referer;                      /**< Http request referer url */
     char *accept;                       /**< Http request accept sources */
     char *acceptLanguage;               /**< Http request accept language */
     char *acceptEncoding;               /**< Http request accept encoding */
@@ -101,18 +126,18 @@ struct _httpSessionBreakdown {
 };
 
 /* Http session breakdown json key definitions */
-#define HTTP_REQUEST_VERSION           "http_request_version"
+#define HTTP_SBKD_REQUEST_VERSION      "http_request_version"
 #define HTTP_SBKD_METHOD               "http_method"
 #define HTTP_SBKD_URL                  "http_url"
 #define HTTP_SBKD_HOST                 "http_host"
 #define HTTP_SBKD_USER_AGENT           "http_user_agent"
-#define HTTP_SBKD_REFER_URL            "http_refer_url"
+#define HTTP_SBKD_REFERER              "http_referer"
 #define HTTP_SBKD_ACCEPT               "http_accept"
 #define HTTP_SBKD_ACCEPT_LANGUAGE      "http_accept_language"
 #define HTTP_SBKD_ACCEPT_ENCODING      "http_accept_encoding"
 #define HTTP_SBKD_X_FORWARDED_FOR      "http_x_forwarded_for"
 #define HTTP_SBKD_REQUEST_CONNECTION   "http_request_connection"
-#define HTTP_RESPONSE_VERSION          "http_response_version"
+#define HTTP_SBKD_RESPONSE_VERSION     "http_response_version"
 #define HTTP_SBKD_CONTENT_TYPE         "http_content_type"
 #define HTTP_SBKD_RESPONSE_CONNECTION  "http_response_connection"
 #define HTTP_SBKD_STATE                "http_state"
@@ -120,12 +145,16 @@ struct _httpSessionBreakdown {
 #define HTTP_SBKD_REQUEST_HEADER_SIZE  "http_request_header_size"
 #define HTTP_SBKD_REQUEST_BODY_SIZE    "http_request_body_size"
 #define HTTP_SBKD_RESPONSE_HEADER_SIZE "http_response_header_size"
-#define HTTP_SBKD_PAGE_SIZE            "http_page_size"
+#define HTTP_SBKD_RESPONSE_BODY_SIZE   "http_response_body_size"
 #define HTTP_SBKD_SERVER_LATENCY       "http_server_latency"
-#define HTTP_SBKD_DOWNLOAD_LATENCY     "http_download_latency"
+#define HTTP_SBKD_RESPONSE_LATENCY     "http_response_latency"
 
 /*========================Interfaces definition============================*/
 extern protoParser httpParser;
 /*=======================Interfaces definition end=========================*/
 
 #endif /* __WDM_AGENT_HTTP_ANALYZER_H__ */
+
+
+
+

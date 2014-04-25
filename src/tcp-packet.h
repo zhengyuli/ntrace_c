@@ -121,13 +121,13 @@ struct _tcpTimeout {
 
 /* Tcp state for tcp breakdown */
 typedef enum {
-    TCP_CONNECTED = 0,                  /**< Tcp connection connected */
-    TCP_DATA_EXCHANGING,                /**< Tcp connection data exchanging */
-    TCP_CLOSED,                         /**< Tcp connection closed */
-    TCP_RESET_TYPE1,                    /**< Tcp connection reset type1 (from client and before connected) */
-    TCP_RESET_TYPE2,                    /**< Tcp connection reset type2 (from server and before connected) */
-    TCP_RESET_TYPE3,                    /**< Tcp connection reset type3 (from client and after connected) */
-    TCP_RESET_TYPE4                     /**< Tcp connection reset type4 (from server and after connected) */
+    TCP_BREAKDOWN_CONNECTED = 0,        /**< Tcp connection connected */
+    TCP_BREAKDOWN_DATA_EXCHANGING,      /**< Tcp connection data exchanging */
+    TCP_BREAKDOWN_CLOSED,               /**< Tcp connection closed */
+    TCP_BREAKDOWN_RESET_TYPE1,          /**< Tcp connection reset type1 (from client and before connected) */
+    TCP_BREAKDOWN_RESET_TYPE2,          /**< Tcp connection reset type2 (from server and before connected) */
+    TCP_BREAKDOWN_RESET_TYPE3,          /**< Tcp connection reset type3 (from client and after connected) */
+    TCP_BREAKDOWN_RESET_TYPE4           /**< Tcp connection reset type4 (from server and after connected) */
 } tcpBreakdownState;
 
 typedef struct _tcpBreakdown tcpBreakdown;

@@ -243,11 +243,11 @@ struct _mysqlStateEvents {
 };
 
 typedef enum {
-    MYSQL_OK = 0,
-    MYSQL_ERROR,
-    MYSQL_RESET_TYPE1,          /**< reset during request */
-    MYSQL_RESET_TYPE2,          /**< reset before response */
-    MYSQL_RESET_TYPE3           /**< reset during response */
+    MYSQL_BREAKDOWN_OK = 0,
+    MYSQL_BREAKDOWN_ERROR,
+    MYSQL_BREAKDOWN_RESET_TYPE1,        /**< reset during request */
+    MYSQL_BREAKDOWN_RESET_TYPE2,        /**< reset before response */
+    MYSQL_BREAKDOWN_RESET_TYPE3         /**< reset during response */
 } mysqlBreakdownState;
 
 typedef struct _mysqlSessionDetail mysqlSessionDetail;

@@ -15,12 +15,12 @@
 | struct in_addr    | svcIp             | char *         | service_ip                | Service ip                                                  |
 | uint16_t          | svcPort           | uint16_t       | service_port              | Service port                                                |
 | uint64_t          | connId            | uint64_t       | tcp_connection_id         | Global tcp connection id                                    |
+| tcpBreakdownState | state             | uint32_t       | tcp_state                 | Tcp state                                                   |
 | uint64_t          | retries           | uint64_t       | tcp_retries               | Tcp retries                                                 |
 | uint64_t          | retriesLatency    | uint64_t       | tcp_retries_latency       | Tcp retries latency in milliseconds                         |
 | uint64_t          | dupSynAcks        | uint64_t       | tcp_duplicate_synacks     | Tcp duplicate syn/ack packages                              |
 | uint64_t          | rtt               | uint64_t       | tcp_rtt                   | Tcp round trip latency                                      |
 | uint64_t          | mss               | uint64_t       | tcp_mss                   | Tcp mss (maxium segment size)                               |
-| tcpBreakdownState | state             | uint32_t       | tcp_state                 | Tcp state                                                   |
 | uint64_t          | connLatency       | uint64_t       | tcp_connection_latency    | Tcp connection latency in milliseconds                      |
 | uint64_t          | totalPkts         | uint64_t       | tcp_total_packets         | Tcp total packages                                          |
 | uint64_t          | tinyPkts          | uint64_t       | tcp_tiny_packets          | Tcp tiny packets                                            |
@@ -34,13 +34,13 @@
 Notes: Tcp state for tcp breakdown
 #+BEGIN_SRC c
   typedef enum {
-      TCP_CONNECTED = 0,                  /**< Tcp connection connected */
-      TCP_DATA_EXCHANGING,                /**< Tcp connection data exchanging */
-      TCP_CLOSED,                         /**< Tcp connection closed */
-      TCP_RESET_TYPE1,                    /**< Tcp connection reset type1 (from client and before connected) */
-      TCP_RESET_TYPE2,                    /**< Tcp connection reset type2 (from server and before connected) */
-      TCP_RESET_TYPE3,                    /**< Tcp connection reset type3 (from client and after connected) */
-      TCP_RESET_TYPE4                     /**< Tcp connection reset type4 (from server and after connected) */
+      TCP_BREAKDOWN_CONNECTED = 0,        /**< Tcp connection connected */
+      TCP_BREAKDOWN_DATA_EXCHANGING,      /**< Tcp connection data exchanging */
+      TCP_BREAKDOWN_CLOSED,               /**< Tcp connection closed */
+      TCP_BREAKDOWN_RESET_TYPE1,          /**< Tcp connection reset type1 (from client and before connected) */
+      TCP_BREAKDOWN_RESET_TYPE2,          /**< Tcp connection reset type2 (from server and before connected) */
+      TCP_BREAKDOWN_RESET_TYPE3,          /**< Tcp connection reset type3 (from client and after connected) */
+      TCP_BREAKDOWN_RESET_TYPE4           /**< Tcp connection reset type4 (from server and after connected) */
   } tcpBreakdownState;
 #+END_SRC
 
@@ -63,7 +63,7 @@ Notes: Tcp state for tcp breakdown
 | char *             | url             | char *         | http_url                  | Http request url                    |
 | char *             | host            | char *         | http_host                 | Http server host                    |
 | char *             | userAgent       | char *         | http_user_agent           | Http request user agent             |
-| char *             | referUrl        | char *         | http_refer_url            | Http request refer url              |
+| char *             | referer         | char *         | http_referer              | Http request referer                |
 | char *             | accept          | char *         | http_accept               | Http request accept sourses         |
 | char *             | acceptLanguage  | char *         | http_accept_language      | Http request accept language        |
 | char *             | acceptEncoding  | char *         | http_accept_encoding      | Http request accept encoding        |
@@ -77,9 +77,9 @@ Notes: Tcp state for tcp breakdown
 | uint64_t           | reqHeaderSize   | uint64_t       | http_request_header_size  | Http request header size            |
 | uint64_t           | reqBodySize     | uint64_t       | http_request_body_size    | Http request body size              |
 | uint64_t           | respHeaderSize  | uint64_t       | http_response_header_size | Http response header size           |
-| uint64_t           | pageSize        | uint64_t       | http_page_size            | Http page size                      |
+| uint64_t           | respBodySize    | uint64_t       | http_response_body_size   | Http response body size             |
 | uint64_t           | serverLatency   | uint64_t       | http_server_latency       | Http Server latency to first buffer |
-| uint64_t           | downloadLatency | uint64_t       | http_download_latency     | Http download latency               |
+| uint64_t           | responseLatency | uint64_t       | http_response_latency     | Http response latency               |
 |--------------------+-----------------+----------------+---------------------------+-------------------------------------|
 
 Notes: Http state for http breakdown
@@ -114,10 +114,10 @@ Notes: Http state for http breakdown
 Notes: Mysql state for mysql breakdown
 #+BEGIN_SRC c
   typedef enum {
-      MYSQL_OK = 0,
-      MYSQL_ERROR,               
-      MYSQL_RESET_TYPE1,          /**< reset during request */  
-      MYSQL_RESET_TYPE2,          /**< reset before response */ 
-      MYSQL_RESET_TYPE3           /**< reset during response */ 
-  } mysqlBreakdownState
+      MYSQL_BREAKDOWN_OK = 0,
+      MYSQL_BREAKDOWN_ERROR,
+      MYSQL_BREAKDOWN_RESET_TYPE1,        /**< reset during request */
+      MYSQL_BREAKDOWN_RESET_TYPE2,        /**< reset before response */
+      MYSQL_BREAKDOWN_RESET_TYPE3         /**< reset during response */
+  } mysqlBreakdownState;
 #+END_SRC

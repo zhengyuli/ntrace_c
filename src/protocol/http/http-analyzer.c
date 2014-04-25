@@ -9,19 +9,6 @@
 #include "byte-order.h"
 #include "http-analyzer.h"
 
-typedef enum {
-    HTTP_HEADER_HOST = 1,
-    HTTP_HEADER_USER_AGENT,
-    HTTP_HEADER_REFER_URL,
-    HTTP_HEADER_ACCEPT,
-    HTTP_HEADER_ACCEPT_LANGUAGE,
-    HTTP_HEADER_ACCEPT_ENCODING,
-    HTTP_HEADER_X_FORWARDED_FOR,
-    HTTP_HEADER_CONTENT_TYPE,
-    HTTP_HEADER_CONNECTION,
-    HTTP_HEADER_IGNORE
-} httpHeaderType;
-
 /* Current timestamp */
 static __thread timeValPtr currTime;
 /* Current session done indicator */
@@ -47,7 +34,8 @@ onReqMessageBegin (http_parser *parser) {
     if (hsdn == NULL)
         LOGE ("NewHttpSessionDetailNode error.\n");
     else {
-        hsdn->requestTime = timeVal2MilliSecond (currTime);
+        hsdn->state = HTTP_REQUEST_HEADER;
+        hsdn->reqTime = timeVal2MilliSecond (currTime);
         listAddTail (&hsdn->node, &currSessionDetail->head);
     }
 
@@ -78,21 +66,21 @@ onReqHeaderField (http_parser *parser, const char* from, size_t length) {
     if (currNode == NULL)
         return 0;
 
-    if (strncmp ("Host", from, length) == 0)
+    if (strncmp (HTTP_HEADER_HOST_STRING, from, length) == 0)
         currHeaderType = HTTP_HEADER_HOST;
-    else if (strncmp ("User-Agent", from, length) == 0)
+    else if (strncmp (HTTP_HEADER_USER_AGENT_STRING, from, length) == 0)
         currHeaderType = HTTP_HEADER_USER_AGENT;
-    else if (strncmp ("Referer", from, length) == 0)
-        currHeaderType = HTTP_HEADER_REFER;
-    else if (strncmp ("Accept", from, length) == 0)
+    else if (strncmp (HTTP_HEADER_REFERER_STRING, from, length) == 0)
+        currHeaderType = HTTP_HEADER_REFERER;
+    else if (strncmp (HTTP_HEADER_ACCEPT_STRING, from, length) == 0)
         currHeaderType = HTTP_HEADER_ACCEPT;
-    else if (strncmp ("Accept-Language", from, length) == 0)
+    else if (strncmp (HTTP_HEADER_ACCEPT_LANGUAGE_STRING, from, length) == 0)
         currHeaderType = HTTP_HEADER_ACCEPT_LANGUAGE;
-    else if (strncmp ("Accept-Encoding", from, length) == 0)
+    else if (strncmp (HTTP_HEADER_ACCEPT_ENCODING_STRING, from, length) == 0)
         currHeaderType = HTTP_HEADER_ACCEPT_ENCODING;
-    else if (strncmp ("X-Forwarded-For", from, length) == 0)
+    else if (strncmp (HTTP_HEADER_X_FORWARDED_FOR_STRING, from, length) == 0)
         currHeaderType = HTTP_HEADER_X_FORWARDED_FOR;
-    else if (strncmp ("Connection", from, length) == 0)
+    else if (strncmp (HTTP_HEADER_CONNECTION_STRING, from, length) == 0)
         currHeaderType = HTTP_HEADER_CONNECTION;
 
     return 0;
@@ -119,10 +107,10 @@ onReqHeaderValue (http_parser *parser, const char* from, size_t length) {
                 LOGE ("Get User-Agent field error.\n");
             break;
 
-        case HTTP_HEADER_REFER:
-            currNode->referUrl = strndup (from, length);
-            if (currNode->referUrl == NULL)
-                LOGE ("Get Refer field error.\n");
+        case HTTP_HEADER_REFERER:
+            currNode->referer = strndup (from, length);
+            if (currNode->referer == NULL)
+                LOGE ("Get Referer field error.\n");
             break;
 
         case HTTP_HEADER_ACCEPT_LANGUAGE:
@@ -165,6 +153,7 @@ onReqHeadersComplete (http_parser *parser) {
     if (currNode == NULL)
         return 0;
 
+    currNode->state = HTTP_REQUEST_HEADER_COMPLETE;
     snprintf (currNode->reqVer, HTTP_VERSION_LENGTH - 1, "HTTP/%d.%d",
               parser->http_major, parser->http_minor);
     currNode->reqHeaderSize = parser->nread;
@@ -180,6 +169,7 @@ onReqBody (http_parser *parser, const char* from, size_t length) {
     if (currNode == NULL)
         return 0;
 
+    currNode->state = HTTP_REQUEST_BODY;
     currNode->reqBodySize += length;
 
     return 0;
@@ -193,7 +183,7 @@ onReqMessageComplete (http_parser *parser) {
     if (currNode == NULL)
         return 0;
 
-    currNode->reqComplete = 1;
+    currNode->state = HTTP_REQUEST_BODY_COMPLETE;
 
     return 0;
 }
@@ -207,7 +197,8 @@ onRespMessageBegin (http_parser *parser) {
     if (currNode == NULL)
         return 0;
 
-    currNode->downloadTimeBegin = timeVal2MilliSecond (currTime);
+    currNode->state = HTTP_RESPONSE_HEADER;
+    currNode->respTimeBegin = timeVal2MilliSecond (currTime);
 
     return 0;
 }
@@ -225,9 +216,9 @@ onRespHeaderField (http_parser *parser, const char* from, size_t length) {
     if (currNode == NULL)
         return 0;
 
-    if (strncmp ("Content-Type", from, length) == 0)
+    if (strncmp (HTTP_HEADER_CONTENT_TYPE_STRING, from, length) == 0)
         currHeaderType = HTTP_HEADER_CONTENT_TYPE;
-    else if (strncmp ("Connection", from, length) == 0)
+    else if (strncmp (HTTP_HEADER_CONNECTION_STRING, from, length) == 0)
         currHeaderType = HTTP_HEADER_CONNECTION;
 
     return 0;
@@ -272,9 +263,10 @@ onRespHeadersComplete (http_parser *parser) {
 
     snprintf(currNode->respVer, HTTP_VERSION_LENGTH - 1, "HTTP/%d.%d",
              parser->http_major, parser->http_minor);
+    currNode->state = HTTP_RESPONSE_HEADER_COMPLETE;
     currNode->statusCode = parser->status_code;
     currNode->respHeaderSize = parser->nread;
-    
+
     return 0;
 }
 
@@ -286,8 +278,9 @@ onRespBody (http_parser *parser, const char* from, size_t length) {
     if (currNode == NULL)
         return 0;
 
-    currNode->pageSize += length;
-    currNode->downloadTimeEnd = timeVal2MilliSecond (currTime);
+    currNode->state = HTTP_RESPONSE_BODY;
+    currNode->respBodySize += length;
+    currNode->respTimeEnd = timeVal2MilliSecond (currTime);
 
     return 0;
 }
@@ -300,6 +293,7 @@ onRespMessageComplete (http_parser *parser) {
     if (currNode == NULL)
         return 0;
 
+    currNode->state = HTTP_RESPONSE_BODY_COMPLETE;
     currSessionDone = 1;
 
     return 0;
@@ -327,7 +321,7 @@ newHttpSessionDetailNode (void) {
         hsdn->url = NULL;
         hsdn->host = NULL;
         hsdn->userAgent = NULL;
-        hsdn->referUrl = NULL;
+        hsdn->referer = NULL;
         hsdn->accept = NULL;
         hsdn->acceptLanguage = NULL;
         hsdn->acceptEncoding = NULL;
@@ -336,12 +330,11 @@ newHttpSessionDetailNode (void) {
         memset (hsdn->respVer, 0, HTTP_VERSION_LENGTH);
         hsdn->contentType = NULL;
         hsdn->respConnection = NULL;
-        hsdn->state = HTTP_INIT;
+        hsdn->state = HTTP_REQUEST_HEADER;
         hsdn->statusCode = 0;
-        hsdn->requestTime = 0;
+        hsdn->reqTime = 0;
         hsdn->reqHeaderSize = 0;
         hsdn->reqBodySize = 0;
-        hsdn->reqComplete = 0;
         hsdn->respTimeBegin = 0;
         hsdn->respHeaderSize = 0;
         hsdn->respBodySize = 0;
@@ -377,9 +370,9 @@ freeHttpSessionDetailNode (httpSessionDetailNodePtr hsdn) {
         hsdn->userAgent = NULL;
     }
 
-    if (hsdn->referUrl) {
-        free (hsdn->referUrl);
-        hsdn->referUrl = NULL;
+    if (hsdn->referer) {
+        free (hsdn->referer);
+        hsdn->referer = NULL;
     }
 
     if (hsdn->accept) {
@@ -483,28 +476,28 @@ newHttpSessionBreakdown (void) {
 
     hsbd = (httpSessionBreakdownPtr) malloc (sizeof (httpSessionBreakdown));
     if (hsbd) {
-        hsdn->reqVer = NULL;
-        hsdn->method = NULL;
-        hsdn->url = NULL;
-        hsdn->host = NULL;
-        hsdn->userAgent = NULL;
-        hsdn->referUrl = NULL;
-        hsdn->accept = NULL;
-        hsdn->acceptLanguage = NULL;
-        hsdn->acceptEncoding = NULL;
-        hsdn->xForwardedFor = NULL;
-        hsdn->reqConnection = NULL;
-        hsdn->respVer = NULL;
-        hsdn->contentType = NULL;
-        hsdn->respConnection = NULL;
-        hsdn->state = HTTP_ERROR;
-        hsdn->statusCode = 0;
-        hsdn->reqHeaderSize = 0;
-        hsdn->reqBodySize = 0;
-        hsdn->respHeaderSize = 0;
-        hsdn->respBodySize = 0;
-        hsdn->serverLatency = 0;
-        hsdn->responseLatency = 0;
+        hsbd->reqVer = NULL;
+        hsbd->method = NULL;
+        hsbd->url = NULL;
+        hsbd->host = NULL;
+        hsbd->userAgent = NULL;
+        hsbd->referer = NULL;
+        hsbd->accept = NULL;
+        hsbd->acceptLanguage = NULL;
+        hsbd->acceptEncoding = NULL;
+        hsbd->xForwardedFor = NULL;
+        hsbd->reqConnection = NULL;
+        hsbd->respVer = NULL;
+        hsbd->contentType = NULL;
+        hsbd->respConnection = NULL;
+        hsbd->state = HTTP_BREAKDOWN_ERROR;
+        hsbd->statusCode = 0;
+        hsbd->reqHeaderSize = 0;
+        hsbd->reqBodySize = 0;
+        hsbd->respHeaderSize = 0;
+        hsbd->respBodySize = 0;
+        hsbd->serverLatency = 0;
+        hsbd->responseLatency = 0;
         return hsbd;
     } else
         return NULL;
@@ -542,9 +535,9 @@ freeHttpSessionBreakdown (void *sbd) {
         hsbd->userAgent = NULL;
     }
 
-    if (hsbd->referUrl) {
-        free (hsbd->referUrl);
-        hsbd->referUrl = NULL;
+    if (hsbd->referer) {
+        free (hsbd->referer);
+        hsbd->referer = NULL;
     }
 
     if (hsbd->accept) {
@@ -588,6 +581,15 @@ freeHttpSessionBreakdown (void *sbd) {
     }
 
     free (sbd);
+}
+
+static inline int
+genHttpBreakdownState (uint16_t statusCode) {
+    int st = statusCode / 100;
+    if (st == 1 || st == 2 || st == 3)
+        return HTTP_BREAKDOWN_OK;
+    else
+        return HTTP_BREAKDOWN_ERROR;
 }
 
 static int
@@ -647,10 +649,10 @@ generateHttpSessionBreakdown (void *sd, void *sbd) {
         }
     }
 
-    if (hsdn->referUrl) {
-        hsbd->referUrl = strdup (hsdn->referUrl);
-        if (hsbd->referUrl == NULL) {
-            LOGE ("Strdup httpSessionBreakdown refer url error: %s.\n", strerror (errno));
+    if (hsdn->referer) {
+        hsbd->referer = strdup (hsdn->referer);
+        if (hsbd->referer == NULL) {
+            LOGE ("Strdup httpSessionBreakdown referer url error: %s.\n", strerror (errno));
             freeHttpSessionDetailNode (hsdn);
             return -1;
         }
@@ -728,51 +730,49 @@ generateHttpSessionBreakdown (void *sd, void *sbd) {
         }
     }
 
-    switch (hsdn->statusCode) {
-        case HTTP_ACTIVE_CLOSE:
-            hsbd->statusCode = HTTP_ACTIVE_CLOSE;
-            hsbd->networkTime = 0;
-            hsbd->serverTime = 0;
-            hsbd->downloadTime = 0;
-            hsbd->downloadSize = 0;
+    switch (hsdn->state) {
+        /* Reset before http request */
+        case HTTP_RESPONSE_BODY_COMPLETE:
+            hsbd->state = genHttpBreakdownState (hsdn->statusCode);
+            hsbd->statusCode = hsdn->statusCode;
+            hsbd->reqHeaderSize = hsdn->reqHeaderSize;
+            hsbd->reqBodySize = hsdn->reqBodySize;
+            hsbd->respHeaderSize = hsdn->respHeaderSize;
+            hsbd->respBodySize = hsdn->respBodySize;
+            hsbd->serverLatency = hsdn->respTimeBegin - hsdn->reqTime;
+            hsbd->responseLatency = hsdn->respTimeEnd - hsdn->respTimeBegin;
             break;
 
-        case HTTP_RESET_CLOSE:
-            hsbd->statusCode = HTTP_RESET_CLOSE;
-            hsbd->networkTime = 0;
-            hsbd->serverTime = 0;
-            hsbd->downloadTime = 0;
-            hsbd->downloadSize = 0;
-            break;
+        case HTTP_RESET_TYPE1:
+        case HTTP_RESET_TYPE2:
+            if (hsdn->state == HTTP_RESET_TYPE1)
+                hsbd->state = HTTP_BREAKDOWN_RESET_TYPE1;
+            else
+                hsbd->state = HTTP_BREAKDOWN_RESET_TYPE2;
+            hsbd->statusCode = hsdn->statusCode;
+            hsbd->reqHeaderSize = hsdn->reqHeaderSize;
+            hsbd->reqBodySize = hsdn->reqBodySize;
+            hsbd->respHeaderSize = 0;
+            hsbd->respBodySize = 0;
+            hsbd->serverLatency = 0;
+            hsbd->responseLatency = 0;
+
+        case HTTP_RESET_TYPE3:
+            hsbd->state = HTTP_BREAKDOWN_RESET_TYPE3;
+            hsbd->statusCode = hsdn->statusCode;
+            hsbd->reqHeaderSize = hsdn->reqHeaderSize;
+            hsbd->reqBodySize = hsdn->reqBodySize;
+            hsbd->respHeaderSize = hsdn->respHeaderSize;
+            hsbd->respBodySize = hsdn->respBodySize;
+            hsbd->serverLatency = hsdn->respTimeBegin - hsdn->reqTime;
+            hsbd->responseLatency = 0;
 
         default:
-            if (!hsdn->requestTime || !hsdn->requestAckTime || !hsdn->downloadTimeBegin) {
-                hsbd->statusCode = HTTP_ACTIVE_CLOSE;
-                hsbd->networkTime = 0;
-                hsbd->serverTime = 0;
-                hsbd->downloadTime = 0;
-                hsbd->downloadSize = 0;
-                break;
-            }
-
-            hsbd->statusCode = hsdn->statusCode;
-
-            if (hsdn->requestAckTime >= hsdn->downloadTimeBegin) {
-                hsbd->networkTime = 0;
-                hsbd->serverTime = hsdn->downloadTimeBegin - hsdn->requestTime;
-            } else {
-                hsbd->networkTime = hsdn->requestAckTime - hsdn->requestTime;
-                hsbd->serverTime = hsdn->downloadTimeBegin - hsdn->requestAckTime;
-            }
-
-            if (hsdn->downloadTimeEnd == 0) {
-                hsbd->downloadTime = 0;
-                hsbd->downloadSize = 0;
-            } else {
-                hsbd->downloadTime = hsdn->downloadTimeEnd -hsdn->downloadTimeBegin;
-                hsbd->downloadSize = hsdn->downloadSize;
-            }
+            LOGE ("Wrong http state for breakdown.\n");
+            freeHttpSessionDetailNode (hsdn);
+            return -1;
     }
+
     /* Free session detail node */
     freeHttpSessionDetailNode (hsdn);
 
@@ -785,43 +785,99 @@ httpSessionBreakdown2Json (struct json_object *root, void *sd, void *sbd) {
     char buf [64];
     httpSessionBreakdownPtr hsbd = (httpSessionBreakdownPtr) sbd;
 
-    json_object_object_add (root, HTTP_SBKD_REQUEST_METHOD, json_object_new_string (hsbd->method));
-    json_object_object_add (root, HTTP_SBKD_REQUEST_URL, json_object_new_string (hsbd->reqUrl));
+    if (hsbd->reqVer)
+        json_object_object_add (root, HTTP_SBKD_REQUEST_VERSION, json_object_new_string (hsbd->reqVer));
+    else
+        json_object_object_add (root, HTTP_SBKD_REQUEST_VERSION, NULL);
+
+    if (hsbd->method)
+        json_object_object_add (root, HTTP_SBKD_METHOD, json_object_new_string (hsbd->method));
+    else
+        json_object_object_add (root, HTTP_SBKD_METHOD, NULL);
+
+    if (hsbd->url)
+        json_object_object_add (root, HTTP_SBKD_URL, json_object_new_string (hsbd->url));
+    else
+        json_object_object_add (root, HTTP_SBKD_URL, NULL);
 
     if (hsbd->host)
         json_object_object_add (root, HTTP_SBKD_HOST, json_object_new_string (hsbd->host));
+    else
+        json_object_object_add (root, HTTP_SBKD_HOST, NULL);
 
     if (hsbd->userAgent)
         json_object_object_add (root, HTTP_SBKD_USER_AGENT, json_object_new_string (hsbd->userAgent));
+    else
+        json_object_object_add (root, HTTP_SBKD_USER_AGENT, NULL);
 
-    if (hsbd->referUrl)
-        json_object_object_add (root, HTTP_SBKD_REFER_URL, json_object_new_string (hsbd->referUrl));
+    if (hsbd->referer)
+        json_object_object_add (root, HTTP_SBKD_REFERER, json_object_new_string (hsbd->referer));
+    else
+        json_object_object_add (root, HTTP_SBKD_REFERER, NULL);
+
+    if (hsbd->accept)
+        json_object_object_add (root, HTTP_SBKD_ACCEPT, json_object_new_string (hsbd->accept));
+    else
+        json_object_object_add (root, HTTP_SBKD_ACCEPT, NULL);
+
+    if (hsbd->acceptLanguage)
+        json_object_object_add (root, HTTP_SBKD_ACCEPT_LANGUAGE, json_object_new_string (hsbd->acceptLanguage));
+    else
+        json_object_object_add (root, HTTP_SBKD_ACCEPT_LANGUAGE, NULL);
+
+    if (hsbd->acceptEncoding)
+        json_object_object_add (root, HTTP_SBKD_ACCEPT_ENCODING, json_object_new_string (hsbd->acceptEncoding));
+    else
+        json_object_object_add (root, HTTP_SBKD_ACCEPT_ENCODING, NULL);
+
+    if (hsbd->xForwardedFor)
+        json_object_object_add (root, HTTP_SBKD_X_FORWARDED_FOR, json_object_new_string (hsbd->xForwardedFor));
+    else
+        json_object_object_add (root, HTTP_SBKD_X_FORWARDED_FOR, NULL);
+
+    if (hsbd->reqConnection)
+        json_object_object_add (root, HTTP_SBKD_REQUEST_CONNECTION, json_object_new_string (hsbd->reqConnection));
+    else
+        json_object_object_add (root, HTTP_SBKD_REQUEST_CONNECTION, NULL);
+
+    if (hsbd->respVer)
+        json_object_object_add (root, HTTP_SBKD_RESPONSE_VERSION, json_object_new_string (hsbd->respVer));
+    else
+        json_object_object_add (root, HTTP_SBKD_RESPONSE_VERSION, NULL);
 
     if (hsbd->contentType)
         json_object_object_add (root, HTTP_SBKD_CONTENT_TYPE, json_object_new_string (hsbd->contentType));
-
-    /* If http response code is 1xx, 2xx or 3xx, request success */
-    st = hsbd->statusCode / 100;
-    if (st == 1 || st == 2 || st == 3)
-        UINT32_TO_STRING (buf, 1);
     else
-        UINT32_TO_STRING (buf, 0);
-    json_object_object_add (root, HTTP_SBKD_REQUEST_SUCCESS, json_object_new_string (buf));
+        json_object_object_add (root, HTTP_SBKD_CONTENT_TYPE, NULL);
+
+    if (hsbd->respConnection)
+        json_object_object_add (root, HTTP_SBKD_RESPONSE_CONNECTION, json_object_new_string (hsbd->respConnection));
+    else
+        json_object_object_add (root, HTTP_SBKD_RESPONSE_CONNECTION, NULL);
+
+    UINT32_TO_STRING (buf, hsbd->state);
+    json_object_object_add (root, HTTP_SBKD_STATE, json_object_new_string (buf));
 
     UINT16_TO_STRING (buf, hsbd->statusCode);
     json_object_object_add (root, HTTP_SBKD_STATUS_CODE, json_object_new_string (buf));
 
-    UINT64_TO_STRING (buf, hsbd->networkTime);
-    json_object_object_add (root, HTTP_SBKD_NETWORK_TIME, json_object_new_string (buf));
+    UINT64_TO_STRING (buf, hsbd->reqHeaderSize);
+    json_object_object_add (root, HTTP_SBKD_REQUEST_HEADER_SIZE, json_object_new_string (buf));
 
-    UINT64_TO_STRING (buf, hsbd->serverTime);
-    json_object_object_add (root, HTTP_SBKD_SERVER_TIME, json_object_new_string (buf));
+    UINT64_TO_STRING (buf, hsbd->reqBodySize);
+    json_object_object_add (root, HTTP_SBKD_REQUEST_BODY_SIZE, json_object_new_string (buf));
 
-    UINT64_TO_STRING (buf, hsbd->downloadTime);
-    json_object_object_add (root, HTTP_SBKD_DOWNLOAD_TIME, json_object_new_string (buf));
+    UINT64_TO_STRING (buf, hsbd->respHeaderSize);
+    json_object_object_add (root, HTTP_SBKD_RESPONSE_HEADER_SIZE, json_object_new_string (buf));
 
-    UINT64_TO_STRING (buf, hsbd->downloadSize);
-    json_object_object_add (root, HTTP_SBKD_DOWNLOAD_SIZE, json_object_new_string (buf));
+    UINT64_TO_STRING (buf, hsbd->respBodySize);
+    json_object_object_add (root, HTTP_SBKD_RESPONSE_BODY_SIZE, json_object_new_string (buf));
+
+    UINT64_TO_STRING (buf, hsbd->serverLatency);
+    json_object_object_add (root, HTTP_SBKD_SERVER_LATENCY, json_object_new_string (buf));
+    
+    UINT64_TO_STRING (buf, hsbd->responseLatency);
+    json_object_object_add (root, HTTP_SBKD_RESPONSE_LATENCY, json_object_new_string (buf));
 }
 
 static void
@@ -863,13 +919,14 @@ httpSessionProcessReset (int fromClient, void *sd, timeValPtr tm) {
     if (currNode == NULL)
         return;
 
-    if (!currNode->reqComplete)
+    if (currNode->state == HTTP_REQUEST_HEADER ||
+        currNode->state == HTTP_REQUEST_HEADER_COMPLETE ||
+        currNode->state == HTTP_REQUEST_BODY)
         currNode->state = HTTP_RESET_TYPE1;
-    else if (currNode->reqComplete && !currNode->respTimeBegin)
+    else if (currNode->state == HTTP_REQUEST_BODY_COMPLETE)
         currNode->state = HTTP_RESET_TYPE2;
     else
         currNode->state = HTTP_RESET_TYPE3;
-    *sessionDone = 1;
 }
 
 static void
@@ -882,11 +939,10 @@ httpSessionProcessFin (int fromClient, void *sd, timeValPtr tm, int *sessionDone
         if (currNode == NULL)
             return;
 
-        if (hsd->resParser.status_code == 0)
-            currNode->statusCode = HTTP_ACTIVE_CLOSE;
-        else
-            currNode->statusCode = hsd->resParser.status_code;
-        *sessionDone = 1;
+        if (currNode->state == HTTP_RESPONSE_BODY) {
+            currNode->state = HTTP_RESPONSE_BODY_COMPLETE;
+            *sessionDone = 1;
+        }
     }
 }
 

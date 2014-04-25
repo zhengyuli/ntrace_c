@@ -258,7 +258,7 @@ newTcpStream (protoType proto) {
     stream->connId = ATOMIC_FETCH_AND_ADD (&tcpConnectionId, 1);
     stream->state = STREAM_INIT;
     /* Init client halfStream */
-    stream->client.state = TCP_CLOSED;
+    stream->client.state = TCP_CLOSE;
     stream->client.rcvBuf = NULL;
     stream->client.bufSize = 0;
     stream->client.offset = 0;
@@ -282,7 +282,7 @@ newTcpStream (protoType proto) {
     stream->client.rmemAlloc = 0;
     /* Init client halfStream end */
     /* Init server halfStream */
-    stream->server.state = TCP_CLOSED;
+    stream->server.state = TCP_CLOSE;
     stream->server.rcvBuf = NULL;
     stream->server.bufSize = 0;
     stream->server.offset = 0;
@@ -554,9 +554,9 @@ tcpBreakdown2Json (tcpStreamPtr stream, tcpBreakdownPtr tbd) {
     json_object_object_add (root, COMMON_SKBD_TCP_DUPLICATE_ACKS,
                             json_object_new_string (buf));
 
-    if ((tbd->state == TCP_DATA_EXCHANGING) ||
-        (tbd->state == TCP_RESET_TYPE3) ||
-        (tbd->state == TCP_RESET_TYPE4))
+    if ((tbd->state == TCP_BREAKDOWN_DATA_EXCHANGING) ||
+        (tbd->state == TCP_BREAKDOWN_RESET_TYPE3) ||
+        (tbd->state == TCP_BREAKDOWN_RESET_TYPE4))
         (*stream->parser->sessionBreakdown2Json) (root, stream->sessionDetail, tbd->sessionBreakdown);
 
     out = strdup (json_object_to_json_string (root));
@@ -587,33 +587,33 @@ static void publishTcpBreakdown (tcpStreamPtr stream, timeValPtr tm) {
 
     switch (stream->state) {
         case STREAM_CONNECTED:
-            tbd.state = TCP_CONNECTED;
+            tbd.state = TCP_BREAKDOWN_CONNECTED;
             break;
 
         case STREAM_DATA_EXCHANGING:
         case STREAM_CLOSING:
-            tbd.state = TCP_DATA_EXCHANGING;
+            tbd.state = TCP_BREAKDOWN_DATA_EXCHANGING;
             break;
 
         case STREAM_TIME_OUT:
         case STREAM_CLOSED:
-            tbd.state = TCP_CLOSED;
+            tbd.state = TCP_BREAKDOWN_CLOSED;
             break;
 
         case STREAM_RESET_TYPE1:
-            tbd.state = TCP_RESET_TYPE1;
+            tbd.state = TCP_BREAKDOWN_RESET_TYPE1;
             break;
 
         case STREAM_RESET_TYPE2:
-            tbd.state = TCP_RESET_TYPE2;
+            tbd.state = TCP_BREAKDOWN_RESET_TYPE2;
             break;
 
         case STREAM_RESET_TYPE3:
-            tbd.state = TCP_RESET_TYPE3;
+            tbd.state = TCP_BREAKDOWN_RESET_TYPE3;
             break;
 
         case STREAM_RESET_TYPE4:
-            tbd.state = TCP_RESET_TYPE4;
+            tbd.state = TCP_BREAKDOWN_RESET_TYPE4;
             break;
 
         default:
@@ -623,7 +623,7 @@ static void publishTcpBreakdown (tcpStreamPtr stream, timeValPtr tm) {
     }
 
     switch (tbd.state) {
-        case TCP_CONNECTED:
+        case TCP_BREAKDOWN_CONNECTED:
             tbd.retries = stream->retries;
             tbd.retriesLatency = stream->retriesTime - stream->synTime;
             tbd.dupSynAcks = stream->dupSynAcks;
@@ -650,11 +650,11 @@ static void publishTcpBreakdown (tcpStreamPtr stream, timeValPtr tm) {
     tbd.zeroWindows = stream->zeroWindows;
     tbd.dupAcks = stream->dupAcks;
 
-    /* For TCP_DATA_EXCHANGING, TCP_RESET_TYPE3 and TCP_RESET_TYPE4 breakdown,
+    /* For TCP_BREAKDOWN_DATA_EXCHANGING, TCP_BREAKDOWN_RESET_TYPE3 and TCP_BREAKDOWN_RESET_TYPE4 breakdown,
      * there is application layer breakdown */
-    if ((tbd.state == TCP_DATA_EXCHANGING) ||
-        (tbd.state == TCP_RESET_TYPE3) ||
-        (tbd.state == TCP_RESET_TYPE4)) {
+    if ((tbd.state == TCP_BREAKDOWN_DATA_EXCHANGING) ||
+        (tbd.state == TCP_BREAKDOWN_RESET_TYPE3) ||
+        (tbd.state == TCP_BREAKDOWN_RESET_TYPE4)) {
         ret = (*stream->parser->generateSessionBreakdown) (stream->sessionDetail, tbd.sessionBreakdown);
         if (ret < 0) {
             LOGE ("GenerateSessionBreakdown error.\n");
@@ -1101,7 +1101,7 @@ tcpProcess (u_char *data, int skbLen, timeValPtr tm) {
 
     if (tcph->syn) {
         if (fromClient || (stream->client.state != TCP_SYN_SENT) ||
-            (stream->server.state != TCP_CLOSED) || !tcph->ack) {
+            (stream->server.state != TCP_CLOSE) || !tcph->ack) {
             /* Tcp syn retries */
             if (fromClient && (stream->client.state == TCP_SYN_SENT)) {
                 stream->retries++;

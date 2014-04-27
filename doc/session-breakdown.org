@@ -1,6 +1,6 @@
 #+TITLE: Session breakdown interface
 #+AUTHOR: zhengyu li
-#+OPTIONS: ^:nil
+#+OPTIONS: ^:nil \n:t
 
 * Tcp common breakdown interface
 |-------------------+-------------------+----------------+---------------------------+-------------------------------------------------------------|
@@ -49,75 +49,80 @@ Notes: Tcp state for tcp breakdown
 | variable type | variable name | breakdown type | breakdown name         | description                 |
 |---------------+---------------+----------------+------------------------+-----------------------------|
 | /             | <             | <              | <                      | <                           |
-| uint64_t      | serverLatency | uint64_t       | default_server_latency | Default server latency      |
 | uint64_t      | exchangeSize  | uint64_t       | default_exchange_size  | Default data size exchanged |
+| uint64_t      | serverLatency | uint64_t       | default_server_latency | Default server latency      |
 |---------------+---------------+----------------+------------------------+-----------------------------|
 
 * Http breakdown interface
-|--------------------+-----------------+----------------+---------------------------+-------------------------------------|
-| variable type      | variable name   | breakdown type | breakdown name            | description                         |
-|--------------------+-----------------+----------------+---------------------------+-------------------------------------|
-| /                  | <               | <              | <                         | <                                   |
-| char *             | reqVer          | char *         | http_request_version      | Http protocol request version       |
-| char *             | method          | char *         | http_method               | Http request method                 |
-| char *             | url             | char *         | http_url                  | Http request url                    |
-| char *             | host            | char *         | http_host                 | Http server host                    |
-| char *             | userAgent       | char *         | http_user_agent           | Http request user agent             |
-| char *             | referer         | char *         | http_referer              | Http request referer                |
-| char *             | accept          | char *         | http_accept               | Http request accept sourses         |
-| char *             | acceptLanguage  | char *         | http_accept_language      | Http request accept language        |
-| char *             | acceptEncoding  | char *         | http_accept_encoding      | Http request accept encoding        |
-| char *             | xForwardedFor   | char *         | http_x_forwarded_for      | Http request x forwarded for        |
-| char *             | reqConnection   | char *         | http_request_connection   | Http request connection             |
-| char *             | respVer         | char *         | http_response_version     | Http protocol response version      |
-| char *             | contentType     | char *         | http_content_type         | Http response content type          |
-| char *             | respConnection  | char *         | http_response_connection  | Http response connection            |
-| httpBreakdownState | state           | uint32_t       | http_state                | Http state                          |
-| uint16_t           | statusCode      | uint16_t       | http_status_code          | Http status code                    |
-| uint64_t           | reqHeaderSize   | uint64_t       | http_request_header_size  | Http request header size            |
-| uint64_t           | reqBodySize     | uint64_t       | http_request_body_size    | Http request body size              |
-| uint64_t           | respHeaderSize  | uint64_t       | http_response_header_size | Http response header size           |
-| uint64_t           | respBodySize    | uint64_t       | http_response_body_size   | Http response body size             |
-| uint64_t           | serverLatency   | uint64_t       | http_server_latency       | Http Server latency to first buffer |
-| uint64_t           | responseLatency | uint64_t       | http_response_latency     | Http response latency               |
-|--------------------+-----------------+----------------+---------------------------+-------------------------------------|
+|--------------------+--------------------+----------------+---------------------------+-----------------------------------|
+| variable type      | variable name      | breakdown type | breakdown name            | description                       |
+|--------------------+--------------------+----------------+---------------------------+-----------------------------------|
+| /                  | <                  | <              | <                         | <                                 |
+| char *             | reqVer             | char *         | http_request_version      | Http protocol request version     |
+| char *             | method             | char *         | http_method               | Http request method               |
+| char *             | url                | char *         | http_url                  | Http request url                  |
+| char *             | host               | char *         | http_host                 | Http server host                  |
+| char *             | userAgent          | char *         | http_user_agent           | Http request user agent           |
+| char *             | referer            | char *         | http_referer              | Http request referer              |
+| char *             | accept             | char *         | http_accept               | Http request accept sourses       |
+| char *             | acceptLanguage     | char *         | http_accept_language      | Http request accept language      |
+| char *             | acceptEncoding     | char *         | http_accept_encoding      | Http request accept encoding      |
+| char *             | xForwardedFor      | char *         | http_x_forwarded_for      | Http request x forwarded for      |
+| char *             | reqConnection      | char *         | http_request_connection   | Http request connection           |
+| char *             | respVer            | char *         | http_response_version     | Http protocol response version    |
+| char *             | contentType        | char *         | http_content_type         | Http response content type        |
+| char *             | contentDisposition | char *         | http_content_disposition  | Http response content disposition |
+| char *             | transferEncoding   | char *         | http_transfer_encoding    | Http response transfer encoding   |
+| char *             | respConnection     | char *         | http_response_connection  | Http response connection          |
+| httpBreakdownState | state              | uint32_t       | http_state                | Http state                        |
+| uint16_t           | statusCode         | uint16_t       | http_status_code          | Http status code                  |
+| uint64_t           | reqHeaderSize      | uint64_t       | http_request_header_size  | Http request header size          |
+| uint64_t           | reqBodySize        | uint64_t       | http_request_body_size    | Http request body size            |
+| uint64_t           | respHeaderSize     | uint64_t       | http_response_header_size | Http response header size         |
+| uint64_t           | respBodySize       | uint64_t       | http_response_body_size   | Http response body size           |
+| uint64_t           | respLatency        | uint64_t       | http_response_latency     | Http response latency             |
+| uint64_t           | downloadLatency    | uint64_t       | http_download_latency     | Http download latency             |
+|--------------------+--------------------+----------------+---------------------------+-----------------------------------|
 
 Notes: Http state for http breakdown
 #+BEGIN_SRC c
   typedef enum {
-      HTTP_OK = 0,
-      HTTP_ERROR,
-      HTTP_RESET_TYPE1,             /**< reset during request */
-      HTTP_RESET_TYPE2,             /**< reset before response */
-      HTTP_RESET_TYPE3              /**< reset during response */
+      HTTP_BREAKDOWN_OK = 0,
+      HTTP_BREAKDOWN_ERROR,
+      HTTP_BREAKDOWN_RESET_TYPE1,         /**< Http reset during request */
+      HTTP_BREAKDOWN_RESET_TYPE2,         /**< Http reset before response */
+      HTTP_BREAKDOWN_RESET_TYPE3,         /**< Http reset during response */
+      HTTP_BREAKDOWN_RESET_TYPE4          /**< Http reset without response */
   } httpBreakdownState;
 #+END_SRC
 
 * Mysql breakdown interface
-|---------------------+---------------+----------------+-------------------------+-------------------------|
-| variable type       | variable name | breakdown type | breakdown name          | description             |
-|---------------------+---------------+----------------+-------------------------+-------------------------|
-| /                   | <             | <              | <                       | <                       |
-| char *              | serverVer     | char *         | mysql_server_version    | Mysql server version    |
-| char *              | userName      | char *         | mysql_user_name         | Mysql user name         |
-| uint64_t            | conId         | uint64_t       | mysql_connection_id     | Mysql connection id     |
-| char *              | reqStmt       | char *         | mysql_request_statement | Mysql request statement |
-| mysqlBreakdownState | state         | uint32_t       | mysql_state             | Mysql state             |
-| uint16_t            | errCode       | uint16_t       | mysql_error_code        | Mysql error code        |
-| uint32_t            | sqlState      | uint32_t       | mysql_sql_state         | Mysql sql state         |
-| char *              | errMsg        | char *         | mysql_error_message     | Mysql error message     |
-| uint64_t            | reqSize       | uint64_t       | mysql_request_size      | Mysql request size      |
-| uint64_t            | respSize      | uint64_t       | mysql_response_size     | Mysql response size     |
-| uint64_t            | respLatency   | uint64_t       | mysql_response_latency  | Mysql response latency  |
-|---------------------+---------------+----------------+-------------------------+-------------------------|
+|---------------------+-----------------+----------------+-------------------------+-------------------------|
+| variable type       | variable name   | breakdown type | breakdown name          | description             |
+|---------------------+-----------------+----------------+-------------------------+-------------------------|
+| /                   | <               | <              | <                       | <                       |
+| char *              | serverVer       | char *         | mysql_server_version    | Mysql server version    |
+| char *              | userName        | char *         | mysql_user_name         | Mysql user name         |
+| uint32_t            | conId           | uint32_t       | mysql_connection_id     | Mysql connection id     |
+| char *              | reqStmt         | char *         | mysql_request_statement | Mysql request statement |
+| mysqlBreakdownState | state           | uint32_t       | mysql_state             | Mysql state             |
+| uint16_t            | errCode         | uint16_t       | mysql_error_code        | Mysql error code        |
+| uint32_t            | sqlState        | uint32_t       | mysql_sql_state         | Mysql sql state         |
+| char *              | errMsg          | char *         | mysql_error_message     | Mysql error message     |
+| uint64_t            | reqSize         | uint64_t       | mysql_request_size      | Mysql request size      |
+| uint64_t            | respSize        | uint64_t       | mysql_response_size     | Mysql response size     |
+| uint64_t            | respLatency     | uint64_t       | mysql_response_latency  | Mysql response latency  |
+| uint64_t            | downloadLatency | uint64_t       | mysql_download_latency  | Mysql download latency  |
+|---------------------+-----------------+----------------+-------------------------+-------------------------|
 
 Notes: Mysql state for mysql breakdown
 #+BEGIN_SRC c
   typedef enum {
       MYSQL_BREAKDOWN_OK = 0,
       MYSQL_BREAKDOWN_ERROR,
-      MYSQL_BREAKDOWN_RESET_TYPE1,        /**< reset during request */
-      MYSQL_BREAKDOWN_RESET_TYPE2,        /**< reset before response */
-      MYSQL_BREAKDOWN_RESET_TYPE3         /**< reset during response */
+      MYSQL_BREAKDOWN_RESET_TYPE1,        /**< Mysql reset during request */
+      MYSQL_BREAKDOWN_RESET_TYPE2,        /**< Mysql reset before response */
+      MYSQL_BREAKDOWN_RESET_TYPE3,        /**< Mysql reset during response */
+      MYSQL_BREAKDOWN_RESET_TYPE4         /**< Mysql reset without request */
   } mysqlBreakdownState;
 #+END_SRC

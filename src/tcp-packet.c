@@ -688,20 +688,6 @@ static void publishTcpBreakdown (tcpStreamPtr stream, timeValPtr tm) {
 }
 
 /*
- * @brief Close tcp stream
- * 
- * @param stream Stream to close
- * @param tm Timestamp to close
- */
-static void tcpStreamClose (tcpStreamPtr stream, timeValPtr tm) {
-    stream->closeTime = timeVal2MilliSecond (tm);
-    
-    /* Publish tcp close breakdown */
-    publishTcpBreakdown (stream, tm);
-    delTcpStreamFromHash (stream);
-}
-
-/*
  * @brief Check tcp stream timeout list and remove timeout
  *        tcp stream.
  *
@@ -716,7 +702,9 @@ tcpCheckTimeout (timeValPtr tm) {
             return;
         else {
             pos->stream->state = STREAM_TIME_OUT;
-            tcpStreamClose (pos->stream, tm);
+            pos->stream->closeTime = timeVal2MilliSecond (tm);
+            publishTcpBreakdown (pos->stream, tm);
+            delTcpStreamFromHash (pos->stream);
         }
     }
 }
@@ -792,7 +780,9 @@ handleReset (tcpStreamPtr stream, halfStreamPtr snd, timeValPtr tm) {
         (*stream->parser->sessionProcessReset) (fromClient, stream->sessionDetail, tm);
     }
 
-    tcpStreamClose (stream, tm);
+    stream->closeTime = timeVal2MilliSecond (tm);
+    publishTcpBreakdown (stream, tm);
+    delTcpStreamFromHash (stream);
 }
 
 /* Tcp fin handler callback */
@@ -1201,7 +1191,9 @@ tcpProcess (u_char *data, int skbLen, timeValPtr tm) {
             rcv->state = TCP_FIN_CONFIRMED;
         if (rcv->state == TCP_FIN_CONFIRMED && snd->state == TCP_FIN_CONFIRMED) {
             stream->state = STREAM_CLOSED;
-            tcpStreamClose (stream, tm);
+            stream->closeTime = timeVal2MilliSecond (tm);
+            publishTcpBreakdown (stream, tm);
+            delTcpStreamFromHash (stream);
             return;
         }
     }

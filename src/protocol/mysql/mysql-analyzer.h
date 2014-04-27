@@ -202,7 +202,7 @@ typedef mysqlCompHeader *mysqlCompHeaderPtr;
 
 /* Compressed mysql header */
 struct _mysqlCompHeader {
-    uint32_t compPlayloadLen:24, compPktId:8;
+    uint32_t compPayloadLen:24, compPktId:8;
     uint32_t payloadLen:24;
 };
 
@@ -243,12 +243,17 @@ struct _mysqlStateEvents {
 };
 
 typedef enum {
-    MYSQL_BREAKDOWN_OK = 0,
-    MYSQL_BREAKDOWN_ERROR,
-    MYSQL_BREAKDOWN_RESET_TYPE1,        /**< reset during request */
-    MYSQL_BREAKDOWN_RESET_TYPE2,        /**< reset before response */
-    MYSQL_BREAKDOWN_RESET_TYPE3         /**< reset during response */
-} mysqlBreakdownState;
+    MYSQL_INIT = 0,                     /**< Mysql init state */
+    MYSQL_REQUEST_BEGIN,                /**< Mysql request begin */
+    MYSQL_REQUEST_COMPLETE,             /**< Mysql request complete */
+    MYSQL_RESPONSE_BEGIN,               /**< Mysql response begin */
+    MYSQL_RESPONSE_OK,                  /**< Mysql response ok */
+    MYSQL_RESPONSE_ERROR,               /**< Mysql response error */
+    MYSQL_RESET_TYPE1,                  /**< Mysql reset during request */
+    MYSQL_RESET_TYPE2,                  /**< Mysql reset after request and before response */
+    MYSQL_RESET_TYPE3,                  /**< Mysql reset during response */
+    MYSQL_RESET_TYPE4                   /**< Mysql reset without request */
+} mysqlSessionState;
 
 typedef struct _mysqlSessionDetail mysqlSessionDetail;
 typedef mysqlSessionDetail *mysqlSessionDetailPtr;
@@ -256,15 +261,25 @@ typedef mysqlSessionDetail *mysqlSessionDetailPtr;
 struct _mysqlSessionDetail {
     mysqlParserState parser;            /**< Mysql parser */
     char *reqStmt;                      /**< Mysql request statement */
-    uint8_t state;                      /**< Mysql state */
+    mysqlSessionState state;            /**< Mysql session state */
     uint16_t errCode;                   /**< Mysql error code */
     uint32_t sqlState;                  /**< Mysql sql state */
     char *errMsg;                       /**< Mysql error message */
     uint64_t reqSize;                   /**< Mysql request size */
-    uint64_t responseSize;              /**< Mysql response size */
-    uint64_t requestTime;               /**< Mysql request time */
-    uint64_t responseTime;              /**< Mysql response time */
+    uint64_t respSize;                  /**< Mysql response size */
+    uint64_t reqTime;                   /**< Mysql request time */
+    uint64_t respTimeBegin;             /**< Mysql response time */
+    uint64_t respTimeEnd;               /**< Mysql response time end */
 };
+
+typedef enum {
+    MYSQL_BREAKDOWN_OK = 0,             /**< Mysql request ok */
+    MYSQL_BREAKDOWN_ERROR,              /**< Mysql request error */
+    MYSQL_BREAKDOWN_RESET_TYPE1,        /**< Mysql reset during request */
+    MYSQL_BREAKDOWN_RESET_TYPE2,        /**< Mysql reset before response */
+    MYSQL_BREAKDOWN_RESET_TYPE3,        /**< Mysql reset during response */
+    MYSQL_BREAKDOWN_RESET_TYPE4         /**< Mysql reset without request */
+} mysqlBreakdownState;
 
 typedef struct _mysqlSessionBreakdown mysqlSessionBreakdown;
 typedef mysqlSessionBreakdown *mysqlSessionBreakdownPtr;
@@ -272,15 +287,16 @@ typedef mysqlSessionBreakdown *mysqlSessionBreakdownPtr;
 struct _mysqlSessionBreakdown {
     char *serverVer;                    /**< Mysql server version */
     char *userName;                     /**< Mysql user name */
-    uint64_t conId;                     /**< Mysql connection id */
+    uint32_t conId;                     /**< Mysql connection id */
     char *reqStmt;                      /**< Mysql request statement */
-    uint16_t state;                     /**< Mysql state */
+    mysqlBreakdownState state;          /**< Mysql breakdown state */
     uint16_t errCode;                   /**< Mysql error code */
     uint32_t sqlState;                  /**< Mysql sql state */
     char *errMsg;                       /**< Mysql error message */
     uint64_t reqSize;                   /**< Mysql request size */
     uint64_t respSize;                  /**< Mysql response size */
     uint64_t respLatency;               /**< Mysql response latency */
+    uint64_t downloadLatency;           /**< Mysql response download latency */
 };
 
 /* Mysql session breakdown json key definitions */
@@ -295,6 +311,7 @@ struct _mysqlSessionBreakdown {
 #define MYSQL_SBKD_REQUEST_SIZE        "mysql_request_size"
 #define MYSQL_SBKD_RESPONSE_SIZE       "mysql_response_size"
 #define MYSQL_SBKD_RESPONSE_LATENCY    "mysql_response_latency"
+#define MYSQL_SBKD_DOWNLOAD_LATENCY    "mysql_download_latency"
 
 /*========================Interfaces definition============================*/
 extern protoParser mysqlParser;

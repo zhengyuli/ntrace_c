@@ -23,9 +23,9 @@ newDefaultSessionDetail (void) {
 
     dsd = (defaultSessionDetailPtr) malloc (sizeof (defaultSessionDetail));
     if (dsd) {
+        dsd->exchangeSize = 0;
         dsd->serverTimeBegin = 0;
         dsd->serverTimeEnd = 0;
-        dsd->exchangeSize = 0;
         return dsd;
     } else
         return NULL;
@@ -45,8 +45,8 @@ newDefaultSessionBreakdown (void) {
 
     dsbd = (defaultSessionBreakdownPtr) malloc (sizeof (defaultSessionBreakdown));
     if (dsbd) {
-        dsbd->serverLatency = 0;
         dsbd->exchangeSize = 0;
+        dsbd->serverLatency = 0;
         return dsbd;
     } else
         return NULL;
@@ -65,8 +65,8 @@ generateDefaultSessionBreakdown (void *sd, void *sbd) {
     defaultSessionDetailPtr dsd = (defaultSessionDetailPtr) sd;
     defaultSessionBreakdownPtr dsbd = (defaultSessionBreakdownPtr) sbd;
 
-    dsbd->serverLatency = dsd->serverTimeEnd - dsd->serverTimeBegin;
     dsbd->exchangeSize = dsd->exchangeSize;
+    dsbd->serverLatency = dsd->serverTimeEnd - dsd->serverTimeBegin;
 
     return 0;
 }
@@ -76,10 +76,10 @@ defaultSessionBreakdown2Json (struct json_object *root, void *sd, void *sbd) {
     char buf [64];
     defaultSessionBreakdownPtr dsbd = (defaultSessionBreakdownPtr) sbd;
 
-    UINT64_TO_STRING (buf, dsbd->serverLatency);
-    json_object_object_add (root, DEFAULT_SBKD_SERVER_LATENCY, json_object_new_string (buf));
     UINT64_TO_STRING (buf, dsbd->exchangeSize);
     json_object_object_add (root, DEFAULT_SBKD_EXCHANGE_SIZE, json_object_new_string (buf));
+    UINT64_TO_STRING (buf, dsbd->serverLatency);
+    json_object_object_add (root, DEFAULT_SBKD_SERVER_LATENCY, json_object_new_string (buf));
 }
 
 static void

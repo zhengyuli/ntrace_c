@@ -92,7 +92,8 @@ pktHandshakeServer (mysqlParserStatePtr parser, const u_char *payload,
     pkt += 15;
     salt2 = pkt;
 
-    LOGD ("Cli<------Server: init handshake packet, server version:%s, connection id:%d.\n", parser->serverVer, parser->conId);
+    LOGD ("Cli<------Server: init handshake packet, server version:%s, connection id:%d.\n",
+          parser->serverVer, parser->conId);
     return PKT_HANDLED;
 }
 
@@ -150,7 +151,8 @@ pktHandshakeClient (mysqlParserStatePtr parser, const u_char *payload,
     parser->doSSL = ((caps & CLIENT_SSL) ? 1 : 0);
     parser->doCompress = ((caps & CLIENT_COMPRESS) ? 1 : 0);
 
-    LOGD ("Cli------>Server: client handshake packet, user name: %s, doCompress: %s.\n", parser->userName, parser->doCompress ? "Yes" : "No");
+    LOGD ("Cli------>Server: client handshake packet, user name: %s, doCompress: %s.\n",
+          parser->userName, parser->doCompress ? "Yes" : "No");
     return PKT_HANDLED;
 }
 
@@ -181,7 +183,8 @@ pktOkOrError (mysqlParserStatePtr parser, const u_char *payload,
 
     if ((*pkt == 0x00)) {
         /* Mysql ok packet */
-        if ((!parser->cliProtoV41 && (payloadLen < 5)) || (parser->cliProtoV41 && (payloadLen < 7)))
+        if ((!parser->cliProtoV41 && (payloadLen < 5)) ||
+            (parser->cliProtoV41 && (payloadLen < 7)))
             return PKT_WRONG_TYPE;
 
         /* Affected rows */
@@ -209,10 +212,13 @@ pktOkOrError (mysqlParserStatePtr parser, const u_char *payload,
         if ((pkt - payload) < payloadLen)
             msg = pkt;
 
-        if (currSessionDetail->request) {
-            currSessionDetail->requestSuccess = MYSQL_REQUEST_OK;
-            if (!currSessionDetail->responseTime)
-                currSessionDetail->responseTime = timeVal2MilliSecond (currTime);
+        /*
+         * For mysql handshake, COM_QUIT and COM_PING, there is no request
+         * statement and session breakdown.
+         */
+        if (currSessionDetail->reqStmt) {
+            currSessionDetail->state = MYSQL_RESPONSE_OK;
+            currSessionDetail->respTimeEnd = timeVal2MilliSecond (currTime);
             currSessionDone = 1;
         } else
             LOGD ("Cli<------Server: OK packet.\n");
@@ -242,10 +248,13 @@ pktOkOrError (mysqlParserStatePtr parser, const u_char *payload,
                 memcpy (errMsg, pkt, (payloadLen - 3));
         }
 
-        if (currSessionDetail->request) {
-            currSessionDetail->requestSuccess = MYSQL_REQUEST_ERROR;
-            if (!currSessionDetail->responseTime)
-                currSessionDetail->responseTime = timeVal2MilliSecond (currTime);
+        /*
+         * For mysql handshake, COM_QUIT and COM_PING, there is no request
+         * statement and session breakdown.
+         */
+        if (currSessionDetail->reqStmt) {
+            currSessionDetail->state = MYSQL_RESPONSE_ERROR;
+            currSessionDetail->respTimeEnd = timeVal2MilliSecond (currTime);
             currSessionDetail->errCode = errCode;
             if (*sqlState)
                 currSessionDetail->sqlState = atoi (sqlState);
@@ -277,9 +286,9 @@ pktEnd (mysqlParserStatePtr parser, const u_char *payload,
         pkt += 2;
         status = G2(pkt);
 
-        if(((parser->state == STATE_TXT_ROW) || (parser->state == STATE_BIN_ROW)) &&
-           (status & SERVER_MORE_RESULTS_EXISTS) &&
-           parser->event != EVENT_END_MULTI_RESULT)
+        if (((parser->state == STATE_TXT_ROW) || (parser->state == STATE_BIN_ROW)) &&
+            (status & SERVER_MORE_RESULTS_EXISTS) &&
+            parser->event != EVENT_END_MULTI_RESULT)
             return PKT_WRONG_TYPE;
     }
 
@@ -287,9 +296,8 @@ pktEnd (mysqlParserStatePtr parser, const u_char *payload,
         (parser->state == STATE_TXT_ROW) ||
         (parser->state == STATE_BIN_ROW) ||
         (parser->state == STATE_END)) {
-        currSessionDetail->requestSuccess = MYSQL_REQUEST_OK;
-        if (!currSessionDetail->responseTime)
-            currSessionDetail->responseTime = timeVal2MilliSecond (currTime);
+        currSessionDetail->state = MYSQL_RESPONSE_OK;
+        currSessionDetail->respTimeEnd = timeVal2MilliSecond (currTime);
         currSessionDone = 1;
     }
 
@@ -340,11 +348,12 @@ pktComX (mysqlParserStatePtr parser, const u_char *payload,
     if (pktEventMatch == 0)
         return PKT_WRONG_TYPE;
 
+    /* For COM_QUIT and COM_PING, doesn't do statistics */
     if (MATCH (*pkt, COM_QUIT) || MATCH (*pkt, COM_PING))
         LOGD ("Cli------>Server: %s\n", mysqlCommandName [*pkt]);
     else {
-        currSessionDetail->request = strdup (mysqlCommandName [*pkt]);
-        currSessionDetail->requestTime = timeVal2MilliSecond (currTime);
+        currSessionDetail->reqStmt = strdup (mysqlCommandName [*pkt]);
+        currSessionDetail->state = MYSQL_REQUEST_COMPLETE;
     }
 
     return PKT_HANDLED;
@@ -398,8 +407,8 @@ pktComXString (mysqlParserStatePtr parser, const u_char *payload,
         argsLen = sizeof (com) - strlen (com) - 1;
     memcpy (com + strlen (com), (pkt + 1), argsLen);
 
-    currSessionDetail->request = strdup (com);
-    currSessionDetail->requestTime = timeVal2MilliSecond (currTime);
+    currSessionDetail->reqStmt = strdup (com);
+    currSessionDetail->state = MYSQL_REQUEST_COMPLETE;
 
     return PKT_HANDLED;
 }
@@ -433,10 +442,10 @@ pktComXInt (mysqlParserStatePtr parser, const u_char *payload,
     if (pktEventMatch == 0)
         return PKT_WRONG_TYPE;
 
-    snprintf(com, sizeof (com) - 1, "%s:%d", mysqlCommandName [*pkt], G4 (pkt + 1));
+    snprintf (com, sizeof (com) - 1, "%s:%d", mysqlCommandName [*pkt], G4 (pkt + 1));
 
-    currSessionDetail->request = strdup (com);
-    currSessionDetail->requestTime = timeVal2MilliSecond (currTime);
+    currSessionDetail->reqStmt = strdup (com);
+    currSessionDetail->state = MYSQL_REQUEST_COMPLETE;
 
     return PKT_HANDLED;
 }
@@ -454,8 +463,8 @@ pktStatistics (mysqlParserStatePtr parser, const u_char *payload,
         payloadLen = sizeof (stats) - 1;
     memcpy (stats, pkt, payloadLen);
 
-    currSessionDetail->requestSuccess = MYSQL_REQUEST_OK;
-    currSessionDetail->responseTime = timeVal2MilliSecond (currTime);
+    currSessionDetail->respTimeEnd = timeVal2MilliSecond (currTime);
+    currSessionDetail->state = MYSQL_RESPONSE_OK;
     currSessionDone = 1;
 
     return PKT_HANDLED;
@@ -471,8 +480,6 @@ pktNFields (mysqlParserStatePtr parser, const u_char *payload,
     count = lenencInt (pkt, &len);
     if ((len != payloadLen) || (count == 0))
         return PKT_WRONG_TYPE;
-
-    currSessionDetail->responseTime = timeVal2MilliSecond (currTime);
 
     return PKT_HANDLED;
 }
@@ -519,8 +526,6 @@ pktStmtMeta (mysqlParserStatePtr parser, const u_char *payload,
     if (payloadLen != 12)
         return PKT_WRONG_TYPE;
 
-    currSessionDetail->responseTime = timeVal2MilliSecond (currTime);
-
     return PKT_HANDLED;
 }
 
@@ -542,8 +547,9 @@ pktStmtExecute (mysqlParserStatePtr parser, const u_char *payload,
 
     snprintf(com, sizeof (com) - 1, "%s: id-%d, iterationCount-%d",
              mysqlCommandName [*pkt], stmtId, iterationCount);
-    currSessionDetail->request = strdup (com);
-    currSessionDetail->responseTime = timeVal2MilliSecond (currTime);
+
+    currSessionDetail->reqStmt = strdup (com);
+    currSessionDetail->state = MYSQL_REQUEST_COMPLETE;
 
     return PKT_HANDLED;
 }
@@ -579,10 +585,6 @@ sqlParse (mysqlParserStatePtr parser, const u_char *data, int dataLen, int fromC
             break;
 
         if (payloadLen) {
-            /* Safe guard */
-            if (fromClient && (parser->seqId == 0) && (parser->state != STATE_SLEEP))
-                parser->state = STATE_SLEEP;
-
             for (event = 0; event < mysqlStateMap [parser->state].numEvents; event++) {
                 handler = mysqlStateMap [parser->state].handler [event];
                 parser->event = mysqlStateMap [parser->state].event [event];
@@ -604,9 +606,11 @@ sqlParse (mysqlParserStatePtr parser, const u_char *data, int dataLen, int fromC
     return parseCount;
 }
 
+static void
+resetMysqlSessionDetail (mysqlSessionDetailPtr msd);
+
 static int
 mysqlParserExecute (mysqlParserStatePtr parser, const u_char *data, int dataLen, int fromClient) {
-    char prevState;
     int parseCount = 0;
     int parseLeft = dataLen;
     const char *compPkt;
@@ -624,65 +628,88 @@ mysqlParserExecute (mysqlParserStatePtr parser, const u_char *data, int dataLen,
         return dataLen;
     }
 
-    /* Backup current state */
-    prevState = parser->state;
+    /* Mysql packet after handshake  */
+    if ((parser->state != STATE_NOT_CONNECTED) &&
+        (parser->state != STATE_CLIENT_HANDSHAKE) &&
+        (parser->state != STATE_SECURE_AUTH)) {
+        /* For incomplete mysql packet, return directly */
+        if ((parser->doCompress && (parseLeft < MYSQL_COMPRESSED_HEADER_SIZE)) ||
+            (parseLeft < MYSQL_COMPRESSED_HEADER_SIZE))
+            return 0;
 
-    /* Decompress */
-    if (parser->doCompress && (parser->state != STATE_SECURE_AUTH)) {
-        while (1) {
-            if (parseLeft < MYSQL_COMPRESSED_HEADER_SIZE)
-                break;
+        /* New mysql request */
+        if (fromClient) {
+            /*
+             * For every mysql request has only one packet, so, every packet from client
+             * thought as a new mysql request. To make sure mysql parser's state is correct
+             * (some conditions like packets dropping or parsing error can cause parser's
+             * state uncorrect), we need to set parser's state to STATE_SLEhEP explicitly for
+             * every new client request and reset currSessionDetail.
+             */
+            parser->state = STATE_SLEEP;
+            resetMysqlSessionDetail (currSessionDetail);
+            currSessionDetail->state = MYSQL_REQUEST_BEGIN;
+            currSessionDetail->reqTime = timeVal2MilliSecond (currTime);
+        } else if (!fromClient && (currSessionDetail->state == MYSQL_REQUEST_COMPLETE)) {
+            currSessionDetail->state = MYSQL_RESPONSE_BEGIN;
+            currSessionDetail->respTimeBegin = timeVal2MilliSecond (currTime);
+        }
 
-            compPkt = (u_char *) data + parseCount;
-            compHdr = (mysqlCompHeaderPtr) compPkt;
-            payloadLen = compHdr->payloadLen;
-            compPayloadLen = compHdr->compPlayloadLen;
-            compPayload = (u_char *) (compPkt + MYSQL_COMPRESSED_HEADER_SIZE);
-            compPktLen = MYSQL_COMPRESSED_HEADER_SIZE + compPayloadLen;
-
-            if (payloadLen) {
-                /* Compressed pkt */
-                uncompPkt = malloc (payloadLen);
-                if (uncompPkt == NULL) {
-                    LOGE ("Alloc memory for uncompPkt error: %s.\n", strerror (errno));
+        /* Compressed mysql packets */
+        if (parser->doCompress) {
+            while (1) {
+                if (parseLeft < MYSQL_COMPRESSED_HEADER_SIZE)
                     break;
+
+                compPkt = (u_char *) data + parseCount;
+                compHdr = (mysqlCompHeaderPtr) compPkt;
+                payloadLen = compHdr->payloadLen;
+                compPayloadLen = compHdr->compPayloadLen;
+                compPayload = (u_char *) (compPkt + MYSQL_COMPRESSED_HEADER_SIZE);
+                compPktLen = MYSQL_COMPRESSED_HEADER_SIZE + compPayloadLen;
+
+                if (payloadLen) {
+                    /* Compressed pkt */
+                    uncompPkt = malloc (payloadLen);
+                    if (uncompPkt == NULL) {
+                        LOGE ("Alloc memory for uncompPkt error: %s.\n", strerror (errno));
+                        break;
+                    }
+
+                    uncompPayloadLen = payloadLen;
+                    if (uncompress (uncompPkt, &uncompPayloadLen, compPayload, compPayloadLen) != Z_OK) {
+                        LOGE ("Uncompress packet error.\n");
+                        free (uncompPkt);
+                        uncompPkt = NULL;
+                        parseCount += compPktLen;
+                        parseLeft -= compPktLen;
+                        continue;
+                    }
+                } else {
+                    uncompPkt = (u_char *) compPayload;
+                    uncompPayloadLen = compPayloadLen;
                 }
 
-                uncompPayloadLen = payloadLen;
-                if (uncompress (uncompPkt, &uncompPayloadLen, compPayload, compPayloadLen) != Z_OK) {
-                    LOGE ("Uncompress packet error.\n");
+                /* Real sql parse */
+                sqlParse (parser, uncompPkt, uncompPayloadLen, fromClient);
+                /* Free uncompressed packet buffer if any */
+                if (payloadLen) {
                     free (uncompPkt);
                     uncompPkt = NULL;
-                    parseCount += compPktLen;
-                    parseLeft -= compPktLen;
-                    continue;
                 }
-            } else {
-                uncompPkt = (u_char *) compPayload;
-                uncompPayloadLen = compPayloadLen;
+
+                parseCount += compPktLen;
+                parseLeft -= compPktLen;
             }
+        } else  /* Non Compressed mysql packets */
+            parseCount = sqlParse (parser, data, dataLen, fromClient);
 
-            /* Real sql parse */
-            sqlParse (parser, uncompPkt, uncompPayloadLen, fromClient);
-            /* Free uncompressed packet buffer if any */
-            if (payloadLen) {
-                free (uncompPkt);
-                uncompPkt = NULL;
-            }
-
-            parseCount += compPktLen;
-            parseLeft -= compPktLen;
-        }
-    } else
-        parseCount = sqlParse (parser, data, dataLen, fromClient);
-
-    if ((prevState != STATE_NOT_CONNECTED) && (prevState != STATE_CLIENT_HANDSHAKE) &&
-        (prevState != STATE_SECURE_AUTH)) {
         if (fromClient)
-            currSessionDetail->requestSize += parseCount;
+            currSessionDetail->reqSize += parseCount;
         else
-            currSessionDetail->responseSize += parseCount;
-    }
+            currSessionDetail->respSize += parseCount;
+    } else  /* Mysql handshake packets */
+        parseCount = sqlParse (parser, data, dataLen, fromClient);
 
     return parseCount;
 }
@@ -855,7 +882,7 @@ initMysqlProto (void) {
     mysqlStateMap [STATE_TXT_ROW].handler [0] = &pktRow;
 
     mysqlStateMap [STATE_TXT_ROW].event [1] = EVENT_OK_OR_ERROR;
-    mysqlStateMap [STATE_TXT_ROW].nextState [1] = STATE_TXT_ROW;
+    mysqlStateMap [STATE_TXT_ROW].nextState [1] = STATE_SLEEP;
     mysqlStateMap [STATE_TXT_ROW].handler [1] = &pktOkOrError;
 
     mysqlStateMap [STATE_TXT_ROW].event [2] = EVENT_END;
@@ -873,7 +900,7 @@ initMysqlProto (void) {
     mysqlStateMap [STATE_BIN_ROW].handler [0] = &pktBinaryRow;
 
     mysqlStateMap [STATE_BIN_ROW].event [1] = EVENT_OK_OR_ERROR;
-    mysqlStateMap [STATE_BIN_ROW].nextState [1] = STATE_BIN_ROW;
+    mysqlStateMap [STATE_BIN_ROW].nextState [1] = STATE_SLEEP;
     mysqlStateMap [STATE_BIN_ROW].handler [1] = &pktOkOrError;
 
     mysqlStateMap [STATE_BIN_ROW].event [2] = EVENT_END;
@@ -945,18 +972,38 @@ newMysqlSessionDetail (void) {
             free (msd);
             return NULL;
         }
-        msd->request = NULL;
-        msd->requestSize = 0;
-        msd->requestTime = 0;
-        msd->responseSize = 0;
-        msd->responseTime = 0;
-        msd->requestSuccess = MYSQL_REQUEST_ERROR;
+        msd->reqStmt = NULL;
+        msd->state = MYSQL_INIT;
         msd->errCode = 0;
         msd->sqlState = 0;
         msd->errMsg = NULL;
+        msd->reqSize = 0;
+        msd->respSize = 0;
+        msd->reqTime = 0;
+        msd->respTimeBegin = 0;
+        msd->respTimeEnd = 0;
         return msd;
     } else
         return NULL;
+}
+
+/* Reset mysql session detail */
+static void
+resetMysqlSessionDetail (mysqlSessionDetailPtr msd) {
+    if (msd->reqStmt)
+        free (msd->reqStmt);
+    msd->reqStmt = NULL;
+    msd->state = MYSQL_INIT;
+    msd->errCode = 0;
+    msd->sqlState = 0;
+    if (msd->errMsg)
+        free (msd->errMsg);
+    msd->errMsg = NULL;
+    msd->reqSize = 0;
+    msd->respSize = 0;
+    msd->reqTime = 0;
+    msd->respTimeBegin = 0;
+    msd->respTimeEnd = 0;
 }
 
 static void
@@ -969,8 +1016,8 @@ freeMysqlSessionDetail (void *sd) {
     msd = (mysqlSessionDetailPtr) sd;
     /* Clean mysql parser context */
     destroyMysqlParser (&msd->parser);
-    if (msd->request)
-        free (msd->request);
+    if (msd->reqStmt)
+        free (msd->reqStmt);
     if (msd->errMsg)
         free (msd->errMsg);
     free (msd);
@@ -985,14 +1032,15 @@ newMysqlSessionBreakdown (void) {
         msbd->serverVer = NULL;
         msbd->userName = NULL;
         msbd->conId = 0;
-        msbd->request = NULL;
-        msbd->requestSize = 0;
-        msbd->responseSize = 0;
-        msbd->responseLatency = 0;
-        msbd->requestSuccess = MYSQL_REQUEST_ERROR;
+        msbd->reqStmt = NULL;
+        msbd->state = MYSQL_BREAKDOWN_ERROR;
         msbd->errCode = 0;
         msbd->sqlState = 0;
         msbd->errMsg = NULL;
+        msbd->reqSize = 0;
+        msbd->respSize = 0;
+        msbd->respLatency = 0;
+        msbd->downloadLatency = 0;
         return msbd;
     } else
         return NULL;
@@ -1010,8 +1058,8 @@ freeMysqlSessionBreakdown (void *sbd) {
         free (msbd->serverVer);
     if (msbd->userName)
         free (msbd->userName);
-    if (msbd->request)
-        free (msbd->request);
+    if (msbd->reqStmt)
+        free (msbd->reqStmt);
     if (msbd->errMsg)
         free (msbd->errMsg);
     free (msbd);
@@ -1047,50 +1095,85 @@ generateMysqlSessionBreakdown (void *sd, void *sbd) {
 
     msbd->conId = parser->conId;
 
-    if (msd->request) {
-        msbd->request = strdup (msd->request);
-        if (msbd->request == NULL) {
+    /* For MYSQL_BREAKDOWN_RESET_TYPE4 case, reqStmt is NULL */
+    if (msd->reqStmt && (msbd->state != MYSQL_BREAKDOWN_RESET_TYPE4)) {
+        msbd->reqStmt = strdup (msd->reqStmt);
+        if (msbd->reqStmt == NULL) {
             LOGE ("Strdup mysql request error: %s.\n", strerror (errno));
             return -1;
         }
-    } else {
-        LOGE ("Mysql request is NULL.\n");
-        return -1;
     }
 
-    msbd->requestSize = msd->requestSize;
-    msbd->responseSize = msd->responseSize;
-    msbd->responseLatency = (msd->responseTime - msd->requestTime);
-    msbd->requestSuccess = msd->requestSuccess;
+    switch (msd->state) {
+        case MYSQL_RESPONSE_OK:
+        case MYSQL_RESPONSE_ERROR:
+            if (msd->state == MYSQL_RESPONSE_OK) {
+                msbd->state = MYSQL_BREAKDOWN_OK;
+                msbd->errCode = 0;
+                msbd->sqlState = 0;
+                msbd->errMsg = NULL;
+            } else {
+                msbd->state = MYSQL_BREAKDOWN_ERROR;
+                msbd->errCode = msd->errCode;
+                msbd->sqlState = msd->sqlState;
+                if (msd->errMsg) {
+                    msbd->errMsg = strdup (msd->errMsg);
+                    if (msbd->errMsg == NULL) {
+                        LOGE ("Strdup mysql error message error: %s.\n", strerror (errno));
+                        return -1;
+                    }
+                } else {
+                    LOGE ("Mysql errMsg is NULL.\n");
+                    return -1;
+                }
+            }
+            msbd->reqSize = msd->reqSize;
+            msbd->respSize = msd->respSize;
+            msbd->respLatency = msd->respTimeBegin - msd->reqTime;
+            msbd->downloadLatency = msd->respTimeEnd - msd->respTimeBegin;
+            break;
 
-    msbd->errCode = msd->errCode;
-    msbd->sqlState = msd->sqlState;
-    if (msbd->errCode) {
-        if (msd->errMsg == NULL) {
-            LOGE ("Mysql errMsg is NULL.\n");
-            return -1;
-        }
+        case MYSQL_RESET_TYPE1:
+        case MYSQL_RESET_TYPE2:
+            if (msd->state == MYSQL_RESET_TYPE1)
+                msbd->state = MYSQL_BREAKDOWN_RESET_TYPE1;
+            else
+                msbd->state = MYSQL_BREAKDOWN_RESET_TYPE2;
+            msbd->errCode = 0;
+            msbd->sqlState = 0;
+            msbd->errMsg = NULL;
+            msbd->reqSize = msd->reqSize;
+            msbd->respSize = 0;
+            msbd->respLatency = 0;
+            msbd->downloadLatency = 0;
+            break;
 
-        msbd->errMsg = strdup (msd->errMsg);
-        if (msbd->errMsg == NULL) {
-            LOGE ("Strdup mysql error message error: %s.\n", strerror (errno));
+        case MYSQL_RESET_TYPE3:
+            msbd->state = MYSQL_BREAKDOWN_RESET_TYPE3;
+            msbd->errCode = 0;
+            msbd->sqlState = 0;
+            msbd->errMsg = NULL;
+            msbd->reqSize = msd->reqSize;
+            msbd->respSize = msd->respSize;
+            msbd->respLatency = msd->respTimeBegin - msd->reqTime;
+            msbd->downloadLatency = 0;
+            break;
+
+        case MYSQL_RESET_TYPE4:
+            msbd->state = MYSQL_BREAKDOWN_RESET_TYPE4;
+            msbd->errCode = 0;
+            msbd->sqlState = 0;
+            msbd->errMsg = NULL;
+            msbd->reqSize = 0;
+            msbd->respSize = 0;
+            msbd->respLatency = 0;
+            msbd->downloadLatency = 0;
+            break;
+
+        default:
+            LOGE ("Wrong mysql state for breakdown.\n");
             return -1;
-        }
     }
-
-    /* Reset session detail for next request */
-    free (msd->request);
-    msd->request = NULL;
-    msd->requestSize = 0;
-    msd->requestTime = 0;
-    msd->responseSize = 0;
-    msd->responseTime = 0;
-    msd->requestSuccess = MYSQL_REQUEST_ERROR;
-    msd->errCode = 0;
-    msd->sqlState = 0;
-    if (msd->errMsg)
-        free (msd->errMsg);
-    msd->errMsg = NULL;
 
     return 0;
 }
@@ -1098,41 +1181,45 @@ generateMysqlSessionBreakdown (void *sd, void *sbd) {
 static void
 mysqlSessionBreakdown2Json (struct json_object *root, void *sd, void *sbd) {
     char buf [64];
-    mysqlSessionDetailPtr msd = (mysqlSessionDetailPtr) sd;
     mysqlSessionBreakdownPtr msbd = (mysqlSessionBreakdownPtr) sbd;
 
     json_object_object_add (root, MYSQL_SBKD_SERVER_VERSION, json_object_new_string (msbd->serverVer));
 
     json_object_object_add (root, MYSQL_SBKD_USER_NAME, json_object_new_string (msbd->userName));
 
-    UINT16_TO_STRING (buf, msbd->conId);
+    UINT32_TO_STRING (buf, msbd->conId);
     json_object_object_add (root, MYSQL_SBKD_CONNECTION_ID, json_object_new_string (buf));
 
-    json_object_object_add (root, MYSQL_SBKD_REQUEST, json_object_new_string (msbd->request));
+    if (msbd->reqStmt)
+        json_object_object_add (root, MYSQL_SBKD_REQUEST_STATEMENT, json_object_new_string (msbd->reqStmt));
+    else
+        json_object_object_add (root, MYSQL_SBKD_REQUEST_STATEMENT, json_object_new_string (""));
 
-    UINT64_TO_STRING (buf, msbd->requestSize);
+    UINT32_TO_STRING (buf, msbd->state);
+    json_object_object_add (root, MYSQL_SBKD_STATE, json_object_new_string (buf));
+
+    UINT16_TO_STRING (buf, msbd->errCode);
+    json_object_object_add (root, MYSQL_SBKD_ERROR_CODE, json_object_new_string (buf));
+
+    UINT32_TO_STRING (buf, msbd->sqlState);
+    json_object_object_add (root, MYSQL_SBKD_SQL_STATE, json_object_new_string (buf));
+
+    if (msbd->errMsg)
+        json_object_object_add (root, MYSQL_SBKD_ERROR_MESSAGE, json_object_new_string (msbd->errMsg));
+    else
+        json_object_object_add (root, MYSQL_SBKD_ERROR_MESSAGE, json_object_new_string (""));
+
+    UINT64_TO_STRING (buf, msbd->reqSize);
     json_object_object_add (root, MYSQL_SBKD_REQUEST_SIZE, json_object_new_string (buf));
 
-    UINT64_TO_STRING (buf, msbd->responseSize);
+    UINT64_TO_STRING (buf, msbd->respSize);
     json_object_object_add (root, MYSQL_SBKD_RESPONSE_SIZE, json_object_new_string (buf));
 
-    UINT64_TO_STRING (buf, msbd->responseLatency);
+    UINT64_TO_STRING (buf, msbd->respLatency);
     json_object_object_add (root, MYSQL_SBKD_RESPONSE_LATENCY, json_object_new_string (buf));
 
-    UINT16_TO_STRING (buf, msbd->requestSuccess);
-    json_object_object_add (root, MYSQL_SBKD_REQUEST_SUCCESS, json_object_new_string (buf));
-
-    if (msbd->errCode) {
-        UINT16_TO_STRING (buf, msbd->errCode);
-        json_object_object_add (root, MYSQL_SBKD_ERROR_CODE, json_object_new_string (buf));
-
-        if (msd->parser.cliProtoV41) {
-            UINT32_TO_STRING (buf, msbd->sqlState);
-            json_object_object_add (root, MYSQL_SBKD_STATE, json_object_new_string (buf));
-        }
-
-        json_object_object_add (root, MYSQL_SBKD_ERROR_MESSAGE, json_object_new_string (msbd->errMsg));
-    }
+    UINT64_TO_STRING (buf, msbd->downloadLatency);
+    json_object_object_add (root, MYSQL_SBKD_DOWNLOAD_LATENCY, json_object_new_string (buf));
 }
 
 static void
@@ -1141,7 +1228,7 @@ mysqlSessionProcessEstb (void *sd, timeValPtr tm) {
 }
 
 static void
-mysqlSessionProcessUrgeData (int fromClient, char urgData, void *sd, timeValPtr tm) {
+mysqlSessionProcessUrgData (int fromClient, char urgData, void *sd, timeValPtr tm) {
     return;
 }
 
@@ -1160,6 +1247,16 @@ mysqlSessionProcessData (int fromClient, const u_char *data, int dataLen, void *
 
 static void
 mysqlSessionProcessReset (int fromClient, void *sd, timeValPtr tm) {
+    mysqlSessionDetailPtr msd = (mysqlSessionDetailPtr) sd;
+
+    if (msd->state == MYSQL_REQUEST_BEGIN)
+        msd->state = MYSQL_RESET_TYPE1;
+    else if (msd->state == MYSQL_REQUEST_COMPLETE)
+        msd->state = MYSQL_RESET_TYPE2;
+    else if (msd->state == MYSQL_RESPONSE_BEGIN)
+        msd->state = MYSQL_RESET_TYPE3;
+    else if (msd->state == MYSQL_INIT)
+        msd->state = MYSQL_RESET_TYPE4;
     return;
 }
 

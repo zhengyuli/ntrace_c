@@ -1,6 +1,6 @@
 #+TITLE: Agent C style
 #+AUTHOR: zhengyu li
-#+OPTIONS: ^:nil
+#+OPTIONS: ^:nil \n:t
 
 * Agent C style
 ** Naming rule

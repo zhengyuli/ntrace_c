@@ -1,6 +1,6 @@
 #+TITLE: Agent-ME restful interface
 #+AUTHOR: zhengyu li
-#+OPTIONS: ^:nil
+#+OPTIONS: ^:nil \n:t
 
 Http request url: http://host:port/post-command
 

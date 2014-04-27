@@ -74,7 +74,7 @@ typedef enum {
     STREAM_RESET_TYPE2,                 /**< Tcp connection reset type2 (from server and before connected) */
     STREAM_RESET_TYPE3,                 /**< Tcp connection reset type3 (from client and after connected) */ 
     STREAM_RESET_TYPE4,                 /**< Tcp connection reset type4 (from server and after connected) */ 
-} streamState;
+} tcpStreamState;
 
 typedef struct _tcpStream tcpStream;
 typedef tcpStream *tcpStreamPtr;
@@ -85,7 +85,7 @@ struct _tcpStream {
     protoParserPtr parser;              /**< Protocol parser */
     tuple4 addr;                        /**< Tcp stream 4-tuple address */
     uint64_t connId;                    /**< Global tcp connection id */
-    streamState state;                  /**< Tcp stream state */
+    tcpStreamState state;               /**< Tcp stream state */
     halfStream client;                  /**< Tcp stream client halfStream */
     halfStream server;                  /**< Tcp stream server halfStream */
     uint64_t synTime;                   /**< Syn timestamp of three handshake */

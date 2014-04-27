@@ -218,9 +218,9 @@ onRespHeaderField (http_parser *parser, const char* from, size_t length) {
 
     if (strncmp (HTTP_HEADER_CONTENT_TYPE_STRING, from, length) == 0)
         currHeaderType = HTTP_HEADER_CONTENT_TYPE;
-    else if (strncmp (HTTP_HEADER_CONTENT_DISPOSITION, from, length) == 0)
+    else if (strncmp (HTTP_HEADER_CONTENT_DISPOSITION_STRING, from, length) == 0)
         currHeaderType = HTTP_HEADER_CONTENT_DISPOSITION;
-    else if (strncmp (HTTP_HEADER_TRANSFER_ENCODING, from, length) == 0)
+    else if (strncmp (HTTP_HEADER_TRANSFER_ENCODING_STRING, from, length) == 0)
         currHeaderType = HTTP_HEADER_TRANSFER_ENCODING;
     else if (strncmp (HTTP_HEADER_CONNECTION_STRING, from, length) == 0)
         currHeaderType = HTTP_HEADER_CONNECTION;
@@ -605,14 +605,14 @@ freeHttpSessionBreakdown (void *sbd) {
         hsbd->contentType = NULL;
     }
 
-    if (hsdn->contentDisposition) {
-        free (hsdn->contentDisposition);
-        hsdn->contentDisposition = NULL;
+    if (hsbd->contentDisposition) {
+        free (hsbd->contentDisposition);
+        hsbd->contentDisposition = NULL;
     }
 
-    if (hsdn->transferEncoding) {
-        free (hsdn->transferEncoding);
-        hsdn->transferEncoding = NULL;
+    if (hsbd->transferEncoding) {
+        free (hsbd->transferEncoding);
+        hsbd->transferEncoding = NULL;
     }
 
     if (hsbd->respConnection) {

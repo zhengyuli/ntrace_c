@@ -97,7 +97,7 @@ listIsEmpty (const listHeadPtr head) {
 
 /* offset of member in type */
 #define offsetOfMember(type, member)            \
-    ((size_t)&((type *)0)->member)
+    ((size_t) &((type *) 0)->member)
 
 /*
  * cast a member of a structure out to the containing structure, for

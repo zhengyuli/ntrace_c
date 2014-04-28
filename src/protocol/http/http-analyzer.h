@@ -56,7 +56,7 @@ typedef struct _httpSessionDetailNode httpSessionDetailNode;
 typedef httpSessionDetailNode *httpSessionDetailNodePtr;
 
 struct _httpSessionDetailNode {
-    char reqVer [HTTP_VERSION_LENGTH];  /**< Http protocol request version */
+    char *reqVer;                       /**< Http protocol request version */
     char *method;                       /**< Http request method */
     char *url;                          /**< Http request url */
     char *host;                         /**< Http server host */
@@ -67,7 +67,7 @@ struct _httpSessionDetailNode {
     char *acceptEncoding;               /**< Http request accept encoding */
     char *xForwardedFor;                /**< Http request x forwarded for */
     char *reqConnection;                /**< Http request connection */
-    char respVer [HTTP_VERSION_LENGTH]; /**< Http protocol response version */
+    char *respVer;                      /**< Http protocol response version */
     char *contentType;                  /**< Http response content type */
     char *contentDisposition;           /**< Http response content disposition */
     char *transferEncoding;             /**< Http response transfer encoding */

@@ -92,7 +92,7 @@ Notes: Http state for http breakdown
       HTTP_BREAKDOWN_RESET_TYPE1,         /**< Http reset during request */
       HTTP_BREAKDOWN_RESET_TYPE2,         /**< Http reset before response */
       HTTP_BREAKDOWN_RESET_TYPE3,         /**< Http reset during response */
-      HTTP_BREAKDOWN_RESET_TYPE4          /**< Http reset without response */
+      HTTP_BREAKDOWN_RESET_TYPE4          /**< Http reset without request */
   } httpBreakdownState;
 #+END_SRC
 

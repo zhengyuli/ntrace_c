@@ -426,9 +426,9 @@ addNewTcpStream (struct tcphdr *tcph, struct ip *iph, timeValPtr tm) {
     if (!stream->client.window)
         stream->zeroWindows++;
 
-    /* Check the number of tcp streams. If the number of tcp streams exceed eighty
-     * percent of tcpStreamHashTable size limit then remove the oldest tcp stream
-     * from global tcp stream list head.
+    /* Check the count of tcp streams. If the count of tcp streams exceed eighty
+     * percent of tcpStreamHashTable limit size then remove the oldest tcp stream
+     * from global tcp stream list.
      */
     if (hashSize (tcpStreamHashTable) >= (hashLimit (tcpStreamHashTable) * 0.8)) {
         listFirstEntry (tmp, &tcpStreamList, node);
@@ -725,6 +725,7 @@ handleEstb (tcpStreamPtr stream, timeValPtr tm) {
     publishTcpBreakdown (stream, tm);
 }
 
+/* Tcp urgence data handler callback */
 static void
 handleUrgData (tcpStreamPtr stream, halfStreamPtr snd, char urgData, timeValPtr tm) {
     int fromClient;
@@ -807,6 +808,15 @@ handleFin (tcpStreamPtr stream, halfStreamPtr snd, timeValPtr tm) {
     snd->state = TCP_FIN_SENT;
     stream->state = STREAM_CLOSING;
     addTcpStreamToClosingTimeoutList (stream, tm);
+}
+
+/* Tcp close handler callback */
+static void
+handleClose (tcpStreamPtr stream, timeValPtr tm) {
+    stream->state = STREAM_CLOSED;
+    stream->closeTime = timeVal2MilliSecond (tm);
+    publishTcpBreakdown (stream, tm);
+    delTcpStreamFromHash (stream);
 }
 
 /*
@@ -1007,11 +1017,12 @@ tcpQueue (tcpStreamPtr stream, struct tcphdr *tcph, halfStreamPtr snd, halfStrea
 }
 
 /*
- * @brief Tcp process portal, it will process tcp connection, tcp data
- *        defragment and tcp stream context destroy.
+ * @brief Tcp process portal, it will construct tcp connection, tcp data
+ *        defragment, generate tcp session breakdown, publish tcp session
+ *        breakdown and tcp stream context destroy.
  *
  * @param data ip packet to process
- * @param skbLen packet capture length
+ * @param skbLen length of packet captured
  * @param tm current timestamp
  */
 void
@@ -1190,10 +1201,7 @@ tcpProcess (u_char *data, int skbLen, timeValPtr tm) {
         if (rcv->state == TCP_FIN_SENT)
             rcv->state = TCP_FIN_CONFIRMED;
         if (rcv->state == TCP_FIN_CONFIRMED && snd->state == TCP_FIN_CONFIRMED) {
-            stream->state = STREAM_CLOSED;
-            stream->closeTime = timeVal2MilliSecond (tm);
-            publishTcpBreakdown (stream, tm);
-            delTcpStreamFromHash (stream);
+            handleClose (stream, tm);
             return;
         }
     }

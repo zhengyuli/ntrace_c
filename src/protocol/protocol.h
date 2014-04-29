@@ -2,7 +2,7 @@
 #define __WDM_AGENT_PROTOCOL_H__
 
 #include <stdint.h>
-#include <json/json.h>
+#include <jansson.h>
 
 #define MAX_PROTO_NAME_LEN 32
 
@@ -22,7 +22,7 @@ typedef void (*freeSessionDetailCB) (void *sd);
 typedef void * (*newSessionBreakdownCB) (void);
 typedef void (*freeSessionBreakdownCB) (void *sbd);
 typedef int (*generateSessionBreakdownCB) (void *sd, void *sbd);
-typedef void (*sessionBreakdown2JsonCB) (struct json_object *root, void *sd, void *sbd);
+typedef void (*sessionBreakdown2JsonCB) (json_t *root, void *sd, void *sbd);
 typedef void (*sessionProcessEstbCB) (void *sd, timeValPtr tm);
 typedef void (*sessionProcessUrgeDataCB) (int fromClient, char urgData, void *sd,
                                           timeValPtr tm);

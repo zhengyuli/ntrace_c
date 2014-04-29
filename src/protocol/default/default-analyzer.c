@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <json/json.h>
+#include <jansson.h>
 #include "util.h"
 #include "byte-order.h"
 #include "default-analyzer.h"
@@ -72,14 +72,11 @@ generateDefaultSessionBreakdown (void *sd, void *sbd) {
 }
 
 static void
-defaultSessionBreakdown2Json (struct json_object *root, void *sd, void *sbd) {
-    char buf [64];
+defaultSessionBreakdown2Json (json_t *root, void *sd, void *sbd) {
     defaultSessionBreakdownPtr dsbd = (defaultSessionBreakdownPtr) sbd;
 
-    UINT64_TO_STRING (buf, dsbd->exchangeSize);
-    json_object_object_add (root, DEFAULT_SBKD_EXCHANGE_SIZE, json_object_new_string (buf));
-    UINT64_TO_STRING (buf, dsbd->serverLatency);
-    json_object_object_add (root, DEFAULT_SBKD_SERVER_LATENCY, json_object_new_string (buf));
+    json_object_set_new (root, DEFAULT_SBKD_EXCHANGE_SIZE, json_integer (dsbd->exchangeSize));
+    json_object_set_new (root, DEFAULT_SBKD_SERVER_LATENCY, json_integer (dsbd->serverLatency));
 }
 
 static void

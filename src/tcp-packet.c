@@ -9,7 +9,7 @@
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
-#include <json/json.h>
+#include <jansson.h>
 #include "checksum.h"
 #include "util.h"
 #include "list.h"
@@ -453,8 +453,7 @@ static char *
 tcpBreakdown2Json (tcpStreamPtr stream, tcpBreakdownPtr tbd) {
     char *out;
     const char *protoName;
-    char buf [64];
-    struct json_object *root;
+    json_t *root;
 
     protoName = getProtoName (tbd->proto);
     if (protoName == NULL) {
@@ -462,105 +461,63 @@ tcpBreakdown2Json (tcpStreamPtr stream, tcpBreakdownPtr tbd) {
         return NULL;
     }
 
-    root = json_object_new_object ();
-    if (is_error (root)) {
+    root = json_object ();
+    if (root == NULL) {
         LOGE ("Create json object error.\n");
         return NULL;
     }
-
     /* Tcp breakdown id */
-    UINT64_TO_STRING (buf, tbd->bkdId);
-    json_object_object_add (root, COMMON_SKBD_BREAKDOWN_ID,
-                            json_object_new_string (buf));
+    json_object_set_new (root, COMMON_SKBD_BREAKDOWN_ID, json_integer (tbd->bkdId));
     /* Tcp breakdown timestamp */
-    UINT64_TO_STRING (buf, tbd->timestamp);
-    json_object_object_add (root, COMMON_SKBD_TIMESTAMP,
-                            json_object_new_string (buf));
+    json_object_set_new (root, COMMON_SKBD_TIMESTAMP, json_integer (tbd->timestamp));
     /* Tcp application layer protocol */
-    json_object_object_add (root, COMMON_SKBD_PROTOCOL,
-                            json_object_new_string (protoName));
+    json_object_set_new (root, COMMON_SKBD_PROTOCOL, json_string (protoName));
     /* Tcp source ip */
-    json_object_object_add (root, COMMON_SKBD_SOURCE_IP,
-                            json_object_new_string (inet_ntoa (tbd->srcIp)));
+    json_object_set_new (root, COMMON_SKBD_SOURCE_IP, json_string (inet_ntoa (tbd->srcIp)));
     /* Tcp source port */
-    UINT16_TO_STRING (buf, tbd->srcPort);
-    json_object_object_add (root, COMMON_SKBD_SOURCE_PORT,
-                            json_object_new_string (buf));
+    json_object_set_new (root, COMMON_SKBD_SOURCE_PORT, json_integer (tbd->srcPort));
     /* Tcp service ip */
-    json_object_object_add (root, COMMON_SKBD_SERVICE_IP,
-                            json_object_new_string (inet_ntoa (tbd->svcIp)));
+    json_object_set_new (root, COMMON_SKBD_SERVICE_IP, json_string (inet_ntoa (tbd->svcIp)));
     /* Tcp service port */
-    UINT16_TO_STRING (buf, tbd->svcPort);
-    json_object_object_add (root, COMMON_SKBD_SERVICE_PORT,
-                            json_object_new_string (buf));
+    json_object_set_new (root, COMMON_SKBD_SERVICE_PORT, json_integer (tbd->svcPort));
     /* Tcp connection id */
-    UINT64_TO_STRING (buf, tbd->connId);
-    json_object_object_add (root, COMMON_SKBD_TCP_CONNECTION_ID,
-                            json_object_new_string (buf));
+    json_object_set_new (root, COMMON_SKBD_TCP_CONNECTION_ID, json_integer (tbd->connId));
     /* Tcp state */
-    UINT32_TO_STRING (buf, tbd->state);
-    json_object_object_add (root, COMMON_SKBD_TCP_STATE,
-                            json_object_new_string (buf));
+    json_object_set_new (root, COMMON_SKBD_TCP_STATE, json_integer (tbd->state));
     /* Tcp retries */
-    UINT64_TO_STRING (buf, tbd->retries);
-    json_object_object_add (root, COMMON_SKBD_TCP_RETRIES,
-                            json_object_new_string (buf));
+    json_object_set_new (root, COMMON_SKBD_TCP_RETRIES, json_integer (tbd->retries));
     /* Tcp retries latency */
-    UINT64_TO_STRING (buf, tbd->retriesLatency);
-    json_object_object_add (root, COMMON_SKBD_TCP_RETRIES_LATENCY,
-                            json_object_new_string (buf));
+    json_object_set_new (root, COMMON_SKBD_TCP_RETRIES_LATENCY, json_integer (tbd->retriesLatency));
     /* Tcp duplicate syn/ack packets */
-    UINT64_TO_STRING (buf, tbd->dupSynAcks);
-    json_object_object_add (root, COMMON_SKBD_TCP_DUPLICATE_SYNACKS,
-                            json_object_new_string (buf));
+    json_object_set_new (root, COMMON_SKBD_TCP_DUPLICATE_SYNACKS, json_integer (tbd->dupSynAcks));
     /* Tcp rtt */
-    UINT64_TO_STRING (buf, tbd->rtt);
-    json_object_object_add (root, COMMON_SKBD_TCP_RTT,
-                            json_object_new_string (buf));
+    json_object_set_new (root, COMMON_SKBD_TCP_RTT, json_integer (tbd->rtt));
     /* Tcpp mss */
-    UINT64_TO_STRING (buf, tbd->mss);
-    json_object_object_add (root, COMMON_SKBD_TCP_MSS,
-                            json_object_new_string (buf));
+    json_object_set_new (root, COMMON_SKBD_TCP_MSS, json_integer (tbd->mss));
     /* Tcp connection latency */
-    UINT64_TO_STRING (buf, tbd->connLatency);
-    json_object_object_add (root, COMMON_SKBD_TCP_CONNECTION_LATENCY,
-                            json_object_new_string (buf));
+    json_object_set_new (root, COMMON_SKBD_TCP_CONNECTION_LATENCY, json_integer (tbd->connLatency));
     /* Tcp total packets */
-    UINT64_TO_STRING (buf, tbd->totalPkts);
-    json_object_object_add (root, COMMON_SKBD_TCP_TOTAL_PACKETS,
-                            json_object_new_string (buf));
+    json_object_set_new (root, COMMON_SKBD_TCP_TOTAL_PACKETS, json_integer (tbd->totalPkts));
     /* Tcp tiny packets */
-    UINT64_TO_STRING (buf, tbd->tinyPkts);
-    json_object_object_add (root, COMMON_SKBD_TCP_TINY_PACKETS,
-                            json_object_new_string (buf));
+    json_object_set_new (root, COMMON_SKBD_TCP_TINY_PACKETS, json_integer (tbd->tinyPkts));
     /* Tcp PAWS packets */
-    UINT64_TO_STRING (buf, tbd->pawsPkts);
-    json_object_object_add (root, COMMON_SKBD_TCP_PAWS_PACKETS,
-                            json_object_new_string (buf));
+    json_object_set_new (root, COMMON_SKBD_TCP_PAWS_PACKETS, json_integer (tbd->pawsPkts));
     /* Tcp retransmitted packets */
-    UINT64_TO_STRING (buf, tbd->retransmittedPkts);
-    json_object_object_add (root, COMMON_SKBD_TCP_RETRANSMITTED_PACKETS,
-                            json_object_new_string (buf));
+    json_object_set_new (root, COMMON_SKBD_TCP_RETRANSMITTED_PACKETS, json_integer (tbd->retransmittedPkts));
     /* Tcp out of order packets */
-    UINT64_TO_STRING (buf, tbd->outOfOrderPkts);
-    json_object_object_add (root, COMMON_SKBD_TCP_OUT_OF_ORDER_PACKETS,
-                            json_object_new_string (buf));
+    json_object_set_new (root, COMMON_SKBD_TCP_OUT_OF_ORDER_PACKETS, json_integer (tbd->outOfOrderPkts));
     /* Tcp zero windows */
-    UINT64_TO_STRING (buf, tbd->zeroWindows);
-    json_object_object_add (root, COMMON_SKBD_TCP_ZERO_WINDOWS,
-                            json_object_new_string (buf));
+    json_object_set_new (root, COMMON_SKBD_TCP_ZERO_WINDOWS, json_integer (tbd->zeroWindows));
     /* Tcp duplicate acks */
-    UINT64_TO_STRING (buf, tbd->dupAcks);
-    json_object_object_add (root, COMMON_SKBD_TCP_DUPLICATE_ACKS,
-                            json_object_new_string (buf));
+    json_object_set_new (root, COMMON_SKBD_TCP_DUPLICATE_ACKS, json_integer (tbd->dupAcks));
 
     if ((tbd->state == TCP_BREAKDOWN_DATA_EXCHANGING) ||
         (tbd->state == TCP_BREAKDOWN_RESET_TYPE3) ||
         (tbd->state == TCP_BREAKDOWN_RESET_TYPE4))
         (*stream->parser->sessionBreakdown2Json) (root, stream->sessionDetail, tbd->sessionBreakdown);
 
-    out = strdup (json_object_to_json_string (root));
-    json_object_put (root);
+    out = json_dumps (root, JSON_INDENT (4));
+    json_object_clear (root);
 
     return out;
 }

@@ -136,7 +136,7 @@ typedef tcpBreakdown *tcpBreakdownPtr;
 struct _tcpBreakdown {
     uint64_t bkdId;                     /**< Global breakdown id */
     uint64_t timestamp;                 /**< Timestamp in seconds */
-    uint16_t proto;                     /**< Tcp application level protocol type */
+    protoType proto;                    /**< Tcp application level protocol type */
     struct in_addr srcIp;               /**< Source ip */
     uint16_t srcPort;                   /**< Source port */
     struct in_addr svcIp;               /**< Service ip */

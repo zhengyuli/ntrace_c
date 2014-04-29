@@ -7,7 +7,7 @@
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
 #include <hiredis/hiredis.h>
-#include <json/json.h>
+#include <jansson.h>
 #include "atomic.h"
 #include "hash.h"
 #include "util.h"
@@ -210,7 +210,8 @@ static int
 checkAgentID (void) {
     int i;
     redisReply *reply;
-    struct json_object *root, *tmp;
+    json_error_t error;
+    json_t *root, *tmp;
 
     reply = (redisReply *) redisCommand (rdsContext->ctxt, "HGETALL wdm:agent_map");
     if (reply == NULL) {
@@ -220,14 +221,14 @@ checkAgentID (void) {
 
     if (reply->type == REDIS_REPLY_ARRAY) {
         for (i = 0; (i + 1) < reply->elements; i += 2) {
-            root = json_tokener_parse (reply->element [i + 1]->str);
-            if (is_error (root)) {
-                LOGE ("Json tokener parse error.\n");
+            root = json_loads (reply->element [i + 1]->str, JSON_DISABLE_EOF_CHECK, &error);
+            if (root == NULL) {
+                LOGE ("Json parse error: %s.\n", error.text);
                 continue;
             }
-            tmp = json_object_object_get (root, "agent_id");
+            tmp = json_object_get (root, "agent_id");
             if (tmp) {
-                if (rdsContext->agentId == json_object_get_int (tmp))
+                if (rdsContext->agentId == json_integer_value (tmp))
                     return 0;
             }
         }

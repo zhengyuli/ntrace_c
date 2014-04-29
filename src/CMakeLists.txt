@@ -39,7 +39,7 @@ SET (AGENT_SOURCE_FILES
   3rdParty/http_parser/http_parser.c)
 
 ADD_EXECUTABLE (wdm-agent ${AGENT_SOURCE_FILES})
-TARGET_LINK_LIBRARIES (wdm-agent pcap czmq hiredis pthread ini_config z json)
+TARGET_LINK_LIBRARIES (wdm-agent pcap czmq hiredis pthread ini_config z jansson)
 INSTALL (
   TARGETS wdm-agent
   DESTINATION ${WDM_AGENT_BIN_DIR})

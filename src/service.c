@@ -6,7 +6,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <pthread.h>
-#include <json/json.h>
+#include <jansson.h>
 #include "log.h"
 #include "util.h"
 #include "service.h"
@@ -391,7 +391,8 @@ lookupServiceProtoType (const char *key) {
 servicePtr
 json2Service (const char *jsonData) {
     servicePtr svc;
-    struct json_object *root, *tmp;
+    json_error_t error;
+    json_t *root, *tmp;
     struct in_addr sa;
 
     svc = newService ();
@@ -400,74 +401,73 @@ json2Service (const char *jsonData) {
         return NULL;
     }
 
-    root = json_tokener_parse (jsonData);
-    if (is_error (root)) {
-        LOGE ("json parse error.\n");
+    root = json_loads (jsonData, JSON_DISABLE_EOF_CHECK, &error);
+    if (root == NULL) {
+        LOGE ("json parse error: %s.\n", error.text);
         free (svc);
         return NULL;
     }
 
     /* Get service id */
-    tmp = json_object_object_get (root, "service_id");
-    if (is_error (tmp)) {
+    tmp = json_object_get (root, "service_id");
+    if (tmp == NULL) {
         LOGE ("Has no service_id item.\n");
-        json_object_put (root);
+        json_object_clear (root);
         free (svc);
         return NULL;
     }
-    svc->id = json_object_get_int (tmp);
+    svc->id = json_integer_value (tmp);
 
     /* Get service proto */
-    tmp = json_object_object_get (root, "service_proto");
-    if (is_error (tmp)) {
+    tmp = json_object_get (root, "service_proto");
+    if (tmp == NULL) {
         LOGE ("Has no service_proto item.\n");
-        json_object_put (root);
+        json_object_clear (root);
         free (svc);
         return NULL;
     }
-    svc->proto = getProtoType (json_object_get_string (tmp));
+    svc->proto = getProtoType (json_string_value (tmp));
     if (svc->proto == PROTO_UNKNOWN) {
-        LOGE ("Unknown proto type: %s.\n", (json_object_get_string (tmp)));
-        json_object_put (root);
+        LOGE ("Unknown proto type: %s.\n", (json_string_value (tmp)));
+        json_object_clear (root);
         free (svc);
         return NULL;
     }
 
     /* Get service ip */
-    tmp = json_object_object_get (root, "service_ip");
-    if (is_error (tmp)) {
+    tmp = json_object_get (root, "service_ip");
+    if (tmp == NULL) {
         LOGE ("Has no service_ip item.\n");
-        json_object_put (root);
+        json_object_clear (root);
         free (svc);
         return NULL;
     }
-    if (!inet_aton (json_object_get_string (tmp), &sa)) {
-        LOGE ("Wrong ip format: %s.\n", (json_object_get_string (tmp)));
-        json_object_put (root);
+    if (!inet_aton (json_string_value (tmp), &sa)) {
+        LOGE ("Wrong ip format: %s.\n", (json_string_value (tmp)));
+        json_object_clear (root);
         free (svc);
         return NULL;
     }
-    svc->ip = strdup (json_object_get_string (tmp));
+    svc->ip = strdup (json_string_value (tmp));
     if (svc->ip == NULL) {
         LOGE ("Alloc memory for service ip error: %s.\n", strerror (errno));
-        json_object_put (root);
+        json_object_clear (root);
         free (svc);
         return NULL;
     }
 
     /* Get service port */
-    tmp = json_object_object_get (root, "service_port");
-    if (is_error (tmp)) {
+    tmp = json_object_get (root, "service_port");
+    if (tmp == NULL) {
         LOGE ("Has no service_port item.\n");
-        json_object_put (root);
+        json_object_clear (root);
         free (svc->ip);
         free (svc);
         return NULL;
     }
-    STRING_TO_UINT16 (&svc->port, json_object_get_string (tmp));
+    svc->port = json_integer_value (tmp);
 
-    /* Release cJSON root resource and return servicePtr. */
-    json_object_put(root);
+    json_object_clear (root);
     return svc;
 }
 

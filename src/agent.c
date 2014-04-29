@@ -8,7 +8,7 @@
 #include <netinet/ip.h>
 #include <czmq.h>
 #include <ini_config.h>
-#include <json/json.h>
+#include <jansson.h>
 #include <locale.h>
 #include "config.h"
 #include "list.h"
@@ -896,21 +896,19 @@ static char *
 pcapStat2Json (pcapStatPtr stat) {
     char *out;
     char buf [64];
-    struct json_object *root;
+    json_t *root;
 
-    root = json_object_new_object ();
-    if (is_error (root)) {
+    root = json_object ();
+    if (root == NULL) {
         LOGE ("Create json object error.\n");
         return NULL;
     }
 
-    INT64_TO_STRING (buf, stat->pktRecv);
-    json_object_object_add (root, "pktRecv", json_object_new_string (buf));
-    INT64_TO_STRING (buf, stat->pktDrop);
-    json_object_object_add (root, "pktDrop", json_object_new_string (buf));
+    json_object_set_new (root, "pktRecv", json_integer (stat->pktRecv));
+    json_object_set_new (root, "pktDrop", json_integer (stat->pktDrop));
 
-    out = strdup (json_object_to_json_string (root));
-    json_object_put (root);
+    out = json_dumps (root, JSON_INDENT (4));
+    json_object_clear (root);
     return out;
 }
 

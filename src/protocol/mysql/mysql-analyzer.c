@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <zlib.h>
-#include <json/json.h>
+#include <jansson.h>
 #include "util.h"
 #include "log.h"
 #include "byte-order.h"
@@ -680,7 +680,7 @@ mysqlParserExecute (mysqlParserStatePtr parser, const u_char *data, int dataLen,
                 /* Incomplete compressed packet */
                 if (parseLeft < compPktLen)
                     break;
-                
+
                 if (payloadLen) {
                     /* Compressed pkt */
                     uncompPkt = malloc (payloadLen);
@@ -1003,14 +1003,12 @@ newMysqlSessionDetail (void) {
 /* Reset mysql session detail */
 static void
 resetMysqlSessionDetail (mysqlSessionDetailPtr msd) {
-    if (msd->reqStmt)
-        free (msd->reqStmt);
+    free (msd->reqStmt);
     msd->reqStmt = NULL;
     msd->state = MYSQL_INIT;
     msd->errCode = 0;
     msd->sqlState = 0;
-    if (msd->errMsg)
-        free (msd->errMsg);
+    free (msd->errMsg);
     msd->errMsg = NULL;
     msd->reqSize = 0;
     msd->respSize = 0;
@@ -1029,10 +1027,9 @@ freeMysqlSessionDetail (void *sd) {
     msd = (mysqlSessionDetailPtr) sd;
     /* Clean mysql parser context */
     destroyMysqlParser (&msd->parser);
-    if (msd->reqStmt)
-        free (msd->reqStmt);
-    if (msd->errMsg)
-        free (msd->errMsg);
+    free (msd->reqStmt);
+    free (msd->errMsg);
+
     free (msd);
 }
 
@@ -1067,14 +1064,11 @@ freeMysqlSessionBreakdown (void *sbd) {
         return;
 
     msbd = (mysqlSessionBreakdownPtr) sbd;
-    if (msbd->serverVer)
-        free (msbd->serverVer);
-    if (msbd->userName)
-        free (msbd->userName);
-    if (msbd->reqStmt)
-        free (msbd->reqStmt);
-    if (msbd->errMsg)
-        free (msbd->errMsg);
+    free (msbd->serverVer);
+    free (msbd->userName);
+    free (msbd->reqStmt);
+    free (msbd->errMsg);
+
     free (msbd);
 }
 
@@ -1204,47 +1198,39 @@ exit:
 }
 
 static void
-mysqlSessionBreakdown2Json (struct json_object *root, void *sd, void *sbd) {
-    char buf [64];
+mysqlSessionBreakdown2Json (json_t *root, void *sd, void *sbd) {
     mysqlSessionBreakdownPtr msbd = (mysqlSessionBreakdownPtr) sbd;
 
-    json_object_object_add (root, MYSQL_SBKD_SERVER_VERSION, json_object_new_string (msbd->serverVer));
-
-    json_object_object_add (root, MYSQL_SBKD_USER_NAME, json_object_new_string (msbd->userName));
-
-    UINT32_TO_STRING (buf, msbd->conId);
-    json_object_object_add (root, MYSQL_SBKD_CONNECTION_ID, json_object_new_string (buf));
-
+    /* Mysql server version */
+    json_object_set_new (root, MYSQL_SBKD_SERVER_VERSION, json_string (msbd->serverVer));
+    /* Mysql user name */
+    json_object_set_new (root, MYSQL_SBKD_USER_NAME, json_string (msbd->userName));
+    /* Mysql connection id */
+    json_object_set_new (root, MYSQL_SBKD_CONNECTION_ID, json_integer (msbd->conId));
+    /* Mysql request statement */
     if (msbd->reqStmt)
-        json_object_object_add (root, MYSQL_SBKD_REQUEST_STATEMENT, json_object_new_string (msbd->reqStmt));
+        json_object_set_new (root, MYSQL_SBKD_REQUEST_STATEMENT, json_string (msbd->reqStmt));
     else
-        json_object_object_add (root, MYSQL_SBKD_REQUEST_STATEMENT, json_object_new_string (""));
-
-    UINT32_TO_STRING (buf, msbd->state);
-    json_object_object_add (root, MYSQL_SBKD_STATE, json_object_new_string (buf));
-
-    UINT16_TO_STRING (buf, msbd->errCode);
-    json_object_object_add (root, MYSQL_SBKD_ERROR_CODE, json_object_new_string (buf));
-
-    UINT32_TO_STRING (buf, msbd->sqlState);
-    json_object_object_add (root, MYSQL_SBKD_SQL_STATE, json_object_new_string (buf));
-
+        json_object_set_new (root, MYSQL_SBKD_REQUEST_STATEMENT, json_string (""));
+    /* Mysql state */
+    json_object_set_new (root, MYSQL_SBKD_STATE, json_integer (msbd->state));
+    /* Mysql error code */
+    json_object_set_new (root, MYSQL_SBKD_ERROR_CODE, json_integer (msbd->errCode));
+    /* Mysql sql state */
+    json_object_set_new (root, MYSQL_SBKD_SQL_STATE, json_integer (msbd->sqlState));
+    /* Mysql error message */
     if (msbd->errMsg)
-        json_object_object_add (root, MYSQL_SBKD_ERROR_MESSAGE, json_object_new_string (msbd->errMsg));
+        json_object_set_new (root, MYSQL_SBKD_ERROR_MESSAGE, json_string (msbd->errMsg));
     else
-        json_object_object_add (root, MYSQL_SBKD_ERROR_MESSAGE, json_object_new_string (""));
-
-    UINT64_TO_STRING (buf, msbd->reqSize);
-    json_object_object_add (root, MYSQL_SBKD_REQUEST_SIZE, json_object_new_string (buf));
-
-    UINT64_TO_STRING (buf, msbd->respSize);
-    json_object_object_add (root, MYSQL_SBKD_RESPONSE_SIZE, json_object_new_string (buf));
-
-    UINT64_TO_STRING (buf, msbd->respLatency);
-    json_object_object_add (root, MYSQL_SBKD_RESPONSE_LATENCY, json_object_new_string (buf));
-
-    UINT64_TO_STRING (buf, msbd->downloadLatency);
-    json_object_object_add (root, MYSQL_SBKD_DOWNLOAD_LATENCY, json_object_new_string (buf));
+        json_object_set_new (root, MYSQL_SBKD_ERROR_MESSAGE, json_string (""));
+    /* Mysql request size */
+    json_object_set_new (root, MYSQL_SBKD_REQUEST_SIZE, json_integer (msbd->reqSize));
+    /* Mysql response size */
+    json_object_set_new (root, MYSQL_SBKD_RESPONSE_SIZE, json_integer (msbd->respSize));
+    /* Mysql response latency */
+    json_object_set_new (root, MYSQL_SBKD_RESPONSE_LATENCY, json_integer (msbd->respLatency));
+    /* Mysql download latency */
+    json_object_set_new (root, MYSQL_SBKD_DOWNLOAD_LATENCY, json_integer (msbd->downloadLatency));
 }
 
 static void

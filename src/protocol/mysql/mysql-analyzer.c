@@ -223,8 +223,10 @@ pktOkOrError (mysqlParserStatePtr parser, const u_char *payload,
             currSessionDetail->state = MYSQL_RESPONSE_OK;
             currSessionDetail->respTimeEnd = timeVal2MilliSecond (currTime);
             currSessionDone = 1;
-        } else
+        } else {
+            resetMysqlSessionDetail (currSessionDetail);
             LOGD ("Cli<------Server: OK packet.\n");
+        }
 
         return PKT_HANDLED;
     } else if (*pkt == 0xFF) {

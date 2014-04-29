@@ -138,7 +138,7 @@ retry:
             LOGE ("Redis error: %s\n", rdsContext->ctxt->errstr);
     }
     else {
-        LOGD ("Tcp session breakdown--------count: %u\n%s\n", ATOMIC_INC (&tcpBreakdownCount), sessionBreakdownJson);
+        LOGD ("Tcp session breakdown--------count: %u\n%s\n", ATOMIC_FETCH_AND_ADD (&tcpBreakdownCount, 1), sessionBreakdownJson);
         freeReplyObject (reply);
     }
 }

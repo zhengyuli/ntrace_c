@@ -11,4 +11,4 @@ service_dict['service_port'] = 80
 service_dict['service_proto'] = 'HTTP'
 
 rdsobj.publishAddService(1, service_dict)
-
+print "get service_info: %s" % rdsobj.getServiceInfo(1, 3)

@@ -107,7 +107,7 @@ pktHandshakeClient (mysqlParserStatePtr parser, const u_char *payload,
     u_char pass [128] = {0};
     const u_char *pkt = payload;
 
-    if (!fromClient || parser->seqId != 1)
+    if (!fromClient || (parser->seqId != 1))
         return PKT_WRONG_TYPE;
 
     /* Protocol version before 4.1 */
@@ -282,7 +282,7 @@ pktEnd (mysqlParserStatePtr parser, const u_char *payload,
     uint16_t status = 0;
     const u_char *pkt = payload;
 
-    if (*pkt != 0xFE ||
+    if ((*pkt != 0xFE) ||
         (parser->cliProtoV41 && (payloadLen != 5)) ||
         (!parser->cliProtoV41 && (payloadLen != 1)))
         return PKT_WRONG_TYPE;
@@ -308,7 +308,7 @@ pktEnd (mysqlParserStatePtr parser, const u_char *payload,
         currSessionDone = 1;
     }
 
-    if (parser->state == STATE_SECURE_AUTH && fromClient)
+    if ((parser->state == STATE_SECURE_AUTH) && fromClient)
         LOGD ("Cli------>Server: END packet.\n");
 
     return PKT_HANDLED;
@@ -320,25 +320,45 @@ pktComX (mysqlParserStatePtr parser, const u_char *payload,
     int pktEventMatch;
     const u_char *pkt = payload;
 
-    if (payloadLen > 1 || *pkt >= COM_UNKNOWN)
+    if ((payloadLen > 1) || (*pkt >= COM_UNKNOWN))
         return PKT_WRONG_TYPE;
 
     // Does pkt match event?
     switch (parser->event) {
-        case COM_QUIT:
-            pktEventMatch = MATCH (*pkt, COM_QUIT);
+        case COM_SLEEP:
+            pktEventMatch = MATCH (*pkt, COM_SLEEP);
             break;
 
-        case COM_PING:
-            pktEventMatch = MATCH (*pkt, COM_PING);
+        case COM_QUIT:
+            pktEventMatch = MATCH (*pkt, COM_QUIT);
             break;
 
         case COM_STATISTICS:
             pktEventMatch = MATCH (*pkt, COM_STATISTICS);
             break;
 
+        case COM_PROCESS_INFO:
+            pktEventMatch = MATCH (*pkt, COM_PROCESS_INFO);
+            break;
+
+        case COM_CONNECT:
+            pktEventMatch = MATCH (*pkt, COM_CONNECT);
+            break;
+
         case COM_DEBUG:
             pktEventMatch = MATCH (*pkt, COM_DEBUG);
+            break;
+
+        case COM_PING:
+            pktEventMatch = MATCH (*pkt, COM_PING);
+            break;
+
+        case COM_TIME:
+            pktEventMatch = MATCH (*pkt, COM_TIME);
+            break;
+
+        case COM_DELAYED_INSERT:
+            pktEventMatch = MATCH (*pkt, COM_DELAYED_INSERT);
             break;
 
         case COM_DAEMON:
@@ -376,7 +396,7 @@ pktComXString (mysqlParserStatePtr parser, const u_char *payload,
     u_char com [4096] = {0};
     const u_char *pkt = payload;
 
-    if (payloadLen == 1 || *pkt >= COM_UNKNOWN)
+    if ((payloadLen == 1) || (*pkt >= COM_UNKNOWN))
         return PKT_WRONG_TYPE;
 
     switch (parser->event) {
@@ -431,7 +451,7 @@ pktComXInt (mysqlParserStatePtr parser, const u_char *payload,
     u_char com [64] = {0};
     const u_char *pkt = payload;
 
-    if (payloadLen == 1 || payloadLen > 5)
+    if ((payloadLen == 1) || (payloadLen > 5))
         return PKT_WRONG_TYPE;
 
     switch(parser->event) {
@@ -447,6 +467,10 @@ pktComXInt (mysqlParserStatePtr parser, const u_char *payload,
             pktEventMatch = MATCH (*pkt, COM_STMT_CLOSE);
             break;
 
+        case COM_STMT_RESET:
+            pktEventMatch = MATCH (*pkt, COM_STMT_RESET);
+            break;
+
         default:
             pktEventMatch = 0;
             break;
@@ -456,6 +480,44 @@ pktComXInt (mysqlParserStatePtr parser, const u_char *payload,
         return PKT_WRONG_TYPE;
 
     snprintf (com, sizeof (com) - 1, "%s:%d", mysqlCommandName [*pkt], G4 (pkt + 1));
+
+    currSessionDetail->reqStmt = strdup (com);
+    currSessionDetail->state = MYSQL_REQUEST_COMPLETE;
+
+    return PKT_HANDLED;
+}
+
+static int
+pktChangeUser (mysqlParserStatePtr parser, const u_char *payload,
+               int payloadLen, int fromClient) {
+    int pktEventMatch;
+    u_char com [64] = {0};
+    const u_char *pkt = payload;
+
+    if ((payloadLen == 1) || !MATCH (*pkt, COM_CHANGE_USER))
+        return PKT_WRONG_TYPE;
+
+    /* "COM_CHANGE_USER:username" */
+    snprintf (com, sizeof (com) - 1, "%s:%s", mysqlCommandName [*pkt], pkt + 1);
+
+    currSessionDetail->reqStmt = strdup (com);
+    currSessionDetail->state = MYSQL_REQUEST_COMPLETE;
+
+    return PKT_HANDLED;
+}
+
+static int
+pktSetOption (mysqlParserStatePtr parser, const u_char *payload,
+              int payloadLen, int fromClient) {
+    int pktEventMatch;
+    u_char com [64] = {0};
+    const u_char *pkt = payload;
+
+    if ((payloadLen == 1) || (payloadLen > 3) || !MATCH (*pkt, COM_SET_OPTION))
+        return PKT_WRONG_TYPE;
+
+    /* "COM_SET_OPTION:option" */
+    snprintf (com, sizeof (com) - 1, "%s:%d", mysqlCommandName [*pkt], G2 (pkt + 1));
 
     currSessionDetail->reqStmt = strdup (com);
     currSessionDetail->state = MYSQL_REQUEST_COMPLETE;
@@ -609,7 +671,7 @@ sqlParse (mysqlParserStatePtr parser, const u_char *data, int dataLen, int fromC
                     handler = NULL;
             }
             if (handler == NULL)
-                LOGD ("has no proper handler.\n");
+                LOGW ("Warning: has no proper handler.\n");
         }
 
         parseCount += pktLen;
@@ -755,66 +817,98 @@ initMysqlProto (void) {
     mysqlStateMap [STATE_SECURE_AUTH].handler [1] = &pktSecureAuth;
 
     /* -------------------------------------------------------------- */
-    mysqlStateMap [STATE_SLEEP].numEvents = 15;
-    mysqlStateMap [STATE_SLEEP].event [0] = COM_QUERY;
-    mysqlStateMap [STATE_SLEEP].nextState [0] = STATE_TXT_RS;
-    mysqlStateMap [STATE_SLEEP].handler [0] = &pktComXString;
+    mysqlStateMap [STATE_SLEEP].numEvents = 23;
+    mysqlStateMap [STATE_SLEEP].event [0] = COM_SLEEP;
+    mysqlStateMap [STATE_SLEEP].nextState [0] = STATE_OK_OR_ERROR;
+    mysqlStateMap [STATE_SLEEP].handler [0] = &pktComX;
 
-    mysqlStateMap [STATE_SLEEP].event [1] = COM_INIT_DB;
-    mysqlStateMap [STATE_SLEEP].nextState [1] = STATE_OK_OR_ERROR;
-    mysqlStateMap [STATE_SLEEP].handler [1] = &pktComXString;
+    mysqlStateMap [STATE_SLEEP].event [1] = COM_QUIT;
+    mysqlStateMap [STATE_SLEEP].nextState [1] = STATE_NOT_CONNECTED;
+    mysqlStateMap [STATE_SLEEP].handler [1] = &pktComX;
 
-    mysqlStateMap [STATE_SLEEP].event [2] = COM_FIELD_LIST;
-    mysqlStateMap [STATE_SLEEP].nextState [2] = STATE_FIELD_LIST;
+    mysqlStateMap [STATE_SLEEP].event [2] = COM_INIT_DB;
+    mysqlStateMap [STATE_SLEEP].nextState [2] = STATE_OK_OR_ERROR;
     mysqlStateMap [STATE_SLEEP].handler [2] = &pktComXString;
 
-    mysqlStateMap [STATE_SLEEP].event [3] = COM_CREATE_DB;
-    mysqlStateMap [STATE_SLEEP].nextState [3] = STATE_OK_OR_ERROR;
+    mysqlStateMap [STATE_SLEEP].event [3] = COM_QUERY;
+    mysqlStateMap [STATE_SLEEP].nextState [3] = STATE_TXT_RS;
     mysqlStateMap [STATE_SLEEP].handler [3] = &pktComXString;
 
-    mysqlStateMap [STATE_SLEEP].event [4] = COM_DROP_DB;
-    mysqlStateMap [STATE_SLEEP].nextState [4] = STATE_OK_OR_ERROR;
+    mysqlStateMap [STATE_SLEEP].event [4] = COM_FIELD_LIST;
+    mysqlStateMap [STATE_SLEEP].nextState [4] = STATE_FIELD_LIST;
     mysqlStateMap [STATE_SLEEP].handler [4] = &pktComXString;
 
-    mysqlStateMap [STATE_SLEEP].event [5] = COM_PROCESS_KILL;
+    mysqlStateMap [STATE_SLEEP].event [5] = COM_CREATE_DB;
     mysqlStateMap [STATE_SLEEP].nextState [5] = STATE_OK_OR_ERROR;
-    mysqlStateMap [STATE_SLEEP].handler [5] = &pktComXInt;
+    mysqlStateMap [STATE_SLEEP].handler [5] = &pktComXString;
 
-    mysqlStateMap [STATE_SLEEP].event [6] = COM_REFRESH;
+    mysqlStateMap [STATE_SLEEP].event [6] = COM_DROP_DB;
     mysqlStateMap [STATE_SLEEP].nextState [6] = STATE_OK_OR_ERROR;
-    mysqlStateMap [STATE_SLEEP].handler [6] = &pktComXInt;
+    mysqlStateMap [STATE_SLEEP].handler [6] = &pktComXString;
 
-    mysqlStateMap [STATE_SLEEP].event [7] = COM_SHUTDOWN;
-    mysqlStateMap [STATE_SLEEP].nextState [7] = STATE_END;
-    mysqlStateMap [STATE_SLEEP].handler [7] = &pktEnd;
+    mysqlStateMap [STATE_SLEEP].event [7] = COM_PROCESS_KILL;
+    mysqlStateMap [STATE_SLEEP].nextState [7] = STATE_OK_OR_ERROR;
+    mysqlStateMap [STATE_SLEEP].handler [7] = &pktComXInt;
 
-    mysqlStateMap [STATE_SLEEP].event [8] = COM_DEBUG;
-    mysqlStateMap [STATE_SLEEP].nextState [8] = STATE_END;
-    mysqlStateMap [STATE_SLEEP].handler [8] = &pktComX;
+    mysqlStateMap [STATE_SLEEP].event [8] = COM_REFRESH;
+    mysqlStateMap [STATE_SLEEP].nextState [8] = STATE_OK_OR_ERROR;
+    mysqlStateMap [STATE_SLEEP].handler [8] = &pktComXInt;
 
-    mysqlStateMap [STATE_SLEEP].event [9] = COM_STATISTICS;
-    mysqlStateMap [STATE_SLEEP].nextState [9] = STATE_STATISTICS;
-    mysqlStateMap [STATE_SLEEP].handler [9] = &pktComX;
+    mysqlStateMap [STATE_SLEEP].event [9] = COM_SHUTDOWN;
+    mysqlStateMap [STATE_SLEEP].nextState [9] = STATE_END;
+    mysqlStateMap [STATE_SLEEP].handler [9] = &pktEnd;
 
-    mysqlStateMap [STATE_SLEEP].event [10] = COM_PING;
-    mysqlStateMap [STATE_SLEEP].nextState [10] = STATE_PONG;
+    mysqlStateMap [STATE_SLEEP].event [10] = COM_PROCESS_INFO;
+    mysqlStateMap [STATE_SLEEP].nextState [10] = STATE_TXT_RS;
     mysqlStateMap [STATE_SLEEP].handler [10] = &pktComX;
 
-    mysqlStateMap [STATE_SLEEP].event [11] = COM_QUIT;
-    mysqlStateMap [STATE_SLEEP].nextState [11] = STATE_NOT_CONNECTED;
+    mysqlStateMap [STATE_SLEEP].event [11] = COM_CONNECT;
+    mysqlStateMap [STATE_SLEEP].nextState [11] = STATE_OK_OR_ERROR;
     mysqlStateMap [STATE_SLEEP].handler [11] = &pktComX;
 
-    mysqlStateMap [STATE_SLEEP].event [12] = COM_STMT_PREPARE;
-    mysqlStateMap [STATE_SLEEP].nextState [12] = STATE_STMT_META;
-    mysqlStateMap [STATE_SLEEP].handler [12] = &pktComXString;
+    mysqlStateMap [STATE_SLEEP].event [12] = COM_DEBUG;
+    mysqlStateMap [STATE_SLEEP].nextState [12] = STATE_END;
+    mysqlStateMap [STATE_SLEEP].handler [12] = &pktComX;
 
-    mysqlStateMap [STATE_SLEEP].event [13] = COM_STMT_EXECUTE;
-    mysqlStateMap [STATE_SLEEP].nextState [13] = STATE_BIN_RS;
-    mysqlStateMap [STATE_SLEEP].handler [13] = &pktStmtExecute;
+    mysqlStateMap [STATE_SLEEP].event [13] = COM_STATISTICS;
+    mysqlStateMap [STATE_SLEEP].nextState [13] = STATE_STATISTICS;
+    mysqlStateMap [STATE_SLEEP].handler [13] = &pktComX;
 
-    mysqlStateMap [STATE_SLEEP].event [14] = COM_STMT_CLOSE;
-    mysqlStateMap [STATE_SLEEP].nextState [14] = STATE_SLEEP;
-    mysqlStateMap [STATE_SLEEP].handler [14] = &pktComXInt;
+    mysqlStateMap [STATE_SLEEP].event [14] = COM_PING;
+    mysqlStateMap [STATE_SLEEP].nextState [14] = STATE_PONG;
+    mysqlStateMap [STATE_SLEEP].handler [14] = &pktComX;
+
+    mysqlStateMap [STATE_SLEEP].event [15] = COM_TIME;
+    mysqlStateMap [STATE_SLEEP].nextState [15] = STATE_OK_OR_ERROR;
+    mysqlStateMap [STATE_SLEEP].handler [15] = &pktComX;
+
+    mysqlStateMap [STATE_SLEEP].event [16] = COM_DELAYED_INSERT;
+    mysqlStateMap [STATE_SLEEP].nextState [16] = STATE_OK_OR_ERROR;
+    mysqlStateMap [STATE_SLEEP].handler [16] = &pktComX;
+
+    mysqlStateMap [STATE_SLEEP].event [17] = COM_CHANGE_USER;
+    mysqlStateMap [STATE_SLEEP].nextState [17] = STATE_SECURE_AUTH;
+    mysqlStateMap [STATE_SLEEP].handler [17] = &pktChangeUser;
+
+    mysqlStateMap [STATE_SLEEP].event [18] = COM_STMT_PREPARE;
+    mysqlStateMap [STATE_SLEEP].nextState [18] = STATE_STMT_META;
+    mysqlStateMap [STATE_SLEEP].handler [18] = &pktComXString;
+
+    mysqlStateMap [STATE_SLEEP].event [19] = COM_STMT_EXECUTE;
+    mysqlStateMap [STATE_SLEEP].nextState [19] = STATE_BIN_RS;
+    mysqlStateMap [STATE_SLEEP].handler [19] = &pktStmtExecute;
+
+    mysqlStateMap [STATE_SLEEP].event [20] = COM_STMT_CLOSE;
+    mysqlStateMap [STATE_SLEEP].nextState [20] = STATE_SLEEP;
+    mysqlStateMap [STATE_SLEEP].handler [20] = &pktComXInt;
+
+    mysqlStateMap [STATE_SLEEP].event [21] = COM_STMT_RESET;
+    mysqlStateMap [STATE_SLEEP].nextState [21] = STATE_OK_OR_ERROR;
+    mysqlStateMap [STATE_SLEEP].handler [21] = &pktComXInt;
+
+    mysqlStateMap [STATE_SLEEP].event [22] = COM_SET_OPTION;
+    mysqlStateMap [STATE_SLEEP].nextState [22] = STATE_SET_OPTION;
+    mysqlStateMap [STATE_SLEEP].handler [22] = &pktSetOption;
 
     /* -------------------------------------------------------------- */
     mysqlStateMap [STATE_PONG].numEvents = 1;
@@ -937,6 +1031,16 @@ initMysqlProto (void) {
     mysqlStateMap [STATE_STMT_PARAM].event [1] = EVENT_END;
     mysqlStateMap [STATE_STMT_PARAM].nextState [1] = STATE_FIELD_LIST;
     mysqlStateMap [STATE_STMT_PARAM].handler [1] = &pktEnd;
+
+    /* -------------------------------------------------------------- */
+    mysqlStateMap [STATE_SET_OPTION].numEvents = 2;
+    mysqlStateMap [STATE_SET_OPTION].event [0] = EVENT_END;
+    mysqlStateMap [STATE_SET_OPTION].nextState [0] = STATE_SLEEP;
+    mysqlStateMap [STATE_SET_OPTION].handler [0] = &pktEnd;
+
+    mysqlStateMap [STATE_SET_OPTION].event [1] = EVENT_OK_OR_ERROR;
+    mysqlStateMap [STATE_SET_OPTION].nextState [1] = STATE_SLEEP;
+    mysqlStateMap [STATE_SET_OPTION].handler [1] = &pktOkOrError;
 
     return 0;
 }

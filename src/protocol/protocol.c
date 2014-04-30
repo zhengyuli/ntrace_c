@@ -13,37 +13,6 @@ static protoInfo protoInfoTable [] = {
     {PROTO_MYSQL, "MYSQL", &mysqlParser}
 };
 
-int
-initProto (void) {
-    int ret;
-    int i;
-    protoInfoPtr tmp;
-    protoParserPtr parser;
-
-    for (i = 0; i < TABLE_SIZE (protoInfoTable); i++) {
-        parser = protoInfoTable [i].parser;
-        ret = (*parser->initProto) ();
-        if (ret < 0)
-            return -1;
-    }
-
-    return 0;
-}
-
-void
-destroyProto (void) {
-    int ret;
-    int i;
-    protoInfoPtr tmp;
-    protoParserPtr parser;
-
-    for (i = 0; i < TABLE_SIZE (protoInfoTable); i++) {
-        parser = protoInfoTable [i].parser;
-        if (parser->destroyProto)
-            (*parser->destroyProto) ();
-    }
-}
-
 protoType
 getProtoType (const char *protoName) {
     int i;
@@ -78,4 +47,37 @@ getProtoParser (protoType proto) {
 
     tmp = &protoInfoTable [proto];
     return tmp->parser;
+}
+
+int
+initProto (void) {
+    int ret;
+    int i;
+    protoInfoPtr tmp;
+    protoParserPtr parser;
+
+    for (i = 0; i < TABLE_SIZE (protoInfoTable); i++) {
+        parser = protoInfoTable [i].parser;
+        ret = (*parser->initProto) ();
+        if (ret < 0) {
+            LOGE ("Init proto: %s error.\n", protoInfoTable [i].name);
+            return -1;
+        }
+    }
+
+    return 0;
+}
+
+void
+destroyProto (void) {
+    int ret;
+    int i;
+    protoInfoPtr tmp;
+    protoParserPtr parser;
+
+    for (i = 0; i < TABLE_SIZE (protoInfoTable); i++) {
+        parser = protoInfoTable [i].parser;
+        if (parser->destroyProto)
+            (*parser->destroyProto) ();
+    }
 }

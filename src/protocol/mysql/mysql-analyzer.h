@@ -164,10 +164,11 @@ typedef enum {
     STATE_TXT_ROW,
     STATE_BIN_ROW,
     STATE_STMT_META,
-    STATE_STMT_PARAM
+    STATE_STMT_PARAM,
+    STATE_SET_OPTION
 } mysqlState;
 
-#define MYSQL_STATES_NUM 17
+#define MYSQL_STATES_NUM 18
 
 typedef enum {
     // Events 0-32 are mysqlServerCommand
@@ -230,7 +231,7 @@ struct _mysqlParserState {
 typedef int (*mysqlHandler) (mysqlParserStatePtr parser, const u_char *payload,
                              int payloadLen, int fromClient);
 
-#define MAX_EVENTS_PER_STATE 15
+#define MAX_EVENTS_PER_STATE 32
 
 typedef struct _mysqlStateEvents mysqlStateEvents;
 typedef mysqlStateEvents *mysqlStateEventsPtr;

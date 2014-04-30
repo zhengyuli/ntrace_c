@@ -63,16 +63,16 @@ struct _protoInfo {
 };
 
 /*========================Interfaces definition============================*/
-int
-initProto (void);
-void
-destroyProto (void);
 protoType
 getProtoType (const char *protoName);
 const char *
 getProtoName (protoType proto);
 protoParserPtr
 getProtoParser (protoType proto);
+int
+initProto (void);
+void
+destroyProto (void);
 /*=======================Interfaces definition end=========================*/
 
 #endif /* __WDM_AGENT_PROTOCOL_H__ */

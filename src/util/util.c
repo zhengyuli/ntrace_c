@@ -81,8 +81,10 @@ fileExist (const char *path, int amode)
         return 1;
 }
 
-/* Check remote service status, if is running then return 1
- * else return 0 */
+/*
+ * Check remote service status, if is running then return 1
+ * else return 0
+ */
 int
 remoteServiceRun (const char *svcIp, uint16_t svcPort) {
     int ret;

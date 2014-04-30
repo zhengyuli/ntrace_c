@@ -9,11 +9,27 @@
 #include "util.h"
 
 inline uint64_t
+timeVal2Second (timeValPtr tm) {
+    uint64_t second;
+
+    second = tm->tv_sec + (tm->tv_usec / 1000000);
+    return second;
+}
+
+inline uint64_t
 timeVal2MilliSecond (timeValPtr tm) {
     uint64_t milli;
 
     milli = (tm->tv_sec * 1000) + (tm->tv_usec / 1000);
     return milli;
+}
+
+inline uint64_t
+timeVal2MicoSecond (timeValPtr tm) {
+    uint64_t micro;
+
+    micro = (tm->tv_sec * 1000000) + tm->tv_usec;
+    return micro;
 }
 
 int
@@ -79,35 +95,4 @@ fileExist (const char *path, int amode)
         return 0;
     else
         return 1;
-}
-
-/*
- * Check remote service status, if is running then return 1
- * else return 0
- */
-int
-remoteServiceRun (const char *svcIp, uint16_t svcPort) {
-    int ret;
-    int sockfd;
-    struct sockaddr_in srvAddr;
-
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if(sockfd < 0)
-        return 0;
-
-    memset (&srvAddr, 0, sizeof (srvAddr));
-    srvAddr.sin_family = AF_INET;
-    srvAddr.sin_port = htons (svcPort);
-    ret = inet_pton (AF_INET, svcIp ? svcIp : "127.0.0.1", &srvAddr.sin_addr);
-    if (ret <= 0)
-        return 0;
-
-    ret = connect (sockfd, (const struct sockaddr *) &srvAddr, sizeof (srvAddr));
-    if(ret < 0) {
-        close (sockfd);
-        return 0;
-    } else {
-        close (sockfd);
-        return 1;
-    }
 }

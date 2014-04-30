@@ -27,7 +27,7 @@ static __thread logContextPtr logCtxt = NULL;
 /*
  * @brief Init log context
  *
- * @param logdIp logd ip
+ * @param logdIp ip of logd to connect
  * @param logLevel log level
  *
  * @return 0 if success else -1
@@ -35,13 +35,33 @@ static __thread logContextPtr logCtxt = NULL;
 int
 initLog (const char *logdIp, int logLevel) {
     int ret;
+    int sockfd;
+    struct sockaddr_in logdAddr;
 
-    ret = remoteServiceRun (logdIp, LOGD_SOCK_PORT);
-    if (!ret) {
-        fprintf (stderr, "Logd is not running.\n");
+    /* Check logd service is running */
+    sockfd = socket (AF_INET, SOCK_STREAM, 0);
+    if (sockfd < 0) {
+        fprintf (stderr, "Create socket error.\n");
+        return -1;
+    }
+    
+    memset (&logdAddr, 0, sizeof (logdAddr));
+    logdAddr.sin_family = AF_INET;
+    logdAddr.sin_port = htons (LOGD_SOCK_PORT);
+    ret = inet_pton (AF_INET, logdIp ? logdIp : "127.0.0.1", &logdAddr.sin_addr);
+    if (ret < 0) {
+        fprintf (stderr, "Ivalid logd ip address.\n");
         return -1;
     }
 
+    ret = connect (sockfd, (const struct sockaddr *) &logdAddr, sizeof (logdAddr));
+    close (sockfd);
+    if (ret < 0) {
+        fprintf (stderr, "Logd is not running.\n");
+        close (sockfd);
+        return -1;
+    }
+        
     /* init log context */
     logCtxt = malloc (sizeof (logContext));
     if (logCtxt == NULL)

@@ -65,7 +65,11 @@ struct _timeVal {
 
 /*========================Interfaces definition============================*/
 uint64_t
+timeVal2Second (timeValPtr tm);
+uint64_t
 timeVal2MilliSecond (timeValPtr tm);
+uint64_t
+timeVal2MicoSecond (timeValPtr tm);
 int
 strEqualIgnoreCase (const char *str1, const char *str2);
 ssize_t
@@ -74,10 +78,6 @@ ssize_t
 safeWrite (int fd, const void *buf, size_t count);
 int
 fileExist (const char *path, int amode);
-int
-remoteServiceRun (const char *svcIp, uint16_t svcPort);
-int
-getNumCores (void);
 /*=======================Interfaces definition end=========================*/
 
 #endif /* __WDM_AGENT_UTIL_H__ */

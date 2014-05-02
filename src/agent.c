@@ -729,12 +729,12 @@ getIpHeader (const struct pcap_pkthdr *pkthdr, const u_char *linkLayerHeader) {
 
     switch (mirrorNic.linkType) {
         case DLT_EN10MB:
-            /* wrong packet */
+            /* Wrong packet */
             if (pkthdr->caplen < 14)
                 return NULL;
-            /* recheck link offset */
+            /* Recheck link offset */
             if ((linkLayerHeader [12] == 0x08) && (linkLayerHeader [13] == 0x00))
-                /* regular ip frame */
+                /* Regular ip frame */
                 mirrorNic.linkOffset = 14;
             else
                 /* 802.1Q VLAN frame */
@@ -751,7 +751,7 @@ getIpHeader (const struct pcap_pkthdr *pkthdr, const u_char *linkLayerHeader) {
                      */
                     mirrorNic.linkOffset = 18;
                 } else {
-                    /* non-ip packet */
+                    /* Non-ip packet */
                     LOGE ("Capture non-ip packet.\n");
                     return NULL;
                 }
@@ -856,7 +856,7 @@ serviceUpdate (svcUpdateType updateType, servicePtr svc) {
 
     ret = updateService (updateType, svc);
     if (ret == 0) {
-        /* update BPF filter */
+        /* Update BPF filter */
         filter = generateFilter ();
         if (filter) {
             ret = setFilter (filter);
@@ -917,7 +917,7 @@ serviceUpdateMonitor (void *args) {
     /* Create BPF filter */
     filter = generateFilter ();
     if (filter) {
-        /* set filter for mirror interface */
+        /* Set filter for mirror interface */
         ret = setFilter (filter);
         if (ret < 0) {
             LOGE ("Set filter error.\n");
@@ -1192,7 +1192,7 @@ pktParsingService (void *args) {
     struct ip *newIphdr;
     pthread_t tcpBreakdownSinkTid;
 
-    /* init log context */
+    /* Init log context */
     ret = initLog (agentParameters.logLevel);
     if (ret < 0) {
         logToConsole ("Init log context error.\n");
@@ -1213,7 +1213,7 @@ pktParsingService (void *args) {
         goto freeIpContext;
     }
 
-    /* init zmq context */
+    /* Init zmq context */
     zmqCtx = zctx_new ();
     if (zmqCtx == NULL) {
         LOGE ("Create zmq context error: %s.\n", strerror (errno));
@@ -1352,7 +1352,7 @@ agentService (void) {
     timeVal captureTime;
     struct timeval tm;
 
-    /* init log context */
+    /* Init log context */
     ret = initLog (agentParameters.logLevel);
     if (ret < 0) {
         logToConsole ("Init log context error.\n");
@@ -1365,7 +1365,7 @@ agentService (void) {
         goto freeLogContext;
     }
 
-    /* init zmq context */
+    /* Init zmq context */
     zmqCtx = zctx_new ();
     if (zmqCtx == NULL) {
         LOGE ("Create zmq context error: %s.\n", strerror (errno));
@@ -1424,14 +1424,14 @@ agentService (void) {
         goto freeZmqContext;
     }
 
-    /* create serviceUpdateMonitor thread */
+    /* Create serviceUpdateMonitor thread */
     ret = pthread_create (&svcUpdateMonitorTid, NULL, serviceUpdateMonitor, NULL);
     if (ret < 0) {
         LOGE ("Create serviceUpdateMonitor thread error: %s.\n", strerror (errno));
         goto freeZmqContext;
     }
 
-    /* create sub-thread to dump pcap statistic periodically */
+    /* Create sub-thread to dump pcap statistic periodically */
     ret = pthread_create (&pcapStatDumperTid, NULL, pcapStatDumper, NULL);
     if (ret < 0) {
         LOGE ("Create pcapStatDumper thread error: %s.\n", strerror (errno));

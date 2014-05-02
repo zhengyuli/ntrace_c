@@ -19,7 +19,7 @@ struct _hlistHead {
     hlistNodePtr first;
 };
 
-/* init hash list head */
+/* Init hash list head */
 #define HLIST_HEAD(head) hlistHead head = {.first = NULL}
 #define INIT_HLIST_HEAD(head) ((head)->first =  NULL)
 
@@ -60,7 +60,7 @@ hlistIsEmpty (const hlistHeadPtr head) {
     return !head->first;
 }
 
-/* delete hash node from hash list */
+/* Delete hash node from hash list */
 static inline void
 hlistDel (hlistNodePtr node) {
     hlistNodePtr next = node->next;
@@ -71,7 +71,7 @@ hlistDel (hlistNodePtr node) {
     INIT_HLIST_NODE (node);
 }
 
-/* add hash node to the head */
+/* Add hash node to the head */
 static inline void
 hlistAddHead (hlistNodePtr node, hlistHeadPtr head) {
     hlistNodePtr first = head->first;
@@ -83,7 +83,7 @@ hlistAddHead (hlistNodePtr node, hlistHeadPtr head) {
 }
 
 /*
- * @brief add hash node before specified node
+ * @brief Add hash node before specified node
  *
  * @param node node to add
  * @param nnode the specified node to insert before
@@ -97,7 +97,7 @@ hlistAddBefore (hlistNodePtr node, hlistNodePtr nnode) {
 }
 
 /*
- * @brief add hash node after specified node
+ * @brief Add hash node after specified node
  *
  * @param node node to add
  * @param pnode the specified node to insert after
@@ -112,7 +112,7 @@ hlistAddAfter (hlistNodePtr node, hlistNodePtr pnode) {
 }
 
 /*
- * @brief move a hash list from one list head to another. Fixup the pprev
+ * @brief Move a hash list from one list head to another. Fixup the pprev
  *        reference of the first entry if it exists
  *
  * @param old the old hash list head
@@ -131,7 +131,7 @@ hlistMoveList (hlistHeadPtr old, hlistHeadPtr new) {
 #define hlistForEach(pos, head)                     \
     for (pos = (head)->first; pos; pos = pos->next)
 /*
- * @brief iterate over a hash list of given type
+ * @brief Iterate over a hash list of given type
  *
  * @param tpos the type * to use as a loop cursor
  * @param pos the struct hlist_node & to use as a loop cursor
@@ -143,7 +143,7 @@ hlistMoveList (hlistHeadPtr old, hlistHeadPtr new) {
          pos && ({tpos = hlistEntry (pos, typeof (*tpos), member); 1;}); \
          pos = pos->next)
 
-/* iterate over list of given type safe against removal of list entry */
+/* Iterate over list of given type safe against removal of list entry */
 #define hlistForEachEntrySafe(tpos, pos, n, head, member)               \
     for (tpos = NULL, pos = (head)->first;                              \
          pos && ({n = pos->next; 1;}) && ({tpos = hlistEntry (pos, typeof (*tpos), member); 1;}); \

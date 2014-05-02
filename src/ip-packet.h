@@ -35,12 +35,12 @@ typedef struct _ipFrag ipFrag;
 typedef ipFrag *ipFragPtr;
 
 struct _ipFrag {
-    int offset;                 /**< offset of fragment in IP datagram */
-    int end;                    /**< last byte of data in datagram */
-    int len;                    /**< length of this fragment */
-    u_char *ptr;                /**< pointer into real fragment data */
-    skbBufPtr skb;              /**< complete received fragment */
-    listHead node;              /**< ipqueue list node */
+    int offset;                 /**< Offset of fragment in IP datagram */
+    int end;                    /**< Last byte of data in datagram */
+    int len;                    /**< Length of this fragment */
+    u_char *ptr;                /**< Pointer into real fragment data */
+    skbBufPtr skb;              /**< Complete received fragment */
+    listHead node;              /**< Ipqueue list node */
 };
 
 typedef struct _hostFrag hostFrag;

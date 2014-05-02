@@ -118,7 +118,7 @@ doLog (char *file, int line, const char *func, const char *msg, ...) {
     else
         flag = 'n';
 
-    /* format output message */
+    /* Format output message */
     snprintf (buf, MAX_LOG_LENGTH - 1, "%c[pid:%d %s]:[%s] <file=%s:line=%d:func_name=%s>:%s",
               flag, getpid (), logLevel, timeStr, file, line, func, tmp);
 

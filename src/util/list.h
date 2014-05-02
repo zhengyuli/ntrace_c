@@ -21,7 +21,7 @@ initListHead (listHeadPtr head) {
 }
 
 /*
- * @brief insert the new entry after head, the head entry can be
+ * @brief Insert the new entry after head, the head entry can be
  *        the head of list or any entries in the list
  *
  * @param new the new entry
@@ -36,7 +36,7 @@ listAdd (listHeadPtr new, listHeadPtr head) {
 }
 
 /*
- * @brief add node before nodeNext
+ * @brief Add node before nodeNext
  *
  * @param node node to add
  * @param nodeNext node to add before
@@ -49,14 +49,14 @@ listAddBefore (listHeadPtr node, listHeadPtr nodeNext) {
     nodeNext->prev = node;
 }
 
-/* insert the new entry to the end of list */
+/* Insert the new entry to the end of list */
 static inline void
 listAddTail (listHeadPtr new, listHeadPtr head) {
     listAdd (new, head->prev);
 }
 
 /*
- * @brief delete entry from list
+ * @brief Delete entry from list
  *
  * @param entry the element to delete
  */
@@ -69,7 +69,7 @@ listDel (listHeadPtr entry) {
 }
 
 /*
- * @brief replace the old element with the new entry
+ * @brief Replace the old element with the new entry
  *
  * @param old the element to be replaced
  * @param new the new element to replace
@@ -80,7 +80,7 @@ listReplace (listHeadPtr old, listHeadPtr new) {
     new->next->prev = new;
     new->prev = old->prev;
     new->prev->next = new;
-    /* detach it from list */
+    /* Detach it from list */
     old->next = old;
     old->prev = old;
 }
@@ -95,12 +95,12 @@ listIsEmpty (const listHeadPtr head) {
     return (head->next == head);
 }
 
-/* offset of member in type */
+/* Offset of member in type */
 #define offsetOfMember(type, member)            \
     ((size_t) &((type *) 0)->member)
 
 /*
- * cast a member of a structure out to the containing structure, for
+ * Cast a member of a structure out to the containing structure, for
  * macro definition,it uses {...} and ({...}) to describe compound
  * expressions but ({...}) has the same effect as comma expression and
  * return the result of the last expression

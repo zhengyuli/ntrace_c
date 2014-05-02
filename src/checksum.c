@@ -157,17 +157,17 @@ ipCheckExt (u_short *addr, int len, int addon) {
         sum += *w++;
         nleft -= 2;
     }
-    /* mop up an odd byte, if necessary */
+    /* Mop up an odd byte, if necessary */
     if (nleft == 1) {
         *(u_char *)(&answer) = *(u_char *)w;
         sum += answer;
     }
-    /* add back carry outs from top 16 bits to low 16 bits */
+    /* Add back carry outs from top 16 bits to low 16 bits */
     /* add hi 16 to low 16 */
     sum = (sum >> 16) + (sum & 0xffff);
-    /* add carry */
+    /* Add carry */
     sum += (sum >> 16);
-    /* truncate to 16 bits */
+    /* Truncate to 16 bits */
     answer = ~sum;
     return answer;
 }

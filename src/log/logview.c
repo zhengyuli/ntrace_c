@@ -294,7 +294,7 @@ main (int argc, char *argv []) {
         return -1;
     }
 
-    /* create sub-thread to check update rule periodically */
+    /* Create sub-thread to check update rule periodically */
     ret = zthread_new (subUpdateMonitor, NULL);
     if (ret < 0) {
         fprintf (stderr, "Create subUpdateMonitor thread error.\n");

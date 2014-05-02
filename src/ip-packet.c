@@ -529,7 +529,7 @@ ipDefrag (struct ip *iph, skbBufPtr skb, struct ip **newIphdr) {
     listAdd (&new->node, &prev->node);
 
     if (ipDone (qp)) {
-        /* glue together the fragments */
+        /* Glue together the fragments */
         *newIphdr = (struct ip *) ipGlue (qp);
         if (*newIphdr == NULL)
             return -1;

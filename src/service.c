@@ -238,7 +238,7 @@ lookupServiceBySvcIdStub (void *data, void *args) {
 }
 
 /*
- * @brief update service
+ * @brief Update service
  *
  * @param updateType service update type
  * @param svc service to update

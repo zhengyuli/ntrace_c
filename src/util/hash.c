@@ -264,7 +264,7 @@ hashInsert (hashTablePtr htbl, const char *key, void *data, hashFreeFun fun) {
         for (index = 0; index < newTotalSize; index++)
             INIT_HLIST_HEAD (&newHeads [index]);
 
-        /* remap items in the old hash table */
+        /* Remap items in the old hash table */
         oldTotalSize = htbl->totalSize;
         oldHeads = htbl->heads;
 
@@ -402,7 +402,7 @@ hashRename (hashTablePtr htbl, const char *oldKey, const char *newKey) {
     if (oldKey == NULL || NULL == newKey)
         return -1;
 
-    /* if there is a item with the newKey, reutrn
+    /* If there is a item with the newKey, reutrn
      * -1, else rename the item with the newKey
      */
     item = hashItemLookup (htbl, newKey, &index);

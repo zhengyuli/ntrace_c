@@ -102,7 +102,7 @@ static struct option agentOptions [] = {
     {"log-level", required_argument, NULL, 'l'},
     {"log-file-dir", required_argument, NULL, 'D'},
     {"log-file-name", required_argument, NULL, 'f'},
-    {"log-file-rotate-number", required_argument, NULL, 'R'},
+    {"log-rotate-number", required_argument, NULL, 'R'},
     {"log-file-max-size", required_argument, NULL, 's'},
     {"redis-srv-ip", required_argument, NULL, 'r'},
     {"redis-srv-port", required_argument, NULL, 'p'},
@@ -128,7 +128,7 @@ showHelpInfo (const char *cmd) {
                   "       Optional level: 0-ERR 1-WARNING 2-INFO 3-DEBUG\n"
                   "  -D|--log-file-dir <directory>, directory of log\n"
                   "  -f|--log-file-name <name>, log file name\n"
-                  "  -R|--log-rotate-number <number>, log file rotate number\n"
+                  "  -R|--log-rotate-number <number>, log rotate number\n"
                   "  -s|--log-file-max-size <size>, log file max size\n"
                   "  -r|--redis-srv-ip <ip>, ip of redis server\n"
                   "  -p|--redis-srv-port <port>, port of redis server\n"

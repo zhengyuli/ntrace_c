@@ -50,11 +50,14 @@ static agentParams agentParameters = {
     .daemonMode = 0,
     .parsingThreads = 0,
     .mirrorInterface = NULL,
-    .logSrvIp = NULL,
+    .pcapDumpTimeout = 0,
     .logLevel = -1,
+    .logFileDir = NULL,
+    .logFileName = NULL,
+    .logRotateNumber = 0,
+    .logFileMaxSize = 0,
     .redisSrvIp = NULL,
     .redisSrvPort = 0,
-    .pcapDumpTimeout = -1,
 };
 
 /* Network interface */
@@ -76,35 +79,17 @@ statusPush (const char *msg) {
 
 static void
 freeAgentParameters (void) {
-    if (agentParameters.mirrorInterface)
-        free (agentParameters.mirrorInterface);
-    if (agentParameters.logSrvIp)
-        free (agentParameters.logSrvIp);
-    if (agentParameters.redisSrvIp)
-        free (agentParameters.redisSrvIp);
+    free (agentParameters.mirrorInterface);
+    free (agentParameters.logFileDir);
+    free (agentParameters.logFileName);
+    free (agentParameters.redisSrvIp);
 }
 
 static void
 freeMirrorNic (void) {
-    if (mirrorNic.name) {
-        free (mirrorNic.name);
-        mirrorNic.name = NULL;
-    }
-
-    if (mirrorNic.ipaddr) {
-        free (mirrorNic.ipaddr);
-        mirrorNic.ipaddr = NULL;
-    }
-
-    if (mirrorNic.pcapDesc) {
-        pcap_close (mirrorNic.pcapDesc);
-        mirrorNic.pcapDesc = NULL;
-    }
-
-    mirrorNic.linkType = -1;
-    mirrorNic.linkOffset = -1;
-    mirrorNic.pstat.pktRecv = 0;
-    mirrorNic.pstat.pktDrop = 0;
+    free (mirrorNic.name);
+    free (mirrorNic.ipaddr);
+    pcap_close (mirrorNic.pcapDesc);
 }
 
 /* Agent cmd options */
@@ -113,9 +98,12 @@ static struct option agentOptions [] = {
     {"daemon-mode", no_argument, NULL, 'd'},
     {"parsing-threads", required_argument, NULL, 'n'},
     {"mirror-interface", required_argument, NULL, 'm'},
-    {"pcap-dump-timeout", required_argument, NULL, 'D'},
-    {"log-srv-ip", required_argument, NULL, 'g'},
+    {"pcap-dump-timeout", required_argument, NULL, 't'},
     {"log-level", required_argument, NULL, 'l'},
+    {"log-file-dir", required_argument, NULL, 'D'},
+    {"log-file-name", required_argument, NULL, 'f'},
+    {"log-file-rotate-number", required_argument, NULL, 'R'},
+    {"log-file-max-size", required_argument, NULL, 's'},
     {"redis-srv-ip", required_argument, NULL, 'r'},
     {"redis-srv-port", required_argument, NULL, 'p'},
     {"version", no_argument, NULL, 'v'},
@@ -135,13 +123,15 @@ showHelpInfo (const char *cmd) {
                   "  -d|--daemon-mode run as daemon\n"
                   "  -n|--parsing-threads <number> parsing threads number\n"
                   "  -m|--mirror-interface <eth*> interface to collect packets\n"
-                  "  -D|--pcap-dump-timeout <timeout>, timeout for dumping pcap statistic\n"
-                  "  -g|--log-srv-ip <ip>, ip of remote logd service\n"
-                  "  -l|--log-level <level> log level for wdm log\n"
+                  "  -t|--pcap-dump-timeout <timeout>, timeout for dumping pcap statistic\n"
+                  "  -l|--log-level <level> log level\n"
                   "       Optional level: 0-ERR 1-WARNING 2-INFO 3-DEBUG\n"
+                  "  -D|--log-file-dir <directory>, directory of log\n"
+                  "  -f|--log-file-name <name>, log file name\n"
+                  "  -R|--log-rotate-number <number>, log file rotate number\n"
+                  "  -s|--log-file-max-size <size>, log file max size\n"
                   "  -r|--redis-srv-ip <ip>, ip of redis server\n"
                   "  -p|--redis-srv-port <port>, port of redis server\n"
-
                   "  -v|--version version of %s\n"
                   "  -h|--help help information\n",
                   cmdName, cmdName, cmdName);
@@ -154,7 +144,7 @@ parseCmdline (int argc, char *argv []) {
     int showVersion = 0;
     int showHelp = 0;
 
-    while ((option = getopt_long (argc, argv, "i:dn:m:D:g:l:r:p:vh?", agentOptions, NULL)) != -1) {
+    while ((option = getopt_long (argc, argv, "i:dn:m:t:l:D:f:R:s:r:p:vh?", agentOptions, NULL)) != -1) {
         switch (option) {
             case 'i':
                 agentParameters.agentId = atoi (optarg);
@@ -176,16 +166,32 @@ parseCmdline (int argc, char *argv []) {
                 }
                 break;
 
-            case 'D':
+            case 't':
                 agentParameters.pcapDumpTimeout = atoi (optarg);
                 break;
 
-            case 'g':
-                agentParameters.logSrvIp = strdup (optarg);
-                if (agentParameters.logSrvIp == NULL) {
-                    logToConsole ("Get logd ip error.\n");
+            case 'D':
+                agentParameters.logFileDir = strdup (optarg);
+                if (agentParameters.logFileDir == NULL) {
+                    logToConsole ("Get log file directory error.\n");
                     return -1;
                 }
+                break;
+
+            case 'f':
+                agentParameters.logFileName = strdup (optarg);
+                if (agentParameters.logFileName == NULL) {
+                    logToConsole ("Get log file name error.\n");
+                    return -1;
+                }
+                break;
+
+            case 'R':
+                agentParameters.logRotateNumber = atoi (optarg);
+                break;
+
+            case 's':
+                agentParameters.logFileMaxSize = atoi (optarg);
                 break;
 
             case 'l':
@@ -331,28 +337,6 @@ parseConf (void) {
         }
     }
 
-    /* Get logd server ip */
-    if (agentParameters.logSrvIp == NULL) {
-        ret = get_config_item ("LOG", "logd_ip", iniConfig, &item);
-        if (ret) {
-            logToConsole ("Get_config_item \"logd_ip\" error\n");
-            ret = -1;
-            goto exit;
-        }
-        tmp = get_const_string_config_value (item, &error);
-        if (error) {
-            logToConsole ("Parse \"logd_ip\" error.\n");
-            ret = -1;
-            goto exit;
-        }
-        agentParameters.logSrvIp = strdup (tmp);
-        if (agentParameters.logSrvIp == NULL) {
-            logToConsole ("Get \"logd_ip\" error\n");
-            ret = -1;
-            goto exit;
-        }
-    }
-
     /* Get default log level */
     if (agentParameters.logLevel == -1) {
         ret = get_config_item ("LOG", "log_level", iniConfig, &item);
@@ -364,6 +348,82 @@ parseConf (void) {
         agentParameters.logLevel = get_int_config_value (item, 1, -1, &error);
         if (error) {
             logToConsole ("Parse \"log_level\" error.\n");
+            ret = -1;
+            goto exit;
+        }
+    }
+
+    /* Get log file dir */
+    if (agentParameters.logFileDir == NULL) {
+        ret = get_config_item ("LOG", "log_file_dir", iniConfig, &item);
+        if (ret) {
+            logToConsole ("Get_config_item \"log_file_dir\" error\n");
+            ret = -1;
+            goto exit;
+        }
+        tmp = get_const_string_config_value (item, &error);
+        if (error) {
+            logToConsole ("Parse \"log_file_dir\" error.\n");
+            ret = -1;
+            goto exit;
+        }
+        agentParameters.logFileDir = strdup (tmp);
+        if (agentParameters.logFileDir == NULL) {
+            logToConsole ("Get \"log_file_dir\" error\n");
+            ret = -1;
+            goto exit;
+        }
+    }
+
+    /* Get log file name */
+    if (agentParameters.logFileName == NULL) {
+        ret = get_config_item ("LOG", "log_file_name", iniConfig, &item);
+        if (ret) {
+            logToConsole ("Get_config_item \"log_file_name\" error\n");
+            ret = -1;
+            goto exit;
+        }
+        tmp = get_const_string_config_value (item, &error);
+        if (error) {
+            logToConsole ("Parse \"log_file_name\" error.\n");
+            ret = -1;
+            goto exit;
+        }
+        agentParameters.logFileName = strdup (tmp);
+        if (agentParameters.logFileName == NULL) {
+            logToConsole ("Get \"log_file_name\" error\n");
+            ret = -1;
+            goto exit;
+        }
+    }
+
+    /* Get log_rotate_number */
+    if (agentParameters.logRotateNumber == 0) {
+        ret = get_config_item ("LOG", "log_rotate_number", iniConfig, &item);
+        if (ret) {
+            logToConsole ("Get_config_item \"log_rotate_number\" error\n");
+            ret = -1;
+            goto exit;
+        }
+        agentParameters.logRotateNumber = get_int_config_value (item, 1, -1, &error);
+        if (error) {
+            logToConsole ("Parse \"log_rotate_number\" error.\n");
+            ret = -1;
+            goto exit;
+        }
+    }
+
+    /* Get log_file_max_size */
+    if (agentParameters.logFileMaxSize == 0) {
+        ret = get_config_item ("LOG", "log_file_max_size", iniConfig, &item);
+        if (ret) {
+            logToConsole ("Get_config_item \"log_file_max_size\" error\n");
+            ret = -1;
+            goto exit;
+        }
+        agentParameters.logFileMaxSize = get_int_config_value (item, 1, -1, &error);
+        if (error) {
+            logToConsole ("Parse \"log_file_max_size\" error.\n");
             ret = -1;
             goto exit;
         }
@@ -821,8 +881,7 @@ serviceUpdateMonitor (void *args) {
     char *filter;
 
     /* Init log context */
-    ret = initLog (agentParameters.logSrvIp,
-                   agentParameters.logLevel);
+    ret = initLog (agentParameters.logLevel);
     if (ret < 0) {
         logToConsole ("Init log context error.\n");
         statusPush (STATUS_EXITING);
@@ -950,8 +1009,7 @@ pcapStatDumper (void *args) {
     int ret;
 
     /* Init log context */
-    ret = initLog (agentParameters.logSrvIp,
-                   agentParameters.logLevel);
+    ret = initLog (agentParameters.logLevel);
     if (ret < 0) {
         logToConsole ("Init log context error.\n");
         return NULL;
@@ -1001,8 +1059,7 @@ packetProcess (void *args) {
     void *tbdSndSock = routerSocks->tbdSndSock;
 
     /* Init log context */
-    ret = initLog (agentParameters.logSrvIp,
-                   agentParameters.logLevel);
+    ret = initLog (agentParameters.logLevel);
     if (ret < 0) {
         logToConsole ("Init log context error.\n");
         goto exit;
@@ -1087,8 +1144,7 @@ tcpBreakdownSink (void *args) {
     void *tbdRecvSock = args;
 
     /* Init log context */
-    ret = initLog (agentParameters.logSrvIp,
-                   agentParameters.logLevel);
+    ret = initLog (agentParameters.logLevel);
     if (ret < 0) {
         logToConsole ("Init log context error.\n");
         goto exit;
@@ -1136,9 +1192,8 @@ pktParsingService (void *args) {
     struct ip *newIphdr;
     pthread_t tcpBreakdownSinkTid;
 
-    /* init wdmlog context */
-    ret = initLog (agentParameters.logSrvIp,
-                   agentParameters.logLevel);
+    /* init log context */
+    ret = initLog (agentParameters.logLevel);
     if (ret < 0) {
         logToConsole ("Init log context error.\n");
         goto exit;
@@ -1297,9 +1352,8 @@ agentService (void) {
     timeVal captureTime;
     struct timeval tm;
 
-    /* init wdmlog context */
-    ret = initLog (agentParameters.logSrvIp,
-                   agentParameters.logLevel);
+    /* init log context */
+    ret = initLog (agentParameters.logLevel);
     if (ret < 0) {
         logToConsole ("Init log context error.\n");
         return;
@@ -1462,30 +1516,30 @@ agentServiceDaemon (void) {
     switch (pid) {
         case 0: /* Child process 1 */
             if ((stdinfd = open ("/dev/null", O_RDONLY)) < 0) {
-                freeAgentParameters();
+                freeAgentParameters ();
                 exit (-1);
             }
             if ((stdoutfd = open ("/dev/null", O_WRONLY)) < 0) {
                 close (stdinfd);
-                freeAgentParameters();
+                freeAgentParameters ();
                 exit (-1);
             }
             if (dup2 (stdinfd, STDIN_FILENO) != STDIN_FILENO) {
                 close (stdoutfd);
                 close (stdinfd);
-                freeAgentParameters();
+                freeAgentParameters ();
                 exit (-1);
             }
             if (dup2 (stdoutfd, STDOUT_FILENO) != STDOUT_FILENO) {
                 close (stdoutfd);
                 close (stdinfd);
-                freeAgentParameters();
+                freeAgentParameters ();
                 exit (-1);
             }
             if (dup2 (stdoutfd, STDERR_FILENO) != STDERR_FILENO) {
                 close (stdoutfd);
                 close (stdinfd);
-                freeAgentParameters();
+                freeAgentParameters ();
                 exit (-1);
             }
             if (stdinfd > STDERR_FILENO)
@@ -1496,7 +1550,7 @@ agentServiceDaemon (void) {
             if (setsid () < 0) {
                 close (stdoutfd);
                 close (stdinfd);
-                freeAgentParameters();
+                freeAgentParameters ();
                 exit (-1);
             }
 
@@ -1504,24 +1558,24 @@ agentServiceDaemon (void) {
             switch (next_pid) {
                 case 0: /* Child process 2 */
                     agentService ();
-                    freeAgentParameters();
+                    freeAgentParameters ();
                     exit (0);
 
                 case -1: /* Father 2 process exit abnormally */
-                    freeAgentParameters();
+                    freeAgentParameters ();
                     exit (-1);
 
                 default: /* Father 2 process exit normally */
-                    freeAgentParameters();
+                    freeAgentParameters ();
                     exit (0);
             }
 
         case -1: /* Father 1 process exit abnormally */
-            freeAgentParameters();
+            freeAgentParameters ();
             exit (-1);
 
         default: /* Father 1 process exit normally */
-            freeAgentParameters();
+            freeAgentParameters ();
             exit (0);
     }
 }
@@ -1536,11 +1590,11 @@ main (int argc, char *argv []) {
     }
 
     /* Set locale */
-    setlocale(LC_COLLATE,"");
+    setlocale (LC_COLLATE,"");
     /* Parse command */
     ret = parseCmdline (argc, argv);
     if (ret < 0) {
-        freeAgentParameters();
+        freeAgentParameters ();
         fprintf (stderr, "Parse command line error.\n");
         return -1;
     }
@@ -1548,14 +1602,14 @@ main (int argc, char *argv []) {
     /* Parse configuration file */
     ret = parseConf ();
     if (ret < 0) {
-        freeAgentParameters();
+        freeAgentParameters ();
         fprintf (stderr, "Parse configuration file error.\n");
         return -1;
     }
 
     if (!agentParameters.daemonMode) {
         agentService ();
-        freeAgentParameters();
+        freeAgentParameters ();
     } else
         agentServiceDaemon ();
 

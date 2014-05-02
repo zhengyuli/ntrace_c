@@ -17,15 +17,18 @@ typedef agentParams *agentParamsPtr;
 
 /* Structure used to describes global parameters of agent */
 struct _agentParams {
-    int agentId;                /**< Agent id */
-    int daemonMode;             /**< Run as daemon */
-    int parsingThreads;         /**< Parsing threads number */
-    char *mirrorInterface;      /**< Mirror interface */
-    char *logSrvIp;             /**< Ip of logd server */
-    int logLevel;               /**< Log level */
-    char *redisSrvIp;           /**< Redis server ip */
-    uint16_t redisSrvPort;      /**< Redis server port */
-    int pcapDumpTimeout;        /**< Pcap statistic dump timeout */
+    int agentId;                        /**< Agent id */
+    int daemonMode;                     /**< Run as daemon */
+    int parsingThreads;                 /**< Parsing threads number */
+    char *mirrorInterface;              /**< Mirror interface */
+    int pcapDumpTimeout;                /**< Pcap statistic dump timeout */
+    int logLevel;                       /**< Log level */
+    char *logFileDir;                   /**< Log file dir */
+    char *logFileName;                  /**< Log file name */
+    int logRotateNumber;                /**< Log rotation number */
+    int logFileMaxSize;                 /**< Log file max size in MB */
+    char *redisSrvIp;                   /**< Redis server ip */
+    uint16_t redisSrvPort;              /**< Redis server port */
 };
 
 typedef struct _netInterface netInterface;

@@ -7,45 +7,38 @@
 #include "log.h"
 #include "util.h"
 
+#define MAX_PID_TABLE_SIZE 100
+
+/* Log service ip */
+static char *logServiceIp = NULL;
+/* Display log with detail info */
+static int showInDetail  = 0;
 /* Process name to filter */
 static char *procName = NULL;
-/* Logd service ip */
-static char *srvIp = NULL;
 /* Log level to filter */
-static char *msgLevel = NULL;
+static char *logLevel = NULL;
 /* PIDs to filter */
-static uint pidTable [100] = {0};
-/* Number of PIDs to filter */
-static uint pidTableItems = 0;
-/* Display log with detail info */
-static uint showDetails  = 0;
+static int pidTable [MAX_PID_TABLE_SIZE] = {0};
+/* Count of PIDs to filter */
+static int pidTableCount = 0;
 
 static zctx_t *zmqContext = NULL;
 static void *subSock = NULL;
 
-/* Logview options */
-static struct option logviewOptions [] = {
-    {"server", required_argument, NULL, 's'},
-    {"proc",   required_argument, NULL, 'p'},
-    {"level",  required_argument, NULL, 'l'},
-    {"verbose",no_argument,       NULL, 'v'},
-    {"help",   no_argument,       NULL, 'h'},
-    {NULL,     no_argument,       NULL, 0}
-};
-
+/* Check message level is valid */
 static int
-checkMsgLevel (const char *msgLevel) {
-    if (!strcmp ("ERR", msgLevel) ||
-        !strcmp ("WARNING", msgLevel) ||
-        !strcmp ("INFO", msgLevel) ||
-        !strcmp ("DEBUG", msgLevel))
+checkLogLevel (const char *logLevel) {
+    if (!strcmp ("ERR", logLevel) ||
+        !strcmp ("WARNING", logLevel) ||
+        !strcmp ("INFO", logLevel) ||
+        !strcmp ("DEBUG", logLevel))
         return 0;
     else
         return -1;
 }
 
 static int
-pidTableEqual (uint pidTable1 [], uint pidTable2 [], uint size) {
+pidTableIsEqual (uint pidTable1 [], uint pidTable2 [], uint size) {
     int i;
 
     for (i = 0; i < size; i++) {
@@ -57,7 +50,7 @@ pidTableEqual (uint pidTable1 [], uint pidTable2 [], uint size) {
 }
 
 static inline void
-pidTableCopy (uint pidTableDst [], uint pidTableSrc [], uint size) {
+copyPidTable (uint pidTableDst [], uint pidTableSrc [], uint size) {
     int i;
 
     for (i = 0; i < size; i++)
@@ -65,7 +58,7 @@ pidTableCopy (uint pidTableDst [], uint pidTableSrc [], uint size) {
 }
 
 static void
-subMsg (void) {
+subLog (void) {
     int index;
     char filter [50];
 
@@ -73,8 +66,8 @@ subMsg (void) {
         return;
 
     if (procName) {
-        if (pidTableItems) {
-            for (index = 0; index < pidTableItems; index++) {
+        if (pidTableCount) {
+            for (index = 0; index < pidTableCount; index++) {
                 snprintf (filter, sizeof (filter), "[pid:%d", pidTable [index]);
                 zsocket_set_subscribe (subSock, filter);
             }
@@ -89,7 +82,7 @@ subMsg (void) {
 }
 
 static void
-unsubMsg (void) {
+unsubLog (void) {
     int index;
     char filter[50];
 
@@ -97,8 +90,8 @@ unsubMsg (void) {
         return;
 
     if (procName) {
-        if (pidTableItems) {
-            for (index = 0; index < pidTableItems; index++) {
+        if (pidTableCount) {
+            for (index = 0; index < pidTableCount; index++) {
                 snprintf (filter, sizeof (filter), "[pid:%d", pidTable [index]);
                 zsocket_set_unsubscribe (subSock, filter);
             }
@@ -110,57 +103,53 @@ unsubMsg (void) {
 }
 
 static void
-updateSubRules () {
-    static int init = 1;
-    char cmd [100];
-    char buf [100];
-    uint newPidTable [100] = {0};
-    uint newPidTableItems = 0;
+updateSubRules (void) {
+    static int init = 0;
+    char cmd [128];
+    char buf [128];
+    uint newPidTable [MAX_PID_TABLE_SIZE] = {0};
+    uint newPidTableCount = 0;
     FILE *fp;
 
-    if (!procName) {
-        if (init) {
-            subMsg ();
-            init = 0;
+    if (procName) {
+        /* Get pids of procName */
+        snprintf (cmd, sizeof (cmd), "ps -fLC %s|tr -s ' '|cut -d' ' -f2", procName);
+        fp = popen (cmd, "r");
+        if (fp == NULL)
+            return;
+        while (fgets (buf, sizeof (buf), fp) && (newPidTableCount <= MAX_PID_TABLE_SIZE)) {
+            if (!strncmp (buf, "PID", 3))
+                continue;
+            else
+                newPidTable [newPidTableCount ++] = atoi (buf);
         }
-        return;
-    }
+        pclose (fp);
 
-    snprintf (cmd, sizeof (cmd), "ps -fLC %s|tr -s ' '|cut -d' ' -f2", procName);
-    fp = popen (cmd, "r");
-    if (fp == NULL)
-        return;
-
-    while (fgets (buf, sizeof (buf), fp) && (newPidTableItems <= TABLE_SIZE (newPidTable))) {
-        if (!strncmp (buf, "PID", 3))
-            continue;
-        else
-            newPidTable [newPidTableItems ++] = atoi (buf);
-    }
-
-    if (init) {
-        pidTableItems = newPidTableItems;
-        pidTableCopy (pidTable, newPidTable, newPidTableItems);
-        subMsg ();
-        init = 0;
-    } else {
-        if ((pidTableItems != newPidTableItems) ||
-            (!pidTableEqual (pidTable, newPidTable, newPidTableItems))) {
-            unsubMsg ();
-            pidTableItems = newPidTableItems;
-            pidTableCopy (pidTable, newPidTable, newPidTableItems);
-            subMsg();
+        if ((pidTableCount != newPidTableCount) || !pidTableIsEqual (pidTable, newPidTable, newPidTableCount)) {
+            unsubLog ();
+            pidTableCount = newPidTableCount;
+            copyPidTable (pidTable, newPidTable, newPidTableCount);
+            subLog ();
         }
-    }
-
-    pclose (fp);
+    } else if (!init)
+        subLog ();
 }
+
+/* Logview options */
+static struct option logviewOptions [] = {
+    {"address", required_argument, NULL, 'i'},
+    {"proc", required_argument, NULL, 'p'},
+    {"level", required_argument, NULL, 'l'},
+    {"verbose", no_argument, NULL, 'v'},
+    {"help", no_argument, NULL, 'h'},
+    {NULL, no_argument, NULL, 0}
+};
 
 static void
 showHelp (const char *cmd) {
     const char *cmdName, *tmp;
 
-    tmp = strrchr(cmd, '/');
+    tmp = strrchr (cmd, '/');
     if (tmp)
         cmdName = tmp + 1;
     else
@@ -169,23 +158,25 @@ showHelp (const char *cmd) {
     printf ("Usage: %s [options]\n"
             "       %s [-h]\n"
             "Options:\n"
-            "  -s|--server   ip addr of logd server\n"
-            "  -p|--proc     process name\n"
-            "  -l|--level    optional log level: ERR, WARNING, INFO, DEBUG\n"
-            "  -v|--verbose  display log in detail\n"
-            "  -h|--help     help info\n", cmdName, cmdName);
+            "  -i|--address <ip>, ip addr of log service\n"
+            "  -p|--proc <procName>, process name\n"
+            "  -l|--level <logLevel>, optional log level: ERR, WARNING, INFO, DEBUG\n"
+            "  -v|--verbose, display log in detail\n"
+            "  -h|--help, help info\n",
+            cmdName, cmdName);
 }
 
+/* Parse command line */
 static int
 parseCmdline (int argc, char *argv []) {
     int ret = 0;
     char option;
 
-    while ((option = getopt_long (argc, argv, "s:p:l:vh?", logviewOptions, NULL)) != -1) {
+    while ((option = getopt_long (argc, argv, "i:p:l:vh?", logviewOptions, NULL)) != -1) {
         switch (option) {
-            case 's':
-                srvIp = strdup (optarg);
-                if (srvIp == NULL)
+            case 'i':
+                logServiceIp = strdup (optarg);
+                if (logServiceIp == NULL)
                     return -1;
                 break;
 
@@ -196,16 +187,18 @@ parseCmdline (int argc, char *argv []) {
                 break;
 
             case 'l':
-                msgLevel = strdup (optarg);
-                if (msgLevel == NULL)
+                logLevel = strdup (optarg);
+                if (logLevel == NULL)
                     return -1;
-                ret = checkMsgLevel (msgLevel);
-                if (ret < 0)
+                ret = checkLogLevel (logLevel);
+                if (ret < 0) {
+                    fprintf (stderr, "Wrong log level.\n");
                     ret = -1;
+                }
                 break;
 
             case 'v':
-                showDetails = 1;
+                showInDetail = 1;
                 break;
 
             case 'h':
@@ -218,6 +211,7 @@ parseCmdline (int argc, char *argv []) {
     return ret;
 }
 
+/* Thread to update subscribe filter */
 static void *
 subUpdateMonitor (void *args) {
     while (1)
@@ -229,21 +223,63 @@ subUpdateMonitor (void *args) {
     return ((void *) 0);
 }
 
+/*
+ * @brief Check the log service whether is running on specified
+ *        server.
+ * @param ip ip of log service to check
+ *
+ * @return 0 if is not running else 1
+ */
+static int
+logSvcIsRunning (const char *ip) {
+    int ret;
+    int sockfd;
+    struct sockaddr_in addr;
+
+    sockfd = socket (AF_INET, SOCK_STREAM, 0);
+    if (sockfd < 0) {
+        fprintf (stderr, "Create socket error.\n");
+        return 0;
+    }
+
+    memset (&addr, 0, sizeof (addr));
+    addr.sin_family = AF_INET;
+    ret = inet_pton (AF_INET, ip ? ip : "127.0.0.1", &addr.sin_addr);
+    if (ret < 0) {
+        fprintf (stderr, "Ivalid log service ip.\n");
+        return 0;
+    }
+    addr.sin_port = htons (LOG_SERVICE_PUBLISH_PORT);
+
+    ret = connect (sockfd, (const struct sockaddr *) &addr, sizeof (addr));
+    if (ret < 0)
+        ret = 0;
+    else
+        ret = 1;
+    close (sockfd);
+
+    return ret;
+}
+
 int
 main (int argc, char *argv []) {
     int ret;
-    char *msg, *tmp;
+    char *logMsg, *tmp;
 
+    /* Parse command line */
     ret = parseCmdline (argc, argv);
-    if (ret < 0)
-        return -1;
-
-    ret = remoteServiceRun (srvIp, LOG_NET_SOCK_PORT);
-    if (!ret) {
-        printf ("Logd is not running.\n");
+    if (ret < 0) {
+        showHelp (argv [0]);
         return -1;
     }
 
+    /* Check log service state */
+    if (!logSvcIsRunning (logServiceIp)) {
+        fprintf (stderr, "The log service on %s is not running.\n", logServiceIp ? logServiceIp : "127.0.0.1");
+        return -1;
+    }
+
+    /* Init zmq context */
     zmqContext = zctx_new ();
     if (zmqContext == NULL)
         return -1;
@@ -252,43 +288,41 @@ main (int argc, char *argv []) {
         zctx_destroy (&zmqContext);
         return -1;
     }
-    ret = zsocket_connect (subSock, "tcp://%s:%d",
-                           srvIp ? srvIp : "localhost",
-                           LOG_NET_SOCK_PORT);
+    ret = zsocket_connect (subSock, "tcp://%s:%d", logServiceIp ? logServiceIp : "localhost", LOG_SERVICE_PUBLISH_PORT);
     if (ret < 0) {
         zctx_destroy (&zmqContext);
         return -1;
     }
 
-    /* create sub-thread to monitor service update */
+    /* create sub-thread to check update rule periodically */
     ret = zthread_new (subUpdateMonitor, NULL);
     if (ret < 0) {
-        printf ("Create subUpdateMonitor thread error.\n");
+        fprintf (stderr, "Create subUpdateMonitor thread error.\n");
         zctx_destroy (&zmqContext);
         return -1;
     }
 
     while (!zctx_interrupted) {
-        msg = zstr_recv (subSock);
-        if (msg) {
-            if (msgLevel) {
-                if (strstr (msg, msgLevel)) {
-                    if (showDetails)
-                        printf ("%s", msg);
+        logMsg = zstr_recv (subSock);
+        if (logMsg) {
+            if (logLevel) {
+                if (strstr (logMsg, logLevel)) {
+                    if (showInDetail)
+                        printf ("%s", logMsg);
                     else {
-                        tmp = strstr (msg, ">:");
+                        tmp = strstr (logMsg, ">:");
                         printf ("%s", (tmp + 2));
                     }
                 }
             } else {
-                if (showDetails)
-                    printf ("%s", msg);
+                if (showInDetail)
+                    printf ("%s", logMsg);
                 else {
-                    tmp = strstr (msg, ">:");
+                    tmp = strstr (logMsg, ">:");
                     printf ("%s", (tmp + 2));
                 }
             }
-            free (msg);
+            free (logMsg);
         }
     }
 

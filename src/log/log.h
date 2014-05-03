@@ -7,6 +7,10 @@
 #define LOG_INFO_TAG "<2>"      /* Normal information */
 #define LOG_DEBUG_TAG "<3>"     /* Debug information */
 
+/* Log backend tag  */
+#define LOG_TO_ALL_TAG 'a'      /* Log to all backend */
+#define LOG_TO_NET_TAG 'n'      /* Log to net backend */
+
 /* Log level for initLogContext */
 #define LOG_ERR_LEVEL 0
 #define LOG_WARNING_LEVEL 1

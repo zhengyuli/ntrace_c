@@ -13,7 +13,8 @@
 
 EXEC=/usr/sbin/logd
 PID_FILE=/var/run/logd.pid
-PROC_NAME=logd
+LOG_FILE_DIR=/var/log/logd
+LOG_FILE_NAME=logd.log
 
 start () {
     if [ -f $PID_FILE ]
@@ -21,7 +22,7 @@ start () {
         echo "Logd is running"
     else
         echo -n "Start logd: "
-        $EXEC -d -f $PID_FILE
+        $EXEC -d $LOG_FILE_DIR -n $LOG_FILE_NAME -D
         loop=1
         while [ ${loop} -gt 0 ]
         do

@@ -80,7 +80,7 @@ defaultSessionBreakdown2Json (json_t *root, void *sd, void *sbd) {
 }
 
 static void
-defaultSessionProcessEstb (void *sd, timeValPtr tm) {
+defaultSessionProcessEstb (void *sd, uint64_t adjustTime, timeValPtr tm) {
     defaultSessionDetailPtr dsd = (defaultSessionDetailPtr) sd;
 
     dsd->serverTimeBegin = timeVal2MilliSecond (tm);

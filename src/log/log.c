@@ -110,13 +110,13 @@ doLog (char *file, int line, const char *func, const char *msg, ...) {
     /*
      * Send log message to log service, if message level less or equal than
      * log level then add flag 'a' at the head of message, else add 'n'. For
-     * 'a' log service will log message both to local file and net, else
-     * only publish message to net.
+     * 'a' log service will log message both to local file and publish to net,
+     * else only publish message to net.
      */
     if (level <= logCtxt->logLevel)
-        flag = 'a';
+        flag = LOG_TO_ALL_TAG;
     else
-        flag = 'n';
+        flag = LOG_TO_NET_TAG;
 
     /* Format output message */
     snprintf (buf, MAX_LOG_LENGTH - 1, "%c[pid:%d %s]:[%s] <file=%s:line=%d:func_name=%s>:%s",

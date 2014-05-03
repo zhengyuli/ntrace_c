@@ -1,6 +1,7 @@
 CMAKE_MINIMUM_REQUIRED (VERSION 2.8.0)
 
 SET (WDM_AGENT_CONFIG_FILE  ${WDM_AGENT_CONFIG_DIR}/agent.conf)
+SET (WDM_AGENT_PID_FILE  /var/run/wdm-agent.pid)
 
 # configure a header file to pass some of the CMake settings
 # to the source code

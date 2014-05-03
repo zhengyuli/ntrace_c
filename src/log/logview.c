@@ -25,7 +25,7 @@ static int pidTableCount = 0;
 static zctx_t *zmqContext = NULL;
 static void *subSock = NULL;
 
-/* Check message level is valid */
+/* Check log level is valid */
 static int
 checkLogLevel (const char *logLevel) {
     if (!strcmp ("ERR", logLevel) ||
@@ -38,7 +38,7 @@ checkLogLevel (const char *logLevel) {
 }
 
 static int
-pidTableIsEqual (uint pidTable1 [], uint pidTable2 [], uint size) {
+pidTableIsEqual (int pidTable1 [], int pidTable2 [], int size) {
     int i;
 
     for (i = 0; i < size; i++) {
@@ -50,7 +50,7 @@ pidTableIsEqual (uint pidTable1 [], uint pidTable2 [], uint size) {
 }
 
 static inline void
-copyPidTable (uint pidTableDst [], uint pidTableSrc [], uint size) {
+copyPidTable (int pidTableDst [], int pidTableSrc [], int size) {
     int i;
 
     for (i = 0; i < size; i++)
@@ -107,8 +107,8 @@ updateSubRules (void) {
     static int init = 0;
     char cmd [128];
     char buf [128];
-    uint newPidTable [MAX_PID_TABLE_SIZE] = {0};
-    uint newPidTableCount = 0;
+    int newPidTable [MAX_PID_TABLE_SIZE] = {0};
+    int newPidTableCount = 0;
     FILE *fp;
 
     if (procName) {
@@ -223,13 +223,6 @@ subUpdateMonitor (void *args) {
     return ((void *) 0);
 }
 
-/*
- * @brief Check the log service whether is running on specified
- *        server.
- * @param ip ip of log service to check
- *
- * @return 0 if is not running else 1
- */
 static int
 logSvcIsRunning (const char *ip) {
     int ret;

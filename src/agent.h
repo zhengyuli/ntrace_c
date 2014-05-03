@@ -25,8 +25,6 @@ struct _agentParams {
     int logLevel;                       /**< Log level */
     char *logFileDir;                   /**< Log file dir */
     char *logFileName;                  /**< Log file name */
-    int logRotateNumber;                /**< Log rotation number */
-    int logFileMaxSize;                 /**< Log file max size in MB */
     char *redisSrvIp;                   /**< Redis server ip */
     uint16_t redisSrvPort;              /**< Redis server port */
 };

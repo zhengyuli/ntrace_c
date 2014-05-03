@@ -23,7 +23,7 @@ typedef void * (*newSessionBreakdownCB) (void);
 typedef void (*freeSessionBreakdownCB) (void *sbd);
 typedef int (*generateSessionBreakdownCB) (void *sd, void *sbd);
 typedef void (*sessionBreakdown2JsonCB) (json_t *root, void *sd, void *sbd);
-typedef void (*sessionProcessEstbCB) (void *sd, timeValPtr tm);
+typedef void (*sessionProcessEstbCB) (void *sd, uint64_t adjustTime, timeValPtr tm);
 typedef void (*sessionProcessUrgeDataCB) (int fromClient, char urgData, void *sd,
                                           timeValPtr tm);
 typedef int (*sessionProcessDataCB) (int fromClient, const u_char *data, int dataLen,

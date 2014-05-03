@@ -94,7 +94,6 @@ struct _tcpStream {
     uint64_t dupSynAcks;                /**< Duplicate syn/acks of three handshake */
     uint64_t synAckTime;                /**< Syn/ack timestamp of three handshake */
     uint64_t estbTime;                  /**< Tcp connection success timestamp */
-    uint64_t rtt;                       /**< Tcp round trip latency */
     uint64_t mss;                       /**< Tcp MSS */
     uint64_t totalPkts;                 /**< Tcp total packets */
     uint64_t tinyPkts;                  /**< Tcp tiny packets */
@@ -146,7 +145,6 @@ struct _tcpBreakdown {
     uint64_t retries;                   /**< Tcp retries */
     uint64_t retriesLatency;            /**< Tcp retries latency in milliseconds */
     uint64_t dupSynAcks;                /**< Tcp duplicate syn/ack packages */
-    uint64_t rtt;                       /**< Tcp round trip latency */
     uint64_t mss;                       /**< Tcp mss (maxium segment size) */
     uint64_t connLatency;               /**< Tcp connection latency in milliseconds */
     uint64_t totalPkts;                 /**< Tcp total packets */
@@ -172,7 +170,6 @@ struct _tcpBreakdown {
 #define COMMON_SKBD_TCP_RETRIES                  "tcp_retries"
 #define COMMON_SKBD_TCP_RETRIES_LATENCY          "tcp_retries_latency"
 #define COMMON_SKBD_TCP_DUPLICATE_SYNACKS        "tcp_duplicate_synacks"
-#define COMMON_SKBD_TCP_RTT                      "tcp_rtt"
 #define COMMON_SKBD_TCP_MSS                      "tcp_mss"
 #define COMMON_SKBD_TCP_CONNECTION_LATENCY       "tcp_connection_latency"
 #define COMMON_SKBD_TCP_TOTAL_PACKETS            "tcp_total_packets"
@@ -184,7 +181,7 @@ struct _tcpBreakdown {
 #define COMMON_SKBD_TCP_DUPLICATE_ACKS           "tcp_duplicate_acks"
 
 /* Tcp session breakdown callback */
-typedef void * (*publishTcpBreakdownCB) (const char *tcpBreakdown, void *args);
+typedef void (*publishTcpBreakdownCB) (const char *tcpBreakdown, void *args);
 
 /*========================Interfaces definition============================*/
 void

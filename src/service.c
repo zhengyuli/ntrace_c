@@ -216,17 +216,6 @@ displayServiceUpdateDetail (svcUpdateType updateType, servicePtr svc) {
 }
 
 static void *
-lookupServiceBySvcId (void *data, void *args) {
-    servicePtr tmp = (servicePtr) data;
-    servicePtr svc = (servicePtr) args;
-
-    if (tmp->id == svc->id)
-        return (void *) tmp;
-    else
-        return NULL;
-}
-
-static void *
 lookupServiceBySvcIdStub (void *data, void *args) {
     servicePtr oldSvc = (servicePtr) data;
     servicePtr svc = (servicePtr) args;

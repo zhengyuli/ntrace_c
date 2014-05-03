@@ -154,6 +154,7 @@ typedef enum {
     STATE_SLEEP,
     STATE_PONG,
     STATE_OK_OR_ERROR,
+    STATE_END_OR_ERROR,
     STATE_STATISTICS,
     STATE_FIELD_LIST,
     STATE_FIELD,
@@ -165,10 +166,10 @@ typedef enum {
     STATE_BIN_ROW,
     STATE_STMT_META,
     STATE_STMT_PARAM,
-    STATE_SET_OPTION
+    STATE_STMT_FETCH_RS
 } mysqlState;
 
-#define MYSQL_STATES_NUM 18
+#define MYSQL_STATES_NUM 19
 
 typedef enum {
     // Events 0-32 are mysqlServerCommand
@@ -185,6 +186,7 @@ typedef enum {
     EVENT_END_MULTI_RESULT,
     EVENT_STMT_META,
     EVENT_STMT_PARAM,
+    EVENT_STMT_FETCH_RESULT,
     EVENT_NUM_FIELDS_BIN,
     EVENT_FIELD_BIN,
     EVENT_UNKNOWN
@@ -219,13 +221,13 @@ struct _mysqlParserState {
     int cliCaps;                        /**< Mysql client capability flags */
     char cliProtoV41;                   /**< Mysql client protocol V41 flag */
     int conId;                          /**< Mysql connection id */
-    unsigned int maxPktSize;            /**< Mysq max packet size support */
+    int maxPktSize;                     /**< Mysq max packet size support */
     char doCompress;                    /**< Mysql client do compression flag */
     char doSSL;                         /**< Mysql client authentication with SSL flag */
     char *userName;                     /**< Mysql user name to access */
     int seqId;                          /**< Mysql sequence id */
-    char state;                         /**< Mysql session state */
-    char event;                         /**< Mysql session event */
+    int state;                          /**< Mysql session state */
+    int event;                          /**< Mysql session event */
 };
 
 typedef int (*mysqlHandler) (mysqlParserStatePtr parser, const u_char *payload,
@@ -237,9 +239,9 @@ typedef struct _mysqlStateEvents mysqlStateEvents;
 typedef mysqlStateEvents *mysqlStateEventsPtr;
 
 struct _mysqlStateEvents {
-    u_char numEvents;
-    u_char event [MAX_EVENTS_PER_STATE];
-    u_char nextState [MAX_EVENTS_PER_STATE];
+    int numEvents;
+    int event [MAX_EVENTS_PER_STATE];
+    int nextState [MAX_EVENTS_PER_STATE];
     mysqlHandler handler [MAX_EVENTS_PER_STATE];
 };
 
@@ -261,6 +263,7 @@ typedef mysqlSessionDetail *mysqlSessionDetailPtr;
 
 struct _mysqlSessionDetail {
     mysqlParserState parser;            /**< Mysql parser */
+    uint64_t adjustTime;                /**< Mysq adjust time for request */
     char *reqStmt;                      /**< Mysql request statement */
     mysqlSessionState state;            /**< Mysql session state */
     uint16_t errCode;                   /**< Mysql error code */

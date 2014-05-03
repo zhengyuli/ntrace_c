@@ -53,7 +53,6 @@ int
 initProto (void) {
     int ret;
     int i;
-    protoInfoPtr tmp;
     protoParserPtr parser;
 
     for (i = 0; i < TABLE_SIZE (protoInfoTable); i++) {
@@ -70,9 +69,7 @@ initProto (void) {
 
 void
 destroyProto (void) {
-    int ret;
     int i;
-    protoInfoPtr tmp;
     protoParserPtr parser;
 
     for (i = 0; i < TABLE_SIZE (protoInfoTable); i++) {

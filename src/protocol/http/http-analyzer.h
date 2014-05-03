@@ -93,6 +93,7 @@ struct _httpSessionDetail {
     http_parser_settings reqParserSettings;  /**< Http request parser settings */
     http_parser resParser;                   /**< Http response parser */
     http_parser_settings resParserSettings;  /**< Http response parser settings */
+    uint64_t adjustTime;                     /**< Http adjust time for request */
     listHead head;                           /**< HttpSessionDetailNode list */
 };
 
@@ -167,7 +168,3 @@ extern protoParser httpParser;
 /*=======================Interfaces definition end=========================*/
 
 #endif /* __WDM_AGENT_HTTP_ANALYZER_H__ */
-
-
-
-

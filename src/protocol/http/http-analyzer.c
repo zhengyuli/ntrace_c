@@ -451,7 +451,7 @@ newHttpSessionDetail (void) {
         resParserSettings->on_body = onRespBody;
         resParserSettings->on_message_complete = onRespMessageComplete;
         http_parser_init (resParser, HTTP_RESPONSE);
-
+        hsd->adjustTime = 0;
         initListHead (&hsd->head);
         return hsd;
     } else
@@ -713,7 +713,7 @@ generateHttpSessionBreakdown (void *sd, void *sbd) {
             hsbd->reqBodySize = hsdn->reqBodySize;
             hsbd->respHeaderSize = hsdn->respHeaderSize;
             hsbd->respBodySize = hsdn->respBodySize;
-            hsbd->respLatency = hsdn->respTimeBegin - hsdn->reqTime;
+            hsbd->respLatency = hsdn->respTimeBegin - hsdn->reqTime + hsd->adjustTime;
             hsbd->downloadLatency = hsdn->respTimeEnd - hsdn->respTimeBegin;
             break;
 
@@ -739,7 +739,7 @@ generateHttpSessionBreakdown (void *sd, void *sbd) {
             hsbd->reqBodySize = hsdn->reqBodySize;
             hsbd->respHeaderSize = hsdn->respHeaderSize;
             hsbd->respBodySize = hsdn->respBodySize;
-            hsbd->respLatency = hsdn->respTimeBegin - hsdn->reqTime;
+            hsbd->respLatency = hsdn->respTimeBegin - hsdn->reqTime + hsd->adjustTime;
             hsbd->downloadLatency = 0;
             break;
 
@@ -870,7 +870,10 @@ httpSessionBreakdown2Json (json_t *root, void *sd, void *sbd) {
 }
 
 static void
-httpSessionProcessEstb (void *sd, timeValPtr tm) {
+httpSessionProcessEstb (void *sd, uint64_t adjustTime, timeValPtr tm) {
+    httpSessionDetailPtr hsd = (httpSessionDetailPtr) sd;
+
+    hsd->adjustTime = adjustTime;
     return;
 }
 

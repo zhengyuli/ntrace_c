@@ -116,7 +116,6 @@ serviceUpdateSub (svcUpdateCallback callbackFun) {
  */
 void
 pushSessionBreakdown (const char *sessionBreakdownJson) {
-    int ret;
     int retryCount = 0;
     redisReply *reply;
 

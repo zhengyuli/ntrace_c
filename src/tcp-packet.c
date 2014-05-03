@@ -71,19 +71,6 @@ after (u_int seq1, u_int seq2) {
         return 0;
 }
 
-/* Free halfStream skbuff list */
-static void
-purgeSkbuff (halfStreamPtr hs) {
-    skbuffPtr pos, tmp;
-
-    listForEachEntrySafe (pos, tmp, &hs->head, node) {
-        listDel (&pos->node);
-        free (pos->data);
-        free (pos);
-    }
-    hs->rmemAlloc = 0;
-}
-
 /*
  * @brief Add tcp stream to global tcp stream timeout list
  *
@@ -92,7 +79,7 @@ purgeSkbuff (halfStreamPtr hs) {
  */
 static void
 addTcpStreamToClosingTimeoutList (tcpStreamPtr stream, timeValPtr tm) {
-    tcpTimeoutPtr new, pos;
+    tcpTimeoutPtr new;
 
     /* If already added, return directly */
     if (stream->inClosingTimeout)
@@ -312,7 +299,6 @@ newTcpStream (protoType proto) {
     stream->dupSynAcks = 0;
     stream->synAckTime = 0;
     stream->estbTime = 0;
-    stream->rtt = 0;
     stream->mss = 0;
     stream->totalPkts = 0;
     stream->tinyPkts = 0;
@@ -490,8 +476,6 @@ tcpBreakdown2Json (tcpStreamPtr stream, tcpBreakdownPtr tbd) {
     json_object_set_new (root, COMMON_SKBD_TCP_RETRIES_LATENCY, json_integer (tbd->retriesLatency));
     /* Tcp duplicate syn/ack packets */
     json_object_set_new (root, COMMON_SKBD_TCP_DUPLICATE_SYNACKS, json_integer (tbd->dupSynAcks));
-    /* Tcp rtt */
-    json_object_set_new (root, COMMON_SKBD_TCP_RTT, json_integer (tbd->rtt));
     /* Tcpp mss */
     json_object_set_new (root, COMMON_SKBD_TCP_MSS, json_integer (tbd->mss));
     /* Tcp connection latency */
@@ -584,7 +568,6 @@ static void publishTcpBreakdown (tcpStreamPtr stream, timeValPtr tm) {
             tbd.retries = stream->retries;
             tbd.retriesLatency = stream->retriesTime - stream->synTime;
             tbd.dupSynAcks = stream->dupSynAcks;
-            tbd.rtt = stream->rtt;
             tbd.mss = stream->mss;
             tbd.connLatency = stream->estbTime - stream->retriesTime;
             break;
@@ -593,7 +576,6 @@ static void publishTcpBreakdown (tcpStreamPtr stream, timeValPtr tm) {
             tbd.retries = 0;
             tbd.retriesLatency = 0;
             tbd.dupSynAcks = 0;
-            tbd.rtt = 0;
             tbd.mss = 0;
             tbd.connLatency = 0;
             break;
@@ -669,15 +651,17 @@ tcpCheckTimeout (timeValPtr tm) {
 /* Tcp connection establishment handler callback */
 static void
 handleEstb (tcpStreamPtr stream, timeValPtr tm) {
+    uint64_t adjustTime;
+
     /* Set tcp state */
     stream->client.state = TCP_ESTABLISHED;
     stream->server.state = TCP_ESTABLISHED;
     stream->state = STREAM_CONNECTED;
     stream->estbTime = timeVal2MilliSecond (tm);
-    stream->rtt = abs ((int) (stream->synAckTime - stream->retriesTime));
     stream->mss = MIN_NUM (stream->client.mss, stream->server.mss);
+    adjustTime = stream->estbTime - stream->synAckTime;
 
-    (*stream->parser->sessionProcessEstb) (stream->sessionDetail, tm);
+    (*stream->parser->sessionProcessEstb) (stream->sessionDetail, adjustTime, tm);
     /* Publish tcp connected breakdown */
     publishTcpBreakdown (stream, tm);
 }
@@ -707,8 +691,8 @@ handleData (tcpStreamPtr stream, halfStreamPtr snd, u_char *data, int dataLen, t
     else
         fromClient = 0;
 
-    parseCount = (*stream->parser->sessionProcessData) (fromClient, data, dataLen,
-                                                        stream->sessionDetail, tm, &sessionDone);
+    parseCount = (*stream->parser->sessionProcessData) (fromClient, data, dataLen, stream->sessionDetail,
+                                                        tm, &sessionDone);
     if (sessionDone)
         publishTcpBreakdown (stream, tm);
 
@@ -747,16 +731,12 @@ handleReset (tcpStreamPtr stream, halfStreamPtr snd, timeValPtr tm) {
 static void
 handleFin (tcpStreamPtr stream, halfStreamPtr snd, timeValPtr tm) {
     int fromClient;
-    halfStreamPtr rcv;
     int sessionDone = 0;
 
-    if (snd == &stream->client) {
+    if (snd == &stream->client)
         fromClient = 1;
-        rcv = &stream->server;
-    } else {
+    else
         fromClient = 0;
-        rcv = &stream->client;
-    }
 
     (*stream->parser->sessionProcessFin) (fromClient, stream->sessionDetail, tm, &sessionDone);
     if (sessionDone)
@@ -911,7 +891,7 @@ tcpQueue (tcpStreamPtr stream, struct tcphdr *tcph, halfStreamPtr snd, halfStrea
     if (!after (curSeq, EXP_SEQ)) {
         /* Accumulate out of order packets */
         if (before (curSeq, EXP_SEQ))
-            stream->retransmittedPkts;
+            stream->retransmittedPkts++;
 
         if (after (curSeq + dataLen + tcph->fin, EXP_SEQ)) {
             /* The packet straddles our window end */
@@ -985,7 +965,9 @@ tcpQueue (tcpStreamPtr stream, struct tcphdr *tcph, halfStreamPtr snd, halfStrea
 void
 tcpProcess (u_char *data, int skbLen, timeValPtr tm) {
     int ipLen;
+#if DO_STRICT_CHECKSUM
     int tcpLen;
+#endif
     int tcpDataLen;
     int fromClient;
     u_int tmpTs;
@@ -997,7 +979,9 @@ tcpProcess (u_char *data, int skbLen, timeValPtr tm) {
     iph = (struct ip *) data;
     tcph = (struct tcphdr *) (data + iph->ip_hl * 4);
     ipLen = ntohs (iph->ip_len);
+#if DO_STRICT_CHECKSUM
     tcpLen = ipLen - iph->ip_hl * 4;
+#endif
     tcpDataLen = ipLen - (iph->ip_hl * 4) - (tcph->doff * 4);
 
     tm->tv_sec = ntoh64 (tm->tv_sec);

@@ -19,7 +19,7 @@ struct _logContext {
 static __thread logContextPtr logCtxt = NULL;
 
 static int
-getMsgLevel (const char *msg) {
+getLogLevel (const char *msg) {
     int ret;
     int level;
 
@@ -75,7 +75,7 @@ doLog (char *file, int line, const char *func, const char *msg, ...) {
               localTime->tm_hour, localTime->tm_min, localTime->tm_sec,
               localTime->tm_mon + 1, localTime->tm_mday, (localTime->tm_year + 1900));
 
-    level = getMsgLevel (msg);
+    level = getLogLevel (msg);
     if (level < 0)
         return;
     else
@@ -107,18 +107,11 @@ doLog (char *file, int line, const char *func, const char *msg, ...) {
             return;
     }
 
-    /*
-     * Send log message to log service, if message level less or equal than
-     * log level then add flag 'a' at the head of message, else add 'n'. For
-     * 'a' log service will log message both to local file and publish to net,
-     * else only publish message to net.
-     */
     if (level <= logCtxt->logLevel)
         flag = LOG_TO_ALL_TAG;
     else
         flag = LOG_TO_NET_TAG;
 
-    /* Format output message */
     snprintf (buf, MAX_LOG_LENGTH - 1, "%c[pid:%d %s]:[%s] <file=%s:line=%d:func_name=%s>:%s",
               flag, getpid (), logLevel, timeStr, file, line, func, tmp);
 

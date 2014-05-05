@@ -1,9 +1,9 @@
-#ifndef __WDM_AGENT_BASE64_H__
-#define __WDM_AGENT_BASE64_H__
+#ifndef __AGENT_BASE64_H__
+#define __AGENT_BASE64_H__
 
 int
-base64Encode (char *to, char *from, unsigned int len);
+base64Encode (u_char *to, const u_char *from, int len);
 int
-base64Decode (char *to, char *from, unsigned int len);
+base64Decode (u_char *to, const u_char *from, int len);
 
-#endif /* __WDM_AGENT_BASE64_H__ */
+#endif /* __AGENT_BASE64_H__ */

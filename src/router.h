@@ -1,5 +1,5 @@
-#ifndef __WDM_AGENT_ROUTER_H__
-#define __WDM_AGENT_ROUTER_H__
+#ifndef __AGENT_ROUTER_H__
+#define __AGENT_ROUTER_H__
 
 #include <sys/types.h>
 #include <czmq.h>
@@ -24,4 +24,4 @@ void
 routerDispatch (struct ip *iphdr, timeValPtr tm);
 /*=======================Interfaces definition end=========================*/
 
-#endif /* __WDM_AGENT_ROUTER_H__ */
+#endif /* __AGENT_ROUTER_H__ */

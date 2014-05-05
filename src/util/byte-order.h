@@ -1,5 +1,5 @@
-#ifndef __WDM_AGENT_BYTE_ORDER_H__
-#define __WDM_AGENT_BYTE_ORDER_H__
+#ifndef __AGENT_BYTE_ORDER_H__
+#define __AGENT_BYTE_ORDER_H__
 
 #include <stdint.h>
 
@@ -29,4 +29,4 @@ hton64 (uint64_t src) {
     return ntoh64 (src);
 }
 
-#endif /* __WDM_AGENT_BYTE_ORDER_H__ */
+#endif /* __AGENT_BYTE_ORDER_H__ */

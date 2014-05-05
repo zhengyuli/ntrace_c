@@ -1,7 +1,7 @@
 /* Atomic operations provide by gcc */
 
-#ifndef __WDM_AGENT_ATOMIC_H__
-#define __WDM_AGENT_ATOMIC_H__
+#ifndef __AGENT_ATOMIC_H__
+#define __AGENT_ATOMIC_H__
 
 #define ATOMIC_INC(xPtr) __sync_add_and_fetch ((xPtr), 1)
 #define ATOMIC_DEC(xPtr) __sync_sub_and_fetch ((xPtr), 1)
@@ -28,4 +28,4 @@
 #define ATOMIC_FETCH_AND_SET(xPtr, y) __sync_lock_test_and_set ((xPtr), y)
 #define ATOMIC_RELEASE(xPtr) __sync_lock_release ((xPtr))
 
-#endif /* __WDM_AGENT_ATOMIC_H__ */
+#endif /* __AGENT_ATOMIC_H__ */

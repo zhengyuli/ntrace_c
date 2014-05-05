@@ -21,6 +21,7 @@
 #define LOG_TO_NET_MASK (1 << 1)
 
 static int logdPidFileFd = -1;
+/* Log devices list */
 static listHead logDevices;
 
 typedef struct _logDev logDev;
@@ -51,6 +52,7 @@ checkBit (int flag, int bitMask) {
 #define DEFAULT_LOG_FILE_DIR "/var/log/logd/"
 /* Defautl log file name */
 #define DEFAULT_LOG_FILE_NAME "logd.log"
+/* Max log file size is 128 MB */
 #define LOG_FILE_MAX_SIZE (128 << 20)
 #define LOG_FILE_ROTATE_NUMBER 8
 #define LOG_FILE_SIZE_CHECK_COUNT 200
@@ -93,7 +95,7 @@ logFileRotate (const char *logFileName) {
     for (i = (LOG_FILE_ROTATE_NUMBER - 1); i > 0; i--) {
         if (i == (LOG_FILE_ROTATE_NUMBER - 1)) {
             snprintf (fileNameBuf2, sizeof (fileNameBuf2) - 1, "%s_%d", logFileName, i);
-            if (fileExist (fileNameBuf2, F_OK)) {
+            if (fileExist (fileNameBuf2)) {
                 ret = remove (fileNameBuf2);
                 if (ret < 0) {
                     fprintf (stderr, "Log file rotate error.\n");
@@ -103,7 +105,7 @@ logFileRotate (const char *logFileName) {
         } else {
             snprintf (fileNameBuf1, sizeof (fileNameBuf1) - 1, "%s_%d", logFileName, i);
             snprintf (fileNameBuf2, sizeof (fileNameBuf2) - 1, "%s_%d", logFileName, i + 1);
-            if (fileExist (fileNameBuf1, F_OK)) {
+            if (fileExist (fileNameBuf1)) {
                 ret = rename (fileNameBuf1, fileNameBuf2);
                 if (ret < 0) {
                     fprintf (stderr, "Log file rotate error.\n");
@@ -155,11 +157,11 @@ initLogFile (logDevPtr dev) {
     logFilePtr logfile;
 
 
-    if (!fileExist (logFileDir, F_OK) &&
+    if (!fileExist (logFileDir) &&
         (mkdir (logFileDir, 0755) < 0))
         return -1;
 
-    logfile = malloc (sizeof (logFile));
+    logfile = (logFilePtr) malloc (sizeof (logFile));
     if (logfile == NULL)
         return -1;
 
@@ -186,13 +188,10 @@ initLogFile (logDevPtr dev) {
 static void
 destroyLogFile (logDevPtr dev) {
     logFilePtr logfile = (logFilePtr) dev->data;
-    if (logfile) {
-        if (logfile->fd >= 0)
-            close (logfile->fd);
-        if (logfile->filePath)
-            free (logfile->filePath);
-        free (logfile);
-    }
+
+    close (logfile->fd);
+    free (logfile->filePath);
+    free (logfile);
 }
 
 static void
@@ -291,10 +290,9 @@ writeLogNet (const char *msg, logDevPtr dev, int flag) {
 static void
 destroyLogNet (logDevPtr dev) {
     logNetPtr lognet = (logNetPtr) dev->data;
-    if (lognet) {
-        zctx_destroy (&lognet->context);
-        free (lognet);
-    }
+
+    zctx_destroy (&lognet->context);
+    free (lognet);
 }
 
 /*============================log dev================================*/
@@ -318,7 +316,7 @@ logDevWrite (listHeadPtr logDevices, const char *msg) {
     logDevPtr dev;
     const char *message = msg + 1;
 
-    switch (msg [0]) {
+    switch (*msg) {
         case LOG_TO_ALL_TAG:
             flag = LOG_TO_FILE_MASK | LOG_TO_NET_MASK;
             break;

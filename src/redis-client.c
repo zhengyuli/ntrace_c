@@ -130,7 +130,7 @@ retry:
             rdsContext->ctxt = NULL;
             if (connectRedisServer () < 0)
                 return;
-            retryCount ++;
+            retryCount++;
             goto retry;
         }
         else
@@ -164,7 +164,7 @@ retry:
             rdsContext->ctxt = NULL;
             if (connectRedisServer () < 0)
                 return;
-            retryCount ++;
+            retryCount++;
             goto retry;
         } else
             LOGE ("Redis error: %s\n", rdsContext->ctxt->errstr);
@@ -246,7 +246,7 @@ checkAgentID (void) {
  * @return 0 if success else -1
  */
 int
-initRedisContext (int agentId, const char *redisIp, uint16_t redisPort) {
+initRedisContext (int agentId, const char *redisIp, int redisPort) {
     int ret;
 
     rdsContext = newRedisCtxt ();

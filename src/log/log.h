@@ -1,5 +1,5 @@
-#ifndef __WDM_AGENT_LOG_H__
-#define __WDM_AGENT_LOG_H__
+#ifndef __AGENT_LOG_H__
+#define __AGENT_LOG_H__
 
 /* Log level tag */
 #define LOG_ERR_TAG "<0>"       /* Error message */
@@ -54,4 +54,4 @@ destroyLog (void);
 #endif
 /*=======================Interfaces definition end=========================*/
 
-#endif /* __WDM_AGENT_LOG_H__ */
+#endif /* __AGENT_LOG_H__ */

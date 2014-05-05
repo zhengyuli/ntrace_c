@@ -1,5 +1,5 @@
-#ifndef __WDM_AGENT_HASH_H__
-#define __WDM_AGENT_HASH_H__
+#ifndef __AGENT_HASH_H__
+#define __AGENT_HASH_H__
 
 #include <stdlib.h>
 #include "list.h"
@@ -38,21 +38,21 @@ typedef struct _hashItem hashItem;
 typedef hashItem *hashItemPtr;
 
 struct _hashItem {
-    char *key;                  /**< Key string used to compute hash value */
-    size_t index;               /**< Index in hash table */
-    void *data;                 /**< Opaque item value */
-    hashFreeFun freeFun;        /**< Mem free func */
-    hlistNode node;             /**< Hash list node */
+    char *key;                          /**< Key string used to compute hash value */
+    u_int index;                        /**< Index in hash table */
+    void *data;                         /**< Opaque item value */
+    hashFreeFun freeFun;                /**< Mem free func */
+    hlistNode node;                     /**< Hash list node */
 };
 
 typedef struct _hashTable hashTable;
 typedef hashTable *hashTablePtr;
 
 struct _hashTable {
-    size_t currSize;            /**< Num of items in hash table */
-    size_t totalSize;           /**< Size of hash table */
-    size_t limit;               /**< Limit of hash table */
-    hlistHeadPtr heads;         /**< Array of hlist_head */
+    u_int currSize;                     /**< Num of items in hash table */
+    u_int totalSize;                    /**< Size of hash table */
+    u_int limit;                        /**< Limit of hash table */
+    hlistHeadPtr heads;                 /**< Array of hlist_head */
 };
 
 static inline int
@@ -173,9 +173,9 @@ void *
 hashLookup (hashTablePtr htbl, const char *key);
 int
 hashRename (hashTablePtr htbl, const char *old_key, const char *new_key);
-size_t
+u_int
 hashSize (hashTablePtr htbl);
-size_t
+u_int
 hashLimit (hashTablePtr htbl);
 int
 hashForEachItemDo (hashTablePtr htbl, hashForEachItemDoFun fun, void *args);
@@ -185,4 +185,4 @@ void *
 hashForEachItemCheck (hashTablePtr htbl, hashForEachItemCheckFun fun, void *args);
 /*=======================Interfaces definition end=========================*/
 
-#endif /* __WDM_AGENT_HASH_H__ */
+#endif /* __AGENT_HASH_H__ */

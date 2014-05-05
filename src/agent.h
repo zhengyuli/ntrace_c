@@ -1,5 +1,5 @@
-#ifndef __WDM_AGENT_AGENT_H__
-#define __WDM_AGENT_AGENT_H__
+#ifndef __AGENT_AGENT_H__
+#define __AGENT_AGENT_H__
 
 #include <pcap.h>
 #include <hiredis/hiredis.h>
@@ -10,8 +10,8 @@ typedef struct _pcapStat pcapStat;
 typedef pcapStat *pcapStatPtr;
 
 struct _pcapStat {
-    uint64_t pktRecv;                   /**< Pkts received by NIC */
-    uint64_t pktDrop;                   /**< Pkts dropped by NIC */
+    u_int pktRecv;                      /**< Pkts received by NIC */
+    u_int pktDrop;                      /**< Pkts dropped by NIC */
 };
 
 typedef struct _agentParams agentParams;
@@ -19,16 +19,14 @@ typedef agentParams *agentParamsPtr;
 
 /* Structure used to describes global parameters of agent */
 struct _agentParams {
-    int agentId;                        /**< Agent id */
-    BOOL daemonMode;                    /**< Run as daemon */
-    int parsingThreads;                 /**< Parsing threads number */
+    u_short agentId;                    /**< Agent id */
+    u_short daemonMode;                 /**< Run as daemon */
+    u_short parsingThreads;             /**< Parsing threads number */
     char *mirrorInterface;              /**< Mirror interface */
-    int pcapDumpTimeout;                /**< Pcap statistic dump timeout */
-    int logLevel;                       /**< Log level */
-    char *logFileDir;                   /**< Log file dir */
-    char *logFileName;                  /**< Log file name */
+    u_short pcapDumpTimeout;            /**< Pcap statistic dump timeout */
+    u_short logLevel;                   /**< Log level */
     char *redisSrvIp;                   /**< Redis server ip */
-    int redisSrvPort;                   /**< Redis server port */
+    u_short redisSrvPort;               /**< Redis server port */
 };
 
 typedef struct _netInterface netInterface;
@@ -36,12 +34,12 @@ typedef netInterface *netInterfacePtr;
 
 /* Options for network interface */
 struct _netInterface {
-    char *name;                 /**< Name of NIC */
-    char *ipaddr;               /**< Ip address of NIC */
-    pcap_t *pcapDesc;           /**< Pcap descriptor of NIC */
-    int linkType;               /**< Datalink type */
-    int linkOffset;             /**< Datalink offset */
-    pcapStat pstat;             /**< Pcap statistic info */
+    char *name;                         /**< Name of NIC */
+    char *ipaddr;                       /**< Ip address of NIC */
+    pcap_t *pcapDesc;                   /**< Pcap descriptor of NIC */
+    u_short linkType;                   /**< Datalink type */
+    u_short linkOffset;                 /**< Datalink offset */
+    pcapStat pstat;                     /**< Pcap statistic info */
 };
 
-#endif /* __WDM_AGENT_AGENT_H__ */
+#endif /* __AGENT_AGENT_H__ */

@@ -1,5 +1,5 @@
-#ifndef __WDM_AGENT_IP_OPTIONS_H__
-#define __WDM_AGENT_IP_OPTIONS_H__
+#ifndef __AGENT_IP_OPTIONS_H__
+#define __AGENT_IP_OPTIONS_H__
 
 #include <sys/types.h>
 
@@ -30,4 +30,4 @@ int
 ipOptionsCompile (u_char *iph);
 /*=======================Interfaces definition end=========================*/
 
-#endif /* __WDM_AGENT_IP_OPTIONS_H__ */
+#endif /* __AGENT_IP_OPTIONS_H__ */

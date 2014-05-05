@@ -1,5 +1,5 @@
-#ifndef __WDM_AGENT_REDIS_CLIENT_H__
-#define __WDM_AGENT_REDIS_CLIENT_H__
+#ifndef __AGENT_REDIS_CLIENT_H__
+#define __AGENT_REDIS_CLIENT_H__
 
 #include <hiredis/hiredis.h>
 #include "service.h"
@@ -31,4 +31,4 @@ void
 destroyRedisContext (void);
 /*=======================Interfaces definition end=========================*/
 
-#endif /* __WDM_AGENT_REDIS_CLIENT_H__ */
+#endif /* __AGENT_REDIS_CLIENT_H__ */

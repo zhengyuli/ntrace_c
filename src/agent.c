@@ -48,7 +48,7 @@ static pthread_mutex_t statusPushSockMutex = PTHREAD_MUTEX_INITIALIZER;
 /* Parameters of agent */
 static agentParams agentParameters = {
     .agentId = 0,
-    .daemonMode = FALSE,
+    .daemonMode = 0,
     .parsingThreads = 0,
     .mirrorInterface = NULL,
     .pcapDumpTimeout = 0,
@@ -1275,8 +1275,6 @@ static struct option agentOptions [] = {
     {"mirror-interface", required_argument, NULL, 'm'},
     {"pcap-dump-timeout", required_argument, NULL, 't'},
     {"log-level", required_argument, NULL, 'l'},
-    {"log-file-dir", required_argument, NULL, 'd'},
-    {"log-file-name", required_argument, NULL, 'f'},
     {"redis-srv-ip", required_argument, NULL, 'r'},
     {"redis-srv-port", required_argument, NULL, 'p'},
     {"daemon-mode", no_argument, NULL, 'D'},
@@ -1299,8 +1297,6 @@ showHelpInfo (const char *cmd) {
                   "  -t|--pcap-dump-timeout <timeout>, timeout for dumping pcap statistic\n"
                   "  -l|--log-level <level> log level\n"
                   "       Optional level: 0-ERR 1-WARNING 2-INFO 3-DEBUG\n"
-                  "  -d|--log-file-dir <directory>, directory of log\n"
-                  "  -f|--log-file-name <name>, log file name\n"
                   "  -r|--redis-srv-ip <ip>, ip of redis server\n"
                   "  -p|--redis-srv-port <port>, port of redis server\n"
                   "  -D|--daemon-mode, run as daemon\n"
@@ -1319,11 +1315,11 @@ parseCmdline (int argc, char *argv []) {
     while ((option = getopt_long (argc, argv, "i:n:m:t:l:d:f:r:p:Dvh?", agentOptions, NULL)) != -1) {
         switch (option) {
             case 'i':
-                agentParameters.agentId = atoi (optarg);
+                agentParameters.agentId = (u_short) atoi (optarg);
                 break;
 
             case 'n':
-                agentParameters.parsingThreads = atoi (optarg);
+                agentParameters.parsingThreads = (u_short) atoi (optarg);
                 break;
 
             case 'm':
@@ -1335,27 +1331,11 @@ parseCmdline (int argc, char *argv []) {
                 break;
 
             case 't':
-                agentParameters.pcapDumpTimeout = atoi (optarg);
+                agentParameters.pcapDumpTimeout = (u_short) atoi (optarg);
                 break;
 
             case 'l':
-                agentParameters.logLevel = atoi (optarg);
-                break;
-
-            case 'd':
-                agentParameters.logFileDir = strdup (optarg);
-                if (agentParameters.logFileDir == NULL) {
-                    logToConsole ("Get log file directory error.\n");
-                    return -1;
-                }
-                break;
-
-            case 'f':
-                agentParameters.logFileName = strdup (optarg);
-                if (agentParameters.logFileName == NULL) {
-                    logToConsole ("Get log file name error.\n");
-                    return -1;
-                }
+                agentParameters.logLevel = (u_short) atoi (optarg);
                 break;
 
             case 'r':
@@ -1367,11 +1347,11 @@ parseCmdline (int argc, char *argv []) {
                 break;
 
             case 'p':
-                agentParameters.redisSrvPort = atoi (optarg);
+                agentParameters.redisSrvPort = (u_short) atoi (optarg);
                 break;
 
             case 'D':
-                agentParameters.daemonMode = TRUE;
+                agentParameters.daemonMode = 1;
                 break;
 
             case 'v':
@@ -1423,7 +1403,7 @@ parseConf (void) {
         ret = -1;
         goto exit;
     }
-    agentParameters.agentId = get_int_config_value (item, 1, -1, &error);
+    agentParameters.agentId = (u_short) get_int_config_value (item, 1, -1, &error);
     if (error) {
         logToConsole ("Parse \"agent_id\" error.\n");
         ret = -1;
@@ -1437,7 +1417,7 @@ parseConf (void) {
         ret = -1;
         goto exit;
     }
-    agentParameters.daemonMode = get_int_config_value (item, 1, -1, &error);
+    agentParameters.daemonMode = (u_short) get_int_config_value (item, 1, -1, &error);
     if (error) {
         logToConsole ("Parse \"daemon_mode\" error.\n");
         ret = -1;
@@ -1451,7 +1431,7 @@ parseConf (void) {
         ret = -1;
         goto exit;
     }
-    agentParameters.parsingThreads = get_int_config_value (item, 1, -1, &error);
+    agentParameters.parsingThreads = (u_short) get_int_config_value (item, 1, -1, &error);
     if (error) {
         logToConsole ("Parse \"parsing_threads\" error.\n");
         ret = -1;
@@ -1485,7 +1465,7 @@ parseConf (void) {
         ret = -1;
         goto exit;
     }
-    agentParameters.pcapDumpTimeout = get_int_config_value (item, 1, -1, &error);
+    agentParameters.pcapDumpTimeout = (u_short) get_int_config_value (item, 1, -1, &error);
     if (error) {
         logToConsole ("Parse \"pcap_dump_timeout\" error.\n");
         ret = -1;
@@ -1499,49 +1479,9 @@ parseConf (void) {
         ret = -1;
         goto exit;
     }
-    agentParameters.logLevel = get_int_config_value (item, 1, -1, &error);
+    agentParameters.logLevel = (u_short) get_int_config_value (item, 1, -1, &error);
     if (error) {
         logToConsole ("Parse \"log_level\" error.\n");
-        ret = -1;
-        goto exit;
-    }
-
-    /* Get log file dir */
-    ret = get_config_item ("LOG", "log_file_dir", iniConfig, &item);
-    if (ret) {
-        logToConsole ("Get_config_item \"log_file_dir\" error\n");
-        ret = -1;
-        goto exit;
-    }
-    tmp = get_const_string_config_value (item, &error);
-    if (error) {
-        logToConsole ("Parse \"log_file_dir\" error.\n");
-        ret = -1;
-        goto exit;
-    }
-    agentParameters.logFileDir = strdup (tmp);
-    if (agentParameters.logFileDir == NULL) {
-        logToConsole ("Get \"log_file_dir\" error\n");
-        ret = -1;
-        goto exit;
-    }
-
-    /* Get log file name */
-    ret = get_config_item ("LOG", "log_file_name", iniConfig, &item);
-    if (ret) {
-        logToConsole ("Get_config_item \"log_file_name\" error\n");
-        ret = -1;
-        goto exit;
-    }
-    tmp = get_const_string_config_value (item, &error);
-    if (error) {
-        logToConsole ("Parse \"log_file_name\" error.\n");
-        ret = -1;
-        goto exit;
-    }
-    agentParameters.logFileName = strdup (tmp);
-    if (agentParameters.logFileName == NULL) {
-        logToConsole ("Get \"log_file_name\" error\n");
         ret = -1;
         goto exit;
     }
@@ -1573,7 +1513,7 @@ parseConf (void) {
         ret = -1;
         goto exit;
     }
-    agentParameters.redisSrvPort = get_int_config_value (item, 1, -1, &error);
+    agentParameters.redisSrvPort = (u_short) get_int_config_value (item, 1, -1, &error);
     if (error) {
         logToConsole ("Parse \"redis_server_port\" error.\n");
         ret = -1;

@@ -1,5 +1,5 @@
-#ifndef __WDM_AGENT_MYSQL_ANALYZER_H__
-#define __WDM_AGENT_MYSQL_ANALYZER_H__
+#ifndef __AGENT_MYSQL_ANALYZER_H__
+#define __AGENT_MYSQL_ANALYZER_H__
 
 #include <stdint.h>
 #include "util.h"
@@ -321,4 +321,4 @@ struct _mysqlSessionBreakdown {
 extern protoParser mysqlParser;
 /*=======================Interfaces definition end=========================*/
 
-#endif /* __WDM_AGENT_MYSQL_ANALYZER_H__ */
+#endif /* __AGENT_MYSQL_ANALYZER_H__ */

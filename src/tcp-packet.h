@@ -1,5 +1,5 @@
-#ifndef __WDM_AGENT_TCP_PACKET_H__
-#define __WDM_AGENT_TCP_PACKET_H__
+#ifndef __AGENT_TCP_PACKET_H__
+#define __AGENT_TCP_PACKET_H__
 
 #include <stdint.h>
 #include "util.h"
@@ -44,8 +44,8 @@ struct _halfStream {
     uint8_t urgSeen;                    /**< Half stream has new urg data flag */
     uint16_t urgPtr;                    /**< Half stream urg data pointer */
     uint16_t window;                    /**< Half stream current window size */
-    BOOL tsOn;                          /**< Half stream timestamp options on flag */
-    BOOL wscaleOn;                      /**< Half stream window scale options on flag */
+    int tsOn;                          /**< Half stream timestamp options on flag */
+    int wscaleOn;                      /**< Half stream window scale options on flag */
     uint32_t currTs;                    /**< Half stream current timestamp */
     uint16_t wscale;                    /**< Half stream window scale size */
     uint16_t mss;                       /**< Half stream MSS (Maxium Segment Size) */
@@ -104,7 +104,7 @@ struct _tcpStream {
     uint64_t zeroWindows;               /**< Tcp zero windows */
     uint64_t dupAcks;                   /**< Tcp duplicate acks */
     void *sessionDetail;                /**< Appliction session detail */
-    BOOL inClosingTimeout;              /**< In closing timeout list */
+    int inClosingTimeout;              /**< In closing timeout list */
     uint64_t closeTime;                 /**< Tcp close time */
     listHead node;                      /**< Tcp stream list node */
 };
@@ -193,4 +193,4 @@ void
 destroyTcp (void);
 /*=======================Interfaces definition end=========================*/
 
-#endif /* __WDM_AGENT_TCP_PACKET_H__ */
+#endif /* __AGENT_TCP_PACKET_H__ */

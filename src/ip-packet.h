@@ -1,5 +1,5 @@
-#ifndef __WDM_AGENT_IP_PACKET_H__
-#define __WDM_AGENT_IP_PACKET_H__
+#ifndef __AGENT_IP_PACKET_H__
+#define __AGENT_IP_PACKET_H__
 
 #include <netinet/ip.h>
 #include <sys/types.h>
@@ -75,4 +75,4 @@ void
 destroyIp (void);
 /*=======================Interfaces definition end=========================*/
 
-#endif /* __WDM_AGENT_IP_PACKET_H__ */
+#endif /* __AGENT_IP_PACKET_H__ */

@@ -55,20 +55,20 @@ static __thread hashTablePtr tcpStreamHashTable;
 static __thread publishTcpBreakdownCB publishTcpBreakdownFunc;
 static __thread void *publishTcpBreakdownArgs;
 
-static inline BOOL
+static inline int
 before (uint32_t seq1, uint32_t seq2) {
     if ((int) (seq1 - seq2) < 0)
-        return TRUE;
+        return 1;
     else
-        return FALSE;
+        return 0;
 }
 
-static inline BOOL
+static inline int
 after (uint32_t seq1, uint32_t seq2) {
     if ((int) (seq1 - seq2) > 0)
-        return TRUE;
+        return 1;
     else
-        return FALSE;
+        return 0;
 }
 
 /*
@@ -91,7 +91,7 @@ addTcpStreamToClosingTimeoutList (tcpStreamPtr stream, timeValPtr tm) {
         return;
     }
 
-    stream->inClosingTimeout = TRUE;
+    stream->inClosingTimeout = 1;
     new->stream = stream;
     new->timeout = tm->tvSec + DEFAULT_TCP_STREAM_CLOSING_TIMEOUT;
     /* Add new before pos */
@@ -260,8 +260,8 @@ newTcpStream (protoType proto) {
     stream->client.urgSeen = 0;
     stream->client.urgPtr = 0;
     stream->client.window = 0;
-    stream->client.tsOn = FALSE;
-    stream->client.wscaleOn = FALSE;
+    stream->client.tsOn = 0;
+    stream->client.wscaleOn = 0;
     stream->client.currTs = 0;
     stream->client.wscale = 0;
     stream->client.mss = 0;
@@ -284,8 +284,8 @@ newTcpStream (protoType proto) {
     stream->server.urgSeen = 0;
     stream->server.urgPtr = 0;
     stream->server.window = 0;
-    stream->server.tsOn = FALSE;
-    stream->server.wscaleOn = FALSE;
+    stream->server.tsOn = 0;
+    stream->server.wscaleOn = 0;
     stream->server.currTs = 0;
     stream->server.wscale = 0;
     stream->server.mss = 0;
@@ -314,7 +314,7 @@ newTcpStream (protoType proto) {
         free (stream);
         return NULL;
     }
-    stream->inClosingTimeout = FALSE;
+    stream->inClosingTimeout = 0;
     stream->closeTime = 0;
     initListHead (&stream->node);
 
@@ -1072,19 +1072,19 @@ tcpProcess (u_char *data, int skbLen, timeValPtr tm) {
             if (stream->client.tsOn) {
                 stream->server.tsOn = getTimeStampOption (tcph, &stream->server.currTs);
                 if (!stream->server.tsOn)
-                    stream->client.tsOn = FALSE;
+                    stream->client.tsOn = 0;
             } else
-                stream->server.tsOn = FALSE;
+                stream->server.tsOn = 0;
 
             if (stream->client.wscaleOn) {
                 stream->server.wscaleOn = getTcpWindowScaleOption (tcph, &stream->server.wscale);
                 if (!stream->server.wscaleOn) {
-                    stream->client.wscaleOn = FALSE;
+                    stream->client.wscaleOn = 0;
                     stream->client.wscale  = 1;
                     stream->server.wscale = 1;
                 }
             } else {
-                stream->server.wscaleOn = FALSE;
+                stream->server.wscaleOn = 0;
                 stream->server.wscale = 1;
             }
 

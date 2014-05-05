@@ -89,9 +89,9 @@ safeWrite (int fd, const void *buf, size_t count) {
  * else return 0.
  */
 int
-fileExist (const char *path, int amode)
+fileExist (const char *path)
 {
-    if (access (path, amode))
+    if (access (path, F_OK))
         return 0;
     else
         return 1;

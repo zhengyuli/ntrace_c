@@ -1,5 +1,5 @@
-#ifndef __WDM_AGENT_LIST_H__
-#define __WDM_AGENT_LIST_H__
+#ifndef __AGENT_LIST_H__
+#define __AGENT_LIST_H__
 
 #include <stddef.h>
 
@@ -107,7 +107,7 @@ listIsEmpty (const listHeadPtr head) {
  */
 #define containerOfMember(pos, type, member) ({                         \
             const typeof (((type *) 0)->member) *mptr = (pos);          \
-            (type *) ((char *) mptr - offsetOfMember (type, member));})
+            (type *) ((u_char *) mptr - offsetOfMember (type, member));})
 
 #define listEntry(pos, type, member)            \
     containerOfMember (pos, type, member)
@@ -176,4 +176,4 @@ listIsEmpty (const listHeadPtr head) {
           &pos->member != (head);                                       \
           pos = n, n = listEntry (n->member.prev, typeof (*n), member))
 
-#endif /* __WDM_AGENT_LIST_H__ */
+#endif /* __AGENT_LIST_H__ */

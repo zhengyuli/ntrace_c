@@ -17,16 +17,16 @@
  * @param key hash key to generate hash value
  * @param tableSize hash table size
  *
- * @return hash number
+ * @return index in hash table
  */
-static size_t
-itemHash (const char *key, size_t tableSize) {
-    size_t hash = 0;
-    size_t seed = 16777619;
+static u_int
+itemHash (const char *key, u_int tableSize) {
+    u_int hash = 0;
+    u_int seed = 16777619;
 
     while (*key) {
         hash *= seed;
-        hash ^= (size_t) (*key);
+        hash ^= (u_int) (*key);
         key++;
     }
 
@@ -44,8 +44,8 @@ itemHash (const char *key, size_t tableSize) {
  * @return Return hash item if exists, else reutrn NULL.
  */
 static hashItemPtr
-hashItemLookup (hashTablePtr htbl, const char *key, size_t *hash) {
-    size_t index;
+hashItemLookup (hashTablePtr htbl, const char *key, u_int *hash) {
+    u_int index;
     hashItemPtr item;
     hlistHeadPtr head;
     hlistNodePtr hNode, tmp;
@@ -73,7 +73,7 @@ hashItemLookup (hashTablePtr htbl, const char *key, size_t *hash) {
  */
 static int
 hashItemInsert (hashTablePtr htbl, const char *key, void *data, hashFreeFun freeFun) {
-    size_t index;
+    u_int index;
     hlistHeadPtr head;
     hashItemPtr item;
 
@@ -130,8 +130,8 @@ hashItemDel (hashTablePtr htbl, hashItemPtr item) {
  */
 static int
 hashItemAttach (hashTablePtr htbl, hashItemPtr item) {
+    u_int index;
     hlistHeadPtr head;
-    size_t index;
     hashItemPtr tmp;
 
     if (item == NULL)
@@ -176,7 +176,7 @@ hashItemDetach (hashTablePtr htbl, hashItemPtr item) {
 hashTablePtr
 hashNew (u_int hashSize) {
     int i;
-    size_t memSize;
+    u_int memSize;
 
     hashTablePtr htbl = (hashTablePtr ) malloc (sizeof (hashTable));
     if (htbl) {
@@ -203,7 +203,7 @@ hashNew (u_int hashSize) {
 /* Destroy hash table */
 void
 hashDestroy (hashTablePtr *htblPtr) {
-    size_t index;
+    u_int index;
     hlistHeadPtr head;
     hashTablePtr htbl;
     hashItemPtr item;
@@ -238,11 +238,11 @@ hashDestroy (hashTablePtr *htblPtr) {
 int
 hashInsert (hashTablePtr htbl, const char *key, void *data, hashFreeFun fun) {
     int ret;
-    size_t index;
-    size_t newMemSize;
-    size_t newLimit;
+    u_int index;
+    u_int newMemSize;
+    u_int newLimit;
     hashItemPtr item;
-    size_t newTotalSize, oldTotalSize;
+    u_int newTotalSize, oldTotalSize;
     hlistHeadPtr newHeads, oldHeads, head;
 
     if (key == NULL || data == NULL || !fun)
@@ -313,7 +313,7 @@ hashInsert (hashTablePtr htbl, const char *key, void *data, hashFreeFun fun) {
  */
 int
 hashUpdate (hashTablePtr htbl, const char *key, void *data, hashFreeFun fun) {
-    size_t index;
+    u_int index;
     hashItemPtr item;
 
     if (htbl == NULL || key == NULL)
@@ -344,7 +344,7 @@ hashUpdate (hashTablePtr htbl, const char *key, void *data, hashFreeFun fun) {
  */
 int
 hashDel (hashTablePtr htbl, const char *key) {
-    size_t index;
+    u_int index;
     hashItemPtr item;
 
     if (key == NULL)
@@ -369,7 +369,7 @@ hashDel (hashTablePtr htbl, const char *key) {
  */
 void *
 hashLookup (hashTablePtr htbl, const char *key) {
-    size_t index;
+    u_int index;
     hashItemPtr item;
 
     if (htbl == NULL || key == NULL)
@@ -396,7 +396,7 @@ hashLookup (hashTablePtr htbl, const char *key) {
 int
 hashRename (hashTablePtr htbl, const char *oldKey, const char *newKey) {
     int ret;
-    size_t index;
+    u_int index;
     hashItemPtr item;
 
     if (oldKey == NULL || NULL == newKey)
@@ -442,7 +442,7 @@ hashRename (hashTablePtr htbl, const char *oldKey, const char *newKey) {
  *
  * @return count of current items
  */
-inline size_t
+inline u_int
 hashSize (hashTablePtr htbl) {
     return htbl->currSize;
 }
@@ -454,7 +454,7 @@ hashSize (hashTablePtr htbl) {
  *
  * @return current limit size
  */
-inline size_t
+inline u_int
 hashLimit (hashTablePtr htbl) {
     return htbl->limit;
 }
@@ -470,7 +470,7 @@ hashLimit (hashTablePtr htbl) {
 int
 hashForEachItemDo (hashTablePtr htbl, hashForEachItemDoFun fun, void *args) {
     int ret;
-    size_t index;
+    u_int index;
     hashItemPtr item;
     hlistHeadPtr head;
     hlistNodePtr hNode, tmp;
@@ -499,7 +499,7 @@ hashForEachItemDo (hashTablePtr htbl, hashForEachItemDoFun fun, void *args) {
  */
 void
 hashForEachItemDelIf (hashTablePtr htbl, hashForEachItemDelIfFun fun, void *args) {
-    size_t index;
+    u_int index;
     hashItemPtr item;
     hlistHeadPtr head;
     hlistNodePtr hNode, tmp;
@@ -529,7 +529,7 @@ hashForEachItemDelIf (hashTablePtr htbl, hashForEachItemDelIfFun fun, void *args
 void *
 hashForEachItemCheck (hashTablePtr htbl, hashForEachItemCheckFun fun, void *args) {
     void *ret;
-    size_t index;
+    u_int index;
     hashItemPtr item;
     hlistHeadPtr head;
     hlistNodePtr hNode, tmp;

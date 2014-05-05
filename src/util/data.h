@@ -1,5 +1,5 @@
-#ifndef __WDM_AGENT_DATA_H__
-#define __WDM_AGENT_DATA_H__
+#ifndef __AGENT_DATA_H__
+#define __AGENT_DATA_H__
 
 typedef struct _data data;
 typedef data *dataPtr;
@@ -10,11 +10,11 @@ struct _data {
 };
 
 dataPtr
-dataCreate (u_char *d, int len);
+dataCreate (const u_char *d, int len);
 dataPtr
 dataAlloc (int len);
 int
-dataMake (dataPtr dp, u_char *d, int len);
+dataMake (dataPtr dp, const u_char *d, int len);
 void
 dataDestroy (dataPtr *dpp);
 int
@@ -28,4 +28,4 @@ dataCompare (dataPtr d1p, dataPtr d2p);
 #define ATTACH_DATA(a, b) ({(a).data = b; (a).len = sizeof (b)})
 #define ZERO_DATA(a) ({(a).data = 0; (a).len = 0})
 
-#endif /* __WDM_AGENT_DATA_H__ */
+#endif /* __AGENT_DATA_H__ */

@@ -1,5 +1,5 @@
-#ifndef __WDM_AGENT_SS_CIPHERSUITES_H__
-#define __WDM_AGENT_SS_CIPHERSUITES_H__
+#ifndef __AGENT_SS_CIPHERSUITES_H__
+#define __AGENT_SS_CIPHERSUITES_H__
 
 #define KEX_RSA     0x10
 #define KEX_DH      0x11
@@ -41,4 +41,4 @@ sslGetCipherName (int ciph);
 sslCipherSuitePtr
 sslGetCipherSuite (int index);
 
-#endif /* __WDM_AGENT_SS_CIPHERSUITES_H__ */
+#endif /* __AGENT_SS_CIPHERSUITES_H__ */

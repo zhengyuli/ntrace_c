@@ -1,5 +1,5 @@
-#ifndef __WDM_AGENT_UTIL_H__
-#define __WDM_AGENT_UTIL_H__
+#ifndef __AGENT_UTIL_H__
+#define __AGENT_UTIL_H__
 
 #include <string.h>
 #include <sys/types.h>
@@ -63,11 +63,6 @@ struct _timeVal {
     uint64_t tvUsec;
 };
 
-typedef enum {
-    FALSE = 0,
-    TRUE = 1,
-} BOOL;
-
 /*========================Interfaces definition============================*/
 uint64_t
 timeVal2Second (timeValPtr tm);
@@ -82,7 +77,7 @@ safeRead (int fd, void *buf, size_t count);
 ssize_t
 safeWrite (int fd, const void *buf, size_t count);
 int
-fileExist (const char *path, int amode);
+fileExist (const char *path);
 /*=======================Interfaces definition end=========================*/
 
-#endif /* __WDM_AGENT_UTIL_H__ */
+#endif /* __AGENT_UTIL_H__ */

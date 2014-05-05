@@ -12,7 +12,7 @@ inline uint64_t
 timeVal2Second (timeValPtr tm) {
     uint64_t second;
 
-    second = tm->tv_sec + (tm->tv_usec / 1000000);
+    second = tm->tvSec + (tm->tvUsec / 1000000);
     return second;
 }
 
@@ -20,7 +20,7 @@ inline uint64_t
 timeVal2MilliSecond (timeValPtr tm) {
     uint64_t milli;
 
-    milli = (tm->tv_sec * 1000) + (tm->tv_usec / 1000);
+    milli = (tm->tvSec * 1000) + (tm->tvUsec / 1000);
     return milli;
 }
 
@@ -28,7 +28,7 @@ inline uint64_t
 timeVal2MicoSecond (timeValPtr tm) {
     uint64_t micro;
 
-    micro = (tm->tv_sec * 1000000) + tm->tv_usec;
+    micro = (tm->tvSec * 1000000) + tm->tvUsec;
     return micro;
 }
 

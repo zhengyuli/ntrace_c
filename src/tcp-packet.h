@@ -2,6 +2,7 @@
 #define __WDM_AGENT_TCP_PACKET_H__
 
 #include <stdint.h>
+#include "util.h"
 #include "list.h"
 #include "protocol.h"
 
@@ -13,14 +14,14 @@ typedef skbuff *skbuffPtr;
 
 struct _skbuff {
     u_char *data;                       /**< Skbuff data */
-    u_int len;                          /**< Skbuff length */
-    u_int truesize;                     /**< Skbuff true size */
-    u_int seq;                          /**< Skbuff sequence number */
-    u_int ack;                          /**< Skbuff ack number */
-    char urg;                           /**< Skbuff urgency data flag */
-    u_int urgPtr;                       /**< Skbuff urgency pointer */
-    char psh;                           /**< Skbuff push flag */
-    char fin;                           /**< Skbuff fin flag */
+    uint32_t len;                       /**< Skbuff length */
+    uint32_t truesize;                  /**< Skbuff true size */
+    uint32_t seq;                       /**< Skbuff sequence number */
+    uint32_t ack;                       /**< Skbuff ack number */
+    uint8_t urg;                        /**< Skbuff urgency data flag */
+    uint16_t urgPtr;                    /**< Skbuff urgency pointer */
+    uint8_t psh;                        /**< Skbuff push flag */
+    uint8_t fin;                        /**< Skbuff fin flag */
     listHead node;                      /**< Skbuff list node */
 };
 
@@ -30,26 +31,26 @@ typedef halfStream *halfStreamPtr;
 struct _halfStream {
     int state;                          /**< Half stream state */
     u_char *rcvBuf;                     /**< Half stream receive buffer */
-    u_int bufSize;                      /**< Half stream receive buffer size */
-    u_int offset;                       /**< Half stream read offset */
-    u_int count;                        /**< Half stream total data received */
-    u_int countNew;                     /**< Half stream new data received */
-    u_int seq;                          /**< Half stream send sequence number */
-    u_int ackSeq;                       /**< Half stream ack sequence number */
-    u_int firstDataSeq;                 /**< Half stream first data send sequence number */
-    u_int urgCount;                     /**< Half stream urg data received */
-    u_int urgCountNew;                  /**< Half stream new urg data count received */
-    u_char urgData;                     /**< Half stream new urg data received */
-    u_char urgSeen;                     /**< Half stream has new urg data flag */
-    u_int urgPtr;                       /**< Half stream urg data pointer */
-    u_short window;                     /**< Half stream current window size */
-    u_char tsOn;                        /**< Half stream timestamp options on flag */
-    u_char wscaleOn;                    /**< Half stream window scale options on flag */
-    u_int currTs;                       /**< Half stream current timestamp */
-    u_int wscale;                       /**< Half stream window scale size */
-    u_int mss;                          /**< Half stream MSS (Maxium Segment Size) */
+    uint32_t bufSize;                   /**< Half stream receive buffer size */
+    uint32_t offset;                    /**< Half stream read offset */
+    uint32_t count;                     /**< Half stream total data received */
+    uint32_t countNew;                  /**< Half stream new data received */
+    uint32_t seq;                       /**< Half stream send sequence number */
+    uint32_t ackSeq;                    /**< Half stream ack sequence number */
+    uint32_t firstDataSeq;              /**< Half stream first data send sequence number */
+    uint32_t urgCount;                  /**< Half stream urg data received */
+    uint32_t urgCountNew;               /**< Half stream new urg data count received */
+    uint8_t urgData;                    /**< Half stream new urg data received */
+    uint8_t urgSeen;                    /**< Half stream has new urg data flag */
+    uint16_t urgPtr;                    /**< Half stream urg data pointer */
+    uint16_t window;                    /**< Half stream current window size */
+    BOOL tsOn;                          /**< Half stream timestamp options on flag */
+    BOOL wscaleOn;                      /**< Half stream window scale options on flag */
+    uint32_t currTs;                    /**< Half stream current timestamp */
+    uint16_t wscale;                    /**< Half stream window scale size */
+    uint16_t mss;                       /**< Half stream MSS (Maxium Segment Size) */
     listHead head;                      /**< Half stream skbuff list head */
-    u_int rmemAlloc;                    /**< Half stream memory allocated for skbuff */
+    uint32_t rmemAlloc;                 /**< Half stream memory allocated for skbuff */
 };
 
 typedef struct _tuple4 tuple4;
@@ -103,7 +104,7 @@ struct _tcpStream {
     uint64_t zeroWindows;               /**< Tcp zero windows */
     uint64_t dupAcks;                   /**< Tcp duplicate acks */
     void *sessionDetail;                /**< Appliction session detail */
-    int inClosingTimeout;               /**< In closing timeout list */
+    BOOL inClosingTimeout;              /**< In closing timeout list */
     uint64_t closeTime;                 /**< Tcp close time */
     listHead node;                      /**< Tcp stream list node */
 };

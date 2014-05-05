@@ -16,8 +16,8 @@
 #include "ip-packet.h"
 #include "config.h"
 
-/* Ip fragment expire time 30 seconds */
-#define IP_FRAGMENT_EXPIRE_TIME (30 * 1000)
+/* Time of ip fragment expire is 30 seconds */
+#define IP_FRAGMENT_EXPIRE_TIME 30
 
 /*
  * Fragment cache limits. We will commit 256K at one time. Should we
@@ -30,8 +30,6 @@
 
 #define IP_HOSTFRAG_HASH_SIZE 65535
 
-/* Ip fragment expire init time */
-static unsigned int initTime;
 /* Ip fragment expire timer list */
 static LIST_HEAD (ipFragExpireTimerList);
 /* Ip host fragment hash table */
@@ -39,7 +37,7 @@ static hashTablePtr hostFragsHashTable;
 
 static void
 iphdrShow (struct ip *iph) {
-    u_short offset, flags;
+    uint16_t offset, flags;
 
     LOGD ("Ip src: %s ------------>", inet_ntoa (iph->ip_src));
     LOGD (" dst: %s\n", inet_ntoa (iph->ip_dst));
@@ -58,15 +56,12 @@ iphdrShow (struct ip *iph) {
     }
 }
 
-static int
-jiffies (void) {
-    unsigned int timenow;
+static inline time_t
+currTimestamp (void) {
     struct timeval tv;
 
     gettimeofday (&tv, 0);
-    timenow = (tv.tv_sec - initTime) * 1000 + (tv.tv_usec / 1000);
-
-    return timenow;
+    return tv.tv_sec;
 }
 
 /* Add expire timer to the tail of ipFragExpireTimerList */
@@ -101,7 +96,7 @@ static inline void *
 fragAlloc (hostFragPtr hf, int size) {
     void *addr;
 
-    addr = (void *) malloc (size);
+    addr = malloc (size);
     if (addr) {
         hf->ipFragMem += size;
         return addr;
@@ -226,7 +221,7 @@ ipEvictor (hostFragPtr hf) {
 static ipqPtr
 ipqCreate (hostFragPtr hf, struct ip * iph) {
     ipqPtr qp;
-    int ihlen;
+    uint16_t ihlen;
 
     qp = (ipqPtr) fragAlloc (hf, sizeof (ipq));
     if (qp == NULL) {
@@ -249,7 +244,7 @@ ipqCreate (hostFragPtr hf, struct ip * iph) {
     qp->hf = hf;
 
     /* Start a timer for this ip queue. */
-    qp->timer.expires = jiffies () + IP_FRAGMENT_EXPIRE_TIME;
+    qp->timer.expires = currTimestamp () + IP_FRAGMENT_EXPIRE_TIME;
     qp->timer.data = (void *) qp;
     qp->timer.fun = ipExpire;
     addTimer (&qp->timer);
@@ -323,7 +318,7 @@ hostFragFree (void *data) {
 static int
 ipDone (ipqPtr qp) {
     ipFragPtr fp;
-    int offset;
+    uint16_t offset;
 
     offset = 0;
 
@@ -344,7 +339,7 @@ ipDone (ipqPtr qp) {
 /* Build a new IP datagram from fragments. */
 static u_char *
 ipGlue (ipqPtr qp) {
-    int count, len;
+    uint16_t count, len;
     u_char *skb, *ptr;
     struct ip *iph;
     ipFragPtr fp;
@@ -404,8 +399,8 @@ ipGlue (ipqPtr qp) {
  */
 static int
 ipDefrag (struct ip *iph, skbBufPtr skb, struct ip **newIphdr) {
-    int i, ihl, end;
-    u_short flags, offset;
+    uint16_t gap, ihl, end;
+    uint16_t flags, offset;
     u_char *ptr;
     hostFragPtr currHost;
     ipqPtr qp;
@@ -458,7 +453,7 @@ ipDefrag (struct ip *iph, skbBufPtr skb, struct ip **newIphdr) {
         }
         /* Update expire timer */
         delTimer (&qp->timer);
-        qp->timer.expires = jiffies () + IP_FRAGMENT_EXPIRE_TIME;
+        qp->timer.expires = currTimestamp () + IP_FRAGMENT_EXPIRE_TIME;
         qp->timer.data = (void *) qp;
         qp->timer.fun = ipExpire;
         addTimer (&qp->timer);
@@ -496,9 +491,9 @@ ipDefrag (struct ip *iph, skbBufPtr skb, struct ip **newIphdr) {
      * eliminated.
      */
     if (&prev->node != &qp->fragments && offset < prev->end) {
-        i = prev->end - offset;
-        offset += i;
-        ptr += i;
+        gap = prev->end - offset;
+        offset += gap;
+        ptr += gap;
     }
     /* Look for overlap with succeeding segments.
      * If we can merge fragments, do it.
@@ -507,10 +502,10 @@ ipDefrag (struct ip *iph, skbBufPtr skb, struct ip **newIphdr) {
         if (next->offset >= end)
             break;
 
-        i = end - next->offset;
-        next->len -= i;
-        next->offset += i;
-        next->ptr += i;
+        gap = end - next->offset;
+        next->len -= gap;
+        next->offset += gap;
+        next->ptr += gap;
         /* Remove overlapped fragment */
         if (next->len < 0) {
             listDel (&next->node);
@@ -551,14 +546,14 @@ ipDefrag (struct ip *iph, skbBufPtr skb, struct ip **newIphdr) {
 static int
 ipDefragStub (struct ip *iph, struct ip **newIphdr) {
     int ret;
-    int totalLen;
-    u_short offset, flags;
+    uint16_t totalLen;
+    uint16_t offset, flags;
     expireTimerPtr timer, tmp;
     skbBufPtr skb;
 
     /* Check ip fragment expire list */
     listForEachEntrySafe (timer, tmp, &ipFragExpireTimerList, node) {
-        if (timer->expires > jiffies ())
+        if (timer->expires > currTimestamp ())
             break;
         else
             timer->fun (timer->data);
@@ -608,9 +603,9 @@ ipDefragStub (struct ip *iph, struct ip **newIphdr) {
  */
 static int
 ipCheck (struct ip *iphdr, int len) {
-    int ipVer = iphdr->ip_v;
-    int ihl = iphdr->ip_hl * 4;
-    int ipLen = ntohs (iphdr->ip_len);
+    uint8_t ipVer = iphdr->ip_v;
+    uint16_t ihl = iphdr->ip_hl * 4;
+    uint16_t ipLen = ntohs (iphdr->ip_len);
 
     if (ipVer != 4 || len < ihl || len < ipLen ||
         ihl < (int) sizeof (struct ip) || ipLen < ihl) {
@@ -720,10 +715,6 @@ ipDefragProcess (void *frame, int ipCaptureLen, struct ip **newIphdr) {
 /* Init ip context */
 int
 initIp (void) {
-    struct timeval tv;
-
-    gettimeofday (&tv, 0);
-    initTime = tv.tv_sec;
     hostFragsHashTable = hashNew (IP_HOSTFRAG_HASH_SIZE);
     if (hostFragsHashTable == NULL)
         return -1;

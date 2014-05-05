@@ -55,20 +55,20 @@ static __thread hashTablePtr tcpStreamHashTable;
 static __thread publishTcpBreakdownCB publishTcpBreakdownFunc;
 static __thread void *publishTcpBreakdownArgs;
 
-static inline int
-before (u_int seq1, u_int seq2) {
+static inline BOOL
+before (uint32_t seq1, uint32_t seq2) {
     if ((int) (seq1 - seq2) < 0)
-        return 1;
+        return TRUE;
     else
-        return 0;
+        return FALSE;
 }
 
-static inline int
-after (u_int seq1, u_int seq2) {
+static inline BOOL
+after (uint32_t seq1, uint32_t seq2) {
     if ((int) (seq1 - seq2) > 0)
-        return 1;
+        return TRUE;
     else
-        return 0;
+        return FALSE;
 }
 
 /*
@@ -91,9 +91,9 @@ addTcpStreamToClosingTimeoutList (tcpStreamPtr stream, timeValPtr tm) {
         return;
     }
 
-    stream->inClosingTimeout = 1;
+    stream->inClosingTimeout = TRUE;
     new->stream = stream;
-    new->timeout = tm->tv_sec + DEFAULT_TCP_STREAM_CLOSING_TIMEOUT;
+    new->timeout = tm->tvSec + DEFAULT_TCP_STREAM_CLOSING_TIMEOUT;
     /* Add new before pos */
     listAddTail (&new->node, &tcpStreamTimoutList);
 }
@@ -260,8 +260,8 @@ newTcpStream (protoType proto) {
     stream->client.urgSeen = 0;
     stream->client.urgPtr = 0;
     stream->client.window = 0;
-    stream->client.tsOn = 0;
-    stream->client.wscaleOn = 0;
+    stream->client.tsOn = FALSE;
+    stream->client.wscaleOn = FALSE;
     stream->client.currTs = 0;
     stream->client.wscale = 0;
     stream->client.mss = 0;
@@ -284,8 +284,8 @@ newTcpStream (protoType proto) {
     stream->server.urgSeen = 0;
     stream->server.urgPtr = 0;
     stream->server.window = 0;
-    stream->server.tsOn = 0;
-    stream->server.wscaleOn = 0;
+    stream->server.tsOn = FALSE;
+    stream->server.wscaleOn = FALSE;
     stream->server.currTs = 0;
     stream->server.wscale = 0;
     stream->server.mss = 0;
@@ -314,7 +314,7 @@ newTcpStream (protoType proto) {
         free (stream);
         return NULL;
     }
-    stream->inClosingTimeout = 0;
+    stream->inClosingTimeout = FALSE;
     stream->closeTime = 0;
     initListHead (&stream->node);
 
@@ -518,7 +518,7 @@ static void publishTcpBreakdown (tcpStreamPtr stream, timeValPtr tm) {
     }
 
     tbd.bkdId = ATOMIC_FETCH_AND_ADD (&tcpBreakdownId, 1);
-    tbd.timestamp = tm->tv_sec;
+    tbd.timestamp = tm->tvSec;
     tbd.proto = stream->proto;
     tbd.srcIp = stream->addr.saddr;
     tbd.srcPort = stream->addr.source;
@@ -637,7 +637,7 @@ tcpCheckTimeout (timeValPtr tm) {
     tcpTimeoutPtr pos, tmp;
 
     listForEachEntrySafe (pos, tmp, &tcpStreamTimoutList, node) {
-        if (pos->timeout > tm->tv_sec)
+        if (pos->timeout > tm->tvSec)
             return;
         else {
             pos->stream->state = STREAM_TIME_OUT;
@@ -984,8 +984,8 @@ tcpProcess (u_char *data, int skbLen, timeValPtr tm) {
 #endif
     tcpDataLen = ipLen - (iph->ip_hl * 4) - (tcph->doff * 4);
 
-    tm->tv_sec = ntoh64 (tm->tv_sec);
-    tm->tv_usec = ntoh64 (tm->tv_usec);
+    tm->tvSec = ntoh64 (tm->tvSec);
+    tm->tvUsec = ntoh64 (tm->tvUsec);
 
     /* Check timeout tcp stream */
     tcpCheckTimeout (tm);
@@ -1072,19 +1072,19 @@ tcpProcess (u_char *data, int skbLen, timeValPtr tm) {
             if (stream->client.tsOn) {
                 stream->server.tsOn = getTimeStampOption (tcph, &stream->server.currTs);
                 if (!stream->server.tsOn)
-                    stream->client.tsOn = 0;
+                    stream->client.tsOn = FALSE;
             } else
-                stream->server.tsOn = 0;
+                stream->server.tsOn = FALSE;
 
             if (stream->client.wscaleOn) {
                 stream->server.wscaleOn = getTcpWindowScaleOption (tcph, &stream->server.wscale);
                 if (!stream->server.wscaleOn) {
-                    stream->client.wscaleOn = 0;
+                    stream->client.wscaleOn = FALSE;
                     stream->client.wscale  = 1;
                     stream->server.wscale = 1;
                 }
             } else {
-                stream->server.wscaleOn = 0;
+                stream->server.wscaleOn = FALSE;
                 stream->server.wscale = 1;
             }
 

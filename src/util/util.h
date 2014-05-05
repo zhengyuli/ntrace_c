@@ -59,9 +59,14 @@ typedef struct _timeVal timeVal;
 typedef timeVal *timeValPtr;
 
 struct _timeVal {
-    uint64_t tv_sec;
-    uint64_t tv_usec;
+    uint64_t tvSec;
+    uint64_t tvUsec;
 };
+
+typedef enum {
+    FALSE = 0,
+    TRUE = 1,
+} BOOL;
 
 /*========================Interfaces definition============================*/
 uint64_t

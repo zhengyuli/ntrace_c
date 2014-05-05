@@ -1,5 +1,6 @@
 #include <string.h>
 #include <netinet/ip.h>
+#include "util.h"
 #include "ip-options.h"
 
 /*

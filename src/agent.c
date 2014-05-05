@@ -47,12 +47,12 @@ static pthread_mutex_t statusPushSockMutex = PTHREAD_MUTEX_INITIALIZER;
 
 /* Parameters of agent */
 static agentParams agentParameters = {
-    .agentId = -1,
-    .daemonMode = 0,
+    .agentId = 0,
+    .daemonMode = FALSE,
     .parsingThreads = 0,
     .mirrorInterface = NULL,
     .pcapDumpTimeout = 0,
-    .logLevel = -1,
+    .logLevel = 0,
     .logFileDir = NULL,
     .logFileName = NULL,
     .redisSrvIp = NULL,
@@ -1022,7 +1022,7 @@ agentRun (void) {
 
     if (lockPidFile () < 0)
         return -1;
-    
+
     /* Init log context */
     ret = initLog (agentParameters.logLevel);
     if (ret < 0) {
@@ -1163,8 +1163,8 @@ agentRun (void) {
                 continue;
             }
 
-            captureTime.tv_sec = hton64 (pkthdr->ts.tv_sec);
-            captureTime.tv_usec = hton64 (pkthdr->ts.tv_usec);
+            captureTime.tvSec = hton64 (pkthdr->ts.tv_sec);
+            captureTime.tvUsec = hton64 (pkthdr->ts.tv_usec);
             sendToPktParsingService (pktSharingSndSock, &captureTime, (u_char *) iphdr, ipLen);
         } else if (ret == -1) {
             LOGE ("Capture packet error: %s.\n", pcap_geterr (mirrorNic.pcapDesc));
@@ -1371,7 +1371,7 @@ parseCmdline (int argc, char *argv []) {
                 break;
 
             case 'D':
-                agentParameters.daemonMode = 1;
+                agentParameters.daemonMode = TRUE;
                 break;
 
             case 'v':
@@ -1417,187 +1417,167 @@ parseConf (void) {
     }
 
     /* Get agent id */
-    if (agentParameters.agentId == -1) {
-        ret = get_config_item ("MAIN", "agent_id", iniConfig, &item);
-        if (ret) {
-            logToConsole ("Get_config_item \"agent_id\" error\n");
-            ret = -1;
-            goto exit;
-        }
-        agentParameters.agentId = get_int_config_value (item, 1, -1, &error);
-        if (error) {
-            logToConsole ("Parse \"agent_id\" error.\n");
-            ret = -1;
-            goto exit;
-        }
+    ret = get_config_item ("MAIN", "agent_id", iniConfig, &item);
+    if (ret) {
+        logToConsole ("Get_config_item \"agent_id\" error\n");
+        ret = -1;
+        goto exit;
+    }
+    agentParameters.agentId = get_int_config_value (item, 1, -1, &error);
+    if (error) {
+        logToConsole ("Parse \"agent_id\" error.\n");
+        ret = -1;
+        goto exit;
     }
 
     /* Get daemon mode */
-    if (agentParameters.daemonMode == 0) {
-        ret = get_config_item ("MAIN", "daemon_mode", iniConfig, &item);
-        if (ret) {
-            logToConsole ("Get_config_item \"daemon_mode\" error\n");
-            ret = -1;
-            goto exit;
-        }
-        agentParameters.daemonMode = get_int_config_value (item, 1, -1, &error);
-        if (error) {
-            logToConsole ("Parse \"daemon_mode\" error.\n");
-            ret = -1;
-            goto exit;
-        }
+    ret = get_config_item ("MAIN", "daemon_mode", iniConfig, &item);
+    if (ret) {
+        logToConsole ("Get_config_item \"daemon_mode\" error\n");
+        ret = -1;
+        goto exit;
+    }
+    agentParameters.daemonMode = get_int_config_value (item, 1, -1, &error);
+    if (error) {
+        logToConsole ("Parse \"daemon_mode\" error.\n");
+        ret = -1;
+        goto exit;
     }
 
     /* Get parsing threads number */
-    if (agentParameters.parsingThreads == 0) {
-        ret = get_config_item ("MAIN", "parsing_threads", iniConfig, &item);
-        if (ret) {
-            logToConsole ("Get_config_item \"parsing_threads\" error\n");
-            ret = -1;
-            goto exit;
-        }
-        agentParameters.parsingThreads = get_int_config_value (item, 1, -1, &error);
-        if (error) {
-            logToConsole ("Parse \"parsing_threads\" error.\n");
-            ret = -1;
-            goto exit;
-        }
+    ret = get_config_item ("MAIN", "parsing_threads", iniConfig, &item);
+    if (ret) {
+        logToConsole ("Get_config_item \"parsing_threads\" error\n");
+        ret = -1;
+        goto exit;
+    }
+    agentParameters.parsingThreads = get_int_config_value (item, 1, -1, &error);
+    if (error) {
+        logToConsole ("Parse \"parsing_threads\" error.\n");
+        ret = -1;
+        goto exit;
     }
 
     /* Get mirror interface */
+    ret = get_config_item ("MAIN", "mirror_interface", iniConfig, &item);
+    if (ret) {
+        logToConsole ("Get_config_item \"mirror_interface\" error\n");
+        ret = -1;
+        goto exit;
+    }
+    tmp = get_const_string_config_value (item, &error);
+    if (error) {
+        logToConsole ("Parse \"mirror_interface\" error.\n");
+        ret = -1;
+        goto exit;
+    }
+    agentParameters.mirrorInterface = strdup (tmp);
     if (agentParameters.mirrorInterface == NULL) {
-        ret = get_config_item ("MAIN", "mirror_interface", iniConfig, &item);
-        if (ret) {
-            logToConsole ("Get_config_item \"mirror_interface\" error\n");
-            ret = -1;
-            goto exit;
-        }
-        tmp = get_const_string_config_value (item, &error);
-        if (error) {
-            logToConsole ("Parse \"mirror_interface\" error.\n");
-            ret = -1;
-            goto exit;
-        }
-        agentParameters.mirrorInterface = strdup (tmp);
-        if (agentParameters.mirrorInterface == NULL) {
-            logToConsole ("Get \"mirror_interface\" error\n");
-            ret = -1;
-            goto exit;
-        }
+        logToConsole ("Get \"mirror_interface\" error\n");
+        ret = -1;
+        goto exit;
     }
 
     /* Get pcap_dump_timeout */
-    if (agentParameters.pcapDumpTimeout == -1) {
-        ret = get_config_item ("MAIN", "pcap_dump_timeout", iniConfig, &item);
-        if (ret) {
-            logToConsole ("Get_config_item \"pcap_dump_timeout\" error\n");
-            ret = -1;
-            goto exit;
-        }
-        agentParameters.pcapDumpTimeout = get_int_config_value (item, 1, -1, &error);
-        if (error) {
-            logToConsole ("Parse \"pcap_dump_timeout\" error.\n");
-            ret = -1;
-            goto exit;
-        }
+    ret = get_config_item ("MAIN", "pcap_dump_timeout", iniConfig, &item);
+    if (ret) {
+        logToConsole ("Get_config_item \"pcap_dump_timeout\" error\n");
+        ret = -1;
+        goto exit;
+    }
+    agentParameters.pcapDumpTimeout = get_int_config_value (item, 1, -1, &error);
+    if (error) {
+        logToConsole ("Parse \"pcap_dump_timeout\" error.\n");
+        ret = -1;
+        goto exit;
     }
 
     /* Get default log level */
-    if (agentParameters.logLevel == -1) {
-        ret = get_config_item ("LOG", "log_level", iniConfig, &item);
-        if (ret) {
-            logToConsole ("Get_config_item \"log_level\" error\n");
-            ret = -1;
-            goto exit;
-        }
-        agentParameters.logLevel = get_int_config_value (item, 1, -1, &error);
-        if (error) {
-            logToConsole ("Parse \"log_level\" error.\n");
-            ret = -1;
-            goto exit;
-        }
+    ret = get_config_item ("LOG", "log_level", iniConfig, &item);
+    if (ret) {
+        logToConsole ("Get_config_item \"log_level\" error\n");
+        ret = -1;
+        goto exit;
+    }
+    agentParameters.logLevel = get_int_config_value (item, 1, -1, &error);
+    if (error) {
+        logToConsole ("Parse \"log_level\" error.\n");
+        ret = -1;
+        goto exit;
     }
 
     /* Get log file dir */
+    ret = get_config_item ("LOG", "log_file_dir", iniConfig, &item);
+    if (ret) {
+        logToConsole ("Get_config_item \"log_file_dir\" error\n");
+        ret = -1;
+        goto exit;
+    }
+    tmp = get_const_string_config_value (item, &error);
+    if (error) {
+        logToConsole ("Parse \"log_file_dir\" error.\n");
+        ret = -1;
+        goto exit;
+    }
+    agentParameters.logFileDir = strdup (tmp);
     if (agentParameters.logFileDir == NULL) {
-        ret = get_config_item ("LOG", "log_file_dir", iniConfig, &item);
-        if (ret) {
-            logToConsole ("Get_config_item \"log_file_dir\" error\n");
-            ret = -1;
-            goto exit;
-        }
-        tmp = get_const_string_config_value (item, &error);
-        if (error) {
-            logToConsole ("Parse \"log_file_dir\" error.\n");
-            ret = -1;
-            goto exit;
-        }
-        agentParameters.logFileDir = strdup (tmp);
-        if (agentParameters.logFileDir == NULL) {
-            logToConsole ("Get \"log_file_dir\" error\n");
-            ret = -1;
-            goto exit;
-        }
+        logToConsole ("Get \"log_file_dir\" error\n");
+        ret = -1;
+        goto exit;
     }
 
     /* Get log file name */
+    ret = get_config_item ("LOG", "log_file_name", iniConfig, &item);
+    if (ret) {
+        logToConsole ("Get_config_item \"log_file_name\" error\n");
+        ret = -1;
+        goto exit;
+    }
+    tmp = get_const_string_config_value (item, &error);
+    if (error) {
+        logToConsole ("Parse \"log_file_name\" error.\n");
+        ret = -1;
+        goto exit;
+    }
+    agentParameters.logFileName = strdup (tmp);
     if (agentParameters.logFileName == NULL) {
-        ret = get_config_item ("LOG", "log_file_name", iniConfig, &item);
-        if (ret) {
-            logToConsole ("Get_config_item \"log_file_name\" error\n");
-            ret = -1;
-            goto exit;
-        }
-        tmp = get_const_string_config_value (item, &error);
-        if (error) {
-            logToConsole ("Parse \"log_file_name\" error.\n");
-            ret = -1;
-            goto exit;
-        }
-        agentParameters.logFileName = strdup (tmp);
-        if (agentParameters.logFileName == NULL) {
-            logToConsole ("Get \"log_file_name\" error\n");
-            ret = -1;
-            goto exit;
-        }
+        logToConsole ("Get \"log_file_name\" error\n");
+        ret = -1;
+        goto exit;
     }
 
     /* Get redis server ip */
+    ret = get_config_item ("REDIS", "redis_server_ip", iniConfig, &item);
+    if (ret) {
+        logToConsole ("Get_config_item \"redis_server_ip\" error\n");
+        ret = -1;
+        goto exit;
+    }
+    tmp = get_const_string_config_value (item, &error);
+    if (error) {
+        logToConsole ("Parse \"redis_server_ip\" error.\n");
+        ret = -1;
+        goto exit;
+    }
+    agentParameters.redisSrvIp = strdup (tmp);
     if (agentParameters.redisSrvIp == NULL) {
-        ret = get_config_item ("REDIS", "redis_server_ip", iniConfig, &item);
-        if (ret) {
-            logToConsole ("Get_config_item \"redis_server_ip\" error\n");
-            ret = -1;
-            goto exit;
-        }
-        tmp = get_const_string_config_value (item, &error);
-        if (error) {
-            logToConsole ("Parse \"redis_server_ip\" error.\n");
-            ret = -1;
-            goto exit;
-        }
-        agentParameters.redisSrvIp = strdup (tmp);
-        if (agentParameters.redisSrvIp == NULL) {
-            logToConsole ("Get \"redis_server_ip\" error\n");
-            ret = -1;
-            goto exit;
-        }
+        logToConsole ("Get \"redis_server_ip\" error\n");
+        ret = -1;
+        goto exit;
     }
 
     /* Get redis server port */
-    if (agentParameters.redisSrvPort == 0) {
-        ret = get_config_item ("REDIS", "redis_server_port", iniConfig, &item);
-        if (ret) {
-            logToConsole ("Get_config_item \"redis_server_port\" error\n");
-            ret = -1;
-            goto exit;
-        }
-        agentParameters.redisSrvPort = get_int_config_value (item, 1, -1, &error);
-        if (error) {
-            logToConsole ("Parse \"redis_server_port\" error.\n");
-            ret = -1;
-            goto exit;
-        }
+    ret = get_config_item ("REDIS", "redis_server_port", iniConfig, &item);
+    if (ret) {
+        logToConsole ("Get_config_item \"redis_server_port\" error\n");
+        ret = -1;
+        goto exit;
+    }
+    agentParameters.redisSrvPort = get_int_config_value (item, 1, -1, &error);
+    if (error) {
+        logToConsole ("Parse \"redis_server_port\" error.\n");
+        ret = -1;
+        goto exit;
     }
 
 exit:
@@ -1619,18 +1599,18 @@ main (int argc, char *argv []) {
 
     /* Set locale */
     setlocale (LC_COLLATE,"");
-    /* Parse command */
-    ret = parseCmdline (argc, argv);
-    if (ret < 0) {
-        fprintf (stderr, "Parse command line error.\n");
-        ret = -1;
-        goto exit;
-    }
-
     /* Parse configuration file */
     ret = parseConf ();
     if (ret < 0) {
         fprintf (stderr, "Parse configuration file error.\n");
+        ret = -1;
+        goto exit;
+    }
+
+    /* Parse command */
+    ret = parseCmdline (argc, argv);
+    if (ret < 0) {
+        fprintf (stderr, "Parse command line error.\n");
         ret = -1;
         goto exit;
     }

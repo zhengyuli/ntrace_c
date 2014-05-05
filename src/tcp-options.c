@@ -2,6 +2,7 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include <netinet/tcp.h>
+#include "util.h"
 #include "tcp-options.h"
 
 /*
@@ -10,12 +11,12 @@
  * @param tcph tcp header
  * @param ts pointer to return time stamp
  *
- * @return 1 if time stamp option on else 0
+ * @return TRUE if time stamp option on else FALSE
  */
-int
-getTimeStampOption (struct tcphdr *tcph, u_int *ts) {
+BOOL
+getTimeStampOption (struct tcphdr *tcph, uint32_t *ts) {
     int len;
-    u_int timeStamp;
+    uint32_t timeStamp;
     u_char *options;
     int index = 0;
 
@@ -25,7 +26,7 @@ getTimeStampOption (struct tcphdr *tcph, u_int *ts) {
     while (index <=  len - (int) sizeof (struct tcphdr) - 10 ) {
         switch (options [index]) {
             case 0: /* TCPOPT_EOL */
-                return 0;
+                return FALSE;
 
             case 1: /* TCPOPT_NOP */
                 index++;
@@ -34,16 +35,16 @@ getTimeStampOption (struct tcphdr *tcph, u_int *ts) {
             case 8: /* TCPOPT_TIMESTAMP */
                 memcpy ((char *) &timeStamp, options + index + 2, 4);
                 *ts = ntohl (timeStamp);
-                return 1;
+                return TRUE;
 
             default:
                 if (options [index + 1] < 2 ) /* "silly option" */
-                    return 0;
+                    return FALSE;
                 index += options [index + 1];
         }
     }
 
-    return 0;
+    return FALSE;
 }
 
 /*
@@ -52,10 +53,10 @@ getTimeStampOption (struct tcphdr *tcph, u_int *ts) {
  * @param tcph tcp header
  * @param ws pointer to return window scale
  *
- * @return 1 if window scale option on else 0
+ * @return TRUE if window scale option on else FALSE
  */
-int
-getTcpWindowScaleOption (struct tcphdr *tcph, u_int *ws) {
+BOOL
+getTcpWindowScaleOption (struct tcphdr *tcph, uint16_t *ws) {
     int len;
     uint8_t wscale;
     u_char *options;
@@ -68,7 +69,7 @@ getTcpWindowScaleOption (struct tcphdr *tcph, u_int *ws) {
     while (index <=  len - (int) sizeof (struct tcphdr) - 3) {
         switch (options [index]) {
             case 0: /* TCPOPT_EOL */
-                return 0;
+                return FALSE;
 
             case 1: /* TCPOPT_NOP */
                 index++;
@@ -79,16 +80,16 @@ getTcpWindowScaleOption (struct tcphdr *tcph, u_int *ws) {
                 if (wscale > 14)
                     wscale = 14;
                 *ws = (1 << wscale);
-                return 1;
+                return TRUE;
 
             default:
                 if (options [index + 1] < 2 ) /* "silly option" */
-                    return 0;
+                    return FALSE;
                 index += options [index + 1];
         }
     }
 
-    return 0;
+    return FALSE;
 }
 
 /*
@@ -97,10 +98,10 @@ getTcpWindowScaleOption (struct tcphdr *tcph, u_int *ws) {
  * @param tcph tcp header
  * @param mss pointer to return mss
  *
- * @return 1 if mss option on else 0
+ * @return TRUE if MSS option on else FALSE
  */
-int
-getTcpMssOption (struct tcphdr *tcph, u_int *mss) {
+BOOL
+getTcpMssOption (struct tcphdr *tcph, uint16_t *mss) {
     int len;
     uint16_t maxiumSegSize;
     u_char *options;
@@ -112,7 +113,7 @@ getTcpMssOption (struct tcphdr *tcph, u_int *mss) {
     while (index <=  len - (int) sizeof (struct tcphdr) - 4 ) {
         switch (options [index]) {
             case 0: /* TCPOPT_EOL */
-                return 0;
+                return FALSE;
 
             case 1: /* TCPOPT_NOP */
                 index++;
@@ -121,14 +122,14 @@ getTcpMssOption (struct tcphdr *tcph, u_int *mss) {
             case 2: /* TCPOPT_MSS */
                 memcpy ((char *) &maxiumSegSize, options + index + 2, 2);
                 *mss = ntohs (maxiumSegSize);
-                return 1;
+                return TRUE;
 
             default:
                 if (options [index + 1] < 2 ) /* "silly option" */
-                    return 0;
+                    return FALSE;
                 index += options [index + 1];
         }
     }
 
-    return 0;
+    return FALSE;
 }

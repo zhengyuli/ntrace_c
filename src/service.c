@@ -23,7 +23,7 @@ static hashTablePtr svcMapMaster;
 static hashTablePtr svcMapSlave;
 static pthread_rwlock_t svcMapMasterLock = PTHREAD_RWLOCK_INITIALIZER;
 
-int
+u_int
 serviceNum (void) {
     return hashSize (svcMapSlave);
 }
@@ -82,7 +82,7 @@ copyService (servicePtr svcFrom) {
 static int
 addService (servicePtr svc) {
     int ret;
-    char key [32];
+    char key [32] = {0};
     servicePtr newSvc;
 
     newSvc = copyService (svc);
@@ -91,7 +91,7 @@ addService (servicePtr svc) {
         return -1;
     }
 
-    snprintf (key, sizeof (key), "%s:%d", newSvc->ip, newSvc->port);
+    snprintf (key, sizeof (key) - 1, "%s:%d", newSvc->ip, newSvc->port);
     ret = hashInsert (svcMapSlave, key, newSvc, freeService);
     if (ret < 0) {
         LOGE ("Insert new service: %u error\n", svc->id);
@@ -111,9 +111,9 @@ addService (servicePtr svc) {
 static int
 deleteService (servicePtr svc) {
     int ret;
-    char key [32];
+    char key [32] = {0};
 
-    snprintf (key, sizeof (key), "%s:%d", svc->ip, svc->port);
+    snprintf (key, sizeof (key) - 1, "%s:%d", svc->ip, svc->port);
     ret = hashDel (svcMapSlave, key);
     if (ret < 0) {
         LOGE ("Service: %u doesn't exist.\n", svc->id);

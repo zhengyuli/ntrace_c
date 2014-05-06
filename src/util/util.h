@@ -5,11 +5,10 @@
 #include <sys/types.h>
 #include <inttypes.h>
 #include <ctype.h>
+#include "typedef.h"
 
 #define TABLE_SIZE(x) (sizeof (x) / sizeof ((x) [0]))
 
-#define STREQ(s1, s2) (!strcmp ((s1), (s2)))
-#define STRNEQ(s1, s2) (strcmp ((s1), (s2)))
 #define STRPREFIX(s1, s2) (strncmp (s1, s2, strlen (s2)) == 0)
 
 #define MAX_NUM(n1, n2) ((n1) > (n2) ? (n1) : (n2))
@@ -59,24 +58,26 @@ typedef struct _timeVal timeVal;
 typedef timeVal *timeValPtr;
 
 struct _timeVal {
-    uint64_t tvSec;
-    uint64_t tvUsec;
+    u_long_long tvSec;
+    u_long_long tvUsec;
 };
 
 /*========================Interfaces definition============================*/
-uint64_t
+u_long_long
 timeVal2Second (timeValPtr tm);
-uint64_t
+u_long_long
 timeVal2MilliSecond (timeValPtr tm);
-uint64_t
+u_long_long
 timeVal2MicoSecond (timeValPtr tm);
-int
+BOOL
 strEqualIgnoreCase (const char *str1, const char *str2);
+BOOL
+strEqual (const char *str1, const char *str2);
 ssize_t
 safeRead (int fd, void *buf, size_t count);
 ssize_t
 safeWrite (int fd, const void *buf, size_t count);
-int
+BOOL
 fileExist (const char *path);
 /*=======================Interfaces definition end=========================*/
 

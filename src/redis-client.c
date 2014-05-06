@@ -8,6 +8,7 @@
 #include <netinet/tcp.h>
 #include <hiredis/hiredis.h>
 #include <jansson.h>
+#include "typedef.h"
 #include "atomic.h"
 #include "hash.h"
 #include "util.h"
@@ -15,7 +16,7 @@
 #include "service.h"
 #include "redis-client.h"
 
-static uint32_t tcpBreakdownCount = 0;
+static u_long_long tcpBreakdownCount = 0;
 
 /* Redis context for per-thread */
 static __thread redisCtxtPtr rdsContext = NULL;
@@ -26,7 +27,8 @@ connectRedisServer (void);
 /* Init registered services */
 int
 initServiceFromRedis (void) {
-    int ret, i;
+    int ret;
+    u_int index;
     redisReply *reply;
     servicePtr svc;
 
@@ -43,8 +45,8 @@ initServiceFromRedis (void) {
     }
 
     if (reply->type == REDIS_REPLY_ARRAY) {
-        for (i = 0; (i + 1) < reply->elements; i += 2) {
-            svc = json2Service (reply->element [i + 1]->str);
+        for (index = 0; (index + 1) < reply->elements; index += 2) {
+            svc = json2Service (reply->element [index + 1]->str);
             if (svc == NULL) {
                 freeReplyObject (reply);
                 return -1;
@@ -73,7 +75,7 @@ void
 serviceUpdateSub (svcUpdateCallback callbackFun) {
     redisReply *reply;
     char *key, *value;
-    int updateType;
+    u_int updateType;
     servicePtr svc;
 
     reply = (redisReply *) redisCommand (rdsContext->ctxt,
@@ -116,7 +118,7 @@ serviceUpdateSub (svcUpdateCallback callbackFun) {
  */
 void
 pushSessionBreakdown (const char *sessionBreakdownJson) {
-    int retryCount = 0;
+    u_int retryCount = 0;
     redisReply *reply;
 
 retry:
@@ -149,7 +151,7 @@ retry:
  */
 void
 pubPcapStat (const char *pstatJson) {
-    int retryCount = 0;
+    u_int retryCount = 0;
     redisReply *reply;
 
 retry:
@@ -179,7 +181,7 @@ newRedisCtxt (void) {
 
     context = (redisCtxtPtr) malloc (sizeof (redisCtxt));
     if (context) {
-        context->agentId = -1;
+        context->agentId = 0;
         context->redisIp = NULL;
         context->redisPort = 0;
         context->ctxt = NULL;
@@ -193,7 +195,7 @@ connectRedisServer (void) {
     /* Redis connect timeout */
     struct timeval timeout = {2, 0};
 
-    rdsContext->ctxt = redisConnectWithTimeout ((const char *) rdsContext->redisIp,
+    rdsContext->ctxt = redisConnectWithTimeout (rdsContext->redisIp,
                                                 rdsContext->redisPort, timeout);
     if (rdsContext->ctxt == NULL || (rdsContext->ctxt)->err) {
         if ((rdsContext->ctxt)->err)
@@ -207,7 +209,7 @@ connectRedisServer (void) {
 /* Check agent id is valid or not */
 static int
 checkAgentID (void) {
-    int i;
+    u_int index;
     redisReply *reply;
     json_error_t error;
     json_t *root, *tmp;
@@ -219,8 +221,8 @@ checkAgentID (void) {
     }
 
     if (reply->type == REDIS_REPLY_ARRAY) {
-        for (i = 0; (i + 1) < reply->elements; i += 2) {
-            root = json_loads (reply->element [i + 1]->str, JSON_DISABLE_EOF_CHECK, &error);
+        for (index = 0; (index + 1) < reply->elements; index += 2) {
+            root = json_loads (reply->element [index + 1]->str, JSON_DISABLE_EOF_CHECK, &error);
             if (root == NULL) {
                 LOGE ("Json parse error: %s.\n", error.text);
                 continue;
@@ -246,7 +248,7 @@ checkAgentID (void) {
  * @return 0 if success else -1
  */
 int
-initRedisContext (int agentId, const char *redisIp, int redisPort) {
+initRedisContext (u_int agentId, const char *redisIp, u_short redisPort) {
     int ret;
 
     rdsContext = newRedisCtxt ();
@@ -296,14 +298,8 @@ initRedisContext (int agentId, const char *redisIp, int redisPort) {
 /* Destroy redis context */
 void
 destroyRedisContext (void) {
-    if (rdsContext->redisIp) {
-        free (rdsContext->redisIp);
-        rdsContext->redisIp = NULL;
-    }
-    if (rdsContext->ctxt) {
-        redisFree (rdsContext->ctxt);
-        rdsContext->ctxt = NULL;
-    }
+    free (rdsContext->redisIp);
+    redisFree (rdsContext->ctxt);
     free (rdsContext);
     rdsContext = NULL;
 }

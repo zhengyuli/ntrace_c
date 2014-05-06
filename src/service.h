@@ -1,7 +1,7 @@
 #ifndef __AGENT_SERVICE_H__
 #define __AGENT_SERVICE_H__
 
-#include <stdint.h>
+#include <stdlib.h>
 #include "list.h"
 #include "hash.h"
 #include "protocol.h"
@@ -17,14 +17,14 @@ typedef struct _service service;
 typedef service *servicePtr;
 
 struct _service {
-    uint32_t id;                /**< service id */
-    protoType proto;            /**< service proto type */
-    char *ip;                   /**< service ip */
-    uint16_t port;              /**< service port */
+    u_int id;                           /**< service id */
+    protoType proto;                    /**< service proto type */
+    char *ip;                           /**< service ip */
+    u_short port;                       /**< service port */
 };
 
 /*========================Interfaces definition============================*/
-int
+u_int
 serviceNum (void);
 int
 serviceLoopDo (hashForEachItemDoFun fun, void *args);

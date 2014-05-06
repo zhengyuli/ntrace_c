@@ -4,6 +4,7 @@
 #include <getopt.h>
 #include <czmq.h>
 #include <string.h>
+#include "typedef.h"
 #include "log.h"
 #include "util.h"
 
@@ -12,46 +13,46 @@
 /* Log service ip */
 static char *logServiceIp = NULL;
 /* Display log with detail info */
-static int showInDetail  = 0;
+static BOOL showInDetail  = FALSE;
 /* Process name to filter */
 static char *procName = NULL;
 /* Log level to filter */
 static char *logLevel = NULL;
 /* PIDs to filter */
-static int pidTable [MAX_PID_TABLE_SIZE] = {0};
+static pid_t pidTable [MAX_PID_TABLE_SIZE] = {0};
 /* Count of PIDs to filter */
-static int pidTableCount = 0;
+static u_int pidTableCount = 0;
 
 static zctx_t *zmqContext = NULL;
 static void *subSock = NULL;
 
 /* Check log level is valid */
-static int
+static BOOL
 checkLogLevel (const char *logLevel) {
-    if (!strcmp ("ERR", logLevel) ||
-        !strcmp ("WARNING", logLevel) ||
-        !strcmp ("INFO", logLevel) ||
-        !strcmp ("DEBUG", logLevel))
-        return 0;
+    if (strEqual ("ERR", logLevel) ||
+        strEqual ("WARNING", logLevel) ||
+        strEqual ("INFO", logLevel) ||
+        strEqual ("DEBUG", logLevel))
+        return TRUE;
     else
-        return -1;
+        return FALSE;
 }
 
-static int
-pidTableIsEqual (int pidTable1 [], int pidTable2 [], int size) {
-    int i;
+static BOOL
+pidTableIsEqual (pid_t pidTable1 [], pid_t pidTable2 [], u_int size) {
+    u_int i;
 
     for (i = 0; i < size; i++) {
         if (pidTable1 [i] != pidTable2 [i])
-            return 0;
+            return FALSE;
     }
 
-    return 1;
+    return TRUE;
 }
 
 static inline void
-copyPidTable (int pidTableDst [], int pidTableSrc [], int size) {
-    int i;
+copyPidTable (pid_t pidTableDst [], pid_t pidTableSrc [], u_int size) {
+    u_int i;
 
     for (i = 0; i < size; i++)
         pidTableDst [i] = pidTableSrc [i];
@@ -59,8 +60,8 @@ copyPidTable (int pidTableDst [], int pidTableSrc [], int size) {
 
 static void
 subLog (void) {
-    int index;
-    char filter [50];
+    u_int index;
+    char filter [50] = {0};
 
     if (subSock == NULL)
         return;
@@ -68,11 +69,11 @@ subLog (void) {
     if (procName) {
         if (pidTableCount) {
             for (index = 0; index < pidTableCount; index++) {
-                snprintf (filter, sizeof (filter), "[pid:%d", pidTable [index]);
+                snprintf (filter, sizeof (filter) - 1, "[pid:%d", pidTable [index]);
                 zsocket_set_subscribe (subSock, filter);
             }
         } else {
-            snprintf (filter, sizeof (filter), "magic");
+            snprintf (filter, sizeof (filter) - 1, "magic");
             zsocket_set_subscribe (subSock, filter);
         }
     } else {
@@ -83,8 +84,8 @@ subLog (void) {
 
 static void
 unsubLog (void) {
-    int index;
-    char filter[50];
+    u_int index;
+    char filter[50] = {0};
 
     if (subSock == NULL)
         return;
@@ -92,11 +93,11 @@ unsubLog (void) {
     if (procName) {
         if (pidTableCount) {
             for (index = 0; index < pidTableCount; index++) {
-                snprintf (filter, sizeof (filter), "[pid:%d", pidTable [index]);
+                snprintf (filter, sizeof (filter) - 1, "[pid:%d", pidTable [index]);
                 zsocket_set_unsubscribe (subSock, filter);
             }
         } else {
-            snprintf (filter, sizeof (filter), "magic");
+            snprintf (filter, sizeof (filter) - 1, "magic");
             zsocket_set_unsubscribe (subSock, filter);
         }
     }
@@ -104,16 +105,15 @@ unsubLog (void) {
 
 static void
 updateSubRules (void) {
-    static int init = 0;
     char cmd [128];
     char buf [128];
-    int newPidTable [MAX_PID_TABLE_SIZE] = {0};
-    int newPidTableCount = 0;
+    pid_t newPidTable [MAX_PID_TABLE_SIZE] = {0};
+    u_int newPidTableCount = 0;
     FILE *fp;
 
     if (procName) {
         /* Get pids of procName */
-        snprintf (cmd, sizeof (cmd), "ps -fLC %s|tr -s ' '|cut -d' ' -f2", procName);
+        snprintf (cmd, sizeof (cmd) - 1, "ps -fLC %s|tr -s ' '|cut -d' ' -f2", procName);
         fp = popen (cmd, "r");
         if (fp == NULL)
             return;
@@ -131,7 +131,7 @@ updateSubRules (void) {
             copyPidTable (pidTable, newPidTable, newPidTableCount);
             subLog ();
         }
-    } else if (!init)
+    } else
         subLog ();
 }
 

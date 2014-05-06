@@ -54,7 +54,7 @@ hashItemLookup (hashTablePtr htbl, const char *key, u_int *hash) {
     *hash = index;
     head = &htbl->heads [index];
     hlistForEachEntrySafe (item, hNode, tmp, head, node) {
-        if (item && STREQ (item->key, key))
+        if (item && strEqual (item->key, key))
             return item;
     }
 
@@ -498,7 +498,7 @@ hashForEachItemDo (hashTablePtr htbl, hashForEachItemDoFun fun, void *args) {
  * @param args arguments for check fun
  */
 void
-hashForEachItemDelIf (hashTablePtr htbl, hashForEachItemDelIfFun fun, void *args) {
+hashForEachItemRemoveWithCondition (hashTablePtr htbl, hashForEachItemRemoveWithConditionFun fun, void *args) {
     u_int index;
     hashItemPtr item;
     hlistHeadPtr head;

@@ -12,20 +12,19 @@ typedef logContext *logContextPtr;
 struct _logContext {
     zctx_t *ctxt;                       /**< Zmq context */
     void *logSock;                      /**< Log zmq sock */
-    int logLevel;                       /**< Log level */
+    u_int logLevel;                     /**< Log level */
 };
 
 /* Thread local log context */
 static __thread logContextPtr logCtxt = NULL;
 
 static int
-getLogLevel (const char *msg) {
+getLogLevel (const char *msg, u_int *level) {
     int ret;
-    int level;
 
-    ret = sscanf (msg, "<%d>", &level);
+    ret = sscanf (msg, "<%u>", level);
     if (ret == 1)
-        return level;
+        return 0;
     else
         return -1;
 }
@@ -36,7 +35,7 @@ logToConsole (const char *msg, ...) {
     char tmp [MAX_LOG_LENGTH] = {0};
 
     va_start (va, msg);
-    vsnprintf (tmp, MAX_LOG_LENGTH - 1, msg, va);
+    vsnprintf (tmp, sizeof (tmp) - 1, msg, va);
     va_end (va);
     fprintf (stdout, "%s", tmp);
 }
@@ -50,10 +49,10 @@ logToConsole (const char *msg, ...) {
  * @param msg Real log message
  */
 void
-doLog (char *file, int line, const char *func, const char *msg, ...) {
+doLog (char *file, u_int line, const char *func, const char *msg, ...) {
     int ret;
-    int level;
-    char flag;
+    u_int level;
+    u_int flag;
     va_list va;
     const char *message;
     time_t seconds;
@@ -75,14 +74,15 @@ doLog (char *file, int line, const char *func, const char *msg, ...) {
               localTime->tm_hour, localTime->tm_min, localTime->tm_sec,
               localTime->tm_mon + 1, localTime->tm_mday, (localTime->tm_year + 1900));
 
-    level = getLogLevel (msg);
-    if (level < 0)
+    ret = getLogLevel (msg, &level);
+    if (ret < 0)
         return;
     else
         message = msg + 3;
 
     va_start (va, msg);
-    vsnprintf (tmp, MAX_LOG_LENGTH - 1, message, va);
+    vsnprintf (tmp, sizeof (tmp) - 1, message, va);
+    tmp [sizeof (tmp) - 1] = 0;
     va_end (va);
 
     switch (level) {
@@ -112,8 +112,9 @@ doLog (char *file, int line, const char *func, const char *msg, ...) {
     else
         flag = LOG_TO_NET_TAG;
 
-    snprintf (buf, MAX_LOG_LENGTH - 1, "%c[pid:%d %s]:[%s] <file=%s:line=%d:func_name=%s>:%s",
+    snprintf (buf, sizeof (buf) - 1, "%u[pid:%u %s]:[%s] <file=%s:line=%u:func_name=%s>:%s",
               flag, getpid (), logLevel, timeStr, file, line, func, tmp);
+    buf [sizeof (buf) - 1] = 0;
 
     frame = zframe_new ((void *) buf, strlen (buf));
     if (frame == NULL)
@@ -133,7 +134,7 @@ doLog (char *file, int line, const char *func, const char *msg, ...) {
  * @return 0 if success else -1
  */
 int
-initLog (int logLevel) {
+initLog (u_int logLevel) {
     int ret;
 
     /* Init log context */

@@ -1,8 +1,8 @@
-#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <jansson.h>
+#include "typedef.h"
 #include "util.h"
 #include "byte-order.h"
 #include "default-analyzer.h"
@@ -66,7 +66,7 @@ generateDefaultSessionBreakdown (void *sd, void *sbd) {
     defaultSessionBreakdownPtr dsbd = (defaultSessionBreakdownPtr) sbd;
 
     dsbd->exchangeSize = dsd->exchangeSize;
-    dsbd->serverLatency = dsd->serverTimeEnd - dsd->serverTimeBegin;
+    dsbd->serverLatency = (u_int) (dsd->serverTimeEnd - dsd->serverTimeBegin);
 
     return 0;
 }
@@ -80,19 +80,19 @@ defaultSessionBreakdown2Json (json_t *root, void *sd, void *sbd) {
 }
 
 static void
-defaultSessionProcessEstb (void *sd, uint64_t adjustTime, timeValPtr tm) {
+defaultSessionProcessEstb (void *sd, timeValPtr tm) {
     defaultSessionDetailPtr dsd = (defaultSessionDetailPtr) sd;
 
     dsd->serverTimeBegin = timeVal2MilliSecond (tm);
 }
 
 static void
-defaultSessionProcessUrgData (int fromClient, char urgData, void *sd, timeValPtr tm) {
+defaultSessionProcessUrgData (BOOL fromClient, char urgData, void *sd, timeValPtr tm) {
     return;
 }
 
 static int
-defaultSessionProcessData (int fromClient, const u_char *data, int dataLen, void *sd, timeValPtr tm, int *sessionDone) {
+defaultSessionProcessData (BOOL fromClient, u_char *data, u_int dataLen, void *sd, timeValPtr tm, u_int *sessionDone) {
     defaultSessionDetailPtr dsd = (defaultSessionDetailPtr) sd;
 
     dsd->exchangeSize += dataLen;
@@ -100,14 +100,14 @@ defaultSessionProcessData (int fromClient, const u_char *data, int dataLen, void
 }
 
 static void
-defaultSessionProcessReset (int fromClient, void *sd, timeValPtr tm) {
+defaultSessionProcessReset (BOOL fromClient, void *sd, timeValPtr tm) {
     defaultSessionDetailPtr dsd = (defaultSessionDetailPtr) sd;
 
     dsd->serverTimeEnd = timeVal2MilliSecond (tm);
 }
 
 static void
-defaultSessionProcessFin (int fromClient, void *sd, timeValPtr tm, int *sessionDone) {
+defaultSessionProcessFin (BOOL fromClient, void *sd, timeValPtr tm, u_int *sessionDone) {
     defaultSessionDetailPtr dsd = (defaultSessionDetailPtr) sd;
 
     if (dsd->serverTimeEnd == 0)

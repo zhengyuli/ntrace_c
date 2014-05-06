@@ -6,15 +6,15 @@ typedef data *dataPtr;
 
 struct _data {
     u_char *data;
-    int len;
+    u_int len;
 };
 
 dataPtr
-dataCreate (const u_char *d, int len);
+dataCreate (const u_char *d, u_int len);
 dataPtr
-dataAlloc (int len);
+dataAlloc (u_int len);
 int
-dataMake (dataPtr dp, const u_char *d, int len);
+dataMake (dataPtr dp, const u_char *d, u_int len);
 void
 dataDestroy (dataPtr *dpp);
 int
@@ -24,8 +24,8 @@ dataZfree (dataPtr dp);
 int
 dataCompare (dataPtr d1p, dataPtr d2p);
 
-#define INIT_DATA(a, b, c) ({(a).data = b; (a).len = c})
-#define ATTACH_DATA(a, b) ({(a).data = b; (a).len = sizeof (b)})
-#define ZERO_DATA(a) ({(a).data = 0; (a).len = 0})
+#define INIT_DATA(a, b, c) ({(a).data = (b); (a).len = (c)})
+#define ATTACH_DATA(a, b) ({(a).data = (b); (a).len = sizeof (b)})
+#define ZERO_DATA(a) ({(a).data = NULL; (a).len = 0})
 
 #endif /* __AGENT_DATA_H__ */

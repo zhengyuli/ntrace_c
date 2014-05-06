@@ -10,6 +10,7 @@
 #include <ini_config.h>
 #include <jansson.h>
 #include <locale.h>
+#include "typedef.h"
 #include "config.h"
 #include "list.h"
 #include "hash.h"
@@ -118,7 +119,7 @@ getIpAddr (const char *interface) {
     }
 
     sockAddr = (struct sockaddr_in *) &ifr.ifr_addr;
-    ipAddr = strdup ((const char*) inet_ntoa (sockAddr->sin_addr));
+    ipAddr = strdup (inet_ntoa (sockAddr->sin_addr));
 
     close (sockfd);
     return ipAddr;
@@ -132,8 +133,8 @@ getIpAddr (const char *interface) {
  * @return Link offset of packet frame, else return -1
  */
 static int
-getDatalinkOffset (int datalinkType) {
-    int offset;
+getDatalinkOffset (u_int datalinkType) {
+    u_int offset;
 
     switch (datalinkType) {
         /* BSD loopback encapsulation */
@@ -342,8 +343,8 @@ sendToPktParsingService (void *sndSock, timeValPtr tm, u_char *iphdr, int len) {
  *
  * @return Ip header if success else null
  */
-static const u_char *
-getIpHeader (const struct pcap_pkthdr *pkthdr, const u_char *rawPkt) {
+static u_char *
+getIpHeader (struct pcap_pkthdr *pkthdr, u_char *rawPkt) {
     /* Filter incomplete packet */
     if (pkthdr->caplen != pkthdr->len)
         return NULL;
@@ -392,9 +393,9 @@ getIpHeader (const struct pcap_pkthdr *pkthdr, const u_char *rawPkt) {
 }
 
 static int
-generateFilterFromEachItem (void *data, void *args) {
+generateFilterFromEachService (void *data, void *args) {
     int ret;
-    int len;
+    u_int len;
     servicePtr svc = (servicePtr) data;
     char *filter = (char *) args;
 
@@ -412,7 +413,7 @@ generateFilterFromEachItem (void *data, void *args) {
 static char *
 generateFilter (void) {
     int ret;
-    int len;
+    u_int len;
     u_int svcSize, filterSize;
     char *filter;
 
@@ -429,7 +430,7 @@ generateFilter (void) {
         snprintf (filter, (filterSize - 1), "tcp");
         return filter;
     } else {
-        ret = serviceLoopDo (generateFilterFromEachItem, filter);
+        ret = serviceLoopDo (generateFilterFromEachService, filter);
         if (ret < 0) {
             LOGE ("Generate filter from services error.\n");
             free (filter);
@@ -672,7 +673,7 @@ tcpParsingWorker (void *args) {
     struct ip *iphdr;
     zframe_t *tmFrame = NULL;
     zframe_t *pktFrame = NULL;
-    int pktLen;
+    u_int pktLen;
     routerSockPtr routerSocks = (routerSockPtr) args;
     void *pktRecvSock = routerSocks->pktRecvSock;
     void *tbdSndSock = routerSocks->tbdSndSock;
@@ -947,7 +948,7 @@ static int
 lockPidFile (void) {
     pid_t pid;
     ssize_t n;
-    char buf [16];
+    char buf [16] = {0};
 
     pid = getpid ();
 
@@ -958,7 +959,7 @@ lockPidFile (void) {
     }
 
     if (flock (agentPidFd, LOCK_EX | LOCK_NB) == 0) {
-        snprintf (buf, sizeof (buf), "%d", pid);
+        snprintf (buf, sizeof (buf) - 1, "%d", pid);
         n = write (agentPidFd, buf, strlen (buf));
         if (n != strlen (buf)) {
             fprintf(stderr, "Write pid to pid file error: %s.\n", strerror (errno));
@@ -1001,9 +1002,9 @@ agentRun (void) {
     pthread_t pcapStatDumperTid;
     pthread_t pktParsingServiceTid;
     struct pcap_pkthdr *pkthdr;
-    const u_char *pktData;
+    u_char *pktData;
     struct ip *iphdr;
-    int ipLen;
+    u_int ipLen;
     timeVal captureTime;
 
     if (lockPidFile () < 0)
@@ -1110,7 +1111,7 @@ agentRun (void) {
 
     /* Check service initialization is complete */
     status = zstr_recv (statusRecvSock);
-    if (STRNEQ (status, STATUS_READY)) {
+    if (strEqual (status, STATUS_EXITING)) {
         free (status);
         ret = -1;
         goto freePcapStatDumper;
@@ -1128,7 +1129,7 @@ agentRun (void) {
     while (!zctx_interrupted) {
         status = zstr_recv_nowait (statusRecvSock);
         if (status) {
-            if (STREQ (status, STATUS_EXITING)) {
+            if (strEqual (status, STATUS_EXITING)) {
                 free (status);
                 ret = -1;
                 goto freePktParsingService;
@@ -1136,7 +1137,7 @@ agentRun (void) {
                 free (status);
         }
 
-        ret = pcap_next_ex (mirrorNic.pcapDesc, &pkthdr, &pktData);
+        ret = pcap_next_ex (mirrorNic.pcapDesc, &pkthdr, (const u_char **) &pktData);
         if (ret == 1) {
             iphdr = (struct ip *) getIpHeader (pkthdr, pktData);
             if (iphdr == NULL)
@@ -1149,8 +1150,8 @@ agentRun (void) {
                 continue;
             }
 
-            captureTime.tvSec = hton64 (pkthdr->ts.tv_sec);
-            captureTime.tvUsec = hton64 (pkthdr->ts.tv_usec);
+            captureTime.tvSec = htonll (pkthdr->ts.tv_sec);
+            captureTime.tvUsec = htonll (pkthdr->ts.tv_usec);
             sendToPktParsingService (pktParsingSndSock, &captureTime, (u_char *) iphdr, ipLen);
         } else if (ret == -1) {
             LOGE ("Capture packet error: %s.\n", pcap_geterr (mirrorNic.pcapDesc));
@@ -1295,8 +1296,8 @@ showHelpInfo (const char *cmd) {
 static int
 parseCmdline (int argc, char *argv []) {
     char option;
-    int showVersion = 0;
-    int showHelp = 0;
+    BOOL showVersion = FALSE;
+    BOOL showHelp = FALSE;
 
     while ((option = getopt_long (argc, argv, "i:n:m:t:l:r:p:Dvh?", agentOptions, NULL)) != -1) {
         switch (option) {
@@ -1341,11 +1342,11 @@ parseCmdline (int argc, char *argv []) {
                 break;
 
             case 'v':
-                showVersion = 1;
+                showVersion = TRUE;
                 break;
 
             case 'h':
-                showHelp = 1;
+                showHelp = TRUE;
                 break;
 
             case '?':
@@ -1549,3 +1550,4 @@ exit:
     freeAgentParameters ();
     return ret;
 }
+

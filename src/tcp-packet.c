@@ -10,6 +10,7 @@
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
 #include <jansson.h>
+#include "typedef.h"
 #include "checksum.h"
 #include "util.h"
 #include "list.h"
@@ -24,8 +25,8 @@
 #include "atomic.h"
 #include "config.h"
 
-/* Default tcp stream closing timeout 10 seconds */
-#define DEFAULT_TCP_STREAM_CLOSING_TIMEOUT 15
+/* Default tcp stream closing timeout 30 seconds */
+#define DEFAULT_TCP_STREAM_CLOSING_TIMEOUT 30
 /* Default tcp stream hash table size */
 #define DEFAULT_TCP_STREAM_HASH_SIZE 65535
 /* Tcp expect sequence */
@@ -34,14 +35,14 @@
 #define TCP_STREAM_HASH_FORMAT "%s:%d:%s:%d"
 
 /* Global tcp connection id */
-static uint64_t tcpConnectionId = 0;
+static u_long_long tcpConnectionId = 0;
 /* Global tcp breakdown id */
-static uint64_t tcpBreakdownId = 0;
+static u_long_long tcpBreakdownId = 0;
 
 /* Debug statistic data */
 #ifndef NDEBUG
-static uint64_t tcpStreamsAlloc = 0;
-static uint64_t tcpStreamsFree = 0;
+static u_long_long tcpStreamsAlloc = 0;
+static u_long_long tcpStreamsFree = 0;
 #endif
 
 /* Tcp stream list */
@@ -55,20 +56,20 @@ static __thread hashTablePtr tcpStreamHashTable;
 static __thread publishTcpBreakdownCB publishTcpBreakdownFunc;
 static __thread void *publishTcpBreakdownArgs;
 
-static inline int
-before (uint32_t seq1, uint32_t seq2) {
+static inline BOOL
+before (u_int seq1, u_int seq2) {
     if ((int) (seq1 - seq2) < 0)
-        return 1;
+        return TRUE;
     else
-        return 0;
+        return FALSE;
 }
 
-static inline int
-after (uint32_t seq1, uint32_t seq2) {
+static inline BOOL
+after (u_int seq1, u_int seq2) {
     if ((int) (seq1 - seq2) > 0)
-        return 1;
+        return TRUE;
     else
-        return 0;
+        return FALSE;
 }
 
 /*
@@ -91,7 +92,7 @@ addTcpStreamToClosingTimeoutList (tcpStreamPtr stream, timeValPtr tm) {
         return;
     }
 
-    stream->inClosingTimeout = 1;
+    stream->inClosingTimeout = TRUE;
     new->stream = stream;
     new->timeout = tm->tvSec + DEFAULT_TCP_STREAM_CLOSING_TIMEOUT;
     /* Add new before pos */
@@ -101,12 +102,12 @@ addTcpStreamToClosingTimeoutList (tcpStreamPtr stream, timeValPtr tm) {
 /* Delete tcp stream from global tcp stream timeout list */
 static void
 delTcpStreamFromClosingTimeoutList (tcpStreamPtr stream) {
-    tcpTimeoutPtr pos;
+    tcpTimeoutPtr pos, tmp;
 
     if (!stream->inClosingTimeout)
         return;
 
-    listForEachEntry (pos, &tcpStreamTimoutList, node) {
+    listForEachEntrySafe (pos, tmp, &tcpStreamTimoutList, node) {
         if (pos->stream == stream) {
             listDel (&pos->node);
             free (pos);
@@ -192,7 +193,7 @@ delTcpStreamFromHash (tcpStreamPtr stream) {
  * @return Tcp stream if success else NULL
  */
 static tcpStreamPtr
-findTcpStream (struct tcphdr *tcph, struct ip * iph, int *fromClient) {
+findTcpStream (struct tcphdr *tcph, struct ip * iph, BOOL *fromClient) {
     tuple4 addr, reversed;
     tcpStreamPtr stream;
 
@@ -202,7 +203,7 @@ findTcpStream (struct tcphdr *tcph, struct ip * iph, int *fromClient) {
     addr.dest = ntohs (tcph->dest);
     stream = lookupTcpStreamFromHash (&addr);
     if (stream) {
-        *fromClient = 1;
+        *fromClient = TRUE;
         return stream;
     }
 
@@ -212,7 +213,7 @@ findTcpStream (struct tcphdr *tcph, struct ip * iph, int *fromClient) {
     reversed.dest = ntohs (tcph->source);
     stream = lookupTcpStreamFromHash (&reversed);
     if (stream) {
-        *fromClient = 0;
+        *fromClient = FALSE;
         return stream;
     }
 
@@ -260,8 +261,8 @@ newTcpStream (protoType proto) {
     stream->client.urgSeen = 0;
     stream->client.urgPtr = 0;
     stream->client.window = 0;
-    stream->client.tsOn = 0;
-    stream->client.wscaleOn = 0;
+    stream->client.tsOn = FALSE;
+    stream->client.wscaleOn = FALSE;
     stream->client.currTs = 0;
     stream->client.wscale = 0;
     stream->client.mss = 0;
@@ -284,8 +285,8 @@ newTcpStream (protoType proto) {
     stream->server.urgSeen = 0;
     stream->server.urgPtr = 0;
     stream->server.window = 0;
-    stream->server.tsOn = 0;
-    stream->server.wscaleOn = 0;
+    stream->server.tsOn = FALSE;
+    stream->server.wscaleOn = FALSE;
     stream->server.currTs = 0;
     stream->server.wscale = 0;
     stream->server.mss = 0;
@@ -314,7 +315,7 @@ newTcpStream (protoType proto) {
         free (stream);
         return NULL;
     }
-    stream->inClosingTimeout = 0;
+    stream->inClosingTimeout = FALSE;
     stream->closeTime = 0;
     initListHead (&stream->node);
 
@@ -506,7 +507,8 @@ tcpBreakdown2Json (tcpStreamPtr stream, tcpBreakdownPtr tbd) {
     return out;
 }
 
-static void publishTcpBreakdown (tcpStreamPtr stream, timeValPtr tm) {
+static void
+publishTcpBreakdown (tcpStreamPtr stream, timeValPtr tm) {
     int ret;
     tcpBreakdown tbd;
     char *jsonStr = NULL;
@@ -651,48 +653,44 @@ tcpCheckTimeout (timeValPtr tm) {
 /* Tcp connection establishment handler callback */
 static void
 handleEstb (tcpStreamPtr stream, timeValPtr tm) {
-    uint64_t adjustTime;
-
     /* Set tcp state */
     stream->client.state = TCP_ESTABLISHED;
     stream->server.state = TCP_ESTABLISHED;
     stream->state = STREAM_CONNECTED;
     stream->estbTime = timeVal2MilliSecond (tm);
     stream->mss = MIN_NUM (stream->client.mss, stream->server.mss);
-    adjustTime = stream->estbTime - stream->synAckTime;
 
-    (*stream->parser->sessionProcessEstb) (stream->sessionDetail, adjustTime, tm);
+    (*stream->parser->sessionProcessEstb) (stream->sessionDetail, tm);
     /* Publish tcp connected breakdown */
     publishTcpBreakdown (stream, tm);
 }
 
 /* Tcp urgence data handler callback */
 static void
-handleUrgData (tcpStreamPtr stream, halfStreamPtr snd, char urgData, timeValPtr tm) {
-    int fromClient;
+handleUrgData (tcpStreamPtr stream, halfStreamPtr snd, u_char urgData, timeValPtr tm) {
+    BOOL fromClient;
 
     if (snd == &stream->client)
-        fromClient = 1;
+        fromClient = TRUE;
     else
-        fromClient = 0;
+        fromClient = FALSE;
 
     (*stream->parser->sessionProcessUrgData) (fromClient, urgData, stream->sessionDetail, tm);
 }
 
 /* Tcp data handler callback */
 static int
-handleData (tcpStreamPtr stream, halfStreamPtr snd, u_char *data, int dataLen, timeValPtr tm) {
-    int fromClient;
-    int parseCount;
-    int sessionDone = 0;
+handleData (tcpStreamPtr stream, halfStreamPtr snd, u_char *data, u_int dataLen, timeValPtr tm) {
+    BOOL fromClient;
+    u_int parseCount;
+    u_int sessionDone = 0;
 
     if (snd == &stream->client)
-        fromClient = 1;
+        fromClient = TRUE;
     else
-        fromClient = 0;
+        fromClient = FALSE;
 
-    parseCount = (*stream->parser->sessionProcessData) (fromClient, data, dataLen, stream->sessionDetail,
-                                                        tm, &sessionDone);
+    parseCount = (*stream->parser->sessionProcessData) (fromClient, data, dataLen, stream->sessionDetail, tm, &sessionDone);
     if (sessionDone)
         publishTcpBreakdown (stream, tm);
 
@@ -702,12 +700,12 @@ handleData (tcpStreamPtr stream, halfStreamPtr snd, u_char *data, int dataLen, t
 /* Tcp reset handler callback */
 static void
 handleReset (tcpStreamPtr stream, halfStreamPtr snd, timeValPtr tm) {
-    int fromClient;
+    BOOL fromClient;
 
     if (snd == &stream->client)
-        fromClient = 1;
+        fromClient = TRUE;
     else
-        fromClient = 0;
+        fromClient = FALSE;
 
     if (stream->state == STREAM_INIT) {
         if (fromClient)
@@ -730,13 +728,13 @@ handleReset (tcpStreamPtr stream, halfStreamPtr snd, timeValPtr tm) {
 /* Tcp fin handler callback */
 static void
 handleFin (tcpStreamPtr stream, halfStreamPtr snd, timeValPtr tm) {
-    int fromClient;
-    int sessionDone = 0;
+    BOOL fromClient;
+    u_int sessionDone = 0;
 
     if (snd == &stream->client)
-        fromClient = 1;
+        fromClient = TRUE;
     else
-        fromClient = 0;
+        fromClient = FALSE;
 
     (*stream->parser->sessionProcessFin) (fromClient, stream->sessionDetail, tm, &sessionDone);
     if (sessionDone)
@@ -764,34 +762,34 @@ handleClose (tcpStreamPtr stream, timeValPtr tm) {
  * @param dataLen data length to add
  */
 static void
-add2buf (halfStreamPtr rcv, u_char *data, int dataLen) {
-    int toalloc;
+add2buf (halfStreamPtr rcv, u_char *data, u_int dataLen) {
+    u_int toAlloc;
 
     if (rcv->count - rcv->offset + dataLen > rcv->bufSize) {
         if (rcv->rcvBuf == NULL) {
             if (dataLen < 2048)
-                toalloc = 4096;
+                toAlloc = 4096;
             else
-                toalloc = dataLen * 2;
-            rcv->rcvBuf = (u_char *) malloc (toalloc);
+                toAlloc = dataLen * 2;
+            rcv->rcvBuf = (u_char *) malloc (toAlloc);
             if (rcv->rcvBuf == NULL) {
                 LOGE ("Alloc memory for halfStream rcvBuf error: %s.\n", strerror (errno));
                 rcv->bufSize = 0;
                 return;
             }
-            rcv->bufSize = toalloc;
+            rcv->bufSize = toAlloc;
         } else {
             if (dataLen < rcv->bufSize)
-                toalloc = 2 * rcv->bufSize;
+                toAlloc = 2 * rcv->bufSize;
             else
-                toalloc = rcv->bufSize + 2 * dataLen;
-            rcv->rcvBuf = (u_char *) realloc (rcv->rcvBuf, toalloc);
+                toAlloc = rcv->bufSize + 2 * dataLen;
+            rcv->rcvBuf = (u_char *) realloc (rcv->rcvBuf, toAlloc);
             if (rcv->rcvBuf == NULL) {
                 LOGE ("Alloc memory for halfStream rcvBuf error: %s.\n", strerror (errno));
                 rcv->bufSize = 0;
                 return;
             }
-            rcv->bufSize = toalloc;
+            rcv->bufSize = toAlloc;
         }
     }
     memcpy (rcv->rcvBuf + rcv->count - rcv->offset, data, dataLen);
@@ -817,10 +815,10 @@ add2buf (halfStreamPtr rcv, u_char *data, int dataLen) {
  * @param tm current timestamp
  */
 static void
-addFromSkb (tcpStreamPtr stream, halfStreamPtr snd, halfStreamPtr rcv, u_char *data,
-            int dataLen, u_int curSeq, char fin, char urg, u_int urgPtr, char push, timeValPtr tm) {
-    int parseCount;
-    int toCopy1, toCopy2;
+addFromSkb (tcpStreamPtr stream, halfStreamPtr snd, halfStreamPtr rcv, u_char *data, u_int dataLen,
+            u_int curSeq, u_char fin, u_char urg, u_short urgPtr, u_char push, timeValPtr tm) {
+    u_int parseCount;
+    u_int toCopy1, toCopy2;
     u_int lost = EXP_SEQ - curSeq;
 
     if (urg && after (urgPtr, EXP_SEQ - 1) &&
@@ -882,10 +880,11 @@ addFromSkb (tcpStreamPtr stream, halfStreamPtr snd, halfStreamPtr rcv, u_char *d
  * @param tm current timestamp
  */
 static void
-tcpQueue (tcpStreamPtr stream, struct tcphdr *tcph, halfStreamPtr snd, halfStreamPtr rcv,
-          u_char *data, int dataLen, int skbLen, timeValPtr tm) {
+tcpQueue (tcpStreamPtr stream, struct tcphdr *tcph, halfStreamPtr snd,
+          halfStreamPtr rcv, u_char *data, u_int dataLen, u_int skbLen,
+          timeValPtr tm) {
     u_int curSeq;
-    skbuffPtr skbuf, tmp;
+    skbuffPtr skbuf, prev, tmp;
 
     curSeq = ntohl (tcph->seq);
     if (!after (curSeq, EXP_SEQ)) {
@@ -904,8 +903,8 @@ tcpQueue (tcpStreamPtr stream, struct tcphdr *tcph, halfStreamPtr snd, halfStrea
                     break;
                 listDel (&skbuf->node);
                 if (after (skbuf->seq + skbuf->len + skbuf->fin, EXP_SEQ)) {
-                    addFromSkb (stream, snd, rcv, skbuf->data, skbuf->len, skbuf->seq,
-                                skbuf->fin, skbuf->urg, skbuf->seq + skbuf->urgPtr - 1, skbuf->psh, tm);
+                    addFromSkb (stream, snd, rcv, skbuf->data, skbuf->len, skbuf->seq, skbuf->fin,
+                                skbuf->urg, skbuf->seq + skbuf->urgPtr - 1, skbuf->psh, tm);
                 }
                 rcv->rmemAlloc -= skbuf->truesize;
                 free (skbuf->data);
@@ -943,9 +942,9 @@ tcpQueue (tcpStreamPtr stream, struct tcphdr *tcph, halfStreamPtr snd, halfStrea
         skbuf->urgPtr = ntohs (tcph->urg_ptr);
         skbuf->psh = tcph->psh;
 
-        listForEachEntryReverse (tmp, &rcv->head, node) {
-            if (before (tmp->seq, curSeq)) {
-                listAdd (&skbuf->node, &tmp->node);
+        listForEachEntrySafeReverse (prev, tmp, &rcv->head, node) {
+            if (before (prev->seq, curSeq)) {
+                listAdd (&skbuf->node, &prev->node);
                 return;
             }
         }
@@ -963,13 +962,13 @@ tcpQueue (tcpStreamPtr stream, struct tcphdr *tcph, halfStreamPtr snd, halfStrea
  * @param tm current timestamp
  */
 void
-tcpProcess (u_char *data, int skbLen, timeValPtr tm) {
-    int ipLen;
+tcpProcess (u_char *data, u_int skbLen, timeValPtr tm) {
+    u_int ipLen;
 #if DO_STRICT_CHECKSUM
-    int tcpLen;
+    u_int tcpLen;
 #endif
-    int tcpDataLen;
-    int fromClient;
+    u_int tcpDataLen;
+    BOOL fromClient;
     u_int tmpTs;
     tcpStreamPtr stream;
     halfStreamPtr snd, rcv;
@@ -984,8 +983,8 @@ tcpProcess (u_char *data, int skbLen, timeValPtr tm) {
 #endif
     tcpDataLen = ipLen - (iph->ip_hl * 4) - (tcph->doff * 4);
 
-    tm->tvSec = ntoh64 (tm->tvSec);
-    tm->tvUsec = ntoh64 (tm->tvUsec);
+    tm->tvSec = ntohll (tm->tvSec);
+    tm->tvUsec = ntohll (tm->tvUsec);
 
     /* Check timeout tcp stream */
     tcpCheckTimeout (tm);
@@ -1072,19 +1071,19 @@ tcpProcess (u_char *data, int skbLen, timeValPtr tm) {
             if (stream->client.tsOn) {
                 stream->server.tsOn = getTimeStampOption (tcph, &stream->server.currTs);
                 if (!stream->server.tsOn)
-                    stream->client.tsOn = 0;
+                    stream->client.tsOn = FALSE;
             } else
-                stream->server.tsOn = 0;
+                stream->server.tsOn = FALSE;
 
             if (stream->client.wscaleOn) {
                 stream->server.wscaleOn = getTcpWindowScaleOption (tcph, &stream->server.wscale);
                 if (!stream->server.wscaleOn) {
-                    stream->client.wscaleOn = 0;
+                    stream->client.wscaleOn = FALSE;
                     stream->client.wscale  = 1;
                     stream->server.wscale = 1;
                 }
             } else {
-                stream->server.wscaleOn = 0;
+                stream->server.wscaleOn = FALSE;
                 stream->server.wscale = 1;
             }
 

@@ -2,6 +2,7 @@
 #define __AGENT_HASH_H__
 
 #include <stdlib.h>
+#include "typedef.h"
 #include "list.h"
 
 typedef struct _hlistNode hlistNode;
@@ -31,7 +32,7 @@ INIT_HLIST_NODE (hlistNodePtr node) {
 
 typedef void (*hashFreeFun) (void *item);
 typedef int (*hashForEachItemDoFun) (void *item, void *args);
-typedef int (*hashForEachItemDelIfFun) (void *item, void *args);
+typedef BOOL (*hashForEachItemRemoveWithConditionFun) (void *item, void *args);
 typedef void * (*hashForEachItemCheckFun) (void *item, void *args);
 
 typedef struct _hashItem hashItem;
@@ -55,9 +56,12 @@ struct _hashTable {
     hlistHeadPtr heads;                 /**< Array of hlist_head */
 };
 
-static inline int
+static inline BOOL
 hlistIsEmpty (const hlistHeadPtr head) {
-    return !head->first;
+    if (!head->first)
+        return TRUE;
+    else
+        return FALSE;
 }
 
 /* Delete hash node from hash list */
@@ -78,7 +82,7 @@ hlistAddHead (hlistNodePtr node, hlistHeadPtr head) {
     node->next = first;
     head->first = node;
     node->pprev = &head->first;
-    if(first)
+    if (first)
         first->pprev = &node->next;
 }
 
@@ -180,7 +184,7 @@ hashLimit (hashTablePtr htbl);
 int
 hashForEachItemDo (hashTablePtr htbl, hashForEachItemDoFun fun, void *args);
 void
-hashForEachItemDelIf (hashTablePtr htbl, hashForEachItemDelIfFun fun, void *args);
+hashForEachItemRemoveWithCondition (hashTablePtr htbl, hashForEachItemRemoveWithConditionFun fun, void *args);
 void *
 hashForEachItemCheck (hashTablePtr htbl, hashForEachItemCheckFun fun, void *args);
 /*=======================Interfaces definition end=========================*/

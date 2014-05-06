@@ -1,7 +1,6 @@
 #ifndef __AGENT_PROTOCOL_H__
 #define __AGENT_PROTOCOL_H__
 
-#include <stdint.h>
 #include <jansson.h>
 
 #define MAX_PROTO_NAME_LEN 32
@@ -23,14 +22,11 @@ typedef void * (*newSessionBreakdownCB) (void);
 typedef void (*freeSessionBreakdownCB) (void *sbd);
 typedef int (*generateSessionBreakdownCB) (void *sd, void *sbd);
 typedef void (*sessionBreakdown2JsonCB) (json_t *root, void *sd, void *sbd);
-typedef void (*sessionProcessEstbCB) (void *sd, uint64_t adjustTime, timeValPtr tm);
-typedef void (*sessionProcessUrgeDataCB) (int fromClient, char urgData, void *sd,
-                                          timeValPtr tm);
-typedef int (*sessionProcessDataCB) (int fromClient, const u_char *data, int dataLen,
-                                     void *sd, timeValPtr tm, int *sessionDone);
-typedef void (*sessionProcessResetCB) (int fromClient, void *sd, timeValPtr tm);
-typedef void (*sessionProcessFinCB) (int fromClient, void *sd, timeValPtr tm,
-                                     int *sessionDone);
+typedef void (*sessionProcessEstbCB) (void *sd, timeValPtr tm);
+typedef void (*sessionProcessUrgeDataCB) (BOOL fromClient, char urgData, void *sd, timeValPtr tm);
+typedef int (*sessionProcessDataCB) (BOOL fromClient, u_char *data, u_int dataLen, void *sd, timeValPtr tm, u_int *sessionDone);
+typedef void (*sessionProcessResetCB) (BOOL fromClient, void *sd, timeValPtr tm);
+typedef void (*sessionProcessFinCB) (BOOL fromClient, void *sd, timeValPtr tm, u_int *sessionDone);
 
 typedef struct _protoParser protoParser;
 typedef protoParser *protoParserPtr;

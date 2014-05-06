@@ -1,14 +1,14 @@
 #ifndef __AGENT_BYTE_ORDER_H__
 #define __AGENT_BYTE_ORDER_H__
 
-#include <stdint.h>
+#include "typedef.h"
 
-static inline uint64_t
-ntoh64 (uint64_t src) {
+static inline u_long_long
+ntohll (u_long_long src) {
 #if __BYTE_ORDER == __LITTLE_ENDIAN
-    uint64_t dst;
-    uint8_t *dbytep = (uint8_t *) &dst;
-    uint8_t *sbytep = (uint8_t *) &src;
+    u_long_long dst;
+    u_char *dbytep = (u_char *) &dst;
+    u_char *sbytep = (u_char *) &src;
 
     dbytep [0] = sbytep [7];
     dbytep [1] = sbytep [6];
@@ -24,9 +24,9 @@ ntoh64 (uint64_t src) {
 #endif
 }
 
-static inline uint64_t
-hton64 (uint64_t src) {
-    return ntoh64 (src);
+static inline u_long_long
+htonll (u_long_long src) {
+    return ntohll (src);
 }
 
 #endif /* __AGENT_BYTE_ORDER_H__ */

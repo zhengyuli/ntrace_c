@@ -3,7 +3,7 @@
 #include "data.h"
 
 dataPtr
-dataCreate (const u_char *d, int len) {
+dataCreate (const u_char *d, u_int len) {
     dataPtr tmp;
 
     tmp = malloc (sizeof (data));
@@ -21,7 +21,7 @@ dataCreate (const u_char *d, int len) {
 }
 
 dataPtr
-dataAlloc (int len) {
+dataAlloc (u_int len) {
     dataPtr tmp;
 
     tmp = calloc (sizeof (data), len);
@@ -37,7 +37,7 @@ dataAlloc (int len) {
 }
 
 int
-dataMake (dataPtr dp, const u_char *d, int len) {
+dataMake (dataPtr dp, const u_char *d, u_int len) {
     dp->data = (u_char *) malloc (len);
     if (dp->data == NULL)
         return -1;

@@ -8,9 +8,9 @@ typedef struct _redisCtxt redisCtxt;
 typedef redisCtxt *redisCtxtPtr;
 
 struct _redisCtxt {
-    int agentId;
+    u_int agentId;
     char *redisIp;
-    uint16_t redisPort;
+    u_short redisPort;
     redisContext *ctxt;
 };
 
@@ -26,7 +26,7 @@ pushSessionBreakdown (const char *sessionBreakdownJson);
 void
 pubPcapStat (const char *pstatJson);
 int
-initRedisContext (int agentId, const char *redisSrvIp, int redisSrvPort);
+initRedisContext (u_int agentId, const char *redisSrvIp, u_short redisSrvPort);
 void
 destroyRedisContext (void);
 /*=======================Interfaces definition end=========================*/

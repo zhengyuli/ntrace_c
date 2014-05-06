@@ -2,10 +2,12 @@
 #include "util.h"
 #include "hash.h"
 #include "log.h"
-#include "default-analyzer.h"
-#include "http-analyzer.h"
-#include "mysql-analyzer.h"
 #include "protocol.h"
+
+/* Protocol parser definitions */
+extern protoParser defaultParser;
+extern protoParser httpParser;
+extern protoParser mysqlParser;
 
 static protoInfo protoInfoTable [] = {
     {PROTO_DEFAULT, "DEFAULT", &defaultParser},
@@ -15,7 +17,7 @@ static protoInfo protoInfoTable [] = {
 
 protoType
 getProtoType (const char *protoName) {
-    int i;
+    u_int i;
     protoInfoPtr tmp;
 
     for (i = 0; i < TABLE_SIZE (protoInfoTable); i++) {
@@ -52,7 +54,7 @@ getProtoParser (protoType proto) {
 int
 initProto (void) {
     int ret;
-    int i;
+    u_int i;
     protoParserPtr parser;
 
     for (i = 0; i < TABLE_SIZE (protoInfoTable); i++) {
@@ -69,7 +71,7 @@ initProto (void) {
 
 void
 destroyProto (void) {
-    int i;
+    u_int i;
     protoParserPtr parser;
 
     for (i = 0; i < TABLE_SIZE (protoInfoTable); i++) {

@@ -31,9 +31,9 @@
 void
 logToConsole (const char *msg, ...);
 void
-doLog (char *file, int line, const char *func, const char *msg, ...);
+doLog (char *file, u_int line, const char *func, const char *msg, ...);
 int
-initLog (int logLevel);
+initLog (u_int logLevel);
 void
 destroyLog (void);
 

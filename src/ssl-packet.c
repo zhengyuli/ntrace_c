@@ -3,7 +3,6 @@
 #include <arpa/inet.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdint.h>
 #include "log.h"
 #include "ssl-packet.h"
 

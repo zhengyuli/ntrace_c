@@ -1,7 +1,6 @@
 #ifndef __AGENT_SSL_PACKET_H__
 #define __AGENT_SSL_PACKET_H__
 
-#include <stdint.h>
 #include <openssl/evp.h>
 #include "util.h"
 #include "hash.h"

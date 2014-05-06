@@ -1,7 +1,8 @@
 #ifndef __AGENT_HTTP_ANALYZER_H__
 #define __AGENT_HTTP_ANALYZER_H__
 
-#include <stdint.h>
+#include <stdlib.h>
+#include "typedef.h"
 #include "util.h"
 #include "list.h"
 #include "http_parser.h"
@@ -73,14 +74,14 @@ struct _httpSessionDetailNode {
     char *transferEncoding;             /**< Http response transfer encoding */
     char *respConnection;               /**< Http response connection */
     httpSessionState state;             /**< Http state */
-    uint16_t statusCode;                /**< Http status code */
-    uint64_t reqTime;                   /**< Http request time */
-    uint64_t reqHeaderSize;             /**< Http request header size */
-    uint64_t reqBodySize;               /**< Http request body size */
-    uint64_t respTimeBegin;             /**< Http response time begin */
-    uint64_t respHeaderSize;            /**< Http response header size */
-    uint64_t respBodySize;              /**< Http response body size */
-    uint64_t respTimeEnd;               /**< Http response time end */
+    u_short statusCode;                 /**< Http status code */
+    u_long_long reqTime;                /**< Http request time */
+    u_int reqHeaderSize;                /**< Http request header size */
+    u_int reqBodySize;                  /**< Http request body size */
+    u_long_long respTimeBegin;          /**< Http response time begin */
+    u_int respHeaderSize;               /**< Http response header size */
+    u_int respBodySize;                 /**< Http response body size */
+    u_long_long respTimeEnd;            /**< Http response time end */
     listHead node;                      /**< Http session detail node */
 };
 
@@ -93,7 +94,6 @@ struct _httpSessionDetail {
     http_parser_settings reqParserSettings;  /**< Http request parser settings */
     http_parser resParser;                   /**< Http response parser */
     http_parser_settings resParserSettings;  /**< Http response parser settings */
-    uint64_t adjustTime;                     /**< Http adjust time for request */
     listHead head;                           /**< HttpSessionDetailNode list */
 };
 
@@ -128,13 +128,13 @@ struct _httpSessionBreakdown {
     char *transferEncoding;             /**< Http response transfer encoding */
     char *respConnection;               /**< Http response connection */
     httpBreakdownState state;           /**< Http state */
-    uint16_t statusCode;                /**< Http status code */
-    uint64_t reqHeaderSize;             /**< Http request heaer size */
-    uint64_t reqBodySize;               /**< Http request body size */
-    uint64_t respHeaderSize;            /**< Http response header size */
-    uint64_t respBodySize;              /**< Http response body size */
-    uint64_t respLatency;               /**< Http response latency */
-    uint64_t downloadLatency;           /**< Http response download latency */
+    u_short statusCode;                 /**< Http status code */
+    u_int reqHeaderSize;                /**< Http request heaer size */
+    u_int reqBodySize;                  /**< Http request body size */
+    u_int respHeaderSize;               /**< Http response header size */
+    u_int respBodySize;                 /**< Http response body size */
+    u_int respLatency;                  /**< Http response latency */
+    u_int downloadLatency;              /**< Http response download latency */
 };
 
 /* Http session breakdown json key definitions */
@@ -162,9 +162,5 @@ struct _httpSessionBreakdown {
 #define HTTP_SBKD_RESPONSE_BODY_SIZE   "http_response_body_size"
 #define HTTP_SBKD_RESPONSE_LATENCY     "http_response_latency"
 #define HTTP_SBKD_DOWNLOAD_LATENCY     "http_download_latency"
-
-/*========================Interfaces definition============================*/
-extern protoParser httpParser;
-/*=======================Interfaces definition end=========================*/
 
 #endif /* __AGENT_HTTP_ANALYZER_H__ */

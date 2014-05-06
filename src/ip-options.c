@@ -11,19 +11,19 @@
  * @return 0 if success, else -1
  */
 int
-ipOptionsCompile (const u_char *iph) {
+ipOptionsCompile (u_char *iph) {
     int l;
     u_int optlen;
     u_char *optptr;
     u_char *ppPtr = 0;
-    char optholder [16];
+    u_char optholder [16];
     struct ip_options *opt;
     u_int skb = 1;
     u_int skbPaAddr = 314159;
-    uint32_t midtime;
-    uint32_t addr;
+    u_int midtime;
+    u_int addr;
     struct timestamp *ts;
-    uint32_t *timeptr;
+    u_int *timeptr;
 
     opt = (struct ip_options *) optholder;
     memset (opt, 0, sizeof (struct ip_options));
@@ -137,7 +137,7 @@ ipOptionsCompile (const u_char *iph) {
                         case IPOPT_TS_TSONLY:
                             opt->ts = optptr - iph;
                             if (skb)
-                                timeptr = (uint32_t *) &optptr [ts->ptr - 1];
+                                timeptr = (u_int *) &optptr [ts->ptr - 1];
                             opt->tsNeedtime = 1;
                             ts->ptr += 4;
                             break;
@@ -150,7 +150,7 @@ ipOptionsCompile (const u_char *iph) {
                             opt->ts = optptr - iph;
                             if (skb) {
                                 memcpy (&optptr [ts->ptr - 1], &skbPaAddr, 4);
-                                timeptr = (uint32_t *) & optptr [ts->ptr + 3];
+                                timeptr = (u_int *) & optptr [ts->ptr + 3];
                             }
                             opt->tsNeedaddr = 1;
                             opt->tsNeedtime = 1;
@@ -168,7 +168,7 @@ ipOptionsCompile (const u_char *iph) {
                                 if (ipCheckAddr (addr) == 0)
                                     break;
                                 if (skb)
-                                    timeptr = (uint32_t *) & optptr [ts->ptr + 3];
+                                    timeptr = (u_int *) & optptr [ts->ptr + 3];
                             }
                             opt->tsNeedaddr = 1;
                             opt->tsNeedtime = 1;
@@ -182,7 +182,7 @@ ipOptionsCompile (const u_char *iph) {
 
                     if (timeptr) {
                         midtime = 1;
-                        memcpy (timeptr, &midtime, sizeof (uint32_t));
+                        memcpy (timeptr, &midtime, sizeof (u_int));
                         opt->isChanged = 1;
                     }
                 } else {

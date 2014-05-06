@@ -2,6 +2,7 @@
 #define __AGENT_LIST_H__
 
 #include <stddef.h>
+#include "typedef.h"
 
 typedef struct _listHead listHead;
 typedef listHead *listHeadPtr;
@@ -85,14 +86,20 @@ listReplace (listHeadPtr old, listHeadPtr new) {
     old->prev = old;
 }
 
-static inline int
+static inline BOOL
 listIsLast (const listHeadPtr entry, const listHeadPtr head) {
-    return (entry->next == head);
+    if (entry->next == head)
+        return TRUE;
+    else
+        return FALSE;
 }
 
-static inline int
+static inline BOOL
 listIsEmpty (const listHeadPtr head) {
-    return (head->next == head);
+    if (head->next == head)
+        return TRUE;
+    else
+        return FALSE;
 }
 
 /* Offset of member in type */

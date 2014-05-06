@@ -8,7 +8,7 @@
 #include "router.h"
 
 #define DEFAULT_ROUTER_WORKERS 5
-#define MAX_ROUTER_WORKERS 64
+#define MAX_ROUTER_WORKERS 128
 
 typedef struct _router router;
 typedef router *routerPtr;
@@ -25,8 +25,8 @@ static routerPtr dispatchRouter;
 
 static size_t
 routerHash (const char *key1, const char *key2) {
-    size_t sum, hash = 0;
-    size_t seed = 16777619;
+    u_int sum, hash = 0;
+    u_int seed = 16777619;
     const char *tmp;
 
     if (strlen (key1) < strlen (key2)) {
@@ -62,9 +62,9 @@ routerHash (const char *key1, const char *key2) {
 void
 routerDispatch (struct ip *iphdr, timeValPtr tm) {
     int ret;
-    int index;
-    size_t hash;
-    int ipTotalLen;
+    u_int index;
+    u_int hash;
+    u_int ipTotalLen;
     struct ip *iph = iphdr;
     struct tcphdr *tcph;
     char key1 [32] = {0};
@@ -99,7 +99,7 @@ routerDispatch (struct ip *iphdr, timeValPtr tm) {
         return;
     }
     ret = zframe_send (&frame, rs->pktSndSock, ZFRAME_MORE);
-    if (ret) {
+    if (ret < 0) {
         LOGE ("Zframe_send error: %s.\n", strerror (errno));
         zframe_destroy (&frame);
         return;
@@ -132,7 +132,7 @@ routerDispatch (struct ip *iphdr, timeValPtr tm) {
 int
 initRouter (zctx_t *zmqCtx, u_int workers, packetProcessThread worker, const char *tbdSinkAddress) {
     int ret;
-    int i, n;
+    u_int i, n;
 
     dispatchRouter = malloc (sizeof (router));
     if (dispatchRouter == NULL) {
@@ -219,7 +219,7 @@ exit:
 /* Destroy dispatch router */
 void
 destroyRouter (void) {
-    int i;
+    u_int i;
 
     if (dispatchRouter) {
         for (i = 0; i < dispatchRouter->workers; i++) {

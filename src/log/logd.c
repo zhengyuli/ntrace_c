@@ -12,6 +12,7 @@
 #include <errno.h>
 #include <getopt.h>
 #include <locale.h>
+#include "typedef.h"
 #include "list.h"
 #include "log.h"
 #include "util.h"
@@ -37,13 +38,16 @@ struct _logDev {
     /* Operations for log dev */
     int (*init) (logDevPtr dev);
     void (*destroy) (logDevPtr dev);
-    void (*write) (const char *msg, logDevPtr dev, int flag);
+    void (*write) (const char *msg, logDevPtr dev, u_int flag);
 };
 
 /* Bit test */
-static inline int
-checkBit (int flag, int bitMask) {
-    return flag & bitMask;
+static inline BOOL
+checkBit (u_int flag, u_int bitMask) {
+    if (flag & bitMask)
+        return TRUE;
+    else
+        return FALSE;
 }
 
 /*===========================log file dev=================================*/
@@ -67,34 +71,34 @@ typedef logFile *logFilePtr;
 struct _logFile {
     int fd;
     char *filePath;
-    int writeCount;
+    u_int writeCount;
 };
 
-static int
+static BOOL
 logFileOversize (const char *filePath) {
     int ret;
     struct stat fileStat;
 
     ret = stat (filePath, &fileStat);
     if (ret < 0)
-        return -1;
+        return TRUE;
 
     if (fileStat.st_size >= LOG_FILE_MAX_SIZE)
-        return 1;
+        return TRUE;
     else
-        return 0;
+        return FALSE;
 }
 
 static int
 logFileRotate (const char *logFileName) {
     int ret;
-    int i;
-    char fileNameBuf1 [LOG_FILE_PATH_MAX_LEN];
-    char fileNameBuf2 [LOG_FILE_PATH_MAX_LEN];
+    int index;
+    char fileNameBuf1 [LOG_FILE_PATH_MAX_LEN] = {0};
+    char fileNameBuf2 [LOG_FILE_PATH_MAX_LEN] = {0};
 
-    for (i = (LOG_FILE_ROTATE_NUMBER - 1); i > 0; i--) {
-        if (i == (LOG_FILE_ROTATE_NUMBER - 1)) {
-            snprintf (fileNameBuf2, sizeof (fileNameBuf2) - 1, "%s_%d", logFileName, i);
+    for (index = (LOG_FILE_ROTATE_NUMBER - 1); index > 0; index--) {
+        if (index == (LOG_FILE_ROTATE_NUMBER - 1)) {
+            snprintf (fileNameBuf2, sizeof (fileNameBuf2) - 1, "%s_%d", logFileName, index);
             if (fileExist (fileNameBuf2)) {
                 ret = remove (fileNameBuf2);
                 if (ret < 0) {
@@ -103,8 +107,8 @@ logFileRotate (const char *logFileName) {
                 }
             }
         } else {
-            snprintf (fileNameBuf1, sizeof (fileNameBuf1) - 1, "%s_%d", logFileName, i);
-            snprintf (fileNameBuf2, sizeof (fileNameBuf2) - 1, "%s_%d", logFileName, i + 1);
+            snprintf (fileNameBuf1, sizeof (fileNameBuf1) - 1, "%s_%d", logFileName, index);
+            snprintf (fileNameBuf2, sizeof (fileNameBuf2) - 1, "%s_%d", logFileName, index + 1);
             if (fileExist (fileNameBuf1)) {
                 ret = rename (fileNameBuf1, fileNameBuf2);
                 if (ret < 0) {
@@ -153,9 +157,8 @@ logFileUpdate (logDevPtr dev) {
 
 static int
 initLogFile (logDevPtr dev) {
-    char logFilePath [LOG_FILE_PATH_MAX_LEN];
+    char logFilePath [LOG_FILE_PATH_MAX_LEN] = {0};
     logFilePtr logfile;
-
 
     if (!fileExist (logFileDir) &&
         (mkdir (logFileDir, 0755) < 0))
@@ -165,7 +168,7 @@ initLogFile (logDevPtr dev) {
     if (logfile == NULL)
         return -1;
 
-    snprintf (logFilePath, sizeof (logFilePath), "%s/%s", logFileDir, logFileName);
+    snprintf (logFilePath, sizeof (logFilePath) - 1, "%s/%s", logFileDir, logFileName);
     logfile->filePath = strdup (logFilePath);
     if (logfile->filePath == NULL) {
         free (logfile);
@@ -195,7 +198,7 @@ destroyLogFile (logDevPtr dev) {
 }
 
 static void
-writeLogFile (const char *msg, logDevPtr dev, int flag) {
+writeLogFile (const char *msg, logDevPtr dev, u_int flag) {
     int ret;
     logFilePtr logfile;
 
@@ -267,7 +270,7 @@ initLogNet (logDevPtr dev) {
 }
 
 static void
-writeLogNet (const char *msg, logDevPtr dev, int flag) {
+writeLogNet (const char *msg, logDevPtr dev, u_int flag) {
     int ret;
     logNetPtr lognet;
     zframe_t *frame = NULL;
@@ -312,11 +315,20 @@ logDevAdd (logDevPtr dev) {
 
 static void
 logDevWrite (listHeadPtr logDevices, const char *msg) {
-    int flag;
+    int ret;
+    u_int flag;
     logDevPtr dev;
-    const char *message = msg + 1;
+    const char *message;
 
-    switch (*msg) {
+    /* Get flag */
+    ret = sscanf (msg, "%u", &flag);
+    if (ret != 1)
+        return;
+    /* Get real log message */
+    message = strstr (msg, "[pid:");
+    if (message == NULL)
+        return;
+    switch (flag) {
         case LOG_TO_ALL_TAG:
             flag = LOG_TO_FILE_MASK | LOG_TO_NET_MASK;
             break;
@@ -348,7 +360,7 @@ static int
 lockPidFile (void) {
     pid_t pid;
     ssize_t n;
-    char buf [16];
+    char buf [16] = {0};
 
     pid = getpid ();
 
@@ -359,7 +371,7 @@ lockPidFile (void) {
     }
 
     if (flock (logdPidFileFd, LOCK_EX | LOCK_NB) == 0) {
-        snprintf (buf, sizeof (buf), "%d", pid);
+        snprintf (buf, sizeof (buf) - 1, "%d", pid);
         n = write (logdPidFileFd, buf, strlen (buf));
         if (n != strlen (buf)) {
             fprintf(stderr, "Write pid to pid file error: %s.\n", strerror (errno));
@@ -554,7 +566,7 @@ main (int argc, char *argv []) {
     int ret;
     char option;
     /* Whether run as daemon service */
-    int runDaemon = 0;
+    BOOL runDaemon = FALSE;
 
     if (getuid () != 0) {
         fprintf (stderr, "Permission denied, please run as root\n");
@@ -584,7 +596,7 @@ main (int argc, char *argv []) {
                 break;
 
             case 'D':
-                runDaemon = 1;
+                runDaemon = TRUE;
                 break;
 
             case 'h':

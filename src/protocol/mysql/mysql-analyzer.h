@@ -1,30 +1,31 @@
 #ifndef __AGENT_MYSQL_ANALYZER_H__
 #define __AGENT_MYSQL_ANALYZER_H__
 
-#include <stdint.h>
+#include <stdlib.h>
+#include "typedef.h"
 #include "util.h"
 #include "protocol.h"
 
-#define G2(A) ((uint16_t) (((uint16_t) ((u_char) (A) [0])) +        \
-                           ((uint16_t) ((u_char) (A) [1]) << 8)))
+#define G2(A) ((u_short) (((u_short) ((u_char) (A) [0])) +      \
+                          ((u_short) ((u_char) (A) [1]) << 8)))
 
-#define G3(A) ((uint32_t) (((uint32_t) ((u_char) (A) [0])) +            \
-                           (((uint32_t) ((u_char) (A) [1])) << 8) +     \
-                           (((uint32_t) ((u_char) (A) [2])) << 16)))
+#define G3(A) ((u_int) (((u_int) ((u_char) (A) [0])) +          \
+                        (((u_int) ((u_char) (A) [1])) << 8) +   \
+                        (((u_int) ((u_char) (A) [2])) << 16)))
 
-#define G4(A) ((uint32_t) (((uint32_t) ((u_char) (A) [0])) +            \
-                           (((uint32_t) ((u_char) (A) [1])) << 8) +     \
-                           (((uint32_t) ((u_char) (A) [2])) << 16) +    \
-                           (((uint32_t) ((u_char) (A) [3])) << 24)))
+#define G4(A) ((u_int) (((u_int) ((u_char) (A) [0])) +          \
+                        (((u_int) ((u_char) (A) [1])) << 8) +   \
+                        (((u_int) ((u_char) (A) [2])) << 16) +  \
+                        (((u_int) ((u_char) (A) [3])) << 24)))
 
-#define G8(A) ((uint64_t) (((uint64_t) ((u_char) (A) [0])) +            \
-                           (((uint64_t) ((u_char) (A) [1])) << 8) +     \
-                           (((uint64_t) ((u_char) (A) [2])) << 16) +    \
-                           (((uint64_t) ((u_char) (A) [3])) << 24) +    \
-                           (((uint64_t) ((u_char) (A) [3])) << 32) +    \
-                           (((uint64_t) ((u_char) (A) [3])) << 40) +    \
-                           (((uint64_t) ((u_char) (A) [3])) << 48) +    \
-                           (((uint64_t) ((u_char) (A) [3])) << 56)))
+#define G8(A) ((u_long_long) (((u_long_long) ((u_char) (A) [0])) +      \
+                              (((u_long_long) ((u_char) (A) [1])) << 8) + \
+                              (((u_long_long) ((u_char) (A) [2])) << 16) + \
+                              (((u_long_long) ((u_char) (A) [3])) << 24) + \
+                              (((u_long_long) ((u_char) (A) [3])) << 32) + \
+                              (((u_long_long) ((u_char) (A) [3])) << 40) + \
+                              (((u_long_long) ((u_char) (A) [3])) << 48) + \
+                              (((u_long_long) ((u_char) (A) [3])) << 56)))
 
 #define MATCH(a, b) (a == b ? 1 : 0)
 
@@ -197,7 +198,7 @@ typedef mysqlHeader *mysqlHeaderPtr;
 
 /* Normal mysql header */
 struct _mysqlHeader {
-    uint32_t payloadLen:24, pktId:8;
+    u_int payloadLen:24, pktId:8;
 };
 
 typedef struct _mysqlCompHeader mysqlCompHeader;
@@ -205,8 +206,8 @@ typedef mysqlCompHeader *mysqlCompHeaderPtr;
 
 /* Compressed mysql header */
 struct _mysqlCompHeader {
-    uint32_t compPayloadLen:24, compPktId:8;
-    uint32_t payloadLen:24;
+    u_int compPayloadLen:24, compPktId:8;
+    u_int payloadLen:24;
 };
 
 #define MYSQL_HEADER_SIZE 4
@@ -216,22 +217,21 @@ typedef struct _mysqlParserState mysqlParserState;
 typedef mysqlParserState *mysqlParserStatePtr;
 
 struct _mysqlParserState {
-    int protoVer;                       /**< Mysql protocol version */
+    u_int protoVer;                     /**< Mysql protocol version */
     char *serverVer;                    /**< Mysql server version */
-    int cliCaps;                        /**< Mysql client capability flags */
-    char cliProtoV41;                   /**< Mysql client protocol V41 flag */
-    int conId;                          /**< Mysql connection id */
-    int maxPktSize;                     /**< Mysq max packet size support */
-    char doCompress;                    /**< Mysql client do compression flag */
-    char doSSL;                         /**< Mysql client authentication with SSL flag */
+    u_int cliCaps;                      /**< Mysql client capability flags */
+    u_char cliProtoV41;                 /**< Mysql client protocol V41 flag */
+    u_int conId;                        /**< Mysql connection id */
+    u_int maxPktSize;                   /**< Mysq max packet size support */
+    BOOL doCompress;                    /**< Mysql client do compression flag */
+    BOOL doSSL;                         /**< Mysql client authentication with SSL flag */
     char *userName;                     /**< Mysql user name to access */
-    int seqId;                          /**< Mysql sequence id */
-    int state;                          /**< Mysql session state */
-    int event;                          /**< Mysql session event */
+    u_int seqId;                        /**< Mysql sequence id */
+    u_int state;                        /**< Mysql session state */
+    u_int event;                        /**< Mysql session event */
 };
 
-typedef int (*mysqlHandler) (mysqlParserStatePtr parser, const u_char *payload,
-                             int payloadLen, int fromClient);
+typedef int (*mysqlHandler) (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOOL fromClient);
 
 #define MAX_EVENTS_PER_STATE 32
 
@@ -239,9 +239,9 @@ typedef struct _mysqlStateEvents mysqlStateEvents;
 typedef mysqlStateEvents *mysqlStateEventsPtr;
 
 struct _mysqlStateEvents {
-    int numEvents;
-    int event [MAX_EVENTS_PER_STATE];
-    int nextState [MAX_EVENTS_PER_STATE];
+    u_int numEvents;
+    u_int event [MAX_EVENTS_PER_STATE];
+    u_int nextState [MAX_EVENTS_PER_STATE];
     mysqlHandler handler [MAX_EVENTS_PER_STATE];
 };
 
@@ -263,17 +263,16 @@ typedef mysqlSessionDetail *mysqlSessionDetailPtr;
 
 struct _mysqlSessionDetail {
     mysqlParserState parser;            /**< Mysql parser */
-    uint64_t adjustTime;                /**< Mysq adjust time for request */
     char *reqStmt;                      /**< Mysql request statement */
     mysqlSessionState state;            /**< Mysql session state */
-    uint16_t errCode;                   /**< Mysql error code */
-    uint32_t sqlState;                  /**< Mysql sql state */
+    u_short errCode;                    /**< Mysql error code */
+    u_int sqlState;                     /**< Mysql sql state */
     char *errMsg;                       /**< Mysql error message */
-    uint64_t reqSize;                   /**< Mysql request size */
-    uint64_t respSize;                  /**< Mysql response size */
-    uint64_t reqTime;                   /**< Mysql request time */
-    uint64_t respTimeBegin;             /**< Mysql response time */
-    uint64_t respTimeEnd;               /**< Mysql response time end */
+    u_int reqSize;                      /**< Mysql request size */
+    u_int respSize;                     /**< Mysql response size */
+    u_long_long reqTime;                /**< Mysql request time */
+    u_long_long respTimeBegin;          /**< Mysql response time */
+    u_long_long respTimeEnd;            /**< Mysql response time end */
 };
 
 typedef enum {
@@ -291,16 +290,16 @@ typedef mysqlSessionBreakdown *mysqlSessionBreakdownPtr;
 struct _mysqlSessionBreakdown {
     char *serverVer;                    /**< Mysql server version */
     char *userName;                     /**< Mysql user name */
-    uint32_t conId;                     /**< Mysql connection id */
+    u_int conId;                        /**< Mysql connection id */
     char *reqStmt;                      /**< Mysql request statement */
     mysqlBreakdownState state;          /**< Mysql breakdown state */
-    uint16_t errCode;                   /**< Mysql error code */
-    uint32_t sqlState;                  /**< Mysql sql state */
+    u_short errCode;                    /**< Mysql error code */
+    u_int sqlState;                     /**< Mysql sql state */
     char *errMsg;                       /**< Mysql error message */
-    uint64_t reqSize;                   /**< Mysql request size */
-    uint64_t respSize;                  /**< Mysql response size */
-    uint64_t respLatency;               /**< Mysql response latency */
-    uint64_t downloadLatency;           /**< Mysql response download latency */
+    u_int reqSize;                      /**< Mysql request size */
+    u_int respSize;                     /**< Mysql response size */
+    u_int respLatency;                  /**< Mysql response latency */
+    u_int downloadLatency;              /**< Mysql response download latency */
 };
 
 /* Mysql session breakdown json key definitions */
@@ -316,9 +315,5 @@ struct _mysqlSessionBreakdown {
 #define MYSQL_SBKD_RESPONSE_SIZE       "mysql_response_size"
 #define MYSQL_SBKD_RESPONSE_LATENCY    "mysql_response_latency"
 #define MYSQL_SBKD_DOWNLOAD_LATENCY    "mysql_download_latency"
-
-/*========================Interfaces definition============================*/
-extern protoParser mysqlParser;
-/*=======================Interfaces definition end=========================*/
 
 #endif /* __AGENT_MYSQL_ANALYZER_H__ */

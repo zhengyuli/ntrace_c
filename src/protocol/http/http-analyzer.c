@@ -1,9 +1,9 @@
-#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <jansson.h>
+#include "typedef.h"
 #include "util.h"
 #include "log.h"
 #include "byte-order.h"
@@ -12,7 +12,7 @@
 /* Current timestamp */
 static __thread timeValPtr currTime;
 /* Current session done indicator */
-static __thread int currSessionDone;
+static __thread u_int currSessionDone;
 /* Current http header type */
 static __thread httpHeaderType currHeaderType;
 /* Current http session detail */
@@ -24,18 +24,18 @@ newHttpSessionDetailNode (void);
 static void
 freeHttpSessionDetailNode (httpSessionDetailNodePtr hsdn);
 
-static int
+static BOOL
 httpHeaderEqualWithLen (const char *hdr1, const char *hdr2, size_t hdr2Len) {
     if (strlen (hdr1) != hdr2Len)
         return 0;
     else {
         while (*hdr1) {
             if (*hdr1 != *hdr2)
-                return 0;
+                return FALSE;
             hdr1++;
             hdr2++;
         }
-        return 1;
+        return TRUE;
     }
 }
 
@@ -168,7 +168,7 @@ onReqHeaderValue (http_parser *parser, const char* from, size_t length) {
 
 static int
 onReqHeadersComplete (http_parser *parser) {
-    char verStr [HTTP_VERSION_LENGTH];
+    char verStr [HTTP_VERSION_LENGTH] = {0};
     httpSessionDetailNodePtr currNode;
 
     listTailEntry (currNode, &currSessionDetail->head, node);
@@ -296,7 +296,7 @@ onRespHeaderValue (http_parser *parser, const char* from, size_t length) {
 
 static int
 onRespHeadersComplete (http_parser *parser) {
-    char verStr [HTTP_VERSION_LENGTH];
+    char verStr [HTTP_VERSION_LENGTH] = {0};
     httpSessionDetailNodePtr currNode;
 
     listTailEntry (currNode, &currSessionDetail->head, node);
@@ -451,7 +451,6 @@ newHttpSessionDetail (void) {
         resParserSettings->on_body = onRespBody;
         resParserSettings->on_message_complete = onRespMessageComplete;
         http_parser_init (resParser, HTTP_RESPONSE);
-        hsd->adjustTime = 0;
         initListHead (&hsd->head);
         return hsd;
     } else
@@ -538,8 +537,8 @@ freeHttpSessionBreakdown (void *sbd) {
 }
 
 static inline int
-genHttpBreakdownState (uint16_t statusCode) {
-    int st = statusCode / 100;
+genHttpBreakdownState (u_short statusCode) {
+    u_short st = statusCode / 100;
     if (st == 1 || st == 2 || st == 3)
         return HTTP_BREAKDOWN_OK;
     else
@@ -713,8 +712,8 @@ generateHttpSessionBreakdown (void *sd, void *sbd) {
             hsbd->reqBodySize = hsdn->reqBodySize;
             hsbd->respHeaderSize = hsdn->respHeaderSize;
             hsbd->respBodySize = hsdn->respBodySize;
-            hsbd->respLatency = hsdn->respTimeBegin - hsdn->reqTime + hsd->adjustTime;
-            hsbd->downloadLatency = hsdn->respTimeEnd - hsdn->respTimeBegin;
+            hsbd->respLatency = (u_int) (hsdn->respTimeBegin - hsdn->reqTime);
+            hsbd->downloadLatency = (u_int) (hsdn->respTimeEnd - hsdn->respTimeBegin);
             break;
 
         case HTTP_RESET_TYPE1:
@@ -739,7 +738,7 @@ generateHttpSessionBreakdown (void *sd, void *sbd) {
             hsbd->reqBodySize = hsdn->reqBodySize;
             hsbd->respHeaderSize = hsdn->respHeaderSize;
             hsbd->respBodySize = hsdn->respBodySize;
-            hsbd->respLatency = hsdn->respTimeBegin - hsdn->reqTime + hsd->adjustTime;
+            hsbd->respLatency = (u_int) (hsdn->respTimeBegin - hsdn->reqTime);
             hsbd->downloadLatency = 0;
             break;
 
@@ -870,21 +869,18 @@ httpSessionBreakdown2Json (json_t *root, void *sd, void *sbd) {
 }
 
 static void
-httpSessionProcessEstb (void *sd, uint64_t adjustTime, timeValPtr tm) {
-    httpSessionDetailPtr hsd = (httpSessionDetailPtr) sd;
-
-    hsd->adjustTime = adjustTime;
+httpSessionProcessEstb (void *sd, timeValPtr tm) {
     return;
 }
 
 static void
-httpSessionProcessUrgData (int fromClient, char urgData, void *sd, timeValPtr tm) {
+httpSessionProcessUrgData (BOOL fromClient, char urgData, void *sd, timeValPtr tm) {
     return;
 }
 
 static int
-httpSessionProcessData (int fromClient, const u_char *data, int dataLen, void *sd, timeValPtr tm, int *sessionDone) {
-    int parseCount;
+httpSessionProcessData (BOOL fromClient, u_char *data, u_int dataLen, void *sd, timeValPtr tm, u_int *sessionDone) {
+    u_int parseCount;
 
     currTime = tm;
     currSessionDone = 0;
@@ -903,7 +899,7 @@ httpSessionProcessData (int fromClient, const u_char *data, int dataLen, void *s
 }
 
 static void
-httpSessionProcessReset (int fromClient, void *sd, timeValPtr tm) {
+httpSessionProcessReset (BOOL fromClient, void *sd, timeValPtr tm) {
     httpSessionDetailNodePtr currNode;
     httpSessionDetailPtr hsd = (httpSessionDetailPtr) sd;
 
@@ -935,7 +931,7 @@ httpSessionProcessReset (int fromClient, void *sd, timeValPtr tm) {
 }
 
 static void
-httpSessionProcessFin (int fromClient, void *sd, timeValPtr tm, int *sessionDone) {
+httpSessionProcessFin (BOOL fromClient, void *sd, timeValPtr tm, u_int *sessionDone) {
     httpSessionDetailNodePtr currNode;
     httpSessionDetailPtr hsd = (httpSessionDetailPtr) sd;
 

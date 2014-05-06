@@ -4,6 +4,7 @@
 #include <pcap.h>
 #include <hiredis/hiredis.h>
 #include <sys/types.h>
+#include "typedef.h"
 #include "util.h"
 
 typedef struct _pcapStat pcapStat;
@@ -19,12 +20,12 @@ typedef agentParams *agentParamsPtr;
 
 /* Structure used to describes global parameters of agent */
 struct _agentParams {
-    int agentId;                        /**< Agent id */
-    int daemonMode;                     /**< Run as daemon */
-    int parsingThreads;                 /**< Parsing threads number */
+    u_int agentId;                      /**< Agent id */
+    BOOL daemonMode;                    /**< Run as daemon */
+    u_int parsingThreads;               /**< Parsing threads number */
     char *mirrorInterface;              /**< Mirror interface */
-    int pcapDumpTimeout;                /**< Pcap statistic dump timeout */
-    int logLevel;                       /**< Log level */
+    u_int pcapDumpTimeout;              /**< Pcap statistic dump timeout */
+    u_int logLevel;                     /**< Log level */
     char *redisSrvIp;                   /**< Redis server ip */
     u_short redisSrvPort;               /**< Redis server port */
 };
@@ -37,8 +38,8 @@ struct _netInterface {
     char *name;                         /**< Name of NIC */
     char *ipaddr;                       /**< Ip address of NIC */
     pcap_t *pcapDesc;                   /**< Pcap descriptor of NIC */
-    int linkType;                       /**< Datalink type */
-    int linkOffset;                     /**< Datalink offset */
+    u_int linkType;                     /**< Datalink type */
+    u_int linkOffset;                   /**< Datalink offset */
     pcapStat pstat;                     /**< Pcap statistic info */
 };
 

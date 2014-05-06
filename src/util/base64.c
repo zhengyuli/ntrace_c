@@ -14,7 +14,7 @@ static char base64String [] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvw
  * @return length of encoded data
  */
 int
-base64Encode (u_char *to, const u_char *from, int len) {
+base64Encode (u_char *to, const u_char *from, u_int len) {
     const u_char *fromp = from;
     u_char *top = to;
     u_char cbyte;
@@ -74,7 +74,7 @@ base64Encode (u_char *to, const u_char *from, int len) {
  * @return length of decoded data if success else return -1
  */
 int
-base64Decode (u_char *to, const u_char *from, int len) {
+base64Decode (u_char *to, const u_char *from, u_int len) {
     u_char *fromp = from;
     u_char *top = to;
     u_char *p;
@@ -133,5 +133,5 @@ base64Decode (u_char *to, const u_char *from, int len) {
     if (len)
         return -1;
     else
-        return (top - to) - padding;
+        return (top - to - padding);
 }

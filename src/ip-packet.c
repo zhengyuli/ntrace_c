@@ -7,6 +7,7 @@
 #include <arpa/inet.h>
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
+#include "typedef.h"
 #include "util.h"
 #include "hash.h"
 #include "log.h"
@@ -270,14 +271,14 @@ hostFragFind (struct ip *iph) {
 static void
 hostFragFree (void *data);
 
-static int
+static BOOL
 hostFragNeedFree (void *data, void *args) {
     hostFragPtr hf = (hostFragPtr) data;
 
     if (listIsEmpty (&hf->ipqueue))
-        return 1;
+        return TRUE;
     else
-        return 0;
+        return FALSE;
 }
 
 static hostFragPtr
@@ -294,7 +295,7 @@ hostFragNew (struct ip *iph) {
          * then remove host frag items that will not be used.
          */
         if (hashSize (hostFragsHashTable) >= (hashLimit (hostFragsHashTable) * 0.8))
-            hashForEachItemDelIf (hostFragsHashTable, hostFragNeedFree, NULL);
+            hashForEachItemRemoveWithCondition (hostFragsHashTable, hostFragNeedFree, NULL);
         ret = hashInsert (hostFragsHashTable, inet_ntoa (iph->ip_dst), (void *) hf, hostFragFree);
         if (ret < 0) {
             LOGE ("Insert hostFrag item error.\n");
@@ -623,8 +624,7 @@ ipCheck (struct ip *iphdr, int len) {
     }
 #endif
 
-    if (ihl > sizeof (struct ip) &&
-        ipOptionsCompile ((const u_char *) iphdr)) {
+    if ((ihl > sizeof (struct ip)) && ipOptionsCompile ((u_char *) iphdr)) {
         LOGD ("ipOptionsCompile error.\n");
         return -1;
     }

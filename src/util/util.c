@@ -6,33 +6,34 @@
 #include <errno.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include "typedef.h"
 #include "util.h"
 
-inline uint64_t
+inline u_long_long
 timeVal2Second (timeValPtr tm) {
-    uint64_t second;
+    u_long_long second;
 
     second = tm->tvSec + (tm->tvUsec / 1000000);
     return second;
 }
 
-inline uint64_t
+inline u_long_long
 timeVal2MilliSecond (timeValPtr tm) {
-    uint64_t milli;
+    u_long_long milli;
 
     milli = (tm->tvSec * 1000) + (tm->tvUsec / 1000);
     return milli;
 }
 
-inline uint64_t
+inline u_long_long
 timeVal2MicoSecond (timeValPtr tm) {
-    uint64_t micro;
+    u_long_long micro;
 
     micro = (tm->tvSec * 1000000) + tm->tvUsec;
     return micro;
 }
 
-int
+BOOL
 strEqualIgnoreCase (const char *str1, const char *str2) {
     if (strlen (str1) != strlen (str2))
         return 0;
@@ -45,6 +46,17 @@ strEqualIgnoreCase (const char *str1, const char *str2) {
         }
         return 1;
     }
+}
+
+BOOL
+strEqual (const char *str1, const char *str2) {
+    if (strlen (str1) != strlen (str2))
+        return 0;
+
+    if (!strcmp (str1, str2))
+        return TRUE;
+    else
+        return FALSE;
 }
 
 ssize_t
@@ -88,11 +100,11 @@ safeWrite (int fd, const void *buf, size_t count) {
  * Check whether file is existed, if existed return 1
  * else return 0.
  */
-int
+BOOL
 fileExist (const char *path)
 {
     if (access (path, F_OK))
-        return 0;
+        return FALSE;
     else
-        return 1;
+        return TRUE;
 }

@@ -35,8 +35,8 @@
 #define STATUS_READY "READY"
 #define STATUS_EXITING "EXITING"
 
-#define AGENT_GLOBAL_STATUS_INPROC_ADDRESS "inproc://agentGlobalStatus"
-#define AGENT_PACKET_SHARING_INPROC_ADDRESS "inproc://agentPacketSharing"
+#define AGENT_SHARED_STATUS_INPROC_ADDRESS "inproc://agentSharedStatus"
+#define AGENT_PACKET_SHARING_INPROC_ADDRESS "inproc://agentPacketParsing"
 #define AGENT_TCP_BREAKDOWN_SINK_INPROC_ADDRESS "inproc://agentTcpBreakdownSink"
 
 static int agentPidFd = -1;
@@ -53,8 +53,6 @@ static agentParams agentParameters = {
     .mirrorInterface = NULL,
     .pcapDumpTimeout = 0,
     .logLevel = 0,
-    .logFileDir = NULL,
-    .logFileName = NULL,
     .redisSrvIp = NULL,
     .redisSrvPort = 0,
 };
@@ -64,8 +62,8 @@ static netInterface mirrorNic = {
     .name = NULL,
     .ipaddr = NULL,
     .pcapDesc = NULL,
-    .linkType = -1,
-    .linkOffset = -1,
+    .linkType = 0,
+    .linkOffset = 0,
     .pstat = {0, 0},
 };
 
@@ -79,8 +77,6 @@ statusPush (const char *msg) {
 static void
 freeAgentParameters (void) {
     free (agentParameters.mirrorInterface);
-    free (agentParameters.logFileDir);
-    free (agentParameters.logFileName);
     free (agentParameters.redisSrvIp);
 }
 
@@ -339,20 +335,18 @@ sendToPktParsingService (void *sndSock, timeValPtr tm, u_char *iphdr, int len) {
 }
 
 /*
- * @brief Remove header link layer header and return ip header address
+ * @brief Get ip header from raw packet
  *
  * @param pkthdr packet pcap header
- * @param linkLayerHeader packet captured from link layer
+ * @param rawPkt raw packet captured by pcap
  *
  * @return Ip header if success else null
  */
 static const u_char *
-getIpHeader (const struct pcap_pkthdr *pkthdr, const u_char *linkLayerHeader) {
-    /* Make sure the packet captured is complete */
-    if (pkthdr->caplen != pkthdr->len) {
-        LOGE ("Packet length doesn't equal to capture length.\n");
+getIpHeader (const struct pcap_pkthdr *pkthdr, const u_char *rawPkt) {
+    /* Filter incomplete packet */
+    if (pkthdr->caplen != pkthdr->len)
         return NULL;
-    }
 
     switch (mirrorNic.linkType) {
         case DLT_EN10MB:
@@ -360,28 +354,27 @@ getIpHeader (const struct pcap_pkthdr *pkthdr, const u_char *linkLayerHeader) {
             if (pkthdr->caplen < 14)
                 return NULL;
             /* Recheck link offset */
-            if ((linkLayerHeader [12] == 0x08) && (linkLayerHeader [13] == 0x00))
+            if ((rawPkt [12] == 0x08) && (rawPkt [13] == 0x00))
                 /* Regular ip frame */
                 mirrorNic.linkOffset = 14;
-            else
-                /* 802.1Q VLAN frame */
-                if ((linkLayerHeader [12] == 0x81) && (linkLayerHeader [13] == 0x00)) {
-                    /*
-                     * +----------------------------------------------------------------------+
-                     * | Dest Mac: 6 bytes | Src Mac: 6 bytes ||TPID|PCP|CFI|VID|| Ether type |
-                     * +----------------------------------------------------------------------+
-                     *                                        ^                  ^
-                     *                                        |  802.1Q header   |
-                     * skip VLAN header, include TPID(Tag Protocal Identifier: 16 bits),
-                     * PCP(Priority Code Point: 3 bits), CFI(Canonical Format Indicator: 1 bits) ,
-                     * VID(VLAN Identifier: 12 bits)
-                     */
-                    mirrorNic.linkOffset = 18;
-                } else {
-                    /* Non-ip packet */
-                    LOGE ("Capture non-ip packet.\n");
-                    return NULL;
-                }
+            else if ((rawPkt [12] == 0x81) && (rawPkt [13] == 0x00)) {
+                /*
+                 * 802.1Q VLAN frame
+                 * +----------------------------------------------------------------------+
+                 * | Dest Mac: 6 bytes | Src Mac: 6 bytes ||TPID|PCP|CFI|VID|| Ether type |
+                 * +----------------------------------------------------------------------+
+                 *                                        ^                  ^
+                 *                                        |  802.1Q header   |
+                 * skip VLAN header, include TPID(Tag Protocal Identifier: 16 bits),
+                 * PCP(Priority Code Point: 3 bits), CFI(Canonical Format Indicator: 1 bits) ,
+                 * VID(VLAN Identifier: 12 bits)
+                 */
+                mirrorNic.linkOffset = 18;
+            } else {
+                /* Non-ip packet */
+                LOGE ("Wrong ip packet.\n");
+                return NULL;
+            }
             break;
 
         default:
@@ -392,10 +385,10 @@ getIpHeader (const struct pcap_pkthdr *pkthdr, const u_char *linkLayerHeader) {
     /* Recheck packet len, especially for DLT_EN10MB */
     if (pkthdr->caplen < mirrorNic.linkOffset) {
         LOGE ("Packet capture length:%d less than data link offset:%d.\n",
-              mirrorNic.linkOffset, pkthdr->caplen);
+              pkthdr->caplen, mirrorNic.linkOffset);
         return NULL;
     }
-    return (linkLayerHeader + mirrorNic.linkOffset);
+    return (rawPkt + mirrorNic.linkOffset);
 }
 
 static int
@@ -420,7 +413,7 @@ static char *
 generateFilter (void) {
     int ret;
     int len;
-    size_t svcSize, filterSize;
+    u_int svcSize, filterSize;
     char *filter;
 
     svcSize = serviceNum ();
@@ -671,9 +664,9 @@ publishTcpBreakdown (const char *tcpBreakdown, void *args) {
     zstr_send (tbdSndSock, tcpBreakdown);
 }
 
-/* Tcp packet process entry */
+/* Tcp packet parsing entry */
 static void *
-packetProcess (void *args) {
+tcpParsingWorker (void *args) {
     int ret;
     timeValPtr tm;
     struct ip *iphdr;
@@ -748,7 +741,7 @@ packetProcess (void *args) {
         zframe_destroy (&pktFrame);
     }
 
-    LOGD ("packetProcess thread will exit.\n");
+    LOGD ("tcpParsingWorker thread will exit.\n");
     destroyTcp ();
 freeLogContext:
     destroyLog ();
@@ -793,7 +786,7 @@ tcpBreakdownSink (void *args) {
         }
     }
 
-    LOGD ("tcpBreakdownSink thread will exit.\n");
+    LOGD ("TcpBreakdownSink thread will exit.\n");
     destroyRedisContext ();
 freeLogContext:
     destroyLog ();
@@ -812,7 +805,7 @@ pktParsingService (void *args) {
     /* Socket used to receive tcp breakdown */
     void *tbdRecvSock;
     /* Packet sharing receive socket */
-    void *pktSharingRcvSock = args;
+    void *pktParsingRcvSock = args;
     zframe_t *tmFrame = NULL;
     zframe_t *pktFrame = NULL;
     struct ip *newIphdr;
@@ -870,7 +863,7 @@ pktParsingService (void *args) {
         goto freeZmqContext;
     }
 
-    ret = initRouter (zmqCtx, agentParameters.parsingThreads, packetProcess, AGENT_TCP_BREAKDOWN_SINK_INPROC_ADDRESS);
+    ret = initRouter (zmqCtx, agentParameters.parsingThreads, tcpParsingWorker, AGENT_TCP_BREAKDOWN_SINK_INPROC_ADDRESS);
     if (ret < 0) {
         LOGE ("Init packet processing dispatch router error.\n");
         goto freeTcpBreakdownSink;
@@ -879,7 +872,7 @@ pktParsingService (void *args) {
     while (!zctx_interrupted) {
         /* Receive timestamp */
         if (tmFrame == NULL) {
-            tmFrame = zframe_recv (pktSharingRcvSock);
+            tmFrame = zframe_recv (pktParsingRcvSock);
             if (tmFrame) {
                 if (!zframe_more (tmFrame)) {
                     LOGE ("Receive timestamp frame error.\n");
@@ -894,7 +887,7 @@ pktParsingService (void *args) {
         }
 
         /* Receive packet data */
-        pktFrame = zframe_recv (pktSharingRcvSock);
+        pktFrame = zframe_recv (pktParsingRcvSock);
         if (pktFrame) {
             /* Not packet packet */
             if (zframe_more (pktFrame)) {
@@ -910,21 +903,14 @@ pktParsingService (void *args) {
             continue;
         }
 
-        /* Filter timeout packet */
-        if (zframe_size (pktFrame) < sizeof (struct ip)) {
-            zframe_destroy (&tmFrame);
-            zframe_destroy (&pktFrame);
-            continue;
-        }
-
-        ret = ipDefragProcess (zframe_data (pktFrame), zframe_size (pktFrame), &newIphdr);
+        ret = ipDefragProcess ((struct ip *) zframe_data (pktFrame), zframe_size (pktFrame), &newIphdr);
         switch (ret) {
             case IPF_NOTF:
                 routerDispatch ((struct ip *) zframe_data (pktFrame), (timeValPtr) zframe_data (tmFrame));
                 break;
 
             case IPF_NEW:
-                routerDispatch (newIphdr, (timeValPtr) zframe_data (tmFrame));
+                routerDispatch ((struct ip *) newIphdr, (timeValPtr) zframe_data (tmFrame));
                 free (newIphdr);
                 break;
 
@@ -1008,14 +994,14 @@ agentRun (void) {
     /* Socket used to get globally shared status */
     void *statusRecvSock;
     /* Socket used to sharing packets */
-    void *pktSharingSndSock;
-    void *pktSharingRcvSock;
+    void *pktParsingSndSock;
+    void *pktParsingRcvSock;
     /* Sub-thread id */
     pthread_t svcUpdateMonitorTid;
     pthread_t pcapStatDumperTid;
     pthread_t pktParsingServiceTid;
     struct pcap_pkthdr *pkthdr;
-    const u_char *pktdata;
+    const u_char *pktData;
     struct ip *iphdr;
     int ipLen;
     timeVal captureTime;
@@ -1061,45 +1047,45 @@ agentRun (void) {
         goto freeZmqContext;
     }
 
-    ret = zsocket_bind (statusRecvSock, AGENT_GLOBAL_STATUS_INPROC_ADDRESS);
+    ret = zsocket_bind (statusRecvSock, AGENT_SHARED_STATUS_INPROC_ADDRESS);
     if (ret < 0) {
-        LOGE ("Bind \"%s\" error: %s.\n", AGENT_GLOBAL_STATUS_INPROC_ADDRESS, strerror (errno));
+        LOGE ("Bind \"%s\" error: %s.\n", AGENT_SHARED_STATUS_INPROC_ADDRESS, strerror (errno));
         ret = -1;
         goto freeZmqContext;
     }
 
-    ret = zsocket_connect (statusPushSock, AGENT_GLOBAL_STATUS_INPROC_ADDRESS);
+    ret = zsocket_connect (statusPushSock, AGENT_SHARED_STATUS_INPROC_ADDRESS);
     if (ret < 0) {
-        LOGE ("Connect to \"%s\" error: %s.\n", AGENT_GLOBAL_STATUS_INPROC_ADDRESS, strerror (errno));
+        LOGE ("Connect to \"%s\" error: %s.\n", AGENT_SHARED_STATUS_INPROC_ADDRESS, strerror (errno));
         ret = -1;
         goto freeZmqContext;
     }
 
-    pktSharingSndSock = zsocket_new (zmqCtx, ZMQ_PAIR);
-    if (pktSharingSndSock == NULL) {
-        LOGE ("Create pktSharingSndSock error: %s.\n", strerror (errno));
+    pktParsingSndSock = zsocket_new (zmqCtx, ZMQ_PAIR);
+    if (pktParsingSndSock == NULL) {
+        LOGE ("Create pktParsingSndSock error: %s.\n", strerror (errno));
         ret = -1;
         goto freeZmqContext;
     }
-    /* Set pktSharingSndSock send hwm to 500000 */
-    zsocket_set_sndhwm (pktSharingSndSock, 500000);
+    /* Set pktParsingSndSock send hwm to 500000 */
+    zsocket_set_sndhwm (pktParsingSndSock, 500000);
 
-    pktSharingRcvSock = zsocket_new (zmqCtx, ZMQ_PAIR);
-    if (pktSharingRcvSock == NULL) {
-        LOGE ("Create pktSharingRcvSock error: %s.\n", strerror (errno));
+    pktParsingRcvSock = zsocket_new (zmqCtx, ZMQ_PAIR);
+    if (pktParsingRcvSock == NULL) {
+        LOGE ("Create pktParsingRcvSock error: %s.\n", strerror (errno));
         ret = -1;
         goto freeZmqContext;
     }
-    zsocket_set_rcvhwm (pktSharingRcvSock, 500000);
+    zsocket_set_rcvhwm (pktParsingRcvSock, 500000);
 
-    ret = zsocket_bind (pktSharingRcvSock, AGENT_PACKET_SHARING_INPROC_ADDRESS);
+    ret = zsocket_bind (pktParsingRcvSock, AGENT_PACKET_SHARING_INPROC_ADDRESS);
     if (ret < 0) {
         LOGE ("Bind \"%s\" error: %s.\n", AGENT_PACKET_SHARING_INPROC_ADDRESS, strerror (errno));
         ret = -1;
         goto freeZmqContext;
     }
 
-    ret = zsocket_connect (pktSharingSndSock, AGENT_PACKET_SHARING_INPROC_ADDRESS);
+    ret = zsocket_connect (pktParsingSndSock, AGENT_PACKET_SHARING_INPROC_ADDRESS);
     if (ret < 0) {
         LOGE ("Connect \"%s\" error: %s.\n", AGENT_PACKET_SHARING_INPROC_ADDRESS, strerror (errno));
         ret = -1;
@@ -1132,7 +1118,7 @@ agentRun (void) {
     free (status);
 
     /* Create real-time packet parsing service */
-    ret = pthread_create (&pktParsingServiceTid, NULL, pktParsingService, pktSharingRcvSock);
+    ret = pthread_create (&pktParsingServiceTid, NULL, pktParsingService, pktParsingRcvSock);
     if (ret < 0) {
         LOGE ("Create pktParsingService error: %s.\n", strerror (errno));
         ret = -1;
@@ -1150,9 +1136,9 @@ agentRun (void) {
                 free (status);
         }
 
-        ret = pcap_next_ex (mirrorNic.pcapDesc, &pkthdr, &pktdata);
+        ret = pcap_next_ex (mirrorNic.pcapDesc, &pkthdr, &pktData);
         if (ret == 1) {
-            iphdr = (struct ip *) getIpHeader (pkthdr, pktdata);
+            iphdr = (struct ip *) getIpHeader (pkthdr, pktData);
             if (iphdr == NULL)
                 continue;
 
@@ -1165,7 +1151,7 @@ agentRun (void) {
 
             captureTime.tvSec = hton64 (pkthdr->ts.tv_sec);
             captureTime.tvUsec = hton64 (pkthdr->ts.tv_usec);
-            sendToPktParsingService (pktSharingSndSock, &captureTime, (u_char *) iphdr, ipLen);
+            sendToPktParsingService (pktParsingSndSock, &captureTime, (u_char *) iphdr, ipLen);
         } else if (ret == -1) {
             LOGE ("Capture packet error: %s.\n", pcap_geterr (mirrorNic.pcapDesc));
             ret = -1;
@@ -1312,14 +1298,14 @@ parseCmdline (int argc, char *argv []) {
     int showVersion = 0;
     int showHelp = 0;
 
-    while ((option = getopt_long (argc, argv, "i:n:m:t:l:d:f:r:p:Dvh?", agentOptions, NULL)) != -1) {
+    while ((option = getopt_long (argc, argv, "i:n:m:t:l:r:p:Dvh?", agentOptions, NULL)) != -1) {
         switch (option) {
             case 'i':
-                agentParameters.agentId = (u_short) atoi (optarg);
+                agentParameters.agentId = atoi (optarg);
                 break;
 
             case 'n':
-                agentParameters.parsingThreads = (u_short) atoi (optarg);
+                agentParameters.parsingThreads = atoi (optarg);
                 break;
 
             case 'm':
@@ -1331,11 +1317,11 @@ parseCmdline (int argc, char *argv []) {
                 break;
 
             case 't':
-                agentParameters.pcapDumpTimeout = (u_short) atoi (optarg);
+                agentParameters.pcapDumpTimeout = atoi (optarg);
                 break;
 
             case 'l':
-                agentParameters.logLevel = (u_short) atoi (optarg);
+                agentParameters.logLevel = atoi (optarg);
                 break;
 
             case 'r':
@@ -1403,7 +1389,7 @@ parseConf (void) {
         ret = -1;
         goto exit;
     }
-    agentParameters.agentId = (u_short) get_int_config_value (item, 1, -1, &error);
+    agentParameters.agentId = get_int_config_value (item, 1, -1, &error);
     if (error) {
         logToConsole ("Parse \"agent_id\" error.\n");
         ret = -1;
@@ -1417,7 +1403,7 @@ parseConf (void) {
         ret = -1;
         goto exit;
     }
-    agentParameters.daemonMode = (u_short) get_int_config_value (item, 1, -1, &error);
+    agentParameters.daemonMode = get_int_config_value (item, 1, -1, &error);
     if (error) {
         logToConsole ("Parse \"daemon_mode\" error.\n");
         ret = -1;
@@ -1431,7 +1417,7 @@ parseConf (void) {
         ret = -1;
         goto exit;
     }
-    agentParameters.parsingThreads = (u_short) get_int_config_value (item, 1, -1, &error);
+    agentParameters.parsingThreads = get_int_config_value (item, 1, -1, &error);
     if (error) {
         logToConsole ("Parse \"parsing_threads\" error.\n");
         ret = -1;
@@ -1465,7 +1451,7 @@ parseConf (void) {
         ret = -1;
         goto exit;
     }
-    agentParameters.pcapDumpTimeout = (u_short) get_int_config_value (item, 1, -1, &error);
+    agentParameters.pcapDumpTimeout = get_int_config_value (item, 1, -1, &error);
     if (error) {
         logToConsole ("Parse \"pcap_dump_timeout\" error.\n");
         ret = -1;
@@ -1479,7 +1465,7 @@ parseConf (void) {
         ret = -1;
         goto exit;
     }
-    agentParameters.logLevel = (u_short) get_int_config_value (item, 1, -1, &error);
+    agentParameters.logLevel = get_int_config_value (item, 1, -1, &error);
     if (error) {
         logToConsole ("Parse \"log_level\" error.\n");
         ret = -1;

@@ -11,15 +11,15 @@
  * @return 0 if success, else -1
  */
 int
-ipOptionsCompile (u_char *iph) {
+ipOptionsCompile (const u_char *iph) {
     int l;
-    int optlen;
+    u_int optlen;
     u_char *optptr;
     u_char *ppPtr = 0;
     char optholder [16];
     struct ip_options *opt;
-    int skb = 1;
-    int skbPaAddr = 314159;
+    u_int skb = 1;
+    u_int skbPaAddr = 314159;
     uint32_t midtime;
     uint32_t addr;
     struct timestamp *ts;

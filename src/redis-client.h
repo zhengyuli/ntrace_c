@@ -26,7 +26,7 @@ pushSessionBreakdown (const char *sessionBreakdownJson);
 void
 pubPcapStat (const char *pstatJson);
 int
-initRedisContext (int agentId, const char *redisSrvIp, uint16_t redisSrvPort);
+initRedisContext (int agentId, const char *redisSrvIp, int redisSrvPort);
 void
 destroyRedisContext (void);
 /*=======================Interfaces definition end=========================*/

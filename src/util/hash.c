@@ -175,7 +175,7 @@ hashItemDetach (hashTablePtr htbl, hashItemPtr item) {
  */
 hashTablePtr
 hashNew (u_int hashSize) {
-    int i;
+    u_int i;
     u_int memSize;
 
     hashTablePtr htbl = (hashTablePtr ) malloc (sizeof (hashTable));

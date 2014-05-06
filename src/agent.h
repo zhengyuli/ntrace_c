@@ -19,12 +19,12 @@ typedef agentParams *agentParamsPtr;
 
 /* Structure used to describes global parameters of agent */
 struct _agentParams {
-    u_short agentId;                    /**< Agent id */
-    u_short daemonMode;                 /**< Run as daemon */
-    u_short parsingThreads;             /**< Parsing threads number */
+    int agentId;                        /**< Agent id */
+    int daemonMode;                     /**< Run as daemon */
+    int parsingThreads;                 /**< Parsing threads number */
     char *mirrorInterface;              /**< Mirror interface */
-    u_short pcapDumpTimeout;            /**< Pcap statistic dump timeout */
-    u_short logLevel;                   /**< Log level */
+    int pcapDumpTimeout;                /**< Pcap statistic dump timeout */
+    int logLevel;                       /**< Log level */
     char *redisSrvIp;                   /**< Redis server ip */
     u_short redisSrvPort;               /**< Redis server port */
 };
@@ -37,8 +37,8 @@ struct _netInterface {
     char *name;                         /**< Name of NIC */
     char *ipaddr;                       /**< Ip address of NIC */
     pcap_t *pcapDesc;                   /**< Pcap descriptor of NIC */
-    u_short linkType;                   /**< Datalink type */
-    u_short linkOffset;                 /**< Datalink offset */
+    int linkType;                       /**< Datalink type */
+    int linkOffset;                     /**< Datalink offset */
     pcapStat pstat;                     /**< Pcap statistic info */
 };
 

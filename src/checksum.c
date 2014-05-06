@@ -3,8 +3,8 @@
 
 #if ( __i386__ || __i386 )
 
-u_short
-ipFastCheckSum (u_char *iph, u_int ihl) {
+u_int
+ipFastCheckSum (const u_char *iph, u_int ihl) {
     u_int sum;
 
     __asm__ __volatile__(
@@ -33,7 +33,7 @@ ipFastCheckSum (u_char *iph, u_int ihl) {
 }
 
 static u_int
-checkSumPartial (const u_char * buff, int len, u_int sum) {
+checkSumPartial (const u_char * buff, u_int len, u_int sum) {
     __asm__ __volatile__(
         "   testl $2, %%esi                     \n"
         "   jz 2f                           \n"
@@ -109,9 +109,8 @@ checkSumFold (u_int sum) {
     return ((~sum) >> 16);
 }
 
-static inline u_short
-checkSumTcpMagic (u_int saddr, u_int daddr, u_short len,
-                  u_short proto, u_int sum) {
+static inline u_int
+checkSumTcpMagic (u_int saddr, u_int daddr, u_short len, u_short proto, u_int sum) {
     __asm__ __volatile__(
         "   addl %1, %0 \n"
         "   adcl %2, %0 \n"
@@ -123,10 +122,10 @@ checkSumTcpMagic (u_int saddr, u_int daddr, u_short len,
     return (checkSumFold (sum));
 }
 
-inline u_short
-tcpFastCheckSum (struct tcphdr *th, int len, u_int saddr, u_int daddr) {
+inline u_int
+tcpFastCheckSum (const struct tcphdr *th, u_int len, u_int saddr, u_int daddr) {
     return checkSumTcpMagic (saddr, daddr, len, IPPROTO_TCP,
-                             checkSumPartial ((u_char *)th, len, 0));
+                             checkSumPartial ((const u_char *)th, len, 0));
 }
 
 #else  /* !i386 */
@@ -141,10 +140,10 @@ struct psuedoHdr
 };
 
 u_short
-ipCheckExt (u_short *addr, int len, int addon) {
-    register int nleft = len;
-    register u_short *w = addr;
-    register int sum = addon;
+ipCheckExt (const u_short *addr, u_int len, u_int addon) {
+    register u_int nleft = len;
+    register const u_short *w = addr;
+    register u_int sum = addon;
     u_short answer = 0;
 
     /*
@@ -173,14 +172,14 @@ ipCheckExt (u_short *addr, int len, int addon) {
 }
 
 u_short
-ipFastCheckSum (u_char *iph, u_int ihl) {
-    return ipCheckExt ((u_short *) iph, ihl << 2, 0);
+ipFastCheckSum (const u_char *iph, u_int ihl) {
+    return ipCheckExt ((const u_short *) iph, ihl << 2, 0);
 }
 
 u_short
-tcpFastCheckSum (struct tcphdr *th, int len, u_int saddr, u_int daddr) {
-    unsigned int i;
-    int sum = 0;
+tcpFastCheckSum (const struct tcphdr *th, u_int len, u_int saddr, u_int daddr) {
+    u_int i;
+    u_int sum = 0;
     struct psuedoHdr hdr;
 
     hdr.saddr = saddr;
@@ -189,9 +188,9 @@ tcpFastCheckSum (struct tcphdr *th, int len, u_int saddr, u_int daddr) {
     hdr.protocol = IPPROTO_TCP;
     hdr.len = htons(len);
     for (i = 0; i < sizeof (hdr); i += 2)
-        sum += *(u_short *)((char *) (&hdr) + i);
+        sum += *(u_short *)((u_char *) (&hdr) + i);
 
-    return (ipCheckExt ((u_short *) th, len, sum));
+    return (ipCheckExt ((const u_short *) th, len, sum));
 }
 
 #endif  /* !i386 */

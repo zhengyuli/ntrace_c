@@ -10,13 +10,11 @@
 #include <ini_config.h>
 #include <jansson.h>
 #include <locale.h>
-#include "typedef.h"
 #include "config.h"
 #include "list.h"
 #include "hash.h"
 #include "log.h"
 #include "util.h"
-#include "byte-order.h"
 #include "service.h"
 #include "redis-client.h"
 #include "router.h"
@@ -1185,8 +1183,8 @@ unlockPidFile:
 static int
 agentDaemon (void) {
     pid_t pid, next_pid;
-    int stdinfd = -1;
-    int stdoutfd = -1;
+    int stdinfd;
+    int stdoutfd;
 
     if (chdir("/") < 0) {
         fprintf (stderr, "Chdir error: %s.\n", strerror (errno));

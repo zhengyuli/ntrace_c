@@ -1,7 +1,6 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include <netinet/tcp.h>
-#include "typedef.h"
 #include "util.h"
 #include "tcp-options.h"
 

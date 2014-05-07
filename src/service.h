@@ -27,7 +27,7 @@ struct _service {
 u_int
 serviceNum (void);
 int
-serviceLoopDo (hashForEachItemDoFun fun, void *args);
+serviceLoopDo (hashForEachItemDoCB fun, void *args);
 int
 updateService (svcUpdateType updateType, servicePtr svc);
 protoType

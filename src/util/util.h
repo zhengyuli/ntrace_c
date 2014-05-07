@@ -2,57 +2,15 @@
 #define __AGENT_UTIL_H__
 
 #include <string.h>
-#include <sys/types.h>
-#include <inttypes.h>
-#include <ctype.h>
-#include "typedef.h"
+#include <stdlib.h>
 
-#define TABLE_SIZE(x) (sizeof (x) / sizeof ((x) [0]))
+#define u_long_long unsigned long long
+#define long_long long long
 
-#define STRPREFIX(s1, s2) (strncmp (s1, s2, strlen (s2)) == 0)
-
-#define MAX_NUM(n1, n2) ((n1) > (n2) ? (n1) : (n2))
-#define MIN_NUM(n1, n2) ((n1) > (n2) ? (n2) : (n1))
-
-/* Number to string interfaces */
-#define INT8_TO_STRING(dst, val) sprintf (dst, "%"PRId8, val)
-#define UINT8_TO_STRING(dst, val) sprintf (dst, "%"PRIu8, val)
-
-#define INT16_TO_STRING(dst, val) sprintf (dst, "%"PRId16, val)
-#define UINT16_TO_STRING(dst, val) sprintf (dst, "%"PRIu16, val)
-
-#define INT32_TO_STRING(dst, val) sprintf (dst, "%"PRId32, val)
-#define UINT32_TO_STRING(dst, val) sprintf (dst, "%"PRIu32, val)
-
-#define INT_TO_STRING(dst, val) sprintf (dst, "%d", val)
-#define UINT_TO_STRING(dst, val) sprintf (dst, "%u", val)
-
-#define INT64_TO_STRING(dst, val) sprintf (dst, "%"PRId64, val)
-#define UINT64_TO_STRING(dst, val) sprintf (dst, "%"PRIu64, val)
-
-#define FLOAT_TO_STRING(dst, val) sprintf (dst, "%f", val)
-
-#define DOUBLE_TO_STRING(dst, val) sprintf (dst, "%lf", val)
-
-/* String to number interfaces */
-#define STRING_TO_INT8(dst, str) sscanf (str, "%"PRId8, (int32_t *) dst)
-#define STRING_TO_UINT8(dst, str) sscanf (str, "%"PRIu8, (uint32_t *) dst)
-
-#define STRING_TO_INT16(dst, str) sscanf (str, "%"PRId16, (int32_t *) dst)
-#define STRING_TO_UINT16(dst, str) sscanf (str, "%"PRIu16, (uint32_t *) dst)
-
-#define STRING_TO_INT32(dst, str) sscanf (str, "%"PRId32, (int32_t *) dst)
-#define STRING_TO_UINT32(dst, str) sscanf (str, "%"PRIu32, (uint32_t *) dst)
-
-#define STRING_TO_INT(dst, str) sscanf (str, "%d", (int *) dst)
-#define STRING_TO_UINT(dst, str) sscanf (str, "%u", (uint *) dst)
-
-#define STRING_TO_INT64(dst, str) sscanf (str, "%"PRId64, (int64_t *) dst)
-#define STRING_TO_UINT64(dst, str) sscanf (str, "%"PRIu64, (uint64_t *) dst)
-
-#define STRING_TO_FLOAT(dst, str) sscanf (str, "%f", (float *) dst)
-
-#define STRING_TO_DOUBLE(dst, str) sscanf (str, "%lf", (double *) dst)
+typedef enum {
+    FALSE = 0,
+    TRUE = 1
+} BOOL;
 
 typedef struct _timeVal timeVal;
 typedef timeVal *timeValPtr;
@@ -62,6 +20,47 @@ struct _timeVal {
     u_long_long tvUsec;
 };
 
+#define TABLE_SIZE(x) (sizeof (x) / sizeof ((x) [0]))
+
+#define STRPREFIX(s1, s2) (strncmp (s1, s2, strlen (s2)) == 0)
+
+#define MAX_NUM(n1, n2) ((n1) > (n2) ? (n1) : (n2))
+#define MIN_NUM(n1, n2) ((n1) > (n2) ? (n2) : (n1))
+
+/* Number to string interfaces */
+#define CHAR_TO_STRING(dst, val) sprintf (dst, "%d", val)
+#define UCHAR_TO_STRING(dst, val) sprintf (dst, "%u", val)
+
+#define SHORT_TO_STRING(dst, val) sprintf (dst, "%d", val)
+#define USHORT_TO_STRING(dst, val) sprintf (dst, "%u", val)
+
+#define INT_TO_STRING(dst, val) sprintf (dst, "%d", val)
+#define UINT_TO_STRING(dst, val) sprintf (dst, "%u", val)
+
+#define LONGLONG_TO_STRING(dst, val) sprintf (dst, "%lld", val)
+#define ULONGLONG_TO_STRING(dst, val) sprintf (dst, "%llu", val)
+
+#define FLOAT_TO_STRING(dst, val) sprintf (dst, "%f", val)
+
+#define DOUBLE_TO_STRING(dst, val) sprintf (dst, "%lf", val)
+
+/* String to number interfaces */
+#define STRING_TO_CHAR(dst, str) sscanf (str, "%d", (int *) dst)
+#define STRING_TO_UCHAR(dst, str) sscanf (str, "%u", (u_int *) dst)
+
+#define STRING_TO_SHORT(dst, str) sscanf (str, "%d", (int *) dst)
+#define STRING_TO_USHORT(dst, str) sscanf (str, "%u", (u_int *) dst)
+
+#define STRING_TO_INT(dst, str) sscanf (str, "%d", (int *) dst)
+#define STRING_TO_UINT(dst, str) sscanf (str, "%u", (u_int *) dst)
+
+#define STRING_TO_LONGLONG(dst, str) sscanf (str, "%lld", (long_long *) dst)
+#define STRING_TO_ULONGLONG(dst, str) sscanf (str, "%llu", (u_long_long *) dst)
+
+#define STRING_TO_FLOAT(dst, str) sscanf (str, "%f", (float *) dst)
+
+#define STRING_TO_DOUBLE(dst, str) sscanf (str, "%lf", (double *) dst)
+
 /*========================Interfaces definition============================*/
 u_long_long
 timeVal2Second (timeValPtr tm);
@@ -69,6 +68,10 @@ u_long_long
 timeVal2MilliSecond (timeValPtr tm);
 u_long_long
 timeVal2MicoSecond (timeValPtr tm);
+u_long_long
+ntohll (u_long_long src);
+u_long_long
+htonll (u_long_long src);
 BOOL
 strEqualIgnoreCase (const char *str1, const char *str2);
 BOOL

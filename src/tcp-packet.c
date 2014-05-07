@@ -10,7 +10,6 @@
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
 #include <jansson.h>
-#include "typedef.h"
 #include "checksum.h"
 #include "util.h"
 #include "list.h"
@@ -18,7 +17,6 @@
 #include "log.h"
 #include "service.h"
 #include "redis-client.h"
-#include "byte-order.h"
 #include "protocol.h"
 #include "tcp-options.h"
 #include "tcp-packet.h"
@@ -142,7 +140,7 @@ lookupTcpStreamFromHash (tuple4Ptr addr) {
  * @return 0 if success else -1
  */
 static int
-addTcpStreamToHash (tcpStreamPtr stream, hashFreeFun freeFun) {
+addTcpStreamToHash (tcpStreamPtr stream, hashFreeCB freeFun) {
     int ret;
     tuple4Ptr addr;
     char key [64] = {0};
@@ -942,7 +940,7 @@ tcpQueue (tcpStreamPtr stream, struct tcphdr *tcph, halfStreamPtr snd,
         skbuf->urgPtr = ntohs (tcph->urg_ptr);
         skbuf->psh = tcph->psh;
 
-        listForEachEntrySafeReverse (prev, tmp, &rcv->head, node) {
+        listForEachEntryReverseSafe (prev, tmp, &rcv->head, node) {
             if (before (prev->seq, curSeq)) {
                 listAdd (&skbuf->node, &prev->node);
                 return;
@@ -1172,5 +1170,6 @@ initTcp (publishTcpBreakdownCB publishTcpBreakdown, void *args) {
 /* Destroy tcp process context */
 void
 destroyTcp (void) {
-    hashDestroy (&tcpStreamHashTable);
+    hashDestroy (tcpStreamHashTable);
+    tcpStreamHashTable = NULL;
 }

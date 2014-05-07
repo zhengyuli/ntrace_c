@@ -4,7 +4,6 @@
 #include <pcap.h>
 #include <hiredis/hiredis.h>
 #include <sys/types.h>
-#include "typedef.h"
 #include "util.h"
 
 typedef struct _pcapStat pcapStat;

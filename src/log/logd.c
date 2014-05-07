@@ -12,10 +12,9 @@
 #include <errno.h>
 #include <getopt.h>
 #include <locale.h>
-#include "typedef.h"
+#include "util.h"
 #include "list.h"
 #include "log.h"
-#include "util.h"
 
 #define LOGD_PID_FILE "/var/run/logd.pid"
 #define LOG_TO_FILE_MASK (1 << 0)
@@ -43,7 +42,7 @@ struct _logDev {
 
 /* Bit test */
 static inline BOOL
-checkBit (u_int flag, u_int bitMask) {
+testBit (u_int flag, u_int bitMask) {
     if (flag & bitMask)
         return TRUE;
     else
@@ -69,9 +68,9 @@ typedef struct _logFile logFile;
 typedef logFile *logFilePtr;
 
 struct _logFile {
-    int fd;
-    char *filePath;
-    u_int writeCount;
+    int fd;                             /**< Log file fd */
+    char *filePath;                     /**< Log file path */
+    u_int writeCount;                   /**< Log file write count for size checking */
 };
 
 static BOOL
@@ -202,30 +201,23 @@ writeLogFile (const char *msg, logDevPtr dev, u_int flag) {
     int ret;
     logFilePtr logfile;
 
-    if (!checkBit (flag, LOG_TO_FILE_MASK))
+    if (!testBit (flag, LOG_TO_FILE_MASK))
         return;
 
     logfile = (logFilePtr) dev->data;
     ret = safeWrite (logfile->fd, msg, strlen (msg));
-    logfile->writeCount++;
     if (ret < 0) {
         zctx_interrupted = 1;
         fprintf (stderr, "log file write error.\n");
         return;
     }
-    if (logfile->writeCount >= LOG_FILE_SIZE_CHECK_COUNT) {
-        ret = logFileOversize (logfile->filePath);
-        if (ret < 0) {
+    logfile->writeCount++;
+    if ((logfile->writeCount >= LOG_FILE_SIZE_CHECK_COUNT) &&
+        logFileOversize (logfile->filePath)) {
+        ret = logFileUpdate (dev);
+        if (ret < 0)
             zctx_interrupted = 1;
-            fprintf (stderr, "check log file oversize error.\n");
-            return;
-        }
-        if (ret == 1) {
-            ret = logFileUpdate (dev);
-            if (ret < 0)
-                zctx_interrupted = 1;
-            fprintf (stderr, "log file update error.\n");
-        }
+        fprintf (stderr, "log file update error.\n");
     }
 }
 
@@ -275,7 +267,7 @@ writeLogNet (const char *msg, logDevPtr dev, u_int flag) {
     logNetPtr lognet;
     zframe_t *frame = NULL;
 
-    if (!checkBit (flag, LOG_TO_NET_MASK))
+    if (!testBit (flag, LOG_TO_NET_MASK))
         return;
 
     lognet = (logNetPtr) dev->data;
@@ -283,6 +275,7 @@ writeLogNet (const char *msg, logDevPtr dev, u_int flag) {
     frame = zframe_new ((void *) msg, strlen (msg));
     if (frame == NULL)
         return;
+
     ret = zframe_send (&frame, lognet->sock, 0);
     if (ret < 0) {
         zframe_destroy (&frame);
@@ -324,10 +317,6 @@ logDevWrite (listHeadPtr logDevices, const char *msg) {
     ret = sscanf (msg, "%u", &flag);
     if (ret != 1)
         return;
-    /* Get real log message */
-    message = strstr (msg, "[pid:");
-    if (message == NULL)
-        return;
     switch (flag) {
         case LOG_TO_ALL_TAG:
             flag = LOG_TO_FILE_MASK | LOG_TO_NET_MASK;
@@ -341,6 +330,10 @@ logDevWrite (listHeadPtr logDevices, const char *msg) {
             return;
     }
 
+    /* Get real log message */
+    message = strstr (msg, "[pid:");
+    if (message == NULL)
+        return;
     listForEachEntry (dev, logDevices, node) {
         dev->write (message, dev, flag);
     }
@@ -469,8 +462,8 @@ logdRun (void) {
 static int
 logdDaemon (void) {
     pid_t pid, next_pid;
-    int stdinfd = -1;
-    int stdoutfd = -1;
+    int stdinfd;
+    int stdoutfd;
 
     if (chdir("/") < 0)
         return -1;

@@ -4,10 +4,8 @@
 #include <errno.h>
 #include <zlib.h>
 #include <jansson.h>
-#include "typedef.h"
 #include "util.h"
 #include "log.h"
-#include "byte-order.h"
 #include "mysql-analyzer.h"
 
 #define PKT_WRONG_TYPE    0

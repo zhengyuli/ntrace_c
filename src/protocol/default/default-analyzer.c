@@ -2,9 +2,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <jansson.h>
-#include "typedef.h"
 #include "util.h"
-#include "byte-order.h"
 #include "default-analyzer.h"
 
 static int

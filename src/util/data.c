@@ -6,14 +6,16 @@ dataPtr
 dataCreate (const u_char *d, u_int len) {
     dataPtr tmp;
 
-    tmp = malloc (sizeof (data));
+    tmp = (dataPtr) malloc (sizeof (data));
     if (tmp == NULL)
         return NULL;
+
     tmp->data = (u_char *) malloc (len);
     if (tmp->data == NULL) {
         free (tmp);
         return NULL;
     }
+
     memcpy (tmp->data, d, len);
     tmp->len = len;
 
@@ -24,10 +26,11 @@ dataPtr
 dataAlloc (u_int len) {
     dataPtr tmp;
 
-    tmp = calloc (sizeof (data), len);
+    tmp = (dataPtr) malloc (sizeof (data));
     if (tmp == NULL)
         return NULL;
-    tmp->data = malloc (len);
+
+    tmp->data = (u_char *) malloc (len);
     if (tmp->data == NULL) {
         free (tmp);
         return NULL;
@@ -41,6 +44,7 @@ dataMake (dataPtr dp, const u_char *d, u_int len) {
     dp->data = (u_char *) malloc (len);
     if (dp->data == NULL)
         return -1;
+
     memcpy (dp->data, d, len);
     dp->len = len;
 
@@ -49,13 +53,15 @@ dataMake (dataPtr dp, const u_char *d, u_int len) {
 
 void
 dataDestroy (dataPtr *dpp) {
-    if ((dpp == NULL) || (*dpp == NULL))
+    dataPtr dp = *dpp;
+    
+    if ((dpp == NULL) || (dp == NULL))
         return;
 
-    if ((*dpp)->data)
-        free ((*dpp)->data);
-    free ((*dpp));
-    *dpp = NULL;
+    if (dp->data)
+        free (dp->data);
+    free (dp);
+    dp = NULL;
 }
 
 int
@@ -63,6 +69,7 @@ dataCopy (dataPtr dst, dataPtr src) {
     dst->data = (u_char *) malloc (src->len);
     if (dst->data == NULL)
         return -1;
+
     memcpy (dst->data, src->data, src->len);
     dst->len = src->len;
 
@@ -73,11 +80,13 @@ void
 dataZfree (dataPtr dp) {
     if (dp == NULL)
         return;
-    if (d->data == NULL)
+
+    if (dp->data == NULL)
         return;
-    memset (dp->data, 0, d->len);
-    free (d->data);
-    d->len = 0;
+    memset (dp->data, 0, dp->len);
+    free (dp->data);
+    dp->data = NULL;
+    dp->len = 0;
 }
 
 int

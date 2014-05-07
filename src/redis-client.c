@@ -8,7 +8,6 @@
 #include <netinet/tcp.h>
 #include <hiredis/hiredis.h>
 #include <jansson.h>
-#include "typedef.h"
 #include "atomic.h"
 #include "hash.h"
 #include "util.h"

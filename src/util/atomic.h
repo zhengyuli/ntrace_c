@@ -1,5 +1,3 @@
-/* Atomic operations provide by gcc */
-
 #ifndef __AGENT_ATOMIC_H__
 #define __AGENT_ATOMIC_H__
 
@@ -24,8 +22,5 @@
 #define ATOMIC_BOOL_COMPARE_AND_SWAP(xPtr, oldVal, newVal) __sync_BOOL_compare_and_swap ((xPtr), (oldVal), (newVal))
 /* If *xPtr == oldVal then write newVal to *xPtr and return *xPtr before write operation */
 #define ATOMIC_VAL_COMPARE_AND_SWAP(xPtr, oldVal, newVal) __sync_val_compare_and_swap ((xPtr), (oldVal), (newVal))
-
-#define ATOMIC_FETCH_AND_SET(xPtr, y) __sync_lock_test_and_set ((xPtr), y)
-#define ATOMIC_RELEASE(xPtr) __sync_lock_release ((xPtr))
 
 #endif /* __AGENT_ATOMIC_H__ */

@@ -138,7 +138,7 @@ initLog (u_int logLevel) {
     int ret;
 
     /* Init log context */
-    logCtxt = malloc (sizeof (logContext));
+    logCtxt = (logContextPtr) malloc (sizeof (logContext));
     if (logCtxt == NULL)
         return -1;
 

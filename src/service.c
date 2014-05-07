@@ -29,7 +29,7 @@ serviceNum (void) {
 }
 
 int
-serviceLoopDo (hashForEachItemDoFun fun, void *args) {
+serviceLoopDo (hashForEachItemDoCB fun, void *args) {
     return hashForEachItemDo (svcMapSlave, fun, args);
 }
 
@@ -472,7 +472,8 @@ initServiceContext (void) {
     svcMapSlave = hashNew (SVC_MAP_INIT_SIZE);
     if (svcMapSlave == NULL) {
         LOGE ("Create slave service hash map error.\n");
-        hashDestroy (&svcMapMaster);
+        hashDestroy (svcMapMaster);
+        svcMapMaster = NULL;
         return -1;
     }
 
@@ -481,6 +482,8 @@ initServiceContext (void) {
 
 void
 destroyServiceContext (void) {
-    hashDestroy (&svcMapSlave);
-    hashDestroy (&svcMapMaster);
+    hashDestroy (svcMapSlave);
+    svcMapSlave = NULL;
+    hashDestroy (svcMapMaster);
+    svcMapMaster = NULL;
 }

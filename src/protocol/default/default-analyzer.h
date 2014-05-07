@@ -1,7 +1,6 @@
 #ifndef __AGENT_DEFAULT_ANALYZER_H__
 #define __AGENT_DEFAULT_ANALYZER_H__
 
-#include "typedef.h"
 #include "protocol.h"
 
 typedef struct _defaultSessionDetail defaultSessionDetail;

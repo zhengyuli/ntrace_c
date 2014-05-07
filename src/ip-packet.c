@@ -7,7 +7,6 @@
 #include <arpa/inet.h>
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
-#include "typedef.h"
 #include "util.h"
 #include "hash.h"
 #include "log.h"
@@ -501,7 +500,7 @@ ipDefrag (struct ip *iph, skbBufPtr skb, struct ip **newIphdr) {
     /* Look for overlap with succeeding segments.
      * If we can merge fragments, do it.
      */
-    listForEachEntrySafeFrom (next, tmp, &qp->fragments, node) {
+    listForEachEntryFromSafe (next, tmp, &qp->fragments, node) {
         if (next->offset >= end)
             break;
 
@@ -727,5 +726,6 @@ initIp (void) {
 /* Destroy ip context */
 void
 destroyIp (void) {
-    hashDestroy (&hostFragsHashTable);
+    hashDestroy (hostFragsHashTable);
+    hostFragsHashTable = NULL;
 }

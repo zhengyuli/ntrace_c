@@ -103,7 +103,7 @@ int main (int argc, char *argv[]) {
 
 
     i = 0;
-    listForEachEntrySafeReverse (cp1, cp, &headReverse, node) {
+    listForEachEntryReverseSafe (cp1, cp, &headReverse, node) {
         i++;
         printf ("%d ", cp1->val);
         if ((i % 10) == 0)
@@ -126,7 +126,7 @@ int main (int argc, char *argv[]) {
 
     i = 0;
     cp1 = listEntry (head.next->next->next, container, node);
-    listForEachEntrySafeFromReverse (cp1, cp, &head, node) {
+    listForEachEntryFromReverseSafe (cp1, cp, &head, node) {
         i++;
         printf ("%d ", cp1->val);
         if ((i % 10) == 0)

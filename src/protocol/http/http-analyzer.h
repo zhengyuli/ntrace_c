@@ -2,7 +2,6 @@
 #define __AGENT_HTTP_ANALYZER_H__
 
 #include <stdlib.h>
-#include "typedef.h"
 #include "util.h"
 #include "list.h"
 #include "http_parser.h"

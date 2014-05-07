@@ -260,8 +260,10 @@ freeSSLDecodeCtx (sslDecodeCtxPtr ctx) {
         SSL_CTX_free (ctx->sslCtx);
     if (ctx->ssl)
         SSL_free (ctx->ssl);
-    if (ctx->sessionCache)
-        hashDestroy (&ctx->sessionCache);
+    if (ctx->sessionCache) {
+        hashDestroy (ctx->sessionCache);
+        ctx->sessionCache = NULL;
+    }
 }
 
 sslDecodeCtxPtr

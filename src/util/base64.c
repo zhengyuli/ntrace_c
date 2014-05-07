@@ -13,7 +13,7 @@ static char base64String [] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvw
  *
  * @return length of encoded data
  */
-int
+u_int
 base64Encode (u_char *to, const u_char *from, u_int len) {
     const u_char *fromp = from;
     u_char *top = to;
@@ -41,7 +41,8 @@ base64Encode (u_char *to, const u_char *from, u_int len) {
         end [0] = *fromp++;
         if (--len)
             end [1] = *fromp++;
-        else end [1] = 0;
+        else
+            end [1] = 0;
         end [2] = 0;
 
         cbyte = end [0];
@@ -59,8 +60,9 @@ base64Encode (u_char *to, const u_char *from, u_int len) {
             *top++ = '=';
         *top++ = '=';
     }
+    
     *top = 0;
-
+    
     return top - to;
 }
 
@@ -71,9 +73,9 @@ base64Encode (u_char *to, const u_char *from, u_int len) {
  * @param from data to decode
  * @param len length of base64 encoded data
  *
- * @return length of decoded data if success else return -1
+ * @return length of decoded data if success else return 0
  */
-int
+u_int
 base64Decode (u_char *to, const u_char *from, u_int len) {
     u_char *fromp = from;
     u_char *top = to;
@@ -87,7 +89,7 @@ base64Decode (u_char *to, const u_char *from, u_int len) {
             cbyte = 0;
         else {
             if (BAD_CHAR (cbyte, p))
-                return -1;
+                return 0;
             cbyte = (p - base64String);
         }
         obyte = cbyte << 2;     /* 1111 1100 */
@@ -96,7 +98,7 @@ base64Decode (u_char *to, const u_char *from, u_int len) {
             cbyte = 0;
         else {
             if (BAD_CHAR (cbyte, p))
-                return -1;
+                return 0;
             cbyte = p - base64String;
         }
         obyte |= cbyte >> 4;        /* 0000 0011 */
@@ -109,7 +111,7 @@ base64Decode (u_char *to, const u_char *from, u_int len) {
         } else {
             padding = 0;
             if (BAD_CHAR (cbyte, p))
-                return -1;
+                return 0;
             cbyte = p - base64String;
         }
         obyte |= cbyte >> 2;        /* 0000 1111 */
@@ -122,7 +124,7 @@ base64Decode (u_char *to, const u_char *from, u_int len) {
         } else {
             padding = 0;
             if (BAD_CHAR (cbyte, p))
-                return -1;
+                return 0;
             cbyte = p - base64String;
         }
         obyte |= cbyte;         /* 0011 1111 */
@@ -131,7 +133,7 @@ base64Decode (u_char *to, const u_char *from, u_int len) {
 
     *top = 0;
     if (len)
-        return -1;
+        return 0;
     else
         return (top - to - padding);
 }

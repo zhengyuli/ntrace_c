@@ -4,14 +4,13 @@
 #include <getopt.h>
 #include <czmq.h>
 #include <string.h>
-#include "typedef.h"
-#include "log.h"
 #include "util.h"
+#include "log.h"
 
 #define MAX_PID_TABLE_SIZE 100
 
-/* Log service ip */
-static char *logServiceIp = NULL;
+/* log server ip */
+static char *logServerIp = NULL;
 /* Display log with detail info */
 static BOOL showInDetail  = FALSE;
 /* Process name to filter */
@@ -137,8 +136,8 @@ updateSubRules (void) {
 
 /* Logview options */
 static struct option logviewOptions [] = {
-    {"address", required_argument, NULL, 'i'},
-    {"proc", required_argument, NULL, 'p'},
+    {"server", required_argument, NULL, 's'},
+    {"process-name", required_argument, NULL, 'p'},
     {"level", required_argument, NULL, 'l'},
     {"verbose", no_argument, NULL, 'v'},
     {"help", no_argument, NULL, 'h'},
@@ -158,8 +157,8 @@ showHelp (const char *cmd) {
     printf ("Usage: %s [options]\n"
             "       %s [-h]\n"
             "Options:\n"
-            "  -i|--address <ip>, ip addr of log service\n"
-            "  -p|--proc <procName>, process name\n"
+            "  -s|--server <ip>, ip addr of logd server\n"
+            "  -p|--process-name <procName>, process name\n"
             "  -l|--level <logLevel>, optional log level: ERR, WARNING, INFO, DEBUG\n"
             "  -v|--verbose, display log in detail\n"
             "  -h|--help, help info\n",
@@ -172,11 +171,11 @@ parseCmdline (int argc, char *argv []) {
     int ret = 0;
     char option;
 
-    while ((option = getopt_long (argc, argv, "i:p:l:vh?", logviewOptions, NULL)) != -1) {
+    while ((option = getopt_long (argc, argv, "s:p:l:vh?", logviewOptions, NULL)) != -1) {
         switch (option) {
-            case 'i':
-                logServiceIp = strdup (optarg);
-                if (logServiceIp == NULL)
+            case 's':
+                logServerIp = strdup (optarg);
+                if (logServerIp == NULL)
                     return -1;
                 break;
 
@@ -224,7 +223,7 @@ subUpdateMonitor (void *args) {
 }
 
 static int
-logSvcIsRunning (const char *ip) {
+logServerIsRunning (const char *ip) {
     int ret;
     int sockfd;
     struct sockaddr_in addr;
@@ -239,7 +238,7 @@ logSvcIsRunning (const char *ip) {
     addr.sin_family = AF_INET;
     ret = inet_pton (AF_INET, ip ? ip : "127.0.0.1", &addr.sin_addr);
     if (ret < 0) {
-        fprintf (stderr, "Ivalid log service ip.\n");
+        fprintf (stderr, "Ivalid log server ip.\n");
         return 0;
     }
     addr.sin_port = htons (LOG_SERVICE_PUBLISH_PORT);
@@ -266,9 +265,9 @@ main (int argc, char *argv []) {
         return -1;
     }
 
-    /* Check log service state */
-    if (!logSvcIsRunning (logServiceIp)) {
-        fprintf (stderr, "The log service on %s is not running.\n", logServiceIp ? logServiceIp : "127.0.0.1");
+    /* Check log server state */
+    if (!logServerIsRunning (logServerIp)) {
+        fprintf (stderr, "The log server on %s is not running.\n", logServerIp ? logServerIp : "127.0.0.1");
         return -1;
     }
 
@@ -281,7 +280,7 @@ main (int argc, char *argv []) {
         zctx_destroy (&zmqContext);
         return -1;
     }
-    ret = zsocket_connect (subSock, "tcp://%s:%d", logServiceIp ? logServiceIp : "localhost", LOG_SERVICE_PUBLISH_PORT);
+    ret = zsocket_connect (subSock, "tcp://%s:%d", logServerIp ? logServerIp : "localhost", LOG_SERVICE_PUBLISH_PORT);
     if (ret < 0) {
         zctx_destroy (&zmqContext);
         return -1;
@@ -298,14 +297,12 @@ main (int argc, char *argv []) {
     while (!zctx_interrupted) {
         logMsg = zstr_recv (subSock);
         if (logMsg) {
-            if (logLevel) {
-                if (strstr (logMsg, logLevel)) {
-                    if (showInDetail)
-                        printf ("%s", logMsg);
-                    else {
-                        tmp = strstr (logMsg, ">:");
-                        printf ("%s", (tmp + 2));
-                    }
+            if (logLevel && strstr (logMsg, logLevel)) {
+                if (showInDetail)
+                    printf ("%s", logMsg);
+                else {
+                    tmp = strstr (logMsg, ">:");
+                    printf ("%s", (tmp + 2));
                 }
             } else {
                 if (showInDetail)

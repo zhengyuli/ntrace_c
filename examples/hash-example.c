@@ -4,7 +4,7 @@
 #include "util.h"
 #include "hash.h"
 
-static char *hkey[] = {
+static char *hkey [] = {
     "hello",
     "world",
     "you are my apple",
@@ -121,6 +121,6 @@ int main (int argc, char *argv[]) {
     printf ("***********************************************************\n");
 
     printf ("current size: %lld\n", (long long) hashSize (htb));
-    hashDestroy (&htb);
+    hashDestroy (htb);
     return 0;
 }

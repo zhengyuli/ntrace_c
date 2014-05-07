@@ -37,20 +37,13 @@ initLog (u_int logLevel);
 void
 destroyLog (void);
 
-#define LOGE(...)                                                   \
-    doLog (__FILE__, __LINE__, __FUNCTION__, LOG_ERR_TAG __VA_ARGS__)
-
-#define LOGW(...)                                                       \
-    doLog (__FILE__, __LINE__, __FUNCTION__, LOG_WARNING_TAG __VA_ARGS__)
-
-#define LOGI(...)                                                   \
-    doLog (__FILE__, __LINE__, __FUNCTION__, LOG_INFO_TAG __VA_ARGS__)
-
+#define LOGE(...) doLog (__FILE__, __LINE__, __FUNCTION__, LOG_ERR_TAG __VA_ARGS__)
+#define LOGW(...) doLog (__FILE__, __LINE__, __FUNCTION__, LOG_WARNING_TAG __VA_ARGS__)
+#define LOGI(...) doLog (__FILE__, __LINE__, __FUNCTION__, LOG_INFO_TAG __VA_ARGS__)
 #ifdef NDEBUG
 #define LOGD(...)
 #else
-#define LOGD(...)                                                   \
-    doLog (__FILE__, __LINE__, __FUNCTION__, LOG_DEBUG_TAG __VA_ARGS__)
+#define LOGD(...) doLog (__FILE__, __LINE__, __FUNCTION__, LOG_DEBUG_TAG __VA_ARGS__)
 #endif
 /*=======================Interfaces definition end=========================*/
 

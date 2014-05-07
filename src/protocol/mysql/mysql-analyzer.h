@@ -2,7 +2,6 @@
 #define __AGENT_MYSQL_ANALYZER_H__
 
 #include <stdlib.h>
-#include "typedef.h"
 #include "util.h"
 #include "protocol.h"
 

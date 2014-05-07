@@ -3,10 +3,8 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <jansson.h>
-#include "typedef.h"
 #include "util.h"
 #include "log.h"
-#include "byte-order.h"
 #include "http-analyzer.h"
 
 /* Current timestamp */

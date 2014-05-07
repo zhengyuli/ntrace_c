@@ -1,7 +1,6 @@
 #ifndef __AGENT_TCP_PACKET_H__
 #define __AGENT_TCP_PACKET_H__
 
-#include "typedef.h"
 #include "util.h"
 #include "list.h"
 #include "protocol.h"

@@ -1,12 +1,8 @@
 #include <stdio.h>
 #include <unistd.h>
-#include <errno.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <errno.h>
 #include <string.h>
-#include <arpa/inet.h>
-#include "typedef.h"
+#include <ctype.h>
+#include <errno.h>
 #include "util.h"
 
 inline u_long_long
@@ -33,25 +29,51 @@ timeVal2MicoSecond (timeValPtr tm) {
     return micro;
 }
 
+inline u_long_long
+ntohll (u_long_long src) {
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+    u_long_long dst;
+    u_char *dbytep = (u_char *) &dst;
+    u_char *sbytep = (u_char *) &src;
+
+    dbytep [0] = sbytep [7];
+    dbytep [1] = sbytep [6];
+    dbytep [2] = sbytep [5];
+    dbytep [3] = sbytep [4];
+    dbytep [4] = sbytep [3];
+    dbytep [5] = sbytep [2];
+    dbytep [6] = sbytep [1];
+    dbytep [7] = sbytep [0];
+    return dst;
+#elif __BYTE_ORDER == __BIG_EDIAN
+    return src;
+#endif
+}
+
+inline u_long_long
+htonll (u_long_long src) {
+    return ntohll (src);
+}
+
 BOOL
 strEqualIgnoreCase (const char *str1, const char *str2) {
     if (strlen (str1) != strlen (str2))
-        return 0;
+        return FALSE;
     else {
         while (*str1) {
             if (tolower (*str1) != tolower (*str2))
-                return 0;
+                return FALSE;
             str1++;
             str2++;
         }
-        return 1;
+        return TRUE;
     }
 }
 
 BOOL
 strEqual (const char *str1, const char *str2) {
     if (strlen (str1) != strlen (str2))
-        return 0;
+        return FALSE;
 
     if (!strcmp (str1, str2))
         return TRUE;
@@ -96,10 +118,6 @@ safeWrite (int fd, const void *buf, size_t count) {
     return nwritten;
 }
 
-/*
- * Check whether file is existed, if existed return 1
- * else return 0.
- */
 BOOL
 fileExist (const char *path)
 {

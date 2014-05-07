@@ -2,7 +2,7 @@
 #define __AGENT_LIST_H__
 
 #include <stddef.h>
-#include "typedef.h"
+#include "util.h"
 
 typedef struct _listHead listHead;
 typedef listHead *listHeadPtr;
@@ -142,11 +142,11 @@ listIsEmpty (const listHeadPtr head) {
          &pos->member != (head);                                    \
          pos = listEntry (pos->member.next, typeof (*pos), member))
 
-#define listForEachEntrySafe(pos, n, head, member)                      \
+#define listForEachEntrySafe(pos, tmp, head, member)                      \
     for (pos = listEntry ((head)->next, typeof (*pos), member),         \
-           n = listEntry (pos->member.next, typeof (*pos), member);     \
+         tmp = listEntry (pos->member.next, typeof (*pos), member);     \
          &pos->member != (head);                                        \
-         pos = n, n = listEntry (n->member.next, typeof (*n), member))
+         pos = tmp, tmp = listEntry (tmp->member.next, typeof (*tmp), member))
 
 #define listForEachEntryKeepPrev(prev, pos, head, member)               \
     for (prev = listEntry (head, typeof (*pos), member),                \
@@ -159,28 +159,28 @@ listIsEmpty (const listHeadPtr head) {
              &pos->member != (head);                                    \
              pos = listEntry (pos->member.prev, typeof (*pos), member))
 
-#define listForEachEntrySafeReverse(pos, n, head, member)               \
+#define listForEachEntryReverseSafe(pos, tmp, head, member)               \
     for (pos = listEntry ((head)->prev, typeof (*pos), member),         \
-           n = listEntry (pos->member.prev, typeof (*pos), member);     \
+         tmp = listEntry (pos->member.prev, typeof (*pos), member);     \
          &pos->member != (head);                                        \
-         pos = n, n = listEntry (n->member.prev, typeof (*n), member))
+         pos = tmp, tmp = listEntry (tmp->member.prev, typeof (*tmp), member))
 
 #define listForEachEntryFrom(pos, head, member)                     \
     for (; &pos->member != (head);                                  \
          pos = listEntry (pos->member.next, typeof (*pos), member))
 
-#define listForEachEntrySafeFrom(pos, n, head, member)                  \
-    for (n = listEntry (pos->member.next, typeof (*pos), member);       \
+#define listForEachEntryFromSafe(pos, tmp, head, member)                  \
+    for (tmp = listEntry (pos->member.next, typeof (*pos), member);       \
          &pos->member != (head);                                        \
-         pos = n, n = listEntry (n->member.next, typeof (*n), member))
+         pos = tmp, tmp = listEntry (tmp->member.next, typeof (*tmp), member))
 
 #define listForEachEntryFromReverse(pos, head, member)              \
     for (; &pos->member != (head);                                  \
          pos = listEntry (pos->member.prev, typeof (*pos), member))
 
-#define listForEachEntrySafeFromReverse(pos, n, head, member)           \
-    for ( n = listEntry (pos->member.prev, typeof (*pos), member);      \
+#define listForEachEntryFromReverseSafe(pos, tmp, head, member)           \
+    for ( tmp = listEntry (pos->member.prev, typeof (*pos), member);      \
           &pos->member != (head);                                       \
-          pos = n, n = listEntry (n->member.prev, typeof (*n), member))
+          pos = tmp, tmp = listEntry (tmp->member.prev, typeof (*tmp), member))
 
 #endif /* __AGENT_LIST_H__ */

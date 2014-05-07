@@ -2,7 +2,7 @@
 #define __AGENT_HASH_H__
 
 #include <stdlib.h>
-#include "typedef.h"
+#include "util.h"
 #include "list.h"
 
 typedef struct _hlistNode hlistNode;
@@ -30,10 +30,10 @@ INIT_HLIST_NODE (hlistNodePtr node) {
     node->pprev = NULL;
 }
 
-typedef void (*hashFreeFun) (void *item);
-typedef int (*hashForEachItemDoFun) (void *item, void *args);
-typedef BOOL (*hashForEachItemRemoveWithConditionFun) (void *item, void *args);
-typedef void * (*hashForEachItemCheckFun) (void *item, void *args);
+typedef void (*hashFreeCB) (void *item);
+typedef int (*hashForEachItemDoCB) (void *item, void *args);
+typedef BOOL (*hashForEachItemRemoveWithConditionCB) (void *item, void *args);
+typedef void * (*hashForEachItemCheckCB) (void *item, void *args);
 
 typedef struct _hashItem hashItem;
 typedef hashItem *hashItemPtr;
@@ -42,7 +42,7 @@ struct _hashItem {
     char *key;                          /**< Key string used to compute hash value */
     u_int index;                        /**< Index in hash table */
     void *data;                         /**< Opaque item value */
-    hashFreeFun freeFun;                /**< Mem free func */
+    hashFreeCB freeFun;                 /**< Mem free func */
     hlistNode node;                     /**< Hash list node */
 };
 
@@ -58,7 +58,7 @@ struct _hashTable {
 
 static inline BOOL
 hlistIsEmpty (const hlistHeadPtr head) {
-    if (!head->first)
+    if (head->first == NULL)
         return TRUE;
     else
         return FALSE;
@@ -95,7 +95,7 @@ hlistAddHead (hlistNodePtr node, hlistHeadPtr head) {
 static inline void
 hlistAddBefore (hlistNodePtr node, hlistNodePtr nnode) {
     node->pprev = nnode->pprev;
-    *(node->pprev) = node;
+    *node->pprev = node;
     node->next = nnode;
     nnode->pprev = &node->next;
 }
@@ -131,7 +131,7 @@ hlistMoveList (hlistHeadPtr old, hlistHeadPtr new) {
 }
 
 #define hlistEntry(ptr, type, member)           \
-    containerOfMember(ptr, type, member)
+    containerOfMember (ptr, type, member)
 #define hlistForEach(pos, head)                     \
     for (pos = (head)->first; pos; pos = pos->next)
 /*
@@ -148,29 +148,30 @@ hlistMoveList (hlistHeadPtr old, hlistHeadPtr new) {
          pos = pos->next)
 
 /* Iterate over list of given type safe against removal of list entry */
-#define hlistForEachEntrySafe(tpos, pos, n, head, member)               \
+#define hlistForEachEntrySafe(tpos, pos, tmp, head, member)               \
     for (tpos = NULL, pos = (head)->first;                              \
-         pos && ({n = pos->next; 1;}) && ({tpos = hlistEntry (pos, typeof (*tpos), member); 1;}); \
-         pos = n)
+         pos && ({tmp = pos->next; 1;}) && ({tpos = hlistEntry (pos, typeof (*tpos), member); 1;}); \
+         pos = tmp)
 
 #define hlistForEachEntryFrom(tpos, pos, member)                        \
-    for (; pos && ({tpos = hlistEntry (pos, typeof (*tpos), member); 1;}); \
+    for (;                                                              \
+         pos && ({tpos = hlistEntry (pos, typeof (*tpos), member); 1;}); \
          pos = pos->next)
 
-#define hlistForEachEntrySafeFrom(tpos, pos, n, member)                 \
-    for (; pos && ({n = pos->next; 1;}) &&                              \
-                 ({tpos = hlistEntry (pos, typeof (*tpos), member); 1;}); \
-         pos = n)
+#define hlistForEachEntryFromSafe(tpos, pos, tmp, member)               \
+    for (;                                                              \
+         pos && ({tmp = pos->next; 1;}) && ({tpos = hlistEntry (pos, typeof (*tpos), member); 1;}); \
+         pos = tmp)
 
 /*========================Interfaces definition============================*/
 hashTablePtr
 hashNew (u_int hashSize);
 void
-hashDestroy (hashTablePtr *htblPtr);
+hashDestroy (hashTablePtr htbl);
 int
-hashInsert (hashTablePtr htbl, const char *key, void *data, hashFreeFun fun);
+hashInsert (hashTablePtr htbl, const char *key, void *data, hashFreeCB fun);
 int
-hashUpdate (hashTablePtr htbl, const char *key, void *data, hashFreeFun fun);
+hashUpdate (hashTablePtr htbl, const char *key, void *data, hashFreeCB fun);
 int
 hashDel (hashTablePtr htbl, const char *key);
 void *
@@ -182,11 +183,11 @@ hashSize (hashTablePtr htbl);
 u_int
 hashLimit (hashTablePtr htbl);
 int
-hashForEachItemDo (hashTablePtr htbl, hashForEachItemDoFun fun, void *args);
+hashForEachItemDo (hashTablePtr htbl, hashForEachItemDoCB fun, void *args);
 void
-hashForEachItemRemoveWithCondition (hashTablePtr htbl, hashForEachItemRemoveWithConditionFun fun, void *args);
+hashForEachItemRemoveWithCondition (hashTablePtr htbl, hashForEachItemRemoveWithConditionCB fun, void *args);
 void *
-hashForEachItemCheck (hashTablePtr htbl, hashForEachItemCheckFun fun, void *args);
+hashForEachItemCheck (hashTablePtr htbl, hashForEachItemCheckCB fun, void *args);
 /*=======================Interfaces definition end=========================*/
 
 #endif /* __AGENT_HASH_H__ */

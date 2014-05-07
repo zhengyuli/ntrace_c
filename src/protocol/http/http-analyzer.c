@@ -10,7 +10,7 @@
 /* Current timestamp */
 static __thread timeValPtr currTime;
 /* Current session done indicator */
-static __thread u_int currSessionDone;
+static __thread BOOL currSessionDone;
 /* Current http header type */
 static __thread httpHeaderType currHeaderType;
 /* Current http session detail */
@@ -22,22 +22,18 @@ newHttpSessionDetailNode (void);
 static void
 freeHttpSessionDetailNode (httpSessionDetailNodePtr hsdn);
 
-static BOOL
+static inline BOOL
 httpHeaderEqualWithLen (const char *hdr1, const char *hdr2, size_t hdr2Len) {
     if (strlen (hdr1) != hdr2Len)
-        return 0;
-    else {
-        while (*hdr1) {
-            if (*hdr1 != *hdr2)
-                return FALSE;
-            hdr1++;
-            hdr2++;
-        }
+        return FALSE;
+
+    if (!strncmp(hdr1, hdr2, hdr2Len))
         return TRUE;
-    }
+    else
+        return FALSE;
 }
 
-/* Http_parser callback */
+/* =====================================Http_parser callback===================================== */
 /* Resquest callback */
 static int
 onReqMessageBegin (http_parser *parser) {
@@ -174,8 +170,7 @@ onReqHeadersComplete (http_parser *parser) {
         return 0;
 
     currNode->state = HTTP_REQUEST_HEADER_COMPLETE;
-    snprintf (verStr, sizeof (verStr) - 1, "HTTP/%d.%d",
-              parser->http_major, parser->http_minor);
+    snprintf (verStr, sizeof (verStr) - 1, "HTTP/%d.%d", parser->http_major, parser->http_minor);
     currNode->reqVer = strdup (verStr);
     if (currNode->reqVer == NULL)
         LOGE ("Get request protocol version error.\n");
@@ -301,8 +296,7 @@ onRespHeadersComplete (http_parser *parser) {
     if (currNode == NULL)
         return 0;
 
-    snprintf (verStr, sizeof (verStr) - 1, "HTTP/%d.%d",
-              parser->http_major, parser->http_minor);
+    snprintf (verStr, sizeof (verStr) - 1, "HTTP/%d.%d", parser->http_major, parser->http_minor);
     currNode->respVer = strdup (verStr);
     if (currNode->respVer == NULL)
         LOGE ("Get response protocol version error.\n");
@@ -337,11 +331,11 @@ onRespMessageComplete (http_parser *parser) {
 
     currNode->state = HTTP_RESPONSE_BODY_COMPLETE;
     currNode->respTimeEnd = timeVal2MilliSecond (currTime);
-    currSessionDone = 1;
+    currSessionDone = TRUE;
 
     return 0;
 }
-/* Http_parser callback end */
+/* =====================================Http_parser callback===================================== */
 
 static int
 initHttpProto (void) {
@@ -385,9 +379,9 @@ newHttpSessionDetailNode (void) {
         hsdn->respBodySize = 0;
         hsdn->respTimeEnd = 0;
         initListHead (&hsdn->node);
-        return hsdn;
-    } else
-        return NULL;
+    }
+
+    return hsdn;
 }
 
 static void
@@ -411,7 +405,6 @@ freeHttpSessionDetailNode (httpSessionDetailNodePtr hsdn) {
     free (hsdn->contentDisposition);
     free (hsdn->transferEncoding);
     free (hsdn->respConnection);
-
     free (hsdn);
 }
 
@@ -425,7 +418,7 @@ newHttpSessionDetail (void) {
 
     hsd = (httpSessionDetailPtr) malloc (sizeof (httpSessionDetail));
     if (hsd) {
-        /* Init http session detail */
+        /* Init http request parser */
         reqParser = &hsd->reqParser;
         reqParserSettings = &hsd->reqParserSettings;
         memset (reqParserSettings, 0, sizeof (*reqParserSettings));
@@ -437,7 +430,7 @@ newHttpSessionDetail (void) {
         reqParserSettings->on_body = onReqBody;
         reqParserSettings->on_message_complete = onReqMessageComplete;
         http_parser_init (reqParser, HTTP_REQUEST);
-
+        /* Init http response parser */
         resParser = &hsd->resParser;
         resParserSettings = &hsd->resParserSettings;
         memset (resParserSettings, 0, sizeof (*resParserSettings));
@@ -450,9 +443,9 @@ newHttpSessionDetail (void) {
         resParserSettings->on_message_complete = onRespMessageComplete;
         http_parser_init (resParser, HTTP_RESPONSE);
         initListHead (&hsd->head);
-        return hsd;
-    } else
-        return NULL;
+    }
+
+    return hsd;
 }
 
 static void
@@ -501,10 +494,9 @@ newHttpSessionBreakdown (void) {
         hsbd->respBodySize = 0;
         hsbd->respLatency = 0;
         hsbd->downloadLatency = 0;
+    }
 
-        return hsbd;
-    } else
-        return NULL;
+    return hsbd;
 }
 
 static void
@@ -530,11 +522,10 @@ freeHttpSessionBreakdown (void *sbd) {
     free (hsbd->contentDisposition);
     free (hsbd->transferEncoding);
     free (hsbd->respConnection);
-
     free (sbd);
 }
 
-static inline int
+static inline httpBreakdownState
 genHttpBreakdownState (u_short statusCode) {
     u_short st = statusCode / 100;
     if (st == 1 || st == 2 || st == 3)
@@ -876,12 +867,12 @@ httpSessionProcessUrgData (BOOL fromClient, char urgData, void *sd, timeValPtr t
     return;
 }
 
-static int
-httpSessionProcessData (BOOL fromClient, u_char *data, u_int dataLen, void *sd, timeValPtr tm, u_int *sessionDone) {
+static u_int
+httpSessionProcessData (BOOL fromClient, u_char *data, u_int dataLen, void *sd, timeValPtr tm, BOOL *sessionDone) {
     u_int parseCount;
 
     currTime = tm;
-    currSessionDone = 0;
+    currSessionDone = FALSE;
     currHeaderType = HTTP_HEADER_IGNORE;
     currSessionDetail = (httpSessionDetailPtr) sd;
 
@@ -929,7 +920,7 @@ httpSessionProcessReset (BOOL fromClient, void *sd, timeValPtr tm) {
 }
 
 static void
-httpSessionProcessFin (BOOL fromClient, void *sd, timeValPtr tm, u_int *sessionDone) {
+httpSessionProcessFin (BOOL fromClient, void *sd, timeValPtr tm, BOOL *sessionDone) {
     httpSessionDetailNodePtr currNode;
     httpSessionDetailPtr hsd = (httpSessionDetailPtr) sd;
 
@@ -941,7 +932,7 @@ httpSessionProcessFin (BOOL fromClient, void *sd, timeValPtr tm, u_int *sessionD
         if (currNode->state == HTTP_RESPONSE_BODY_BEGIN) {
             currNode->state = HTTP_RESPONSE_BODY_COMPLETE;
             currNode->respTimeEnd = timeVal2MilliSecond (tm);
-            *sessionDone = 1;
+            *sessionDone = TRUE;
         }
     }
 }

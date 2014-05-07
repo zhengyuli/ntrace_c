@@ -10,8 +10,10 @@
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
 #include <jansson.h>
-#include "checksum.h"
+#include "config.h"
 #include "util.h"
+#include "atomic.h"
+#include "checksum.h"
 #include "list.h"
 #include "hash.h"
 #include "log.h"
@@ -20,8 +22,6 @@
 #include "protocol.h"
 #include "tcp-options.h"
 #include "tcp-packet.h"
-#include "atomic.h"
-#include "config.h"
 
 /* Default tcp stream closing timeout 30 seconds */
 #define DEFAULT_TCP_STREAM_CLOSING_TIMEOUT 30
@@ -175,8 +175,8 @@ delTcpStreamFromHash (tcpStreamPtr stream) {
         LOGE ("Delete stream from hash map error.\n");
     else {
 #ifndef NDEBUG
-        LOGD ("tcpStreamsAlloc: %u<------->tcpStreamsFree: %u\n", ATOMIC_ADD_AND_FETCH (&tcpStreamsAlloc, 0),
-              ATOMIC_INC (&tcpStreamsFree));
+        LOGD ("tcpStreamsAlloc: %u<------->tcpStreamsFree: %u\n",
+              ATOMIC_ADD_AND_FETCH (&tcpStreamsAlloc, 0), ATOMIC_INC (&tcpStreamsFree));
 #endif
     }
 }
@@ -677,11 +677,11 @@ handleUrgData (tcpStreamPtr stream, halfStreamPtr snd, u_char urgData, timeValPt
 }
 
 /* Tcp data handler callback */
-static int
+static u_int
 handleData (tcpStreamPtr stream, halfStreamPtr snd, u_char *data, u_int dataLen, timeValPtr tm) {
     BOOL fromClient;
     u_int parseCount;
-    u_int sessionDone = 0;
+    BOOL sessionDone = FALSE;
 
     if (snd == &stream->client)
         fromClient = TRUE;
@@ -727,7 +727,7 @@ handleReset (tcpStreamPtr stream, halfStreamPtr snd, timeValPtr tm) {
 static void
 handleFin (tcpStreamPtr stream, halfStreamPtr snd, timeValPtr tm) {
     BOOL fromClient;
-    u_int sessionDone = 0;
+    BOOL sessionDone = FALSE;
 
     if (snd == &stream->client)
         fromClient = TRUE;
@@ -763,7 +763,7 @@ static void
 add2buf (halfStreamPtr rcv, u_char *data, u_int dataLen) {
     u_int toAlloc;
 
-    if (rcv->count - rcv->offset + dataLen > rcv->bufSize) {
+    if ((rcv->count - rcv->offset + dataLen) > rcv->bufSize) {
         if (rcv->rcvBuf == NULL) {
             if (dataLen < 2048)
                 toAlloc = 4096;
@@ -966,10 +966,10 @@ tcpProcess (u_char *data, u_int skbLen, timeValPtr tm) {
     u_int tcpLen;
 #endif
     u_int tcpDataLen;
-    BOOL fromClient;
     u_int tmpTs;
     tcpStreamPtr stream;
     halfStreamPtr snd, rcv;
+    BOOL fromClient;
     struct ip *iph;
     struct tcphdr *tcph;
 
@@ -1004,7 +1004,7 @@ tcpProcess (u_char *data, u_int skbLen, timeValPtr tm) {
 
 #if DO_STRICT_CHECKSUM
     /* Tcp checksum validation */
-    if (tcpFastCheckSum (tcph, tcpLen, iph->ip_src.s_addr, iph->ip_dst.s_addr) != 0) {
+    if (tcpFastCheckSum ((u_char *) tcph, tcpLen, iph->ip_src.s_addr, iph->ip_dst.s_addr) != 0) {
         LOGE ("Tcp fast checksum error.\n");
         return;
     }

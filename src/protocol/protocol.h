@@ -2,6 +2,7 @@
 #define __AGENT_PROTOCOL_H__
 
 #include <jansson.h>
+#include "util.h"
 
 #define MAX_PROTO_NAME_LEN 32
 
@@ -24,9 +25,9 @@ typedef int (*generateSessionBreakdownCB) (void *sd, void *sbd);
 typedef void (*sessionBreakdown2JsonCB) (json_t *root, void *sd, void *sbd);
 typedef void (*sessionProcessEstbCB) (void *sd, timeValPtr tm);
 typedef void (*sessionProcessUrgeDataCB) (BOOL fromClient, char urgData, void *sd, timeValPtr tm);
-typedef int (*sessionProcessDataCB) (BOOL fromClient, u_char *data, u_int dataLen, void *sd, timeValPtr tm, u_int *sessionDone);
+typedef u_int (*sessionProcessDataCB) (BOOL fromClient, u_char *data, u_int dataLen, void *sd, timeValPtr tm, BOOL *sessionDone);
 typedef void (*sessionProcessResetCB) (BOOL fromClient, void *sd, timeValPtr tm);
-typedef void (*sessionProcessFinCB) (BOOL fromClient, void *sd, timeValPtr tm, u_int *sessionDone);
+typedef void (*sessionProcessFinCB) (BOOL fromClient, void *sd, timeValPtr tm, BOOL *sessionDone);
 
 typedef struct _protoParser protoParser;
 typedef protoParser *protoParserPtr;

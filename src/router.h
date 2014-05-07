@@ -13,11 +13,11 @@ struct _routerSock {
     void *tbdSndSock;
 };
 
-typedef void * (*packetProcessThread) (void *args);
+typedef void * (*packetProcessWorker) (void *args);
 
 /*========================Interfaces definition============================*/
 int
-initRouter (zctx_t *context, u_int workers, packetProcessThread fun, const char *tbdSinkAddress);
+initRouter (zctx_t *context, u_int workers, packetProcessWorker fun, const char *tbdSinkAddress);
 void
 destroyRouter (void);
 void

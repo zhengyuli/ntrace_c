@@ -4,8 +4,8 @@
 #include <string.h>
 #include <stdlib.h>
 
-#define u_long_long unsigned long long
-#define long_long long long
+typedef long long int long_long;
+typedef unsigned long long int u_long_long;
 
 typedef enum {
     FALSE = 0,
@@ -22,7 +22,7 @@ struct _timeVal {
 
 #define TABLE_SIZE(x) (sizeof (x) / sizeof ((x) [0]))
 
-#define STRPREFIX(s1, s2) (strncmp (s1, s2, strlen (s2)) == 0)
+#define STRPREFIX(s1, s2) (!strncmp (s1, s2, strlen (s2)))
 
 #define MAX_NUM(n1, n2) ((n1) > (n2) ? (n1) : (n2))
 #define MIN_NUM(n1, n2) ((n1) > (n2) ? (n2) : (n1))

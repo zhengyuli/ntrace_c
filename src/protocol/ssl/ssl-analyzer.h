@@ -1,5 +1,5 @@
-#ifndef __AGENT_SSL_PACKET_H__
-#define __AGENT_SSL_PACKET_H__
+#ifndef __AGENT_SSL_ANALYZER_H__
+#define __AGENT_SSL_ANALYZER_H__
 
 #include <openssl/evp.h>
 #include "util.h"
@@ -113,4 +113,4 @@ struct _sslObject {
 #define SSLV3_VERSION 0x300
 #define TLSV1_VERSION 0x301
 
-#endif /* __AGENT_SSL_PACKET_H__ */
+#endif /* __AGENT_SSL_ANALYZER_H__ */

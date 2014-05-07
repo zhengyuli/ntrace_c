@@ -89,8 +89,8 @@ defaultSessionProcessUrgData (BOOL fromClient, char urgData, void *sd, timeValPt
     return;
 }
 
-static int
-defaultSessionProcessData (BOOL fromClient, u_char *data, u_int dataLen, void *sd, timeValPtr tm, u_int *sessionDone) {
+static u_int
+defaultSessionProcessData (BOOL fromClient, u_char *data, u_int dataLen, void *sd, timeValPtr tm, BOOL *sessionDone) {
     defaultSessionDetailPtr dsd = (defaultSessionDetailPtr) sd;
 
     dsd->exchangeSize += dataLen;
@@ -105,14 +105,14 @@ defaultSessionProcessReset (BOOL fromClient, void *sd, timeValPtr tm) {
 }
 
 static void
-defaultSessionProcessFin (BOOL fromClient, void *sd, timeValPtr tm, u_int *sessionDone) {
+defaultSessionProcessFin (BOOL fromClient, void *sd, timeValPtr tm, BOOL *sessionDone) {
     defaultSessionDetailPtr dsd = (defaultSessionDetailPtr) sd;
 
     if (dsd->serverTimeEnd == 0)
         dsd->serverTimeEnd = timeVal2MilliSecond (tm);
     else {
         dsd->serverTimeEnd = timeVal2MilliSecond (tm);
-        *sessionDone = 1;
+        *sessionDone = TRUE;
     }
 }
 

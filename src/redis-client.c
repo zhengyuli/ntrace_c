@@ -4,13 +4,11 @@
 #include <pthread.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <netinet/ip.h>
-#include <netinet/tcp.h>
 #include <hiredis/hiredis.h>
 #include <jansson.h>
 #include "atomic.h"
-#include "hash.h"
 #include "util.h"
+#include "hash.h"
 #include "log.h"
 #include "service.h"
 #include "redis-client.h"
@@ -31,8 +29,7 @@ initServiceFromRedis (void) {
     redisReply *reply;
     servicePtr svc;
 
-    if (rdsContext == NULL || rdsContext->ctxt == NULL ||
-        rdsContext->agentId < 0 )
+    if ((rdsContext == NULL) || (rdsContext->ctxt == NULL))
         return -1;
 
     reply = (redisReply *) redisCommand (rdsContext->ctxt,
@@ -74,7 +71,7 @@ void
 serviceUpdateSub (svcUpdateCallback callbackFun) {
     redisReply *reply;
     char *key, *value;
-    u_int updateType;
+    svcUpdateType updateType;
     servicePtr svc;
 
     reply = (redisReply *) redisCommand (rdsContext->ctxt,
@@ -117,21 +114,21 @@ serviceUpdateSub (svcUpdateCallback callbackFun) {
  */
 void
 pushSessionBreakdown (const char *sessionBreakdownJson) {
-    u_int retryCount = 0;
+    BOOL retried = FALSE;
     redisReply *reply;
 
 retry:
     reply = (redisReply *) redisCommand (rdsContext->ctxt, "RPUSH wdm:list_session_breakdown:agent_%d %s",
                                          rdsContext->agentId, sessionBreakdownJson);
     if (reply == NULL) {
-        if ((rdsContext->ctxt->err == REDIS_ERR_EOF) && (retryCount == 0)) {
+        if ((rdsContext->ctxt->err == REDIS_ERR_EOF) && !retried) {
             LOGD ("Redis server closed the connection, reconnect again.\n");
             /* Free old redis context */
             redisFree (rdsContext->ctxt);
             rdsContext->ctxt = NULL;
             if (connectRedisServer () < 0)
                 return;
-            retryCount++;
+            retried = TRUE;
             goto retry;
         }
         else
@@ -150,7 +147,7 @@ retry:
  */
 void
 pubPcapStat (const char *pstatJson) {
-    u_int retryCount = 0;
+    BOOL retried = FALSE;
     redisReply *reply;
 
 retry:
@@ -158,14 +155,14 @@ retry:
                                          "SET wdm:pcap_stat:agent_%d %s",
                                          rdsContext->agentId, pstatJson);
     if (reply == NULL) {
-        if ((rdsContext->ctxt->err == REDIS_ERR_EOF) && (retryCount == 0)) {
+        if ((rdsContext->ctxt->err == REDIS_ERR_EOF) && !retried) {
             LOGD ("Redis server closed the connection, reconnect again.\n");
             /* Free old redis context */
             redisFree (rdsContext->ctxt);
             rdsContext->ctxt = NULL;
             if (connectRedisServer () < 0)
                 return;
-            retryCount++;
+            retried = TRUE;
             goto retry;
         } else
             LOGE ("Redis error: %s\n", rdsContext->ctxt->errstr);
@@ -194,9 +191,8 @@ connectRedisServer (void) {
     /* Redis connect timeout */
     struct timeval timeout = {2, 0};
 
-    rdsContext->ctxt = redisConnectWithTimeout (rdsContext->redisIp,
-                                                rdsContext->redisPort, timeout);
-    if (rdsContext->ctxt == NULL || (rdsContext->ctxt)->err) {
+    rdsContext->ctxt = redisConnectWithTimeout (rdsContext->redisIp, rdsContext->redisPort, timeout);
+    if ((rdsContext->ctxt == NULL) || (rdsContext->ctxt)->err) {
         if ((rdsContext->ctxt)->err)
             LOGE ("Connect redis server error: %s.\n", (rdsContext->ctxt)->errstr);
         return -1;
@@ -206,8 +202,8 @@ connectRedisServer (void) {
 }
 
 /* Check agent id is valid or not */
-static int
-checkAgentID (void) {
+static BOOL
+agentIDIsValid (void) {
     u_int index;
     redisReply *reply;
     json_error_t error;
@@ -215,8 +211,8 @@ checkAgentID (void) {
 
     reply = (redisReply *) redisCommand (rdsContext->ctxt, "HGETALL wdm:agent_map");
     if (reply == NULL) {
-        LOGE ("Redis error: %s\n", rdsContext->ctxt->errstr);
-        return -1;
+        LOGE ("Redis error: %s\n", (rdsContext->ctxt)->errstr);
+        return FALSE;
     }
 
     if (reply->type == REDIS_REPLY_ARRAY) {
@@ -229,12 +225,12 @@ checkAgentID (void) {
             tmp = json_object_get (root, "agent_id");
             if (tmp) {
                 if (rdsContext->agentId == json_integer_value (tmp))
-                    return 0;
+                    return TRUE;
             }
         }
-        return -1;
+        return FALSE;
     } else
-        return -1;
+        return FALSE;
 }
 
 /*
@@ -279,8 +275,7 @@ initRedisContext (u_int agentId, const char *redisIp, u_short redisPort) {
         return -1;
     }
 
-    ret = checkAgentID ();
-    if (ret < 0) {
+    if (!agentIDIsValid ()) {
         LOGE ("Agent %d has not been registered.\n", rdsContext->agentId);
         free (rdsContext->redisIp);
         rdsContext->redisIp = NULL;
@@ -298,7 +293,9 @@ initRedisContext (u_int agentId, const char *redisIp, u_short redisPort) {
 void
 destroyRedisContext (void) {
     free (rdsContext->redisIp);
+    rdsContext->redisIp = NULL;
     redisFree (rdsContext->ctxt);
+    rdsContext->ctxt = NULL;
     free (rdsContext);
     rdsContext = NULL;
 }

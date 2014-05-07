@@ -56,10 +56,10 @@ typedef struct _tuple4 tuple4;
 typedef tuple4 *tuple4Ptr;
 
 struct _tuple4 {
-    struct in_addr saddr;               /**< source ip */
-    u_short source;                     /**< source tcp port */
-    struct in_addr daddr;               /**< dest ip */
-    u_short dest;                       /**< dest tcp port */
+    struct in_addr saddr;               /**< Source ip */
+    u_short source;                     /**< Source tcp port */
+    struct in_addr daddr;               /**< Dest ip */
+    u_short dest;                       /**< Dest tcp port */
 };
 
 /* Tcp stream state */
@@ -114,7 +114,7 @@ typedef tcpTimeout *tcpTimeoutPtr;
 /* Tcp closing timeout */
 struct _tcpTimeout {
     tcpStreamPtr stream;                /**< Tcp stream to close */
-    u_long_long timeout;                /**< Tcp stream close timeout */
+    u_long_long timeout;                /**< Tcp stream timeout to close */
     listHead node;                      /**< Tcp stream timeout list node */
 };
 

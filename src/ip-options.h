@@ -11,14 +11,14 @@ struct ip_options {
     u_char srr;
     u_char rr;
     u_char ts;
-    u_char isSetbyuser:1,               /**< Set by setsockopt?                   */
-           isData:1,                    /**< Options in __data, rather than skb   */
-           isStrictroute:1,             /**< Strict source route                  */
-           srrIsHit:1,                  /**< Packet destination addr was our one  */
-           isChanged:1,                 /**< IP checksum more not valid           */
-           rrNeedaddr:1,                /**< Need to record addr of outgoing dev  */
-           tsNeedtime:1,                /**< Need to record timestamp             */
-           tsNeedaddr:1;                /**< Need to record addr of outgoing dev  */
+    u_char isSetbyuser:1,               /**< Set by setsockopt? */
+           isData:1,                    /**< Options in __data, rather than skb */
+           isStrictroute:1,             /**< Strict source route */
+           srrIsHit:1,                  /**< Packet destination addr was our one */
+           isChanged:1,                 /**< IP checksum more not valid */
+           rrNeedaddr:1,                /**< Need to record addr of outgoing dev */
+           tsNeedtime:1,                /**< Need to record timestamp */
+           tsNeedaddr:1;                /**< Need to record addr of outgoing dev */
     u_char routerAlert;
     u_char __pad1;
     u_char __pad2;

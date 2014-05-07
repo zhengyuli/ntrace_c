@@ -3,8 +3,8 @@
 #include <stdlib.h>
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
-#include "log.h"
 #include "util.h"
+#include "log.h"
 #include "router.h"
 
 #define DEFAULT_ROUTER_WORKERS 5
@@ -74,7 +74,7 @@ routerDispatch (struct ip *iphdr, timeValPtr tm) {
 
     ipTotalLen = ntohs (iph->ip_len);
 
-    switch (iphdr->ip_p) {
+    switch (iph->ip_p) {
         case IPPROTO_TCP:
             tcph = (struct tcphdr *) ((u_char *) iph + (iph->ip_hl * 4));
             snprintf (key1, sizeof (key1) - 1, "%s:%d", inet_ntoa (iph->ip_src), ntohs (tcph->source));
@@ -130,7 +130,7 @@ routerDispatch (struct ip *iphdr, timeValPtr tm) {
  * @return 0 if success else -1
  */
 int
-initRouter (zctx_t *zmqCtx, u_int workers, packetProcessThread worker, const char *tbdSinkAddress) {
+initRouter (zctx_t *zmqCtx, u_int workers, packetProcessWorker worker, const char *tbdSinkAddress) {
     int ret;
     u_int i, n;
 
@@ -139,7 +139,6 @@ initRouter (zctx_t *zmqCtx, u_int workers, packetProcessThread worker, const cha
         LOGE ("Alloc session router error: %s\n.", strerror (errno));
         goto exit;
     }
-    memset(dispatchRouter, 0, sizeof (router));
 
     if (workers == 0)
         dispatchRouter->workers = DEFAULT_ROUTER_WORKERS;

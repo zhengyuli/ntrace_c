@@ -97,7 +97,7 @@ struct _httpSessionDetail {
 };
 
 typedef enum {
-    HTTP_BREAKDOWN_OK,                  /**< Http request ok */
+    HTTP_BREAKDOWN_OK = 0,              /**< Http request ok */
     HTTP_BREAKDOWN_ERROR,               /**< Http request error */
     HTTP_BREAKDOWN_RESET_TYPE1,         /**< Http reset during request */
     HTTP_BREAKDOWN_RESET_TYPE2,         /**< Http reset after request and before response */

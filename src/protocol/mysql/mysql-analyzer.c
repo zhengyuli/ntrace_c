@@ -14,7 +14,7 @@
 /* Current timestamp */
 static __thread timeValPtr currTime;
 /* Current session done indicator */
-static __thread u_int currSessionDone;
+static __thread BOOL currSessionDone;
 /* Current mysql session detail */
 static __thread mysqlSessionDetailPtr currSessionDetail;
 
@@ -73,9 +73,9 @@ pktServerHandshake (mysqlParserStatePtr parser, u_char *payload, u_int payloadLe
     pkt += strlen ((const char *) pkt) + 1;
     srvVer = (parser->serverVer [0] - '0') * 10 + (parser->serverVer [2] - '0');
     if (srvVer >= 41)
-        parser->cliProtoV41 = 1;
+        parser->cliProtoV41 = TRUE;
     else
-        parser->cliProtoV41 = 0;
+        parser->cliProtoV41 = FALSE;
     /* Connection id */
     parser->conId = G4 (pkt);
     pkt += 4;
@@ -559,7 +559,7 @@ pktOkOrError (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOO
         if (currSessionDetail->reqStmt) {
             currSessionDetail->state = MYSQL_RESPONSE_OK;
             currSessionDetail->respTimeEnd = timeVal2MilliSecond (currTime);
-            currSessionDone = 1;
+            currSessionDone = TRUE;
         } else {
             resetMysqlSessionDetail (currSessionDetail);
             LOGD ("Cli<------Server: OK packet.\n");
@@ -601,7 +601,7 @@ pktOkOrError (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOO
             if (*sqlState)
                 currSessionDetail->sqlState = atoi (sqlState);
             currSessionDetail->errMsg = strdup (errMsg);
-            currSessionDone = 1;
+            currSessionDone = TRUE;
         } else {
             resetMysqlSessionDetail (currSessionDetail);
             LOGD ("Cli<------Server: ERROR packet, error code: %d, error msg: %s.\n", errCode, errMsg);
@@ -642,7 +642,7 @@ pktEnd (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOOL from
         (parser->state == STATE_BIN_ROW)) {
         currSessionDetail->state = MYSQL_RESPONSE_OK;
         currSessionDetail->respTimeEnd = timeVal2MilliSecond (currTime);
-        currSessionDone = 1;
+        currSessionDone = TRUE;
     }
 
     if ((parser->state == STATE_SECURE_AUTH) && fromClient)
@@ -656,7 +656,7 @@ pktStatistics (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BO
     if (payloadLen > 1) {
         currSessionDetail->respTimeEnd = timeVal2MilliSecond (currTime);
         currSessionDetail->state = MYSQL_RESPONSE_OK;
-        currSessionDone = 1;
+        currSessionDone = TRUE;
 
         return PKT_HANDLED;
     } else
@@ -727,7 +727,7 @@ pktStmtFetchRS (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, B
 
 /* =================================Response================================== */
 
-static int
+static u_int
 sqlParse (mysqlParserStatePtr parser, u_char *data, u_int dataLen, BOOL fromClient) {
     u_int parseCount = 0;
     u_int parseLeft = dataLen;
@@ -777,7 +777,7 @@ sqlParse (mysqlParserStatePtr parser, u_char *data, u_int dataLen, BOOL fromClie
     return parseCount;
 }
 
-static int
+static u_int
 mysqlParserExecute (mysqlParserStatePtr parser, u_char *data, u_int dataLen, BOOL fromClient) {
     u_int parseCount = 0;
     u_int parseLeft = dataLen;
@@ -1180,7 +1180,7 @@ initMysqlParser (mysqlParserStatePtr parser) {
     parser->protoVer = 0;
     parser->serverVer = NULL;
     parser->cliCaps = 0;
-    parser->cliProtoV41 = 0;
+    parser->cliProtoV41 = FALSE;
     parser->conId = 0;
     parser->maxPktSize = 0;
     parser->doCompress = FALSE;
@@ -1303,7 +1303,6 @@ freeMysqlSessionBreakdown (void *sbd) {
 
 static int
 generateMysqlSessionBreakdown (void *sd, void *sbd) {
-    int ret = 0;
     mysqlSessionDetailPtr msd = (mysqlSessionDetailPtr) sd;
     mysqlSessionBreakdownPtr msbd = (mysqlSessionBreakdownPtr) sbd;
     mysqlParserStatePtr parser = &msd->parser;
@@ -1312,26 +1311,26 @@ generateMysqlSessionBreakdown (void *sd, void *sbd) {
         msbd->serverVer = strdup (parser->serverVer);
         if (msbd->serverVer == NULL) {
             LOGE ("Strdup mysql server version error: %s.\n", strerror (errno));
-            ret = -1;
-            goto exit;
+            resetMysqlSessionDetail (msd);
+            return -1;
         }
     } else {
         LOGE ("Mysql server version is NULL.\n");
-        ret = -1;
-        goto exit;
+        resetMysqlSessionDetail (msd);
+        return -1;
     }
 
     if (parser->userName) {
         msbd->userName = strdup (parser->userName);
         if (msbd->userName == NULL) {
             LOGE ("Strdup mysql userName error: %s.\n", strerror (errno));
-            ret = -1;
-            goto exit;
+            resetMysqlSessionDetail (msd);
+            return -1;
         }
     } else {
         LOGE ("Mysql user name is NULL.\n");
-        ret = -1;
-        goto exit;
+        resetMysqlSessionDetail (msd);
+        return -1;
     }
 
     msbd->conId = parser->conId;
@@ -1341,8 +1340,8 @@ generateMysqlSessionBreakdown (void *sd, void *sbd) {
         msbd->reqStmt = strdup (msd->reqStmt);
         if (msbd->reqStmt == NULL) {
             LOGE ("Strdup mysql request error: %s.\n", strerror (errno));
-            ret = -1;
-            goto exit;
+            resetMysqlSessionDetail (msd);
+            return -1;
         }
     }
 
@@ -1362,13 +1361,13 @@ generateMysqlSessionBreakdown (void *sd, void *sbd) {
                     msbd->errMsg = strdup (msd->errMsg);
                     if (msbd->errMsg == NULL) {
                         LOGE ("Strdup mysql error message error: %s.\n", strerror (errno));
-                        ret = -1;
-                        goto exit;
+                        resetMysqlSessionDetail (msd);
+                        return -1;
                     }
                 } else {
                     LOGE ("Mysql errMsg is NULL.\n");
-                    ret = -1;
-                    goto exit;
+                    resetMysqlSessionDetail (msd);
+                    return -1;
                 }
             }
             msbd->reqSize = msd->reqSize;
@@ -1416,14 +1415,12 @@ generateMysqlSessionBreakdown (void *sd, void *sbd) {
 
         default:
             LOGE ("Wrong mysql state for breakdown.\n");
-            ret = -1;
-            goto exit;
+            resetMysqlSessionDetail (msd);
+            return -1;
     }
 
-exit:
-    /* Reset mysqlSessionDetail for next request */
     resetMysqlSessionDetail (msd);
-    return ret;
+    return 0;
 }
 
 static void
@@ -1472,12 +1469,12 @@ mysqlSessionProcessUrgData (BOOL fromClient, char urgData, void *sd, timeValPtr 
     return;
 }
 
-static int
-mysqlSessionProcessData (BOOL fromClient, u_char *data, u_int dataLen, void *sd, timeValPtr tm, u_int *sessionDone) {
+static u_int
+mysqlSessionProcessData (BOOL fromClient, u_char *data, u_int dataLen, void *sd, timeValPtr tm, BOOL *sessionDone) {
     u_int parseCount;
 
     currTime = tm;
-    currSessionDone = 0;
+    currSessionDone = FALSE;
     currSessionDetail = (mysqlSessionDetailPtr) sd;
 
     parseCount = mysqlParserExecute (&currSessionDetail->parser, data, dataLen, fromClient);
@@ -1503,7 +1500,7 @@ mysqlSessionProcessReset (BOOL fromClient, void *sd, timeValPtr tm) {
 }
 
 static void
-mysqlSessionProcessFin (BOOL fromClient, void *sd, timeValPtr tm, u_int *sessionDone) {
+mysqlSessionProcessFin (BOOL fromClient, void *sd, timeValPtr tm, BOOL *sessionDone) {
     return;
 }
 

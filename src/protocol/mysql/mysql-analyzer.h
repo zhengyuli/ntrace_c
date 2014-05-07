@@ -205,7 +205,8 @@ typedef mysqlCompHeader *mysqlCompHeaderPtr;
 
 /* Compressed mysql header */
 struct _mysqlCompHeader {
-    u_int compPayloadLen:24, compPktId:8;
+    u_int compPayloadLen:24;
+    u_int compPktId:8;
     u_int payloadLen:24;
 };
 
@@ -219,15 +220,15 @@ struct _mysqlParserState {
     u_int protoVer;                     /**< Mysql protocol version */
     char *serverVer;                    /**< Mysql server version */
     u_int cliCaps;                      /**< Mysql client capability flags */
-    u_char cliProtoV41;                 /**< Mysql client protocol V41 flag */
+    BOOL cliProtoV41;                   /**< Mysql client protocol V41 flag */
     u_int conId;                        /**< Mysql connection id */
     u_int maxPktSize;                   /**< Mysq max packet size support */
     BOOL doCompress;                    /**< Mysql client do compression flag */
     BOOL doSSL;                         /**< Mysql client authentication with SSL flag */
     char *userName;                     /**< Mysql user name to access */
     u_int seqId;                        /**< Mysql sequence id */
-    u_int state;                        /**< Mysql session state */
-    u_int event;                        /**< Mysql session event */
+    mysqlState state;                   /**< Mysql session state */
+    mysqlEvent event;                   /**< Mysql session event */
 };
 
 typedef int (*mysqlHandler) (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOOL fromClient);

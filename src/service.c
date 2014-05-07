@@ -7,8 +7,8 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 #include <jansson.h>
-#include "log.h"
 #include "util.h"
+#include "log.h"
 #include "service.h"
 
 #define SVC_MAP_INIT_SIZE 133
@@ -44,6 +44,7 @@ newService (void) {
     return svc;
 }
 
+/* Service free callback */
 static void
 freeService (void *data) {
     servicePtr svc;
@@ -405,7 +406,7 @@ json2Service (const char *jsonData) {
         free (svc);
         return NULL;
     }
-    svc->id = json_integer_value (tmp);
+    svc->id = (u_int) json_integer_value (tmp);
 
     /* Get service proto */
     tmp = json_object_get (root, "service_proto");
@@ -454,7 +455,7 @@ json2Service (const char *jsonData) {
         free (svc);
         return NULL;
     }
-    svc->port = json_integer_value (tmp);
+    svc->port = (u_short) json_integer_value (tmp);
 
     json_object_clear (root);
     return svc;

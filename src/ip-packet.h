@@ -19,8 +19,8 @@ struct _ipFrag {
     u_short offset;                     /**< Offset of ip fragment data */
     u_short end;                        /**< End of ip fragment data */
     u_short len;                        /**< Length of ip fragment data */
-    u_char *data;                       /**< Point to ip fragment data */
-    u_char *ipFrag;                     /**< Ip fragment */
+    u_char *dataPtr;                    /**< Point to ip fragment data */
+    u_char *skbuf;                      /**< Ip fragment */
     listHead node;                      /**< Ipqueue list node */
 };
 

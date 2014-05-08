@@ -628,7 +628,7 @@ publishTcpBreakdown (tcpStreamPtr stream, timeValPtr tm) {
  * @param tm timestamp for current packet
  */
 static void
-checkTcpStreamClosingTimeout (timeValPtr tm) {
+checkTcpStreamClosingTimeoutList (timeValPtr tm) {
     tcpStreamTimeoutPtr pos, tmp;
 
     listForEachEntrySafe (pos, tmp, &tcpStreamTimoutList, node) {
@@ -980,7 +980,7 @@ tcpProcess (u_char *data, u_int skbLen, timeValPtr tm) {
     tm->tvUsec = ntohll (tm->tvUsec);
 
     /* Tcp stream closing timout check */
-    checkTcpStreamClosingTimeout (tm);
+    checkTcpStreamClosingTimeoutList (tm);
     /* Ip packet Check */
     if ((u_int) ipLen < (iph->ip_hl * 4 + sizeof (struct tcphdr))) {
         LOGE ("Invalid tcp packet.\n");

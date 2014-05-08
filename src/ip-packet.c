@@ -24,7 +24,7 @@
 /* Ip queue hash key format string */
 #define IP_QUEUE_HASH_KEY_FORMAT "%s:%s:%u"
 
-/* Ip fragment queue expire timeout list */
+/* Ip queue expire timeout list */
 static LIST_HEAD (ipQueueExpireTimeoutList);
 /* Ip host fragment hash table */
 static hashTablePtr ipQueueHashTable = NULL;
@@ -35,7 +35,7 @@ addIpQueueToExpireTimeoutList (ipQueuePtr ipq, timeValPtr tm) {
 
     new = (ipQueueTimeoutPtr) malloc (sizeof (ipQueueTimeout));
     if (new == NULL) {
-        LOGE ("Alloc ip fragment queue timeout error: %s.\n", strerror (errno));
+        LOGE ("Alloc ip queue expire timeout error: %s.\n", strerror (errno));
         return;
     }
 
@@ -78,7 +78,7 @@ addIpQueueToHash (ipQueuePtr ipq, hashFreeCB freeFun) {
               inet_ntoa (ipq->sourcIp), inet_ntoa (ipq->destIp), ipq->id);
     ret = hashInsert (ipQueueHashTable, key, ipq, freeFun);
     if (ret < 0) {
-        LOGE ("Insert ip fragment queue to hash table error.\n");
+        LOGE ("Insert ip queue to hash table error.\n");
         return -1;
     } else
         return 0;
@@ -93,7 +93,7 @@ delIpQueueFromHash (ipQueuePtr ipq) {
               inet_ntoa (ipq->sourcIp), inet_ntoa (ipq->destIp), ipq->id);
     ret = hashDel (ipQueueHashTable, key);
     if (ret < 0)
-        LOGE ("Delete ip fragment queue from hash table error.\n");
+        LOGE ("Delete ip queue from hash table error.\n");
 }
 
 static ipQueuePtr
@@ -106,19 +106,27 @@ findIpQueue (struct ip *iph) {
 }
 
 static ipQueuePtr
-newIpQueue (void) {
+createIpQueue (struct ip * iph) {
     ipQueuePtr ipq;
+    u_short iphLen;
 
     ipq = (ipQueuePtr) malloc (sizeof (ipQueue));
     if (ipq) {
-        ipq->sourcIp.s_addr = 0;
-        ipq->destIp.s_addr = 0;
-        ipq->id = 0;
-        ipq->iph = NULL;
-        ipq->iphLen = 0;
+        ipq->sourcIp = iph->ip_src;
+        ipq->destIp = iph->ip_dst;
+        ipq->id = ntohs (iph->ip_id);
+        ipq->iph = (struct ip *) malloc (64 + 8);
+        if (ipq->iph == NULL) {
+            LOGE ("Alloc ip header buffer error: %s\n", strerror (errno));
+            free (ipq);
+            return NULL;
+        }
+        ipq->iphLen = iph->ip_hl * 4;
+        memcpy (ipq->iph, iph, iphLen);
         ipq->dataLen = 0;
         initListHead (&ipq->fragments);
-    }
+    } else
+        LOGE ("Alloc ip queue");
 
     return ipq;
 }
@@ -131,7 +139,7 @@ freeIpQueue (void *data) {
     delIpQueueFromExpireTimeoutList (ipq);
     listForEachEntrySafe (pos, tmp, &ipq->fragments, node) {
         listDel (pos->node);
-        free (pos->ipFrag);
+        free (pos->skbuf);
         free (pos);
     }
     free (ipq->iph);
@@ -139,7 +147,7 @@ freeIpQueue (void *data) {
 }
 
 static void
-checkIpQueueExpireTimeout (timeValPtr tm) {
+checkIpQueueExpireTimeoutList (timeValPtr tm) {
     ipFragTimeoutQueuePtr pos, tmp;
 
     listForEachEntrySafe (pos, tmp, &ipQueueExpireTimeoutList, node) {
@@ -167,12 +175,11 @@ ipQueueDone (ipQueuePtr ipq) {
     return TRUE;
 }
 
-static u_char *
+static struct ip *
 ipQueueGlue (ipQueuePtr ipq) {
     u_int ipLen;
-    u_int count;
+    u_char *buf;
     struct ip *iph;
-    u_char *ptr;
     ipFragPtr pos, tmp;
 
     ipLen = ipq->iphLen + ipq->dataLen;
@@ -181,29 +188,123 @@ ipQueueGlue (ipQueuePtr ipq) {
         return NULL;
     }
 
-    iph = (struct ip *) malloc (ipLen);
-    if (iph == NULL) {
+    buf = (u_char *) malloc (ipLen);
+    if (buf == NULL) {
         LOGE ("Alloc ip queue buffer error: %s.\n", strerror (errno));
         return NULL;
     }
 
-    ptr = (u_char *) iph;
-    memcpy (ptr, ((u_char *) ipq->iph), ipq->iphLen);
-    ptr += ipq->iphLen;
-
     /* Glue data of all fragments to new ip packet buffer . */
-    count = 0;
-    listForEachEntrySafe (pos, tmp, &ipq->fragments, node) {
-        memcpy (ptr + pos->offset, pos->data, pos->len);
-        count += pos->len;
-    }
+    memcpy (buf, ((u_char *) ipq->iph), ipq->iphLen);
+    buf += ipq->iphLen;
+    listForEachEntrySafe (pos, tmp, &ipq->fragments, node)
+        memcpy (buf + pos->offset, pos->dataPtr, pos->len);
 
-    /* Done with all fragments. Fixup the new IP header. */
-    iph = (struct ip *) skb;
-    /* Reset ip_off to 0 */
+    iph = (struct ip *) buf;
     iph->ip_off = 0;
-    iph->ip_len = htons ((iph->ip_hl * 4) + count);
+    iph->ip_len = htons (ipq->iphLen + ipq->dataLen);
 
-    return skb;
+    return iph
 }
 
+static int
+checkIphdr (struct ip *iphdr, u_int len) {
+    u_char ipVer = iphdr->ip_v;
+    u_short iphLen = iphdr->ip_hl * 4;
+    u_short ipLen = ntohs (iphdr->ip_len);
+
+    if ((ipVer != 4) || (len < iphLen) || (len < ipLen) ||
+        (iphLen < sizeof (struct ip)) || (ipLen < iphLen)) {
+        LOGE ("IpVer: %d, iphLen: %d, ipLen: %d, capLen: %d.\n", ipVer, iphLen, ipLen, len);
+        return -1;
+    }
+
+#if DO_STRICT_CHECKSUM
+    /* Normally don't do ip checksum, we trust kernel */
+    if (ipFastCheckSum ((const u_char *) iphdr, iphdr->ip_hl)) {
+        LOGD ("ipFastCheckSum error.\n");
+        return -1;
+    }
+#endif
+
+    if ((iphLen > sizeof (struct ip)) && ipOptionsCompile ((u_char *) iphdr)) {
+        LOGD ("IpOptionsCompile error.\n");
+        return -1;
+    }
+
+    return 0;
+}
+
+
+int
+ipDefragProcess (struct ip *iph, u_int capLen, timeValPtr tm, struct ip **newIphdr) {
+    int ret;
+    u_short offset, flags, ipLen;
+    ipQueuePtr ipq;
+
+    /* Check ip queue expire timeout list */
+    checkIpQueueExpireTimeoutList (tm);
+    ret = checkIphdr (iphdr, capLen);
+    if (ret < 0)
+        return IPF_ERROR;
+
+    offset = ntohs (iph->ip_off);
+    flags = offset & ~IP_OFFMASK;
+    offset &= IP_OFFMASK;
+    offset <<= 3;
+
+    /* Not a fragment ip packet */
+    if (((flags & IP_MF) == 0) && (offset == 0)) {
+        ipq = findIpQueue (iph);
+        if (ipq)
+            delIpQueueFromHash (ipq);
+        return IPF_NOTF;
+    }
+
+    
+
+    
+    
+    ret = ipDefragStub (iphdr, newIphdr);
+    switch (ret) {
+        /* Not fragment packet */
+        case IPF_NOTF:
+            return IPF_NOTF;
+
+            /* New defragment complete ip packet */
+        case IPF_NEW:
+            /* If not been filtered */
+            if (!ipFilter (*newIphdr)) {
+                iphdrShow (*newIphdr);
+                return IPF_NEW;
+            } else {
+                free (*newIphdr);
+                *newIphdr = NULL;
+                return IPF_ERROR;
+            }
+
+            /* Fragment packet */
+        case IPF_ISF:
+            return IPF_ISF;
+
+        default:
+            return IPF_ERROR;
+    }
+}
+
+/* Init ip context */
+int
+initIp (void) {
+    ipQueueHashTable = hashNew (DEFAULT_IP_QUEUE_HASH_TABLE_SIZE);
+    if (ipQueueHashTable == NULL)
+        return -1;
+    else
+        return 0;
+}
+
+/* Destroy ip context */
+void
+destroyIp (void) {
+    hashDestroy (ipQueueHashTable);
+    ipQueueHashTable = NULL;
+}

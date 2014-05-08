@@ -26,11 +26,11 @@
 /* Default tcp stream closing timeout 30 seconds */
 #define DEFAULT_TCP_STREAM_CLOSING_TIMEOUT 30
 /* Default tcp stream hash table size */
-#define DEFAULT_TCP_STREAM_HASH_SIZE 65535
+#define DEFAULT_TCP_STREAM_HASH_TABLE_SIZE 65535
 /* Tcp expect sequence */
 #define EXP_SEQ (snd->firstDataSeq + rcv->count + rcv->urgCount)
 /* Tcp stream hash key format string */
-#define TCP_STREAM_HASH_FORMAT "%s:%d:%s:%d"
+#define TCP_STREAM_HASH_KEY_FORMAT "%s:%u:%s:%u"
 
 /* Global tcp connection id */
 static u_long_long tcpConnectionId = 0;
@@ -78,29 +78,28 @@ after (u_int seq1, u_int seq2) {
  */
 static void
 addTcpStreamToClosingTimeoutList (tcpStreamPtr stream, timeValPtr tm) {
-    tcpTimeoutPtr new;
+    tcpStreamTimeoutPtr new;
 
     /* If already added, return directly */
     if (stream->inClosingTimeout)
         return;
 
-    new = (tcpTimeoutPtr) malloc (sizeof (tcpTimeout));
+    new = (tcpStreamTimeoutPtr) malloc (sizeof (tcpStreamTimeout));
     if (new == NULL) {
-        LOGE ("Add tcp closing timeout error: %s.\n", strerror (errno));
+        LOGE ("Alloc tcp timeout error: %s.\n", strerror (errno));
         return;
     }
 
     stream->inClosingTimeout = TRUE;
     new->stream = stream;
     new->timeout = tm->tvSec + DEFAULT_TCP_STREAM_CLOSING_TIMEOUT;
-    /* Add new before pos */
     listAddTail (&new->node, &tcpStreamTimoutList);
 }
 
 /* Delete tcp stream from global tcp stream timeout list */
 static void
 delTcpStreamFromClosingTimeoutList (tcpStreamPtr stream) {
-    tcpTimeoutPtr pos, tmp;
+    tcpStreamTimeoutPtr pos, tmp;
 
     if (!stream->inClosingTimeout)
         return;
@@ -125,7 +124,7 @@ static tcpStreamPtr
 lookupTcpStreamFromHash (tuple4Ptr addr) {
     char key [64] = {0};
 
-    snprintf(key, sizeof (key) - 1, TCP_STREAM_HASH_FORMAT,
+    snprintf(key, sizeof (key) - 1, TCP_STREAM_HASH_KEY_FORMAT,
              inet_ntoa (addr->saddr), addr->source,
              inet_ntoa (addr->daddr), addr->dest);
     return (tcpStreamPtr) hashLookup (tcpStreamHashTable, key);
@@ -146,12 +145,12 @@ addTcpStreamToHash (tcpStreamPtr stream, hashFreeCB freeFun) {
     char key [64] = {0};
 
     addr = &stream->addr;
-    snprintf(key, sizeof (key) - 1, TCP_STREAM_HASH_FORMAT,
+    snprintf(key, sizeof (key) - 1, TCP_STREAM_HASH_KEY_FORMAT,
              inet_ntoa (addr->saddr), addr->source,
              inet_ntoa (addr->daddr), addr->dest);
     ret = hashInsert (tcpStreamHashTable, key, stream, freeFun);
     if (ret < 0) {
-        LOGE ("Insert stream to hash map error.\n");
+        LOGE ("Insert stream to hash table error.\n");
         return -1;
     } else
         return 0;
@@ -164,15 +163,17 @@ addTcpStreamToHash (tcpStreamPtr stream, hashFreeCB freeFun) {
  */
 static void
 delTcpStreamFromHash (tcpStreamPtr stream) {
+    int ret;
     tuple4Ptr addr;
     char key [64] = {0};
 
     addr = &stream->addr;
-    snprintf(key, sizeof (key) - 1, TCP_STREAM_HASH_FORMAT,
+    snprintf(key, sizeof (key) - 1, TCP_STREAM_HASH_KEY_FORMAT,
              inet_ntoa (addr->saddr), addr->source,
              inet_ntoa (addr->daddr), addr->dest);
-    if (hashDel (tcpStreamHashTable, key) < 0)
-        LOGE ("Delete stream from hash map error.\n");
+    ret = hashDel (tcpStreamHashTable, key);
+    if (ret < 0)
+        LOGE ("Delete stream from hash table error.\n");
     else {
 #ifndef NDEBUG
         LOGD ("tcpStreamsAlloc: %u<------->tcpStreamsFree: %u\n",
@@ -330,33 +331,27 @@ freeTcpStream (void *data) {
     listDel (&stream->node);
     /* Delete stream from closing timeout list */
     delTcpStreamFromClosingTimeoutList (stream);
+
     /* Free client halfStream */
     listForEachEntrySafe (pos, tmp, &stream->client.head, node) {
         listDel (&pos->node);
         free (pos->data);
         free (pos);
     }
-    stream->client.rmemAlloc = 0;
-    if (stream->client.rcvBuf) {
-        free (stream->client.rcvBuf);
-        stream->client.rcvBuf =  NULL;
-    }
+    free (stream->client.rcvBuf);
     /* Free client halfStream end */
+
     /* Free server halfStream */
     listForEachEntrySafe (pos, tmp, &stream->server.head, node) {
         listDel (&pos->node);
         free (pos->data);
         free (pos);
     }
-    stream->server.rmemAlloc = 0;
-    if (stream->server.rcvBuf) {
-        free (stream->server.rcvBuf);
-        stream->server.rcvBuf =  NULL;
-    }
+    free (stream->server.rcvBuf);
     /* Free server halfStream end */
+
     /* Free session detail */
     (*stream->parser->freeSessionDetail) (stream->sessionDetail);
-    /* Free memory */
     free (data);
 }
 
@@ -417,7 +412,7 @@ addNewTcpStream (struct tcphdr *tcph, struct ip *iph, timeValPtr tm) {
      */
     if (hashSize (tcpStreamHashTable) >= (hashLimit (tcpStreamHashTable) * 0.8)) {
         listFirstEntry (tmp, &tcpStreamList, node);
-        delTcpStreamFromHash (stream);
+        delTcpStreamFromHash (tmp);
     }
     /* Add to global tcp stream list */
     listAddTail (&stream->node, &tcpStreamList);
@@ -633,8 +628,8 @@ publishTcpBreakdown (tcpStreamPtr stream, timeValPtr tm) {
  * @param tm timestamp for current packet
  */
 static void
-tcpCheckTimeout (timeValPtr tm) {
-    tcpTimeoutPtr pos, tmp;
+checkTcpStreamClosingTimeout (timeValPtr tm) {
+    tcpStreamTimeoutPtr pos, tmp;
 
     listForEachEntrySafe (pos, tmp, &tcpStreamTimoutList, node) {
         if (pos->timeout > tm->tvSec)
@@ -984,8 +979,8 @@ tcpProcess (u_char *data, u_int skbLen, timeValPtr tm) {
     tm->tvSec = ntohll (tm->tvSec);
     tm->tvUsec = ntohll (tm->tvUsec);
 
-    /* Check timeout tcp stream */
-    tcpCheckTimeout (tm);
+    /* Tcp stream closing timout check */
+    checkTcpStreamClosingTimeout (tm);
     /* Ip packet Check */
     if ((u_int) ipLen < (iph->ip_hl * 4 + sizeof (struct tcphdr))) {
         LOGE ("Invalid tcp packet.\n");
@@ -1160,7 +1155,7 @@ initTcp (publishTcpBreakdownCB publishTcpBreakdown, void *args) {
 
     initListHead (&tcpStreamList);
     initListHead (&tcpStreamTimoutList);
-    tcpStreamHashTable = hashNew (DEFAULT_TCP_STREAM_HASH_SIZE);
+    tcpStreamHashTable = hashNew (DEFAULT_TCP_STREAM_HASH_TABLE_SIZE);
     if (tcpStreamHashTable == NULL)
         return -1;
     else

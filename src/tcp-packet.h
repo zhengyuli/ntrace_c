@@ -1,6 +1,9 @@
 #ifndef __AGENT_TCP_PACKET_H__
 #define __AGENT_TCP_PACKET_H__
 
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include "util.h"
 #include "list.h"
 #include "protocol.h"
@@ -108,11 +111,11 @@ struct _tcpStream {
     listHead node;                      /**< Tcp stream list node */
 };
 
-typedef struct _tcpTimeout tcpTimeout;
-typedef tcpTimeout *tcpTimeoutPtr;
+typedef struct _tcpStreamTimeout tcpStreamTimeout;
+typedef tcpStreamTimeout *tcpStreamTimeoutPtr;
 
 /* Tcp closing timeout */
-struct _tcpTimeout {
+struct _tcpStreamTimeout {
     tcpStreamPtr stream;                /**< Tcp stream to close */
     u_long_long timeout;                /**< Tcp stream timeout to close */
     listHead node;                      /**< Tcp stream timeout list node */

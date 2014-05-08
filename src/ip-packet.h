@@ -4,6 +4,7 @@
 #include <netinet/ip.h>
 #include <sys/types.h>
 #include <netinet/ip.h>
+#include "util.h"
 #include "list.h"
 
 #define IPF_NOTF 1
@@ -11,60 +12,38 @@
 #define IPF_NEW 3
 #define IPF_ERROR 4
 
-typedef void (*timerExpireFunc) (void *data);
-
-typedef struct _expireTimer expireTimer;
-typedef expireTimer *expireTimerPtr;
-
-struct _expireTimer {
-    time_t expires;
-    timerExpireFunc fun;
-    void *data;
-    listHead node;
-};
-
-typedef struct _skbBuf skbBuf;
-typedef skbBuf *skbBufPtr;
-
-struct _skbBuf {
-    u_char *data;
-    u_int truesize;
-};
-
 typedef struct _ipFrag ipFrag;
 typedef ipFrag *ipFragPtr;
 
 struct _ipFrag {
-    u_short offset;                     /**< Offset of fragment in IP datagram */
-    u_short end;                        /**< Last byte of data in datagram */
-    u_short len;                        /**< Length of this fragment */
-    u_char *ptr;                        /**< Pointer into real fragment data */
-    skbBufPtr skb;                      /**< Complete received fragment */
+    u_short offset;                     /**< Offset of ip fragment data */
+    u_short end;                        /**< End of ip fragment data */
+    u_short len;                        /**< Length of ip fragment data */
+    u_char *data;                       /**< Point to ip fragment data */
+    u_char *ipFrag;                     /**< Ip fragment */
     listHead node;                      /**< Ipqueue list node */
 };
 
-typedef struct _hostFrag hostFrag;
-typedef hostFrag *hostFragPtr;
+typedef struct _ipQueue ipQueue;
+typedef ipQueue *ipQueuePtr;
 
-struct _hostFrag {
-    struct in_addr ip;
-    listHead ipqueue;
-    u_int ipFragMem;
-    expireTimer timer;
+struct _ipQueue {
+    struct in_addr sourcIp;             /**< Source ip */
+    struct in_addr destIp;              /**< Destination ip */
+    u_short id;                         /**< Ip packet id */
+    struct ip *iph;                     /**< Ip header */
+    u_short iphLen;                     /**< Ip header length */
+    u_short dataLen;                    /**< Ip data length */
+    listHead fragments;                 /**< Ip fragments list */
 };
 
-typedef struct _ipq ipq;
-typedef ipq *ipqPtr;
+typedef struct _ipQueueTimeout ipQueueTimeout;
+typedef ipQueueTimeout *ipQueueTimeoutPtr;
 
-/* Describe an entry in the "incomplete datagrams" queue. */
-struct _ipq {
-    u_short ihlen;                      /**< Length of the IP header */
-    struct ip *iph;                     /**< Pointer to IP header */
-    u_short len;                        /**< Total length of original datagram */
-    expireTimer timer;                  /**< When will this queue expire? */
-    hostFragPtr hf;                     /**< HostFrag belongs to */
-    listHead fragments;                 /**< Linked list of received fragments */
-    listHead node;                      /**< Ipqueue list node */
+struct _ipQueueTimeout {
+    ipQueuePtr queue;                   /**< Ip fragment queue */
+    u_long_long timeout;                /**< Timeout for ip fragment queue */
+    listHead node;                      /**< Ip fragment queue timout list node */
 };
 
 /*========================Interfaces definition============================*/

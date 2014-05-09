@@ -352,35 +352,35 @@ newHttpSessionDetailNode (void) {
     httpSessionDetailNodePtr hsdn;
 
     hsdn = (httpSessionDetailNodePtr) malloc (sizeof (httpSessionDetailNode));
-    if (hsdn) {
-        hsdn->reqVer = NULL;
-        hsdn->method = NULL;
-        hsdn->url = NULL;
-        hsdn->host = NULL;
-        hsdn->userAgent = NULL;
-        hsdn->referer = NULL;
-        hsdn->accept = NULL;
-        hsdn->acceptLanguage = NULL;
-        hsdn->acceptEncoding = NULL;
-        hsdn->xForwardedFor = NULL;
-        hsdn->reqConnection = NULL;
-        hsdn->respVer = NULL;
-        hsdn->contentType = NULL;
-        hsdn->contentDisposition = NULL;
-        hsdn->transferEncoding = NULL;
-        hsdn->respConnection = NULL;
-        hsdn->state = HTTP_INIT;
-        hsdn->statusCode = 0;
-        hsdn->reqTime = 0;
-        hsdn->reqHeaderSize = 0;
-        hsdn->reqBodySize = 0;
-        hsdn->respTimeBegin = 0;
-        hsdn->respHeaderSize = 0;
-        hsdn->respBodySize = 0;
-        hsdn->respTimeEnd = 0;
-        initListHead (&hsdn->node);
-    }
+    if (hsdn == NULL)
+        return NULL;
 
+    hsdn->reqVer = NULL;
+    hsdn->method = NULL;
+    hsdn->url = NULL;
+    hsdn->host = NULL;
+    hsdn->userAgent = NULL;
+    hsdn->referer = NULL;
+    hsdn->accept = NULL;
+    hsdn->acceptLanguage = NULL;
+    hsdn->acceptEncoding = NULL;
+    hsdn->xForwardedFor = NULL;
+    hsdn->reqConnection = NULL;
+    hsdn->respVer = NULL;
+    hsdn->contentType = NULL;
+    hsdn->contentDisposition = NULL;
+    hsdn->transferEncoding = NULL;
+    hsdn->respConnection = NULL;
+    hsdn->state = HTTP_INIT;
+    hsdn->statusCode = 0;
+    hsdn->reqTime = 0;
+    hsdn->reqHeaderSize = 0;
+    hsdn->reqBodySize = 0;
+    hsdn->respTimeBegin = 0;
+    hsdn->respHeaderSize = 0;
+    hsdn->respBodySize = 0;
+    hsdn->respTimeEnd = 0;
+    initListHead (&hsdn->node);
     return hsdn;
 }
 
@@ -417,34 +417,34 @@ newHttpSessionDetail (void) {
     http_parser_settings *resParserSettings;
 
     hsd = (httpSessionDetailPtr) malloc (sizeof (httpSessionDetail));
-    if (hsd) {
-        /* Init http request parser */
-        reqParser = &hsd->reqParser;
-        reqParserSettings = &hsd->reqParserSettings;
-        memset (reqParserSettings, 0, sizeof (*reqParserSettings));
-        reqParserSettings->on_message_begin = onReqMessageBegin;
-        reqParserSettings->on_url = onReqUrl;
-        reqParserSettings->on_header_field = onReqHeaderField;
-        reqParserSettings->on_header_value = onReqHeaderValue;
-        reqParserSettings->on_headers_complete = onReqHeadersComplete;
-        reqParserSettings->on_body = onReqBody;
-        reqParserSettings->on_message_complete = onReqMessageComplete;
-        http_parser_init (reqParser, HTTP_REQUEST);
-        /* Init http response parser */
-        resParser = &hsd->resParser;
-        resParserSettings = &hsd->resParserSettings;
-        memset (resParserSettings, 0, sizeof (*resParserSettings));
-        resParserSettings->on_message_begin = onRespMessageBegin;
-        resParserSettings->on_url = onRespUrl;
-        resParserSettings->on_header_field = onRespHeaderField;
-        resParserSettings->on_header_value = onRespHeaderValue;
-        resParserSettings->on_headers_complete = onRespHeadersComplete;
-        resParserSettings->on_body = onRespBody;
-        resParserSettings->on_message_complete = onRespMessageComplete;
-        http_parser_init (resParser, HTTP_RESPONSE);
-        initListHead (&hsd->head);
-    }
+    if (hsd == NULL)
+        return NULL;
 
+    /* Init http request parser */
+    reqParser = &hsd->reqParser;
+    reqParserSettings = &hsd->reqParserSettings;
+    memset (reqParserSettings, 0, sizeof (*reqParserSettings));
+    reqParserSettings->on_message_begin = onReqMessageBegin;
+    reqParserSettings->on_url = onReqUrl;
+    reqParserSettings->on_header_field = onReqHeaderField;
+    reqParserSettings->on_header_value = onReqHeaderValue;
+    reqParserSettings->on_headers_complete = onReqHeadersComplete;
+    reqParserSettings->on_body = onReqBody;
+    reqParserSettings->on_message_complete = onReqMessageComplete;
+    http_parser_init (reqParser, HTTP_REQUEST);
+    /* Init http response parser */
+    resParser = &hsd->resParser;
+    resParserSettings = &hsd->resParserSettings;
+    memset (resParserSettings, 0, sizeof (*resParserSettings));
+    resParserSettings->on_message_begin = onRespMessageBegin;
+    resParserSettings->on_url = onRespUrl;
+    resParserSettings->on_header_field = onRespHeaderField;
+    resParserSettings->on_header_value = onRespHeaderValue;
+    resParserSettings->on_headers_complete = onRespHeadersComplete;
+    resParserSettings->on_body = onRespBody;
+    resParserSettings->on_message_complete = onRespMessageComplete;
+    http_parser_init (resParser, HTTP_RESPONSE);
+    initListHead (&hsd->head);
     return hsd;
 }
 
@@ -469,33 +469,33 @@ newHttpSessionBreakdown (void) {
     httpSessionBreakdownPtr hsbd;
 
     hsbd = (httpSessionBreakdownPtr) malloc (sizeof (httpSessionBreakdown));
-    if (hsbd) {
-        hsbd->reqVer = NULL;
-        hsbd->method = NULL;
-        hsbd->url = NULL;
-        hsbd->host = NULL;
-        hsbd->userAgent = NULL;
-        hsbd->referer = NULL;
-        hsbd->accept = NULL;
-        hsbd->acceptLanguage = NULL;
-        hsbd->acceptEncoding = NULL;
-        hsbd->xForwardedFor = NULL;
-        hsbd->reqConnection = NULL;
-        hsbd->respVer = NULL;
-        hsbd->contentType = NULL;
-        hsbd->contentDisposition = NULL;
-        hsbd->transferEncoding = NULL;
-        hsbd->respConnection = NULL;
-        hsbd->state = HTTP_BREAKDOWN_ERROR;
-        hsbd->statusCode = 0;
-        hsbd->reqHeaderSize = 0;
-        hsbd->reqBodySize = 0;
-        hsbd->respHeaderSize = 0;
-        hsbd->respBodySize = 0;
-        hsbd->respLatency = 0;
-        hsbd->downloadLatency = 0;
-    }
+    if (hsbd == NULL)
+        return NULL;
 
+    hsbd->reqVer = NULL;
+    hsbd->method = NULL;
+    hsbd->url = NULL;
+    hsbd->host = NULL;
+    hsbd->userAgent = NULL;
+    hsbd->referer = NULL;
+    hsbd->accept = NULL;
+    hsbd->acceptLanguage = NULL;
+    hsbd->acceptEncoding = NULL;
+    hsbd->xForwardedFor = NULL;
+    hsbd->reqConnection = NULL;
+    hsbd->respVer = NULL;
+    hsbd->contentType = NULL;
+    hsbd->contentDisposition = NULL;
+    hsbd->transferEncoding = NULL;
+    hsbd->respConnection = NULL;
+    hsbd->state = HTTP_BREAKDOWN_ERROR;
+    hsbd->statusCode = 0;
+    hsbd->reqHeaderSize = 0;
+    hsbd->reqBodySize = 0;
+    hsbd->respHeaderSize = 0;
+    hsbd->respBodySize = 0;
+    hsbd->respLatency = 0;
+    hsbd->downloadLatency = 0;
     return hsbd;
 }
 

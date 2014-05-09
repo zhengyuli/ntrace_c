@@ -20,13 +20,13 @@ newDefaultSessionDetail (void) {
     defaultSessionDetailPtr dsd;
 
     dsd = (defaultSessionDetailPtr) malloc (sizeof (defaultSessionDetail));
-    if (dsd) {
-        dsd->exchangeSize = 0;
-        dsd->serverTimeBegin = 0;
-        dsd->serverTimeEnd = 0;
-        return dsd;
-    } else
+    if (dsd == NULL)
         return NULL;
+
+    dsd->exchangeSize = 0;
+    dsd->serverTimeBegin = 0;
+    dsd->serverTimeEnd = 0;
+    return dsd;
 }
 
 static void
@@ -42,12 +42,12 @@ newDefaultSessionBreakdown (void) {
     defaultSessionBreakdownPtr dsbd;
 
     dsbd = (defaultSessionBreakdownPtr) malloc (sizeof (defaultSessionBreakdown));
-    if (dsbd) {
-        dsbd->exchangeSize = 0;
-        dsbd->serverLatency = 0;
-        return dsbd;
-    } else
+    if (dsbd == NULL)
         return NULL;
+
+    dsbd->exchangeSize = 0;
+    dsbd->serverLatency = 0;
+    return dsbd;
 }
 
 static void

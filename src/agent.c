@@ -490,9 +490,8 @@ serviceUpdate (svcUpdateType updateType, servicePtr svc) {
 }
 
 /*
- * Service update monitor thread which used to monitor
- * service update and generate new filter rule for packet
- * capturing.
+ * Service update monitor thread which used to monitor service update
+ * and generate new filter rule for packet capturing.
  */
 static void *
 serviceUpdateMonitor (void *args) {

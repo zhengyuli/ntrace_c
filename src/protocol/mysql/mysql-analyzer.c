@@ -1208,25 +1208,25 @@ newMysqlSessionDetail (void) {
     mysqlSessionDetailPtr msd;
 
     msd = (mysqlSessionDetailPtr) malloc (sizeof (mysqlSessionDetail));
-    if (msd) {
-        ret = initMysqlParser (&msd->parser);
-        if (ret < 0) {
-            free (msd);
-            return NULL;
-        }
-        msd->reqStmt = NULL;
-        msd->state = MYSQL_INIT;
-        msd->errCode = 0;
-        msd->sqlState = 0;
-        msd->errMsg = NULL;
-        msd->reqSize = 0;
-        msd->respSize = 0;
-        msd->reqTime = 0;
-        msd->respTimeBegin = 0;
-        msd->respTimeEnd = 0;
-        return msd;
-    } else
+    if (msd == NULL)
         return NULL;
+
+    ret = initMysqlParser (&msd->parser);
+    if (ret < 0) {
+        free (msd);
+        return NULL;
+    }
+    msd->reqStmt = NULL;
+    msd->state = MYSQL_INIT;
+    msd->errCode = 0;
+    msd->sqlState = 0;
+    msd->errMsg = NULL;
+    msd->reqSize = 0;
+    msd->respSize = 0;
+    msd->reqTime = 0;
+    msd->respTimeBegin = 0;
+    msd->respTimeEnd = 0;
+    return msd;
 }
 
 /* Reset mysql session detail */
@@ -1267,22 +1267,22 @@ newMysqlSessionBreakdown (void) {
     mysqlSessionBreakdownPtr msbd;
 
     msbd = (mysqlSessionBreakdownPtr) malloc (sizeof (mysqlSessionBreakdown));
-    if (msbd) {
-        msbd->serverVer = NULL;
-        msbd->userName = NULL;
-        msbd->conId = 0;
-        msbd->reqStmt = NULL;
-        msbd->state = MYSQL_BREAKDOWN_ERROR;
-        msbd->errCode = 0;
-        msbd->sqlState = 0;
-        msbd->errMsg = NULL;
-        msbd->reqSize = 0;
-        msbd->respSize = 0;
-        msbd->respLatency = 0;
-        msbd->downloadLatency = 0;
-        return msbd;
-    } else
+    if (msbd == NULL)
         return NULL;
+
+    msbd->serverVer = NULL;
+    msbd->userName = NULL;
+    msbd->conId = 0;
+    msbd->reqStmt = NULL;
+    msbd->state = MYSQL_BREAKDOWN_ERROR;
+    msbd->errCode = 0;
+    msbd->sqlState = 0;
+    msbd->errMsg = NULL;
+    msbd->reqSize = 0;
+    msbd->respSize = 0;
+    msbd->respLatency = 0;
+    msbd->downloadLatency = 0;
+    return msbd;
 }
 
 static void

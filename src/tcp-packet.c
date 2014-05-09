@@ -78,22 +78,22 @@ after (u_int seq1, u_int seq2) {
  */
 static void
 addTcpStreamToClosingTimeoutList (tcpStreamPtr stream, timeValPtr tm) {
-    tcpStreamTimeoutPtr new;
+    tcpStreamTimeoutPtr tst;
 
     /* If already added, return directly */
     if (stream->inClosingTimeout)
         return;
 
-    new = (tcpStreamTimeoutPtr) malloc (sizeof (tcpStreamTimeout));
-    if (new == NULL) {
+    tst = (tcpStreamTimeoutPtr) malloc (sizeof (tcpStreamTimeout));
+    if (tst == NULL) {
         LOGE ("Alloc tcp timeout error: %s.\n", strerror (errno));
         return;
     }
 
     stream->inClosingTimeout = TRUE;
-    new->stream = stream;
-    new->timeout = tm->tvSec + DEFAULT_TCP_STREAM_CLOSING_TIMEOUT;
-    listAddTail (&new->node, &tcpStreamTimoutList);
+    tst->stream = stream;
+    tst->timeout = tm->tvSec + DEFAULT_TCP_STREAM_CLOSING_TIMEOUT;
+    listAddTail (&tst->node, &tcpStreamTimoutList);
 }
 
 /* Delete tcp stream from global tcp stream timeout list */
@@ -225,15 +225,12 @@ newTcpStream (protoType proto) {
     tcpStreamPtr stream;
 
     stream = (tcpStreamPtr) malloc (sizeof (tcpStream));
-    if (stream == NULL) {
-        LOGE ("Alloc tcp stream error: %s.\n", strerror (errno));
+    if (stream == NULL)
         return NULL;
-    }
 
     stream->proto = proto;
     stream->parser = getProtoParser (proto);
     if (stream->parser == NULL) {
-        LOGD ("Error: unsupported service proto type.\n");
         free (stream);
         return NULL;
     }
@@ -310,7 +307,6 @@ newTcpStream (protoType proto) {
 
     stream->sessionDetail = (*stream->parser->newSessionDetail) ();
     if (stream->sessionDetail == NULL) {
-        LOGE (" newSessionDetail error.\n");
         free (stream);
         return NULL;
     }

@@ -191,11 +191,10 @@ hashNew (u_int hashSize) {
         if (htbl->heads == NULL) {
             free (htbl);
             return NULL;
-        } else {
-            for (i = 0; i < htbl->totalSize; i++)
-                INIT_HLIST_HEAD (&htbl->heads [i]);
-            return htbl;
         }
+        for (i = 0; i < htbl->totalSize; i++)
+            INIT_HLIST_HEAD (&htbl->heads [i]);
+        return htbl;
     } else
         return NULL;
 }
@@ -515,7 +514,7 @@ hashForEachItemRemoveWithCondition (hashTablePtr htbl, hashForEachItemRemoveWith
  * @param fun check function
  * @param args arguments for fun
  *
- * @return the first item if success else NULL
+ * @return The first item if success else NULL
  */
 void *
 hashForEachItemCheck (hashTablePtr htbl, hashForEachItemCheckCB fun, void *args) {

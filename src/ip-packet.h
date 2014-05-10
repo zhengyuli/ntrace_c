@@ -7,21 +7,16 @@
 #include "util.h"
 #include "list.h"
 
-#define IPF_NOTF 1
-#define IPF_ISF 2
-#define IPF_NEW 3
-#define IPF_ERROR 4
-
 typedef struct _ipFrag ipFrag;
 typedef ipFrag *ipFragPtr;
 
 struct _ipFrag {
     u_short offset;                     /**< Offset of ip fragment data */
     u_short end;                        /**< End of ip fragment data */
-    u_short len;                        /**< Length of ip fragment data */
+    u_short dataLen;                    /**< Length of ip fragment data */
     u_char *dataPtr;                    /**< Point to ip fragment data */
-    u_char *skbuf;                      /**< Ip fragment */
-    listHead node;                      /**< Ipqueue list node */
+    u_char *skbuf;                      /**< Ip fragment packet buffer */
+    listHead node;                      /**< Ipqueue fragments list node */
 };
 
 typedef struct _ipQueue ipQueue;
@@ -48,7 +43,7 @@ struct _ipQueueTimeout {
 
 /*========================Interfaces definition============================*/
 int
-ipDefragProcess (struct ip *iph, u_int ipCaptureLen, struct ip **new);
+ipDefrag (struct ip *iph, u_int capLen, timeValPtr tm, struct ip **newIph);
 int
 initIp (void);
 void

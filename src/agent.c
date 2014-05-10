@@ -794,6 +794,32 @@ exit:
     return NULL;
 }
 
+/*
+ * @brief Check whether packet iphdr should be filter
+ *
+ * @param iphdr ip packet to filter
+ *
+ * @return TRUE if should be filtered else FALSE
+ */
+static BOOL
+pktShouldFilter (struct ip *iphdr) {
+    struct tcphdr *tcph;
+    char key1 [32] = {0};
+    char key2 [32] = {0};
+
+    if (iphdr->ip_p == IPPROTO_TCP) {
+        tcph = (struct tcphdr *) ((u_char *) iphdr + (iphdr->ip_hl * 4));
+
+        snprintf (key1, sizeof (key1) - 1, "%s:%d", inet_ntoa (iphdr->ip_src), ntohs (tcph->source));
+        snprintf (key2, sizeof (key2) - 1, "%s:%d", inet_ntoa (iphdr->ip_dst), ntohs (tcph->dest));
+        if (lookupServiceProtoType (key1) != PROTO_UNKNOWN || lookupServiceProtoType (key2) != PROTO_UNKNOWN)
+            return TRUE;
+        else
+            return FALSE;
+    } else
+        return TRUE;
+}
+
 /* Tcp/Ip parsing service */
 static void *
 pktParsingService (void *args) {
@@ -901,19 +927,13 @@ pktParsingService (void *args) {
             continue;
         }
 
-        ret = ipDefragProcess ((struct ip *) zframe_data (pktFrame), zframe_size (pktFrame), &newIphdr);
-        switch (ret) {
-            case IPF_NOTF:
-                routerDispatch ((struct ip *) zframe_data (pktFrame), (timeValPtr) zframe_data (tmFrame));
-                break;
-
-            case IPF_NEW:
+        ret = ipDefrag ((struct ip *) zframe_data (pktFrame), zframe_size (pktFrame),
+                        (timeValPtr) zframe_data (tmFrame), &newIphdr);
+        if (!ret && newIphdr) {
+            if ((newIphdr == (struct ip *) zframe_data (pktFrame)) || !pktShouldFilter (newIphdr))
                 routerDispatch ((struct ip *) newIphdr, (timeValPtr) zframe_data (tmFrame));
+            if (newIphdr != (struct ip *) zframe_data (pktFrame))
                 free (newIphdr);
-                break;
-
-            default:
-                break;
         }
 
         /* Free zframe */
@@ -1547,4 +1567,3 @@ exit:
     freeAgentParameters ();
     return ret;
 }
-

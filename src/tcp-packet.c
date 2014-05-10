@@ -39,8 +39,8 @@ static u_long_long tcpBreakdownId = 0;
 
 /* Debug statistic data */
 #ifndef NDEBUG
-static u_long_long tcpStreamsAlloc = 0;
-static u_long_long tcpStreamsFree = 0;
+static u_int tcpStreamsAlloc = 0;
+static u_int tcpStreamsFree = 0;
 #endif
 
 /* Tcp stream list */
@@ -953,7 +953,7 @@ tcpQueue (tcpStreamPtr stream, struct tcphdr *tcph, halfStreamPtr snd,
 void
 tcpProcess (u_char *data, u_int skbLen, timeValPtr tm) {
     u_int ipLen;
-#if DO_STRICT_CHECKSUM
+#if DO_STRICT_CHECK
     u_int tcpLen;
 #endif
     u_int tcpDataLen;
@@ -967,7 +967,7 @@ tcpProcess (u_char *data, u_int skbLen, timeValPtr tm) {
     iph = (struct ip *) data;
     tcph = (struct tcphdr *) (data + iph->ip_hl * 4);
     ipLen = ntohs (iph->ip_len);
-#if DO_STRICT_CHECKSUM
+#if DO_STRICT_CHECK
     tcpLen = ipLen - iph->ip_hl * 4;
 #endif
     tcpDataLen = ipLen - (iph->ip_hl * 4) - (tcph->doff * 4);
@@ -993,7 +993,7 @@ tcpProcess (u_char *data, u_int skbLen, timeValPtr tm) {
         return;
     }
 
-#if DO_STRICT_CHECKSUM
+#if DO_STRICT_CHECK
     /* Tcp checksum validation */
     if (tcpFastCheckSum ((u_char *) tcph, tcpLen, iph->ip_src.s_addr, iph->ip_dst.s_addr) != 0) {
         LOGE ("Tcp fast checksum error.\n");

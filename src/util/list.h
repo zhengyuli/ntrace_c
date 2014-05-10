@@ -148,11 +148,12 @@ listIsEmpty (const listHeadPtr head) {
          &pos->member != (head);                                        \
          pos = tmp, tmp = listEntry (tmp->member.next, typeof (*tmp), member))
 
-#define listForEachEntryKeepPrev(prev, pos, head, member)               \
-    for (prev = listEntry (head, typeof (*pos), member),                \
-          pos = listEntry ((head)->next, typeof (*pos), member);        \
+#define listForEachEntrySafeKeepPrev(prev, pos, tmp, head, member)      \
+    for (prev = NULL,                                                   \
+          pos = listEntry ((head)->next, typeof (*pos), member),        \
+         tmp = listEntry (pos->member.next, typeof (*pos), member);     \
          &pos->member != (head);                                        \
-         prev = pos, pos = listEntry (pos->member.next, typeof (*pos), member))
+         prev = pos, pos = tmp, tmp = listEntry (tmp->member.next, typeof (*tmp), member))
 
 #define listForEachEntryReverse(pos, head, member)                      \
         for (pos = listEntry ((head)->prev, typeof (*pos), member);     \

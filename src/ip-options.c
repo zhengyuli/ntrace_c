@@ -16,7 +16,7 @@ ipOptionsCompile (u_char *iph) {
     u_int optlen;
     u_char *optptr;
     u_char *ppPtr = 0;
-    u_char optholder [16];
+    u_char optHolder [16];
     struct ip_options *opt;
     u_int skb = 1;
     u_int skbPaAddr = 314159;
@@ -25,7 +25,7 @@ ipOptionsCompile (u_char *iph) {
     struct timestamp *ts;
     u_int *timeptr;
 
-    opt = (struct ip_options *) optholder;
+    opt = (struct ip_options *) optHolder;
     memset (opt, 0, sizeof (struct ip_options));
     opt->optlen = ((struct ip *) iph)->ip_hl * 4 - sizeof (struct ip);
     optptr = iph + sizeof (struct ip);
@@ -40,7 +40,7 @@ ipOptionsCompile (u_char *iph) {
                         opt->isChanged = 1;
                     }
                 }
-                goto eol;
+                goto endOfLine;
 
             case IPOPT_NOOP:
                 l--;
@@ -213,8 +213,8 @@ ipOptionsCompile (u_char *iph) {
         optptr += optlen;
     }
 
-eol:
-    opt = (struct ip_options *) optholder;
+endOfLine:
+    opt = (struct ip_options *) optHolder;
     if (!ppPtr)
         if (!opt->srr)
             return 0;

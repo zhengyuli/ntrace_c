@@ -130,11 +130,9 @@ retry:
                 return;
             retried = TRUE;
             goto retry;
-        }
-        else
+        } else
             LOGE ("Redis error: %s\n", rdsContext->ctxt->errstr);
-    }
-    else {
+    } else {
         LOGD ("Tcp session breakdown--------count: %u\n%s\n", ATOMIC_FETCH_AND_ADD (&tcpBreakdownCount, 1), sessionBreakdownJson);
         freeReplyObject (reply);
     }
@@ -166,8 +164,7 @@ retry:
             goto retry;
         } else
             LOGE ("Redis error: %s\n", rdsContext->ctxt->errstr);
-    }
-    else
+    } else
         freeReplyObject (reply);
 }
 

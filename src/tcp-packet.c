@@ -34,8 +34,15 @@
 
 /* Global tcp connection id */
 static u_long_long tcpConnectionId = 0;
+/* Tcp connection id spin lock */
+static pthread_spinlock_t tcpConnectionIdLock;
 /* Global tcp breakdown id */
 static u_long_long tcpBreakdownId = 0;
+/* Tcp breakdown id lock */
+static pthread_spinlock_t tcpBreakdownIdLock;
+
+/* Tcp context initialization once control */
+static pthread_once_t tcpInitOnceControl = PTHREAD_ONCE_INIT;
 
 /* Debug statistic data */
 #ifndef NDEBUG
@@ -68,6 +75,30 @@ after (u_int seq1, u_int seq2) {
         return TRUE;
     else
         return FALSE;
+}
+
+static inline u_long_long
+getTcpConnectionId (void) {
+    u_long_long connId;
+    
+    pthread_spin_lock (&tcpConnectionIdLock);
+    connId = tcpConnectionId;
+    tcpConnectionId ++;
+    pthread_spin_unlock (&tcpConnectionIdLock);
+
+    return connId;
+}
+
+static inline u_long_long
+getTcpBreakdownId (void) {
+    u_long_long bkdId;
+    
+    pthread_spin_lock (&tcpConnectionIdLock);
+    bkdId = tcpBreakdownId;
+    tcpBreakdownId ++;
+    pthread_spin_unlock (&tcpConnectionIdLock);
+
+    return bkdId;
 }
 
 /*
@@ -177,7 +208,7 @@ delTcpStreamFromHash (tcpStreamPtr stream) {
     else {
 #ifndef NDEBUG
         LOGD ("tcpStreamsAlloc: %u<------->tcpStreamsFree: %u\n",
-              ATOMIC_ADD_AND_FETCH (&tcpStreamsAlloc, 0), ATOMIC_INC (&tcpStreamsFree));
+              ATOMIC_ADD_AND_FETCH (&tcpStreamsAlloc, 0), ATOMIC_ADD_AND_FETCH (&tcpStreamsFree, 1));
 #endif
     }
 }
@@ -239,7 +270,7 @@ newTcpStream (protoType proto) {
     stream->addr.source = 0;
     stream->addr.daddr.s_addr = 0;
     stream->addr.dest = 0;
-    stream->connId = ATOMIC_FETCH_AND_ADD (&tcpConnectionId, 1);
+    stream->connId = getTcpConnectionId ();
     stream->state = STREAM_INIT;
     /* Init client halfStream */
     stream->client.state = TCP_CLOSE;
@@ -508,7 +539,7 @@ publishTcpBreakdown (tcpStreamPtr stream, timeValPtr tm) {
         return;
     }
 
-    tbd.bkdId = ATOMIC_FETCH_AND_ADD (&tcpBreakdownId, 1);
+    tbd.bkdId = getTcpBreakdownId ();
     tbd.timestamp = tm->tvSec;
     tbd.proto = stream->proto;
     tbd.srcIp = stream->addr.saddr;
@@ -1143,12 +1174,19 @@ tcpProcess (u_char *data, u_int skbLen, timeValPtr tm) {
     }
 }
 
+static void
+tcpSharedInstance (void) {
+    pthread_spin_init(&tcpConnectionIdLock, PTHREAD_PROCESS_PRIVATE);
+    pthread_spin_init(&tcpBreakdownIdLock, PTHREAD_PROCESS_PRIVATE);
+}
+
 /* Init tcp process context */
 int
 initTcp (publishTcpBreakdownCB publishTcpBreakdown, void *args) {
     publishTcpBreakdownFunc = publishTcpBreakdown;
     publishTcpBreakdownArgs = args;
 
+    pthread_once (&tcpInitOnceControl, tcpSharedInstance);
     initListHead (&tcpStreamList);
     initListHead (&tcpStreamTimoutList);
     tcpStreamHashTable = hashNew (DEFAULT_TCP_STREAM_HASH_TABLE_SIZE);

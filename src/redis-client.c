@@ -6,17 +6,19 @@
 #include <sys/socket.h>
 #include <hiredis/hiredis.h>
 #include <jansson.h>
-#include "atomic.h"
 #include "util.h"
+#include "atomic.h"
 #include "hash.h"
 #include "log.h"
 #include "service.h"
 #include "redis-client.h"
 
-static u_long_long tcpBreakdownCount = 0;
-
 /* Redis context for per-thread */
 static __thread redisCtxtPtr rdsContext = NULL;
+
+#ifndef NDEBUG
+static u_int breakdownCount = 0;
+#endif
 
 static int
 connectRedisServer (void);
@@ -133,7 +135,10 @@ retry:
         } else
             LOGE ("Redis error: %s\n", rdsContext->ctxt->errstr);
     } else {
-        LOGD ("Tcp session breakdown--------count: %u\n%s\n", ATOMIC_FETCH_AND_ADD (&tcpBreakdownCount, 1), sessionBreakdownJson);
+#ifndef NDEBUG
+        LOGD ("Tcp session breakdown------------count: %u\n%s\n",
+              ATOMIC_FETCH_AND_ADD (&breakdownCount, 1), sessionBreakdownJson);
+#endif
         freeReplyObject (reply);
     }
 }

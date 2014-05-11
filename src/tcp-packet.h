@@ -96,7 +96,7 @@ struct _tcpStream {
     u_long_long retriesTime;            /**< The last retry timestamp */
     u_int dupSynAcks;                   /**< Duplicate syn/acks of three handshake */
     u_long_long synAckTime;             /**< Syn/ack timestamp of three handshake */
-    u_long_long estbTime;               /**< Tcp connection success timestamp */
+    u_long_long estbTime;               /**<  timestamp */
     u_int mss;                          /**< Tcp MSS */
     u_int totalPkts;                    /**< Tcp total packets */
     u_int tinyPkts;                     /**< Tcp tiny packets */

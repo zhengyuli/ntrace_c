@@ -21,9 +21,9 @@ typedef agentParams *agentParamsPtr;
 struct _agentParams {
     u_int agentId;                      /**< Agent id */
     BOOL daemonMode;                    /**< Run as daemon */
-    u_int parsingThreads;               /**< Parsing threads number */
     char *mirrorInterface;              /**< Mirror interface */
-    u_int pcapDumpTimeout;              /**< Pcap statistic dump timeout */
+    u_int pcapDumpSchedule;             /**< Pcap statistic dump schedule */
+    u_int parsingThreads;               /**< Parsing threads number */
     u_int logLevel;                     /**< Log level */
     char *redisSrvIp;                   /**< Redis server ip */
     u_short redisSrvPort;               /**< Redis server port */

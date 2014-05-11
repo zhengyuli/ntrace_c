@@ -35,7 +35,7 @@
 #define STATUS_EXITING "EXITING"
 
 #define AGENT_SHARED_STATUS_INPROC_ADDRESS "inproc://agentSharedStatus"
-#define AGENT_PACKET_SHARING_INPROC_ADDRESS "inproc://agentPacketParsing"
+#define AGENT_PACKET_SHARING_INPROC_ADDRESS "inproc://agentPacketSharing"
 #define AGENT_TCP_BREAKDOWN_SINK_INPROC_ADDRESS "inproc://agentTcpBreakdownSink"
 
 static int agentPidFd = -1;
@@ -48,9 +48,9 @@ static pthread_mutex_t statusPushSockMutex = PTHREAD_MUTEX_INITIALIZER;
 static agentParams agentParameters = {
     .agentId = 0,
     .daemonMode = 0,
-    .parsingThreads = 0,
     .mirrorInterface = NULL,
-    .pcapDumpTimeout = 0,
+    .pcapDumpSchedule = 0,
+    .parsingThreads = 0,
     .logLevel = 0,
     .redisSrvIp = NULL,
     .redisSrvPort = 0,
@@ -642,7 +642,7 @@ pcapStatDumper (void *args) {
     }
 
     while (!zctx_interrupted) {
-        sleep (agentParameters.pcapDumpTimeout);
+        sleep (agentParameters.pcapDumpSchedule);
         dumpPcapStat ();
     }
 
@@ -1199,6 +1199,266 @@ unlockPidFile:
     return ret;
 }
 
+/* Parse configuration of agent */
+static int
+parseConf (void) {
+    int ret, error;
+    const char *tmp;
+    struct collection_item *iniConfig = NULL;
+    struct collection_item *errorSet = NULL;
+    struct collection_item *item;
+
+    ret = config_from_file ("Agent", WDM_AGENT_CONFIG_FILE,
+                            &iniConfig, INI_STOP_ON_ANY, &errorSet);
+    if (ret) {
+        logToConsole ("Parse config file: %s error.\n", WDM_AGENT_CONFIG_FILE);
+        return -1;
+    }
+
+    /* Get agent id */
+    ret = get_config_item ("MAIN", "agent_id", iniConfig, &item);
+    if (ret) {
+        logToConsole ("Get_config_item \"agent_id\" error\n");
+        ret = -1;
+        goto exit;
+    }
+    agentParameters.agentId = get_int_config_value (item, 1, -1, &error);
+    if (error) {
+        logToConsole ("Parse \"agent_id\" error.\n");
+        ret = -1;
+        goto exit;
+    }
+
+    /* Get daemon mode */
+    ret = get_config_item ("MAIN", "daemon_mode", iniConfig, &item);
+    if (ret) {
+        logToConsole ("Get_config_item \"daemon_mode\" error\n");
+        ret = -1;
+        goto exit;
+    }
+    agentParameters.daemonMode = get_int_config_value (item, 1, -1, &error);
+    if (error) {
+        logToConsole ("Parse \"daemon_mode\" error.\n");
+        ret = -1;
+        goto exit;
+    }
+
+    /* Get mirror interface */
+    ret = get_config_item ("MAIN", "mirror_interface", iniConfig, &item);
+    if (ret) {
+        logToConsole ("Get_config_item \"mirror_interface\" error\n");
+        ret = -1;
+        goto exit;
+    }
+    tmp = get_const_string_config_value (item, &error);
+    if (error) {
+        logToConsole ("Parse \"mirror_interface\" error.\n");
+        ret = -1;
+        goto exit;
+    }
+    agentParameters.mirrorInterface = strdup (tmp);
+    if (agentParameters.mirrorInterface == NULL) {
+        logToConsole ("Get \"mirror_interface\" error\n");
+        ret = -1;
+        goto exit;
+    }
+
+    /* Get pcap_dump_schedule */
+    ret = get_config_item ("MAIN", "pcap_dump_schedule", iniConfig, &item);
+    if (ret) {
+        logToConsole ("Get_config_item \"pcap_dump_schedule\" error\n");
+        ret = -1;
+        goto exit;
+    }
+    agentParameters.pcapDumpSchedule = get_int_config_value (item, 1, -1, &error);
+    if (error) {
+        logToConsole ("Parse \"pcap_dump_schedule\" error.\n");
+        ret = -1;
+        goto exit;
+    }
+
+    /* Get parsing threads number */
+    ret = get_config_item ("MAIN", "parsing_threads", iniConfig, &item);
+    if (ret) {
+        logToConsole ("Get_config_item \"parsing_threads\" error\n");
+        ret = -1;
+        goto exit;
+    }
+    agentParameters.parsingThreads = get_int_config_value (item, 1, -1, &error);
+    if (error) {
+        logToConsole ("Parse \"parsing_threads\" error.\n");
+        ret = -1;
+        goto exit;
+    }
+    
+    /* Get default log level */
+    ret = get_config_item ("LOG", "log_level", iniConfig, &item);
+    if (ret) {
+        logToConsole ("Get_config_item \"log_level\" error\n");
+        ret = -1;
+        goto exit;
+    }
+    agentParameters.logLevel = get_int_config_value (item, 1, -1, &error);
+    if (error) {
+        logToConsole ("Parse \"log_level\" error.\n");
+        ret = -1;
+        goto exit;
+    }
+
+    /* Get redis server ip */
+    ret = get_config_item ("REDIS", "redis_server_ip", iniConfig, &item);
+    if (ret) {
+        logToConsole ("Get_config_item \"redis_server_ip\" error\n");
+        ret = -1;
+        goto exit;
+    }
+    tmp = get_const_string_config_value (item, &error);
+    if (error) {
+        logToConsole ("Parse \"redis_server_ip\" error.\n");
+        ret = -1;
+        goto exit;
+    }
+    agentParameters.redisSrvIp = strdup (tmp);
+    if (agentParameters.redisSrvIp == NULL) {
+        logToConsole ("Get \"redis_server_ip\" error\n");
+        ret = -1;
+        goto exit;
+    }
+
+    /* Get redis server port */
+    ret = get_config_item ("REDIS", "redis_server_port", iniConfig, &item);
+    if (ret) {
+        logToConsole ("Get_config_item \"redis_server_port\" error\n");
+        ret = -1;
+        goto exit;
+    }
+    agentParameters.redisSrvPort = (u_short) get_int_config_value (item, 1, -1, &error);
+    if (error) {
+        logToConsole ("Parse \"redis_server_port\" error.\n");
+        ret = -1;
+        goto exit;
+    }
+
+exit:
+    if (iniConfig)
+        free_ini_config (iniConfig);
+    if (errorSet)
+        free_ini_config_errors (errorSet);
+    return ret;
+}
+
+/* Agent cmd options */
+static struct option agentOptions [] = {
+    {"agent-id", required_argument, NULL, 'i'},
+    {"mirror-interface", required_argument, NULL, 'm'},
+    {"pcap-dump-schedule", required_argument, NULL, 't'},
+    {"parsing-threads", required_argument, NULL, 'n'},
+    {"log-level", required_argument, NULL, 'l'},
+    {"redis-srv-ip", required_argument, NULL, 'r'},
+    {"redis-srv-port", required_argument, NULL, 'p'},
+    {"daemon-mode", no_argument, NULL, 'D'},
+    {"version", no_argument, NULL, 'v'},
+    {"help", no_argument, NULL, 'h'},
+    {NULL, no_argument, NULL, 0},
+};
+
+static void
+showHelpInfo (const char *cmd) {
+    const char *cmdName;
+
+    cmdName = strrchr (cmd, '/') ? (strrchr (cmd, '/') + 1) : cmd;
+    logToConsole ("Usage: %s -m <eth*> -s <ip> [options]\n"
+                  "       %s [-vh]\n"
+                  "Basic options: \n"
+                  "  -i|--agent-id <id> agent id\n"
+                  "  -m|--mirror-interface <eth*> interface to collect packets\n"
+                  "  -t|--pcap-dump-schedule <seconds>, schedule for dumping pcap statistic\n"
+                  "  -n|--parsing-threads <number> parsing threads number\n"
+                  "  -l|--log-level <level> log level\n"
+                  "       Optional level: 0-ERR 1-WARNING 2-INFO 3-DEBUG\n"
+                  "  -r|--redis-srv-ip <ip>, ip of redis server\n"
+                  "  -p|--redis-srv-port <port>, port of redis server\n"
+                  "  -D|--daemon-mode, run as daemon\n"
+                  "  -v|--version, version of %s\n"
+                  "  -h|--help, help information\n",
+                  cmdName, cmdName, cmdName);
+}
+
+/* Cmd line parser */
+static int
+parseCmdline (int argc, char *argv []) {
+    char option;
+    BOOL showVersion = FALSE;
+    BOOL showHelp = FALSE;
+
+    while ((option = getopt_long (argc, argv, "i:n:m:t:l:r:p:Dvh?", agentOptions, NULL)) != -1) {
+        switch (option) {
+            case 'i':
+                agentParameters.agentId = atoi (optarg);
+                break;
+
+            case 'm':
+                agentParameters.mirrorInterface = strdup (optarg);
+                if (agentParameters.mirrorInterface == NULL) {
+                    logToConsole ("Get mirroring interface error!\n");
+                    return -1;
+                }
+                break;
+
+            case 't':
+                agentParameters.pcapDumpSchedule = atoi (optarg);
+                break;
+
+            case 'n':
+                agentParameters.parsingThreads = atoi (optarg);
+                break;
+
+            case 'l':
+                agentParameters.logLevel = atoi (optarg);
+                break;
+
+            case 'r':
+                agentParameters.redisSrvIp = strdup (optarg);
+                if (agentParameters.redisSrvIp == NULL) {
+                    logToConsole ("Get redis server ip error.\n");
+                    return -1;
+                }
+                break;
+
+            case 'p':
+                agentParameters.redisSrvPort = (u_short) atoi (optarg);
+                break;
+
+            case 'D':
+                agentParameters.daemonMode = 1;
+                break;
+
+            case 'v':
+                showVersion = TRUE;
+                break;
+
+            case 'h':
+                showHelp = TRUE;
+                break;
+
+            case '?':
+                logToConsole ("Unknown options.\n");
+                showHelpInfo (argv [0]);
+                return -1;
+        }
+    }
+
+    if (showVersion || showHelp) {
+        if (showVersion)
+            logToConsole ("Current version: %d.%d\n", WDM_AGENT_VERSION_MAJOR, WDM_AGENT_VERSION_MINOR);
+        if (showHelp)
+            showHelpInfo (argv [0]);
+        exit (0);
+    }
+
+    return 0;
+}
+
 static int
 agentDaemon (void) {
     pid_t pid, next_pid;
@@ -1270,266 +1530,6 @@ agentDaemon (void) {
         default:
             return 0;
     }
-}
-
-/* Agent cmd options */
-static struct option agentOptions [] = {
-    {"agent-id", required_argument, NULL, 'i'},
-    {"parsing-threads", required_argument, NULL, 'n'},
-    {"mirror-interface", required_argument, NULL, 'm'},
-    {"pcap-dump-timeout", required_argument, NULL, 't'},
-    {"log-level", required_argument, NULL, 'l'},
-    {"redis-srv-ip", required_argument, NULL, 'r'},
-    {"redis-srv-port", required_argument, NULL, 'p'},
-    {"daemon-mode", no_argument, NULL, 'D'},
-    {"version", no_argument, NULL, 'v'},
-    {"help", no_argument, NULL, 'h'},
-    {NULL, no_argument, NULL, 0},
-};
-
-static void
-showHelpInfo (const char *cmd) {
-    const char *cmdName;
-
-    cmdName = strrchr (cmd, '/') ? (strrchr (cmd, '/') + 1) : cmd;
-    logToConsole ("Usage: %s -m <eth*> -s <ip> [options]\n"
-                  "       %s [-vh]\n"
-                  "Basic options: \n"
-                  "  -i|--agent-id <id> agent id\n"
-                  "  -n|--parsing-threads <number> parsing threads number\n"
-                  "  -m|--mirror-interface <eth*> interface to collect packets\n"
-                  "  -t|--pcap-dump-timeout <timeout>, timeout for dumping pcap statistic\n"
-                  "  -l|--log-level <level> log level\n"
-                  "       Optional level: 0-ERR 1-WARNING 2-INFO 3-DEBUG\n"
-                  "  -r|--redis-srv-ip <ip>, ip of redis server\n"
-                  "  -p|--redis-srv-port <port>, port of redis server\n"
-                  "  -D|--daemon-mode, run as daemon\n"
-                  "  -v|--version, version of %s\n"
-                  "  -h|--help, help information\n",
-                  cmdName, cmdName, cmdName);
-}
-
-/* Cmd line parser */
-static int
-parseCmdline (int argc, char *argv []) {
-    char option;
-    BOOL showVersion = FALSE;
-    BOOL showHelp = FALSE;
-
-    while ((option = getopt_long (argc, argv, "i:n:m:t:l:r:p:Dvh?", agentOptions, NULL)) != -1) {
-        switch (option) {
-            case 'i':
-                agentParameters.agentId = atoi (optarg);
-                break;
-
-            case 'n':
-                agentParameters.parsingThreads = atoi (optarg);
-                break;
-
-            case 'm':
-                agentParameters.mirrorInterface = strdup (optarg);
-                if (agentParameters.mirrorInterface == NULL) {
-                    logToConsole ("Get mirroring interface error!\n");
-                    return -1;
-                }
-                break;
-
-            case 't':
-                agentParameters.pcapDumpTimeout = atoi (optarg);
-                break;
-
-            case 'l':
-                agentParameters.logLevel = atoi (optarg);
-                break;
-
-            case 'r':
-                agentParameters.redisSrvIp = strdup (optarg);
-                if (agentParameters.redisSrvIp == NULL) {
-                    logToConsole ("Get redis server ip error.\n");
-                    return -1;
-                }
-                break;
-
-            case 'p':
-                agentParameters.redisSrvPort = (u_short) atoi (optarg);
-                break;
-
-            case 'D':
-                agentParameters.daemonMode = 1;
-                break;
-
-            case 'v':
-                showVersion = TRUE;
-                break;
-
-            case 'h':
-                showHelp = TRUE;
-                break;
-
-            case '?':
-                logToConsole ("Unknown options.\n");
-                showHelpInfo (argv [0]);
-                return -1;
-        }
-    }
-
-    if (showVersion || showHelp) {
-        if (showVersion)
-            logToConsole ("Current version: %d.%d\n", WDM_AGENT_VERSION_MAJOR, WDM_AGENT_VERSION_MINOR);
-        if (showHelp)
-            showHelpInfo (argv [0]);
-        exit (0);
-    }
-
-    return 0;
-}
-
-/* Parse configuration of agent */
-static int
-parseConf (void) {
-    int ret, error;
-    const char *tmp;
-    struct collection_item *iniConfig = NULL;
-    struct collection_item *errorSet = NULL;
-    struct collection_item *item;
-
-    ret = config_from_file ("Agent", WDM_AGENT_CONFIG_FILE,
-                            &iniConfig, INI_STOP_ON_ANY, &errorSet);
-    if (ret) {
-        logToConsole ("Parse config file: %s error.\n", WDM_AGENT_CONFIG_FILE);
-        return -1;
-    }
-
-    /* Get agent id */
-    ret = get_config_item ("MAIN", "agent_id", iniConfig, &item);
-    if (ret) {
-        logToConsole ("Get_config_item \"agent_id\" error\n");
-        ret = -1;
-        goto exit;
-    }
-    agentParameters.agentId = get_int_config_value (item, 1, -1, &error);
-    if (error) {
-        logToConsole ("Parse \"agent_id\" error.\n");
-        ret = -1;
-        goto exit;
-    }
-
-    /* Get daemon mode */
-    ret = get_config_item ("MAIN", "daemon_mode", iniConfig, &item);
-    if (ret) {
-        logToConsole ("Get_config_item \"daemon_mode\" error\n");
-        ret = -1;
-        goto exit;
-    }
-    agentParameters.daemonMode = get_int_config_value (item, 1, -1, &error);
-    if (error) {
-        logToConsole ("Parse \"daemon_mode\" error.\n");
-        ret = -1;
-        goto exit;
-    }
-
-    /* Get parsing threads number */
-    ret = get_config_item ("MAIN", "parsing_threads", iniConfig, &item);
-    if (ret) {
-        logToConsole ("Get_config_item \"parsing_threads\" error\n");
-        ret = -1;
-        goto exit;
-    }
-    agentParameters.parsingThreads = get_int_config_value (item, 1, -1, &error);
-    if (error) {
-        logToConsole ("Parse \"parsing_threads\" error.\n");
-        ret = -1;
-        goto exit;
-    }
-
-    /* Get mirror interface */
-    ret = get_config_item ("MAIN", "mirror_interface", iniConfig, &item);
-    if (ret) {
-        logToConsole ("Get_config_item \"mirror_interface\" error\n");
-        ret = -1;
-        goto exit;
-    }
-    tmp = get_const_string_config_value (item, &error);
-    if (error) {
-        logToConsole ("Parse \"mirror_interface\" error.\n");
-        ret = -1;
-        goto exit;
-    }
-    agentParameters.mirrorInterface = strdup (tmp);
-    if (agentParameters.mirrorInterface == NULL) {
-        logToConsole ("Get \"mirror_interface\" error\n");
-        ret = -1;
-        goto exit;
-    }
-
-    /* Get pcap_dump_timeout */
-    ret = get_config_item ("MAIN", "pcap_dump_timeout", iniConfig, &item);
-    if (ret) {
-        logToConsole ("Get_config_item \"pcap_dump_timeout\" error\n");
-        ret = -1;
-        goto exit;
-    }
-    agentParameters.pcapDumpTimeout = get_int_config_value (item, 1, -1, &error);
-    if (error) {
-        logToConsole ("Parse \"pcap_dump_timeout\" error.\n");
-        ret = -1;
-        goto exit;
-    }
-
-    /* Get default log level */
-    ret = get_config_item ("LOG", "log_level", iniConfig, &item);
-    if (ret) {
-        logToConsole ("Get_config_item \"log_level\" error\n");
-        ret = -1;
-        goto exit;
-    }
-    agentParameters.logLevel = get_int_config_value (item, 1, -1, &error);
-    if (error) {
-        logToConsole ("Parse \"log_level\" error.\n");
-        ret = -1;
-        goto exit;
-    }
-
-    /* Get redis server ip */
-    ret = get_config_item ("REDIS", "redis_server_ip", iniConfig, &item);
-    if (ret) {
-        logToConsole ("Get_config_item \"redis_server_ip\" error\n");
-        ret = -1;
-        goto exit;
-    }
-    tmp = get_const_string_config_value (item, &error);
-    if (error) {
-        logToConsole ("Parse \"redis_server_ip\" error.\n");
-        ret = -1;
-        goto exit;
-    }
-    agentParameters.redisSrvIp = strdup (tmp);
-    if (agentParameters.redisSrvIp == NULL) {
-        logToConsole ("Get \"redis_server_ip\" error\n");
-        ret = -1;
-        goto exit;
-    }
-
-    /* Get redis server port */
-    ret = get_config_item ("REDIS", "redis_server_port", iniConfig, &item);
-    if (ret) {
-        logToConsole ("Get_config_item \"redis_server_port\" error\n");
-        ret = -1;
-        goto exit;
-    }
-    agentParameters.redisSrvPort = (u_short) get_int_config_value (item, 1, -1, &error);
-    if (error) {
-        logToConsole ("Parse \"redis_server_port\" error.\n");
-        ret = -1;
-        goto exit;
-    }
-
-exit:
-    if (iniConfig)
-        free_ini_config (iniConfig);
-    if (errorSet)
-        free_ini_config_errors (errorSet);
-    return ret;
 }
 
 int

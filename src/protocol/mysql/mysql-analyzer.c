@@ -623,11 +623,12 @@ pktEnd (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOOL from
         (!parser->cliProtoV41 && (payloadLen != 1)))
         return PKT_WRONG_TYPE;
 
+    pkt++;
     if (parser->cliProtoV41) {
-        pkt++;
         warn = G2 (pkt);
         pkt += 2;
         status = G2 (pkt);
+        pkt += 2;
 
         if (((parser->state == STATE_TXT_ROW) || (parser->state == STATE_BIN_ROW)) &&
             (status & SERVER_MORE_RESULTS_EXISTS) &&

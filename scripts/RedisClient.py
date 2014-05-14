@@ -44,18 +44,18 @@ class RedisClient:
         try:
             rds = redis.Redis(connection_pool=self.pool)
             if agent_id == None :
-                output = rds.hgetall('wdm:agent_map')
+                output = rds.hgetall('wda:agent_map')
                 for key in output:
                     agentList.append(json.loads(output[key]))
 
                 return agentList
 
             else:
-                output = rds.hget('wdm:agent_map', agent_id)
+                output = rds.hget('wda:agent_map', agent_id)
                 return json.loads(output)
 
         except Exception, e:
-            self.errmsg = "failed to get agent list from key='wdm:agent_map'"
+            self.errmsg = "failed to get agent list from key='wda:agent_map'"
             if agent_id != None :
                 self.errmsg = self.errmsg + " with agent_id=%d" % agent_id
 
@@ -70,7 +70,7 @@ class RedisClient:
     def setAgentInfo(self, agent_info):
         try:
             rds = redis.Redis(connection_pool=self.pool)
-            rds.hset('wdm:agent_map', agent_info['agent_id'], json.dumps(agent_info))
+            rds.hset('wda:agent_map', agent_info['agent_id'], json.dumps(agent_info))
             return True
 
         except Exception, e:
@@ -87,7 +87,7 @@ class RedisClient:
         try:
             rds = redis.Redis(connection_pool=self.pool)
             #TODO: publish the delete action to agent, agent will close then
-            rds.hdel('wdm:agent_map', agent_id)
+            rds.hdel('wda:agent_map', agent_id)
             return True
 
         except Exception, e:
@@ -104,14 +104,14 @@ class RedisClient:
         try:
             rds = redis.Redis(connection_pool=self.pool)
             if service_id == None :
-                output = rds.hgetall('wdm:service_map:agent_%d' % agent_id)
+                output = rds.hgetall('wda:service_map:agent_%d' % agent_id)
                 for key in output:
                     #serviceList.append(json.loads(output[key]))
                     service_dict[int(key)] = (json.loads(output[key]))
 
                 #return serviceList
             else:
-                output = rds.hget('wdm:service_map:agent_%d' % agent_id, service_id)
+                output = rds.hget('wda:service_map:agent_%d' % agent_id, service_id)
                 service_dict = json.loads(output)
                 #return json.loads(output)
 
@@ -134,7 +134,7 @@ class RedisClient:
     def setServiceInfo(self, agent_id, service_info):
         try:
             rds = redis.Redis(connection_pool=self.pool)
-            rds.hset('wdm:service_map:agent_%d' % agent_id, service_info['service_id'], json.dumps(service_info))
+            rds.hset('wda:service_map:agent_%d' % agent_id, service_info['service_id'], json.dumps(service_info))
             return True
 
         except Exception, e:
@@ -150,7 +150,7 @@ class RedisClient:
     def deleteServiceInfo(self, agent_id, service_id):
         try:
             rds = redis.Redis(connection_pool=self.pool)
-            rds.hdel('wdm:service_map:agent_%d' % agent_id, service_id)
+            rds.hdel('wda:service_map:agent_%d' % agent_id, service_id)
             return True
 
         except Exception, e:
@@ -167,7 +167,7 @@ class RedisClient:
 
         try:
             rds = redis.Redis(connection_pool=self.pool)
-            rds.publish('wdm:pubsub_service_add:agent_%d' % agent_id, json.dumps(service_info))
+            rds.publish('wda:pubsub_service_add:agent_%d' % agent_id, json.dumps(service_info))
 
             return True
 
@@ -186,7 +186,7 @@ class RedisClient:
 
         try:
             rds = redis.Redis(connection_pool=self.pool)
-            rds.publish('wdm:pubsub_service_delete:agent_%d' % agent_id, json.dumps(service_info))
+            rds.publish('wda:pubsub_service_delete:agent_%d' % agent_id, json.dumps(service_info))
             return True
 
         except Exception, e:
@@ -204,7 +204,7 @@ class RedisClient:
 
         try:
             rds = redis.Redis(connection_pool=self.pool)
-            rds.publish('wdm:pubsub_service_update:agent_%d' % agent_id, json.dumps(service_info))
+            rds.publish('wda:pubsub_service_update:agent_%d' % agent_id, json.dumps(service_info))
             return True
 
         except Exception, e:

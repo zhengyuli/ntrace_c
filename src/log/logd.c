@@ -533,7 +533,7 @@ logdDaemon (void) {
 /* Logd options */
 static struct option logdOptions [] = {
     {"dir", required_argument, NULL, 'd'},
-    {"name", required_argument, NULL, 'n'},
+    {"name", required_argument, NULL, 'f'},
     {"daemon", no_argument, NULL, 'D'},
     {"help", no_argument, NULL, 'h'},
     {NULL, no_argument, NULL, 0},
@@ -548,7 +548,7 @@ showHelpInfo (const char *cmd) {
              "Usage: %s -f <pid-file> [-d]\n"
              "Basic options: \n"
              "  -d|--dir <directory>, log file directory\n"
-             "  -n|--name <fileName>, log file name\n"
+             "  -f|--name <fileName>, log file name\n"
              "  -D|--daemon, run as daemon\n"
              "  -h|--help, show help message\n",
              cmdName);
@@ -568,7 +568,7 @@ main (int argc, char *argv []) {
 
     /* Set locale */
     setlocale(LC_COLLATE,"");
-    while ((option = getopt_long (argc, argv, "d:n:Dh?", logdOptions, NULL)) != -1) {
+    while ((option = getopt_long (argc, argv, "d:f:Dh?", logdOptions, NULL)) != -1) {
         switch (option) {
             case 'd':
                 logFileDir = strdup (optarg);
@@ -579,7 +579,7 @@ main (int argc, char *argv []) {
                 }
                 break;
 
-            case 'n':
+            case 'f':
                 logFileName = strdup (optarg);
                 if (logFileName == NULL) {
                     fprintf (stderr, "Strdup log file name error: %s.\n", strerror (errno));

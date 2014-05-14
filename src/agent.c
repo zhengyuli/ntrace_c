@@ -969,9 +969,9 @@ lockPidFile (void) {
 
     pid = getpid ();
 
-    agentPidFd = open (WDM_AGENT_PID_FILE, O_CREAT | O_RDWR, 0666);
+    agentPidFd = open (AGENT_PID_FILE, O_CREAT | O_RDWR, 0666);
     if (agentPidFd < 0) {
-        fprintf(stderr, "Open pid file %s error: %s.\n", WDM_AGENT_PID_FILE, strerror (errno));
+        fprintf(stderr, "Open pid file %s error: %s.\n", AGENT_PID_FILE, strerror (errno));
         return -1;
     }
 
@@ -981,7 +981,7 @@ lockPidFile (void) {
         if (n != strlen (buf)) {
             fprintf(stderr, "Write pid to pid file error: %s.\n", strerror (errno));
             close (agentPidFd);
-            remove (WDM_AGENT_PID_FILE);
+            remove (AGENT_PID_FILE);
             return -1;
         }
         sync ();
@@ -1001,7 +1001,7 @@ unlockPidFile (void) {
         close (agentPidFd);
         agentPidFd = -1;
     }
-    remove (WDM_AGENT_PID_FILE);
+    remove (AGENT_PID_FILE);
 }
 
 static int
@@ -1208,10 +1208,10 @@ parseConf (void) {
     struct collection_item *errorSet = NULL;
     struct collection_item *item;
 
-    ret = config_from_file ("Agent", WDM_AGENT_CONFIG_FILE,
+    ret = config_from_file ("Agent", AGENT_CONFIG_FILE,
                             &iniConfig, INI_STOP_ON_ANY, &errorSet);
     if (ret) {
-        logToConsole ("Parse config file: %s error.\n", WDM_AGENT_CONFIG_FILE);
+        logToConsole ("Parse config file: %s error.\n", AGENT_CONFIG_FILE);
         return -1;
     }
 
@@ -1450,7 +1450,7 @@ parseCmdline (int argc, char *argv []) {
 
     if (showVersion || showHelp) {
         if (showVersion)
-            logToConsole ("Current version: %d.%d\n", WDM_AGENT_VERSION_MAJOR, WDM_AGENT_VERSION_MINOR);
+            logToConsole ("Current version: %d.%d\n", AGENT_VERSION_MAJOR, AGENT_VERSION_MINOR);
         if (showHelp)
             showHelpInfo (argv [0]);
         exit (0);

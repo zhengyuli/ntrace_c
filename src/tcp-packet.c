@@ -1176,8 +1176,8 @@ tcpProcess (u_char *data, u_int skbLen, timeValPtr tm) {
 
 static void
 tcpSharedInstance (void) {
-    pthread_spin_init(&tcpConnectionIdLock, PTHREAD_PROCESS_PRIVATE);
-    pthread_spin_init(&tcpBreakdownIdLock, PTHREAD_PROCESS_PRIVATE);
+    pthread_spin_init (&tcpConnectionIdLock, PTHREAD_PROCESS_PRIVATE);
+    pthread_spin_init (&tcpBreakdownIdLock, PTHREAD_PROCESS_PRIVATE);
 }
 
 /* Init tcp process context */

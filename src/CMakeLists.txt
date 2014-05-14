@@ -1,7 +1,7 @@
 CMAKE_MINIMUM_REQUIRED (VERSION 2.8.0)
 
-SET (WDM_AGENT_CONFIG_FILE  ${WDM_AGENT_CONFIG_DIR}/agent.conf)
-SET (WDM_AGENT_PID_FILE  /var/run/wdm-agent.pid)
+SET (AGENT_CONFIG_FILE  ${AGENT_CONFIG_DIR}/agent.conf)
+SET (AGENT_PID_FILE  /var/run/${ROOT_PROJECT_LOWER}-agent.pid)
 
 # configure a header file to pass some of the CMake settings
 # to the source code
@@ -39,10 +39,10 @@ SET (AGENT_SOURCE_FILES
   protocol/mysql/mysql-analyzer.c
   3rdParty/http_parser/http_parser.c)
 
-ADD_EXECUTABLE (wdm-agent ${AGENT_SOURCE_FILES})
-TARGET_LINK_LIBRARIES (wdm-agent pcap czmq hiredis pthread ini_config z jansson)
+ADD_EXECUTABLE (${ROOT_PROJECT_LOWER}-agent ${AGENT_SOURCE_FILES})
+TARGET_LINK_LIBRARIES (${ROOT_PROJECT_LOWER}-agent pcap czmq hiredis pthread ini_config z jansson)
 INSTALL (
-  TARGETS wdm-agent
-  DESTINATION ${WDM_AGENT_BIN_DIR})
+  TARGETS ${ROOT_PROJECT_LOWER}-agent
+  DESTINATION ${AGENT_BIN_DIR})
 
 ADD_SUBDIRECTORY (log)

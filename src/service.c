@@ -11,141 +11,52 @@
 #include "log.h"
 #include "service.h"
 
-#define SVC_MAP_INIT_SIZE 133
-
-/*
- * The master service hash map will be used by parsing sub-threads.
- * When there is a service update, serviceUpdateMonitor will update
- * svcMapSlave first and try to get svcMapMasterLock's rw lock, if
- * success then swap svcMapMaster and svcMapSlave.
- */
-static hashTablePtr svcMapMaster;
-static hashTablePtr svcMapSlave;
+static hashTablePtr svcMapMaster = NULL;
+static hashTablePtr svcMapSlave = NULL;
 static pthread_rwlock_t svcMapMasterLock = PTHREAD_RWLOCK_INITIALIZER;
 
-u_int
+inline u_int
 serviceNum (void) {
-    return hashSize (svcMapSlave);
+    u_int size;
+
+    pthread_rwlock_rdlock (&svcMapMasterLock);
+    size = hashSize (svcMapMaster);
+    pthread_rwlock_unlock (&svcMapMasterLock);
+
+    return size;
 }
 
-int
+inline int
 serviceLoopDo (hashForEachItemDoCB fun, void *args) {
-    return hashForEachItemDo (svcMapSlave, fun, args);
+    int ret;
+    
+    pthread_rwlock_rdlock (&svcMapMasterLock);
+    ret = hashForEachItemDo (svcMapMaster, fun, args);
+    pthread_rwlock_unlock (&svcMapMasterLock);
+
+    return ret;
 }
 
-static servicePtr
-newService (void) {
-    servicePtr svc;
-
-    svc = malloc (sizeof (service));
-    if (svc)
-        memset (svc, 0, sizeof (service));
-
-    return svc;
-}
-
-/* Service free callback */
 static void
 freeService (void *data) {
     servicePtr svc;
 
+    if (data == NULL)
+        return;
     svc = (servicePtr) data;
     free (svc->ip);
-    free (data);
+    free (svc);
 }
 
-static servicePtr
-copyService (servicePtr svcFrom) {
-    servicePtr svcTo;
-
-    svcTo = newService ();
-    if (svcTo) {
-        svcTo->id = svcFrom->id;
-        svcTo->proto = svcFrom->proto;
-        svcTo->ip = strdup (svcFrom->ip);
-        if (svcTo->ip == NULL) {
-            free (svcTo);
-            return NULL;
-        }
-        svcTo->port = svcFrom->port;
-    }
-
-    return svcTo;
-}
-
-/*
- * @brief Add service to slave service hash map
- *
- * @param svc service to add
- *
- * @return 0 if success else -1
- */
 static int
 addService (servicePtr svc) {
     int ret;
     char key [32] = {0};
-    servicePtr newSvc;
-
-    newSvc = copyService (svc);
-    if (newSvc == NULL) {
-        LOGE ("CopyService error.\n");
-        return -1;
-    }
-
-    snprintf (key, sizeof (key) - 1, "%s:%d", newSvc->ip, newSvc->port);
-    ret = hashInsert (svcMapSlave, key, newSvc, freeService);
-    if (ret < 0) {
-        LOGE ("Insert new service: %u error\n", svc->id);
-        return -1;
-    }
-
-    return 0;
-}
-
-/*
- * @brief Delete service from slave service hash map.
- *
- * @param svc service to delete
- *
- * @return 0 if success else -1
- */
-static int
-deleteService (servicePtr svc) {
-    int ret;
-    char key [32] = {0};
 
     snprintf (key, sizeof (key) - 1, "%s:%d", svc->ip, svc->port);
-    ret = hashDel (svcMapSlave, key);
+    ret = hashInsert (svcMapSlave, key, svc, freeService);
     if (ret < 0) {
-        LOGE ("Service: %u doesn't exist.\n", svc->id);
-        return -1;
-    }
-
-    return 0;
-}
-
-/*
- * @brief To modify service, first, we need to remove the old service
- *        and then add the new service.
- *
- * @param oldSvc old service to delete
- * @param newSvc new service to add
- *
- * @return 0 if success else -1
- */
-static int
-modifyService (servicePtr oldSvc, servicePtr newSvc) {
-    int ret;
-
-    ret = deleteService (oldSvc);
-    if (ret < 0) {
-        LOGE ("Delete service error.\n");
-        return -1;
-    }
-
-    ret = addService (newSvc);
-    if (ret < 0) {
-        LOGE ("Add service error.\n");
+        LOGE ("Insert new service: %u error\n", svc->id);
         return -1;
     }
 
@@ -156,9 +67,6 @@ static void
 serviceMapSwap (void) {
     hashTablePtr tmp;
 
-    /* Switch master and slave service hash table and
-     * update slave service hash table
-     */
     tmp = svcMapMaster;
     pthread_rwlock_wrlock (&svcMapMasterLock);
     svcMapMaster = svcMapSlave;
@@ -166,192 +74,130 @@ serviceMapSwap (void) {
     svcMapSlave = tmp;
 }
 
-/*
- * @brief display service update info
- *
- * @param svcUpdateType service update type
- * @param svc service to update
- */
 static void
-displayServiceUpdateDetail (svcUpdateType updateType, servicePtr svc) {
-    switch (updateType) {
-        case SVC_UPDATE_ADD:
-            LOGI ("\nService add:\n");
-            break;
-
-        case SVC_UPDATE_MOD:
-            LOGI ("Service modify:\n");
-            break;
-
-        case SVC_UPDATE_DEL:
-            LOGI ("Service delete:\n");
-            break;
-
-        default:
-            LOGI ("Unknown service update type\n");
-            return;
-    }
-
+displayServiceUpdateDetail (servicePtr svc) {
+    LOGI ("\nAdd service:\n");
     LOGI ("--id: %u\n", svc->id);
-
-    switch (svc->proto) {
-        case PROTO_DEFAULT:
-            LOGI ("--proto: %s\n", "default");
-            break;
-
-        case PROTO_MYSQL:
-            LOGI ("--proto: %s\n", "mysql");
-            break;
-
-        case PROTO_HTTP:
-            LOGI ("--proto: %s\n", "http");
-            break;
-
-        default:
-            LOGI ("Unsupported protocol\n");
-            return;
-    }
-
+    LOGI ("--proto: %s\n", getProtoName (svc->proto) ? getProtoName (svc->proto) : "Unknown protoType");
     LOGI ("--ip: %s\n", svc->ip);
     LOGI ("--port: %u\n", svc->port);
 }
 
-static void *
-lookupServiceBySvcIdStub (void *data, void *args) {
-    servicePtr oldSvc = (servicePtr) data;
-    servicePtr svc = (servicePtr) args;
+static servicePtr
+json2Service (json_t *json) {
+    json_t *tmp;
+    servicePtr svc;
+    struct in_addr sa;
 
-    if (oldSvc->id == svc->id)
-        return (void *) oldSvc;
-    else
+    svc = (servicePtr) malloc (sizeof (service));
+    if (svc == NULL) {
+        LOGE ("Alloc service error: %s.\n", strerror (errno));
         return NULL;
+    }
+
+    /* Get service id */
+    tmp = json_object_get (json, "service_id");
+    if (tmp == NULL) {
+        LOGE ("Has no service_id item.\n");
+        free (svc);
+        return NULL;
+    }
+    svc->id = (u_int) json_integer_value (tmp);
+
+    /* Get service proto */
+    tmp = json_object_get (json, "service_proto");
+    if (tmp == NULL) {
+        LOGE ("Has no service_proto item.\n");
+        free (svc);
+        return NULL;
+    }
+    svc->proto = getProtoType (json_string_value (tmp));
+    if (svc->proto == PROTO_UNKNOWN) {
+        LOGE ("Unknown proto type: %s.\n", (json_string_value (tmp)));
+        free (svc);
+        return NULL;
+    }
+
+    /* Get service ip */
+    tmp = json_object_get (json, "service_ip");
+    if (tmp == NULL) {
+        LOGE ("Has no service_ip item.\n");
+        free (svc);
+        return NULL;
+    }
+    if (!inet_aton (json_string_value (tmp), &sa)) {
+        LOGE ("Wrong ip address: %s.\n", (json_string_value (tmp)));
+        free (svc);
+        return NULL;
+    }
+    svc->ip = strdup (json_string_value (tmp));
+    if (svc->ip == NULL) {
+        LOGE ("Strdup service ip error: %s.\n", strerror (errno));
+        free (svc);
+        return NULL;
+    }
+
+    /* Get service port */
+    tmp = json_object_get (json, "service_port");
+    if (tmp == NULL) {
+        LOGE ("Has no service_port item.\n");
+        free (svc->ip);
+        free (svc);
+        return NULL;
+    }
+    svc->port = (u_short) json_integer_value (tmp);
+
+    return svc;
 }
 
-/*
- * @brief Update service
- *
- * @param updateType service update type
- * @param svc service to update
- *
- * @return 0 if success else -1
- */
 int
-updateService (svcUpdateType updateType, servicePtr svc) {
-    int ret;
-    servicePtr oldSvc;
-    servicePtr oldSvcBackup;
+updateService (const char *svcJson) {
+    u_int i;
+    json_error_t error;
+    json_t *root, *tmp;
+    servicePtr svc;
 
-    oldSvc = (servicePtr) hashForEachItemCheck (svcMapSlave, lookupServiceBySvcIdStub, (void *) svc);
-    switch (updateType) {
-        case SVC_UPDATE_ADD:
-            if (oldSvc) {
-                LOGE ("Service: %d  has been registered.\n", svc->id);
-                freeService (svc);
-                return -1;
-            }
-            ret = addService (svc);
-            if (ret < 0) {
-                LOGE ("addService error.\n");
-                freeService (svc);
-                return -1;
-            }
-            break;
+    /* Cleanup svcMapSlave */
+    hashClen (svcMapSlave);
 
-        case SVC_UPDATE_MOD:
-            if (oldSvc == NULL) {
-                LOGE ("Service modify error, service not exists.\n");
-                freeService (svc);
-                return -1;
-            }
-            oldSvcBackup = copyService (oldSvc);
-            if (oldSvcBackup == NULL) {
-                LOGE ("CopyService error.\n");
-                freeService (svc);
-                return -1;
-            }
-            ret = modifyService (oldSvcBackup, svc);
-            /* Free old service backup if update fail */
-            if (ret < 0) {
-                LOGE ("modifyService error.\n");
-                freeService (oldSvcBackup);
-                freeService (svc);
-                return -1;
-            }
-            break;
-
-        case SVC_UPDATE_DEL:
-            if (oldSvc == NULL) {
-                LOGE ("Service Delete error, service not exists.\n");
-                freeService (svc);
-                return -1;
-            }
-            ret = deleteService (svc);
-            if (ret < 0) {
-                LOGE ("deleteService error.\n");
-                freeService (svc);
-                return -1;
-            }
-            break;
-
-        default:
-            LOGE ("Unknown service update type.\n");
-            freeService (svc);
-            return -1;
+    /* Parse services */
+    root = json_loads (jsonData, JSON_DISABLE_EOF_CHECK, &error);
+    if (root == NULL) {
+        LOGE ("Json parse error: %s.\n", error.text);
+        return -1;
     }
 
-    /* Swap service master and slave hash map */
+    if (!json_is_array (root)) {
+        LOGE ("Wrong json format.\n");
+        json_object_clear (root);
+        return -1;
+    }
+
+    for (i = 0; i < json_array_size (root); i ++) {
+        tmp = json_array_get (root, i);
+        if (tmp == NULL) {
+            LOGE ("Get json array item error.\n");
+            json_object_clear (root);
+            return -1;
+        }
+
+        svc = json2Service (tmp);
+        if (svc == NULL) {
+            LOGE ("Convert json to service error.\n");
+            json_object_clear (root);
+            return -1;
+        }
+        ret = addService (svc);
+        if (ret < 0) {
+            LOGE ("Add service error.\n");
+            json_object_clear (root);
+            return -1;
+        }
+    }
     serviceMapSwap ();
-
-    switch (updateType) {
-        case SVC_UPDATE_ADD:
-            ret = addService (svc);
-            if (ret < 0) {
-                LOGE ("addService error.\n");
-                freeService (svc);
-                return -1;
-            }
-            break;
-
-        case SVC_UPDATE_MOD:
-            ret = modifyService (oldSvcBackup, svc);
-            /* Free old service backup if update fail */
-            if (ret < 0) {
-                LOGE ("modifyService error.\n");
-                freeService (oldSvcBackup);
-                freeService (svc);
-                return -1;
-            }
-            break;
-
-        case SVC_UPDATE_DEL:
-            ret = deleteService (svc);
-            if (ret < 0) {
-                LOGE ("deleteService error.\n");
-                freeService (svc);
-                return -1;
-            }
-            break;
-
-        default:
-            LOGE ("Unknown service update type.\n");
-            freeService (svc);
-            return -1;
-    }
-
-    displayServiceUpdateDetail (updateType, svc);
-    if (updateType == SVC_UPDATE_MOD)
-        freeService (oldSvcBackup);
-    freeService (svc);
     return 0;
 }
 
-/*
- * @brief Lookup service proto type from svcMapMaster.
- *
- * @param key hash key to search
- *
- * @return service proto
- */
 protoType
 lookupServiceProtoType (const char *key) {
     int proto;
@@ -371,106 +217,15 @@ lookupServiceProtoType (const char *key) {
     return proto;
 }
 
-/*
- * @brief Convert json string to service structure,
- *
- * @param jsonData Json format for service
- *
- * @return Service pointer if success else NULL
- */
-servicePtr
-json2Service (const char *jsonData) {
-    servicePtr svc;
-    json_error_t error;
-    json_t *root, *tmp;
-    struct in_addr sa;
-
-    svc = newService ();
-    if (svc == NULL) {
-        LOGE ("Alloc service error.\n");
-        return NULL;
-    }
-
-    root = json_loads (jsonData, JSON_DISABLE_EOF_CHECK, &error);
-    if (root == NULL) {
-        LOGE ("json parse error: %s.\n", error.text);
-        free (svc);
-        return NULL;
-    }
-
-    /* Get service id */
-    tmp = json_object_get (root, "service_id");
-    if (tmp == NULL) {
-        LOGE ("Has no service_id item.\n");
-        json_object_clear (root);
-        free (svc);
-        return NULL;
-    }
-    svc->id = (u_int) json_integer_value (tmp);
-
-    /* Get service proto */
-    tmp = json_object_get (root, "service_proto");
-    if (tmp == NULL) {
-        LOGE ("Has no service_proto item.\n");
-        json_object_clear (root);
-        free (svc);
-        return NULL;
-    }
-    svc->proto = getProtoType (json_string_value (tmp));
-    if (svc->proto == PROTO_UNKNOWN) {
-        LOGE ("Unknown proto type: %s.\n", (json_string_value (tmp)));
-        json_object_clear (root);
-        free (svc);
-        return NULL;
-    }
-
-    /* Get service ip */
-    tmp = json_object_get (root, "service_ip");
-    if (tmp == NULL) {
-        LOGE ("Has no service_ip item.\n");
-        json_object_clear (root);
-        free (svc);
-        return NULL;
-    }
-    if (!inet_aton (json_string_value (tmp), &sa)) {
-        LOGE ("Wrong ip format: %s.\n", (json_string_value (tmp)));
-        json_object_clear (root);
-        free (svc);
-        return NULL;
-    }
-    svc->ip = strdup (json_string_value (tmp));
-    if (svc->ip == NULL) {
-        LOGE ("Alloc memory for service ip error: %s.\n", strerror (errno));
-        json_object_clear (root);
-        free (svc);
-        return NULL;
-    }
-
-    /* Get service port */
-    tmp = json_object_get (root, "service_port");
-    if (tmp == NULL) {
-        LOGE ("Has no service_port item.\n");
-        json_object_clear (root);
-        free (svc->ip);
-        free (svc);
-        return NULL;
-    }
-    svc->port = (u_short) json_integer_value (tmp);
-
-    json_object_clear (root);
-    return svc;
-}
-
-/* Servcie context init */
 int
 initServiceContext (void) {
-    svcMapMaster = hashNew (SVC_MAP_INIT_SIZE);
+    svcMapMaster = hashNew (0);
     if (svcMapMaster == NULL) {
         LOGE ("Create master service hash map error.\n");
         return -1;
     }
 
-    svcMapSlave = hashNew (SVC_MAP_INIT_SIZE);
+    svcMapSlave = hashNew (0);
     if (svcMapSlave == NULL) {
         LOGE ("Create slave service hash map error.\n");
         hashDestroy (svcMapMaster);

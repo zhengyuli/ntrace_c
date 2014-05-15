@@ -167,6 +167,8 @@ hlistMoveList (hlistHeadPtr old, hlistHeadPtr new) {
 hashTablePtr
 hashNew (u_int hashSize);
 void
+hashClean (hashTablePtr htbl);
+void
 hashDestroy (hashTablePtr htbl);
 int
 hashInsert (hashTablePtr htbl, const char *key, void *data, hashFreeCB fun);

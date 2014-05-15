@@ -199,14 +199,14 @@ hashNew (u_int hashSize) {
         return NULL;
 }
 
-/* Destroy hash table */
+/* Cleanup hash table */
 void
-hashDestroy (hashTablePtr htbl) {
+hashClean (hashTablePtr htbl) {
     u_int index;
     hlistHeadPtr head;
     hashItemPtr item;
 
-    if (htbl == NULL)
+    if (htbl == NULL || !htbl->currSize)
         return;
 
     for (index = 0; index < htbl->totalSize; index++) {
@@ -216,6 +216,12 @@ hashDestroy (hashTablePtr htbl) {
             hashItemDel (htbl, item);
         }
     }
+}
+
+/* Destroy hash table */
+void
+hashDestroy (hashTablePtr htbl) {
+    hashClean (htbl);
     free (htbl->heads);
     free (htbl);
 }

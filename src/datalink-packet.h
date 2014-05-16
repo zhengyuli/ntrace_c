@@ -1,6 +1,0 @@
-#ifndef __AGENT_DATALINK_PACKET_H__
-#define __AGENT_DATALINK_PACKET_H__
-
-
-
-#endif /* __AGENT_DATALINK_PACKET_H__ */

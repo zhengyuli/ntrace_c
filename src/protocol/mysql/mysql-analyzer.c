@@ -17,7 +17,6 @@ static __thread timeValPtr currTime;
 static __thread BOOL currSessionDone;
 /* Current mysql session detail */
 static __thread mysqlSessionDetailPtr currSessionDetail;
-
 /* Mysql parser state map */
 static mysqlStateEvents mysqlStateMap [MYSQL_STATES_NUM];
 

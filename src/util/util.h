@@ -82,6 +82,12 @@ ssize_t
 safeWrite (int fd, const void *buf, size_t count);
 BOOL
 fileExist (const char *path);
+BOOL
+fileIsEmpty (const char *path);
+static char *
+getIpAddrOfInterface (const char *interface);
+u_int
+getCpuCores (void);
 /*=======================Interfaces definition end=========================*/
 
 #endif /* __AGENT_UTIL_H__ */

@@ -3,6 +3,13 @@
 #include <string.h>
 #include <ctype.h>
 #include <errno.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/socket.h>
+#include <sys/ioctl.h>
+#include <net/if.h>
+#include <netinet/ip.h>
+#include <arpa/inet.h>
 #include "util.h"
 
 inline u_long_long
@@ -119,10 +126,65 @@ safeWrite (int fd, const void *buf, size_t count) {
 }
 
 BOOL
-fileExist (const char *path)
-{
+fileExist (const char *path) {
     if (access (path, F_OK))
         return FALSE;
     else
         return TRUE;
+}
+
+BOOL
+fileIsEmpty (const char *path) {
+    int ret;
+    struct stat st;
+
+    ret = stat(path, &st);
+    if (ret < 0)
+        return TRUE;
+
+    if (!st.st_size)
+        return TRUE;
+    else
+        return FALSE;
+}
+
+/*
+ * @brief Get ip address of interface
+ *
+ * @param interface interface name, like eth0
+ *
+ * @return Ip address if exists else NULL
+ */
+static char *
+getIpAddrOfInterface (const char *interface) {
+    int sockfd;
+    size_t ifNameLen;
+    struct ifreq ifr;
+    char *ipAddr = NULL;
+    struct sockaddr_in *sockAddr;
+
+    ifNameLen = strlen (interface);
+    if (ifNameLen < sizeof (ifr.ifr_name)) {
+        strncpy (ifr.ifr_name, interface, ifNameLen);
+        ifr.ifr_name [ifNameLen] = 0;
+    } else
+        return NULL;
+
+    if ((sockfd = socket (AF_INET, SOCK_DGRAM, 0)) < 0)
+        return NULL;
+    if (ioctl (sockfd, SIOCGIFADDR, &ifr) < 0) {
+        close (sockfd);
+        return NULL;
+    }
+
+    sockAddr = (struct sockaddr_in *) &ifr.ifr_addr;
+    ipAddr = strdup (inet_ntoa (sockAddr->sin_addr));
+
+    close (sockfd);
+    return ipAddr;
+}
+
+inline u_int
+getCpuCores (void) {
+    return sysconf (_SC_NPROCESSORS_CONF);
 }

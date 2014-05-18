@@ -12,6 +12,7 @@
 #include "hash.h"
 #include "log.h"
 #include "checksum.h"
+#include "service.h"
 #include "ip-options.h"
 #include "ip-packet.h"
 
@@ -232,9 +233,9 @@ ipQueueDone (ipQueuePtr ipq) {
 
 /*
  * @brief Glue ip fragments of ipQueue
- * 
+ *
  * @param ipq ipQueue to glue
- * 
+ *
  * @return new ip packet if success else NULL
  */
 static struct ip *
@@ -271,10 +272,10 @@ ipQueueGlue (ipQueuePtr ipq) {
 
 /*
  * @brief Check ip validity
- * 
+ *
  * @param iph ip header to check
  * @param capLen capture length of ip packet
- * 
+ *
  * @return 0 if check success else -1
  */
 static int
@@ -305,13 +306,39 @@ checkIpHeader (struct ip *iph, u_int capLen) {
 }
 
 /*
+ * @brief Check whether this ip packet should be filter
+ *
+ * @param iphdr ip packet to filter
+ *
+ * @return TRUE if should be filter else FALSE
+ */
+static BOOL
+pktShouldBeFilter (struct ip *iphdr) {
+    struct tcphdr *tcph;
+    char key1 [32] = {0};
+    char key2 [32] = {0};
+
+    if (iphdr->ip_p == IPPROTO_TCP) {
+        tcph = (struct tcphdr *) ((u_char *) iphdr + (iphdr->ip_hl * 4));
+
+        snprintf (key1, sizeof (key1) - 1, "%s:%d", inet_ntoa (iphdr->ip_src), ntohs (tcph->source));
+        snprintf (key2, sizeof (key2) - 1, "%s:%d", inet_ntoa (iphdr->ip_dst), ntohs (tcph->dest));
+        if (lookupServiceProtoType (key1) != PROTO_UNKNOWN || lookupServiceProtoType (key2) != PROTO_UNKNOWN)
+            return TRUE;
+        else
+            return FALSE;
+    } else
+        return TRUE;
+}
+
+/*
  * @brief Ip packet defragment
- * 
+ *
  * @param iph ip packet
  * @param capLen ip packet capture length
  * @param tm packet capture timestamp
  * @param newIph pointer to return ip defragment packet
- * 
+ *
  * @return 0 if success else -1
  */
 int
@@ -434,8 +461,13 @@ ipDefrag (struct ip *iph, u_int capLen, timeValPtr tm, struct ip **newIph) {
             *newIph = NULL;
             return -1;
         } else {
-            *newIph = newIphdr;
-            return 0;
+            if (pktShouldBeFilter (newIphdr)) {
+                *newIph = NULL;
+                return -1;
+            } else {
+                *newIph = newIphdr;
+                return 0;
+            }
         }
     } else {
         *newIph = NULL;

@@ -1,9 +1,7 @@
-#ifndef __AGENT_SERVICE_H__
-#define __AGENT_SERVICE_H__
+#ifndef __AGENT_SERVICE_MANAGER_H__
+#define __AGENT_SERVICE_MANAGER_H__
 
 #include <stdlib.h>
-#include "list.h"
-#include "hash.h"
 #include "protocol.h"
 
 /* This structure is used to describe a tcp service */
@@ -18,18 +16,17 @@ struct _service {
 };
 
 /*========================Interfaces definition============================*/
-u_int
-serviceNum (void);
-int
-serviceLoopDo (hashForEachItemDoCB fun, void *args);
 int
 updateService (const char *svcJson);
 protoType
 lookupServiceProtoType (const char *key);
+char *
+getServiceFilter (void);
 int
-initServiceContext (void);
+initServiceManager (void);
 void
-destroyServiceContext (void);
+destroyServiceManager (void);
 /*=======================Interfaces definition end=========================*/
 
-#endif /* __AGENT_SERVICE_H__ */
+#endif /* __AGENT_SERVICE_MANAGER_H__ */
+

@@ -5,36 +5,36 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <pthread.h>
 #include <jansson.h>
 #include "util.h"
 #include "log.h"
-#include "service.h"
+#include "hash.h"
+#include "service-manager.h"
 
-static hashTablePtr svcMapMaster = NULL;
-static hashTablePtr svcMapSlave = NULL;
-static pthread_rwlock_t svcMapMasterLock = PTHREAD_RWLOCK_INITIALIZER;
+/* BPF ip fragment filter */
+#define BPF_IP_FRAGMENT_FILTER "(tcp and (ip[6] & 0x20 != 0 or (ip[6] & 0x20 = 0 and ip[6:2] & 0x1fff != 0)))"
+/* BPF service filter */
+#define BPF_SERVICE_FILTER "(ip host %s and (tcp port %u or %s)) or "
+/* BPF filter length for each service */
+#define BPF_FILTER_UNIT_LENGTH 256
 
-inline u_int
-serviceNum (void) {
-    u_int size;
+static hashTablePtr serviceHashTableMaster = NULL;
+static hashTablePtr serviceHashTableSlave = NULL;
+static pthread_rwlock_t serviceHashTableMasterLock = PTHREAD_RWLOCK_INITIALIZER;
 
-    pthread_rwlock_rdlock (&svcMapMasterLock);
-    size = hashSize (svcMapMaster);
-    pthread_rwlock_unlock (&svcMapMasterLock);
+static servicePtr
+newService (void) {
+    servicePtr svc;
 
-    return size;
-}
+    svc = (servicePtr) malloc (sizeof (service));
+    if (svc == NULL)
+        return NULL;
 
-inline int
-serviceLoopDo (hashForEachItemDoCB fun, void *args) {
-    int ret;
-    
-    pthread_rwlock_rdlock (&svcMapMasterLock);
-    ret = hashForEachItemDo (svcMapMaster, fun, args);
-    pthread_rwlock_unlock (&svcMapMasterLock);
-
-    return ret;
+    svc->id = 0;
+    svc->proto = PROTO_UNKNOWN;
+    svc->ip = NULL;
+    svc->port = 0;
+    return svc;
 }
 
 static void
@@ -54,7 +54,7 @@ addService (servicePtr svc) {
     char key [32] = {0};
 
     snprintf (key, sizeof (key) - 1, "%s:%d", svc->ip, svc->port);
-    ret = hashInsert (svcMapSlave, key, svc, freeService);
+    ret = hashInsert (serviceHashTableSlave, key, svc, freeService);
     if (ret < 0) {
         LOGE ("Insert new service: %u error\n", svc->id);
         return -1;
@@ -67,11 +67,11 @@ static void
 serviceMapSwap (void) {
     hashTablePtr tmp;
 
-    tmp = svcMapMaster;
-    pthread_rwlock_wrlock (&svcMapMasterLock);
-    svcMapMaster = svcMapSlave;
-    pthread_rwlock_unlock (&svcMapMasterLock);
-    svcMapSlave = tmp;
+    tmp = serviceHashTableMaster;
+    pthread_rwlock_wrlock (&serviceHashTableMasterLock);
+    serviceHashTableMaster = serviceHashTableSlave;
+    pthread_rwlock_unlock (&serviceHashTableMasterLock);
+    serviceHashTableSlave = tmp;
 }
 
 static void
@@ -89,7 +89,7 @@ json2Service (json_t *json) {
     servicePtr svc;
     struct in_addr sa;
 
-    svc = (servicePtr) malloc (sizeof (service));
+    svc = newService ();
     if (svc == NULL) {
         LOGE ("Alloc service error: %s.\n", strerror (errno));
         return NULL;
@@ -102,7 +102,7 @@ json2Service (json_t *json) {
         free (svc);
         return NULL;
     }
-    svc->id = (u_int) json_integer_value (tmp);
+    svc->id = json_integer_value (tmp);
 
     /* Get service proto */
     tmp = json_object_get (json, "service_proto");
@@ -157,8 +157,8 @@ updateService (const char *svcJson) {
     json_t *root, *tmp;
     servicePtr svc;
 
-    /* Cleanup svcMapSlave */
-    hashClen (svcMapSlave);
+    /* Cleanup serviceHashTableSlave */
+    hashClean (serviceHashTableSlave);
 
     /* Parse services */
     root = json_loads (jsonData, JSON_DISABLE_EOF_CHECK, &error);
@@ -206,30 +206,73 @@ lookupServiceProtoType (const char *key) {
     if (key ==  NULL)
         return PROTO_UNKNOWN;
 
-    pthread_rwlock_rdlock (&svcMapMasterLock);
-    svc = (servicePtr) hashLookup (svcMapMaster, key);
+    pthread_rwlock_rdlock (&serviceHashTableMasterLock);
+    svc = (servicePtr) hashLookup (serviceHashTableMaster, key);
     if (svc == NULL)
         proto = PROTO_UNKNOWN;
     else
         proto = svc->proto;
-    pthread_rwlock_unlock (&svcMapMasterLock);
+    pthread_rwlock_unlock (&serviceHashTableMasterLock);
 
     return proto;
 }
 
+static int
+generateFilterFromEachService (void *data, void *args) {
+    u_int len;
+    servicePtr svc = (servicePtr) data;
+    char *filter = (char *) args;
+
+    len = strlen (filter);
+    snprintf (filter + len, BPF_FILTER_UNIT_LENGTH, BPF_SERVICE_FILTER, svc->ip, svc->port, BPF_IP_FRAGMENT_FILTER);
+    return 0;
+}
+
+char *
+getServiceFilter (void) {
+    int ret;
+    char errBuf [PCAP_ERRBUF_SIZE];
+    u_int svcNum;
+    char *filter;
+    u_int filterLen;
+
+    pthread_rwlock_rdlock (serviceHashTableMasterLock);
+    svcNum = hashSize (serviceHashTableMaster);
+    filterLen = BPF_FILTER_UNIT_LENGTH * (svcNum + 1);
+    filter = malloc (filterLen);
+    if (filter == NULL) {
+        LOGE ("Alloc filter buffer error: %s.\n", strerror (errno));
+        pthread_rwlock_unlock (serviceHashTableMasterLock);
+        return NULL;
+    }
+    memset(filter, 0, filterLen);
+
+    ret = hashForEachItemDo (serviceHashTableMaster, generateFilterFromEachService, filter);
+    if (ret < 0) {
+        LOGE ("Generate BPF filter from service error.\n");
+        free (filter);
+        pthread_rwlock_unlock (serviceHashTableMasterLock);
+        return NULL;
+    }
+
+    strcat (filter, "icmp");
+    pthread_rwlock_unlock (serviceHashTableMasterLock);
+    return filter;
+}
+
 int
-initServiceContext (void) {
-    svcMapMaster = hashNew (0);
-    if (svcMapMaster == NULL) {
-        LOGE ("Create master service hash map error.\n");
+initServiceManager (void) {
+    serviceHashTableMaster = hashNew (0);
+    if (serviceHashTableMaster == NULL) {
+        LOGE ("Create serviceHashTableMaster error.\n");
         return -1;
     }
 
-    svcMapSlave = hashNew (0);
-    if (svcMapSlave == NULL) {
-        LOGE ("Create slave service hash map error.\n");
-        hashDestroy (svcMapMaster);
-        svcMapMaster = NULL;
+    serviceHashTableSlave = hashNew (0);
+    if (serviceHashTableSlave == NULL) {
+        LOGE ("Create serviceHashTableSlave error.\n");
+        hashDestroy (serviceHashTableMaster);
+        serviceHashTableMaster = NULL;
         return -1;
     }
 
@@ -237,9 +280,9 @@ initServiceContext (void) {
 }
 
 void
-destroyServiceContext (void) {
-    hashDestroy (svcMapSlave);
-    svcMapSlave = NULL;
-    hashDestroy (svcMapMaster);
-    svcMapMaster = NULL;
+destroyServiceManager (void) {
+    hashDestroy (serviceHashTableSlave);
+    serviceHashTableSlave = NULL;
+    hashDestroy (serviceHashTableMaster);
+    serviceHashTableMaster = NULL;
 }

@@ -147,6 +147,8 @@ typedef enum {
     MYSQL_TYPE_GEOMETRY = 255
 } mysqlFieldType;
 
+#define MYSQL_STATES_NUM 19
+
 typedef enum {
     STATE_NOT_CONNECTED,
     STATE_CLIENT_HANDSHAKE,
@@ -168,8 +170,6 @@ typedef enum {
     STATE_STMT_PARAM,
     STATE_STMT_FETCH_RS
 } mysqlState;
-
-#define MYSQL_STATES_NUM 19
 
 typedef enum {
     // Events 0-32 are mysqlServerCommand
@@ -233,16 +233,16 @@ struct _mysqlParserState {
 
 typedef int (*mysqlHandler) (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOOL fromClient);
 
-#define MAX_EVENTS_PER_STATE 32
+#define MYSQL_MAX_EVENTS_PER_STATE 32
 
 typedef struct _mysqlStateEvents mysqlStateEvents;
 typedef mysqlStateEvents *mysqlStateEventsPtr;
 
 struct _mysqlStateEvents {
     u_int numEvents;
-    u_int event [MAX_EVENTS_PER_STATE];
-    u_int nextState [MAX_EVENTS_PER_STATE];
-    mysqlHandler handler [MAX_EVENTS_PER_STATE];
+    u_int event [MYSQL_MAX_EVENTS_PER_STATE];
+    u_int nextState [MYSQL_MAX_EVENTS_PER_STATE];
+    mysqlHandler handler [MYSQL_MAX_EVENTS_PER_STATE];
 };
 
 typedef enum {

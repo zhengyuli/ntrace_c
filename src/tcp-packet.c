@@ -40,7 +40,6 @@ static pthread_spinlock_t tcpConnectionIdLock;
 static u_long_long tcpBreakdownId = 0;
 /* Tcp breakdown id lock */
 static pthread_spinlock_t tcpBreakdownIdLock;
-
 /* Tcp context initialization once control */
 static pthread_once_t tcpInitOnceControl = PTHREAD_ONCE_INIT;
 
@@ -57,24 +56,14 @@ static __thread listHead tcpStreamTimoutList;
 /* Tcp stream hash table */
 static __thread hashTablePtr tcpStreamHashTable;
 
-/* Tcp session breakdown callback */
-static __thread publishTcpBreakdownCB publishTcpBreakdownFunc;
-static __thread void *publishTcpBreakdownArgs;
-
 static inline BOOL
 before (u_int seq1, u_int seq2) {
-    if ((int) (seq1 - seq2) < 0)
-        return TRUE;
-    else
-        return FALSE;
+    seq1 < seq2 ? TRUE : FALSE;
 }
 
 static inline BOOL
 after (u_int seq1, u_int seq2) {
-    if ((int) (seq1 - seq2) > 0)
-        return TRUE;
-    else
-        return FALSE;
+    seq1 > seq2 ? TRUE : FALSE;
 }
 
 static inline u_long_long
@@ -1182,10 +1171,7 @@ tcpSharedInstance (void) {
 
 /* Init tcp process context */
 int
-initTcp (publishTcpBreakdownCB publishTcpBreakdown, void *args) {
-    publishTcpBreakdownFunc = publishTcpBreakdown;
-    publishTcpBreakdownArgs = args;
-
+initTcp (void) {
     pthread_once (&tcpInitOnceControl, tcpSharedInstance);
     initListHead (&tcpStreamList);
     initListHead (&tcpStreamTimoutList);

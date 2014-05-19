@@ -252,7 +252,7 @@ initLogNet (logDevPtr dev) {
         return -1;
     }
 
-    ret = zsocket_bind (lognet->sock, "tcp://*:%d", LOG_SERVICE_PUBLISH_PORT);
+    ret = zsocket_bind (lognet->sock, "tcp://*:%u", LOG_SERVICE_PUBLISH_PORT);
     if (ret != LOG_SERVICE_PUBLISH_PORT) {
         zctx_destroy (&lognet->context);
         return -1;
@@ -425,7 +425,7 @@ logdRun (void) {
         return -1;
     }
 
-    ret = zsocket_bind (logRcvSock, "tcp://*:%d", LOG_SERVICE_SINK_PORT);
+    ret = zsocket_bind (logRcvSock, "tcp://*:%u", LOG_SERVICE_SINK_PORT);
     if (ret != LOG_SERVICE_SINK_PORT) {
         zctx_destroy (&context);
         return -1;

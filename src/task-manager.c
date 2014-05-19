@@ -89,6 +89,7 @@ initTaskManager (void) {
 
 void
 destroyTaskManager (void) {
+    stopAllTask ();
     hashDestroy (taskManagerHashTable);
     taskManagerHashTable = NULL;
 }

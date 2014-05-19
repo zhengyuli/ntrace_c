@@ -5,6 +5,8 @@
 #include <pcap.h>
 #include "util.h"
 
+#define AGENT_CONTROL_PORT 59000
+
 typedef struct _agentParams agentParams;
 typedef agentParams *agentParamsPtr;
 

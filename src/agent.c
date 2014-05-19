@@ -22,7 +22,12 @@
 #include "agent.h"
 
 #define AGENT_CONTROL_RESPONSE_SUCCESS 0
+#define AGENT_CONTROL_RESPONSE_MESSAGE_SUCCESS "{\"code\":0}"
 #define AGENT_CONTROL_RESPONSE_FAILURE 1
+#define AGENT_CONTROL_RESPONSE_MESSAGE_ERROR "{\"code\":1}"
+
+/* Socket to push profile */
+static void *profilePushSock = NULL;
 
 /* Global agent parameters */
 static agentParams agentParameters = {
@@ -45,15 +50,22 @@ static int agentPidFd = -1;
 static pcap_t *mirrorPcapDev = NULL;
 
 static inline void
-freeAgentParameters (void) {
+resetAgentParameters (void) {
+    agentParameters.daemonMode = 0;
     free (agentParameters.mirrorInterface);
+    agentParameters.logLevel = 0;
 }
 
 void
-freeAgentStateCache (void) {
+resetAgentStateCache (void) {
+    agentStateCacheInstance.state = AGENT_STATE_INIT;
     free (agentStateCacheInstance.agentId);
+    agentStateCacheInstance.agentId = NULL;
     free (agentStateCacheInstance.pubIp);
+    agentStateCacheInstance.pubIp = NULL;
+    agentStateCacheInstance.pubPort = 0;
     free (agentStateCacheInstance.services);
+    agentStateCacheInstance.services = NULL;
 }
 
 void
@@ -62,9 +74,8 @@ dumpAgentStateCache (void) {
     json_t *root;
     char *out;
 
-    root = json_object ();
-    if (root == NULL) {
-        LOGE ("Create json object error.\n");
+    if (!fileExist (AGENT_RUN_DIR) && (mkdir (AGENT_RUN_DIR, 0755) < 0)) {
+        LOGE ("Create agent run directory error: %s.\n", strerror (errno));
         return;
     }
 
@@ -74,11 +85,19 @@ dumpAgentStateCache (void) {
         return;
     }
 
+    root = json_object ();
+    if (root == NULL) {
+        LOGE ("Create json object error.\n");
+        return;
+    }
+
     json_object_set_new (root, "state", json_integer (agentStateCacheInstance.state));
-    json_object_set_new (root, "agentId", json_string (agentStateCacheInstance.agentId));
-    json_object_set_new (root, "pubIp", json_string (agentStateCacheInstance.pubIp));
-    json_object_set_new (root, "pubPort", json_integer (agentStateCacheInstance.pubPort));
-    json_object_set_new (root, "services", json_string (agentStateCacheInstance.services));
+    if (agentStateCacheInstance.state != AGENT_STATE_INIT) {
+        json_object_set_new (root, "agentId", json_string (agentStateCacheInstance.agentId));
+        json_object_set_new (root, "pubIp", json_string (agentStateCacheInstance.pubIp));
+        json_object_set_new (root, "pubPort", json_integer (agentStateCacheInstance.pubPort));
+        json_object_set_new (root, "services", json_string (agentStateCacheInstance.services));
+    }
     out = json_dumps (root, JSON_INDENT (4));
     json_object_clear (root);
 
@@ -86,39 +105,28 @@ dumpAgentStateCache (void) {
     close (fd);
 }
 
-int
+void
 initAgentStateCache (void) {
     int fd;
     json_error_t error;
     json_t *root, *tmp;
 
-    if (!fileExist (AGENT_RUN_DIR) && (mkdir (AGENT_RUN_DIR, 0755) < 0)) {
-        LOGE ("Create agent run directory error: %s.\n", strerror (errno));
-        return -1;
-    }
-
-    if (!fileExist (AGENT_STATE_CACHE_FILE) || fileIsEmpty (AGENT_STATE_CACHE_FILE))
-        dumpAgentStateCache ();
+    /* If AGENT_STATE_CACHE_FILE doesn't exist, use init configuration */
+    if (!fileExist (AGENT_STATE_CACHE_FILE))
+        return;
 
     fd = open (AGENT_STATE_CACHE_FILE, O_RDONLY);
     if (fd < 0) {
-        LOGE ("Open %s error: %s\n", AGENT_STATE_CACHE_FILE, strerror (errno));
-        return -1;
+        LOGE ("Open %s error: %s.\n", AGENT_STATE_CACHE_FILE, strerror (errno));
+        return;
     }
 
     root = json_load_file (AGENT_STATE_CACHE_FILE, JSON_DISABLE_EOF_CHECK, &error);
     if ((root == NULL) ||
-        (json_object_get (root, "state") == NULL) ||
-        (json_object_get (root, "agentId") == NULL) ||
-        (json_object_get (root, "pubIp") == NULL) ||
-        (json_object_get (root, "pubPort") == NULL)) {
-        agentStateCacheInstance.state = AGENT_STATE_INIT;
-        agentStateCacheInstance.agentId = NULL;
-        agentStateCacheInstance.pubIp = NULL;
-        agentStateCacheInstance.pubPort = 0;
-        agentStateCacheInstance.services = NULL;
+        (json_object_get (root, "state") == NULL) || (json_object_get (root, "agentId") == NULL) ||
+        (json_object_get (root, "pubIp") == NULL) || (json_object_get (root, "pubPort") == NULL)) {
         close (fd);
-        return 0;
+        return;
     }
 
     tmp = json_object_get (root, "state");
@@ -134,18 +142,11 @@ initAgentStateCache (void) {
 
     if ((agentStateCacheInstance.state == AGENT_STATE_INIT) || (agentStateCacheInstance.agentId == NULL) ||
         (agentStateCacheInstance.pubIp == NULL) || (agentStateCacheInstance.pubPort == 0)) {
-        /* Free */
-        freeAgentStateCache ();
-        /* Reset */
-        agentStateCacheInstance.state = AGENT_STATE_INIT;
-        agentStateCacheInstance.agentId = NULL;
-        agentStateCacheInstance.pubIp = NULL;
-        agentStateCacheInstance.pubPort = 0;
-        agentStateCacheInstance.services = NULL;
+        /* Reset Agent cache */
+        resetAgentStateCache ();
     }
 
     close (fd);
-    return 0;
 }
 
 /*
@@ -181,9 +182,35 @@ buildAgentControlResponse (int code, int status) {
         json_object_set_new (tmp, "status", json_integer (status));
         json_object_set_new (root, "body", tmp);
     }
+
     json = json_dumps (resp, JSON_INDENT (4));
     json_object_clear (root);
+
     return json;
+}
+
+int
+checkAgentId (const char *profile) {
+    json_error_t error;
+    json_t *root, *tmp;
+
+    root = json_loads (profile, JSON_DISABLE_EOF_CHECK, &error);
+    if (root == NULL)
+        return -1;
+
+    tmp = json_object_get (root, "agent-id");
+    if (tmp == NULL) {
+        json_object_clear (root);
+        return -1;
+    }
+
+    if (!strEqual (agentStateCacheInstance.agentId, json_string_value (tmp))) {
+        json_object_clear (root);
+        return -1;
+    }
+
+    json_object_clear (root);
+    return 0;
 }
 
 static int
@@ -195,9 +222,6 @@ addAgent (const char *profile) {
         LOGE ("Add-agent error: agent already added.\n");
         return -1;
     }
-
-    /* Free agent state cache */
-    freeAgentStateCache ();
 
     root = json_loads (profile, JSON_DISABLE_EOF_CHECK, &error);
     if ((root == NULL) ||
@@ -213,7 +237,7 @@ addAgent (const char *profile) {
     agentStateCacheInstance.pubIp = strdup (json_string_value (tmp));
     if (agentStateCacheInstance.pubIp == NULL) {
         LOGE ("Get pubIp error.\n");
-        freeAgentStateCache ();
+        resetAgentStateCache ();
         json_object_clear (root);
         return -1;
     }
@@ -227,47 +251,147 @@ addAgent (const char *profile) {
     agentStateCacheInstance.agentId = strdup (json_string_value (tmp));
     if (agentStateCacheInstance.agentId == NULL) {
         LOGE ("Get agentId error.\n");
-        freeAgentStateCache ();
+        resetAgentStateCache ();
         json_object_clear (root);
         return -1;
     }
 
-    /* Set agent state */
-    agentStateCacheInstance.state = AGENT_STATE_STOPPED;
-    /* Free root */
     json_object_clear (root);
+    /* Update agent state */
+    agentStateCacheInstance.state = AGENT_STATE_STOPPED;
+    /* Save agent profile */
+    dumpAgentStateCache ();
 
     return 0;
 }
 
 static int
 removeAgent (const char *profile) {
+    int ret;
+
     if (agentStateCacheInstance.state == AGENT_STATE_RUNNING) {
         LOGE ("Agent is running, please stop it before removing.\n");
         return -1;
     }
 
-    
+    ret = checkAgentId (profile);
+    if (ret < 0) {
+        LOGE ("Remove with wrong agent-id.\n");
+        return -1;
+    }
+
+    /* Reset agent profile */
+    resetAgentStateCache ();
+    /* Save agent profile */
+    dumpAgentStateCache ();
+
+    return 0;
 }
 
 static int
 startAgent (const char *profile) {
+    int ret;
 
+    if (agentStateCacheInstance.state != AGENT_STATE_STOPPED) {
+        LOGE ("Agent is not ready.\n");
+        return -1;
+    }
+
+    ret = checkAgentId (profile);
+    if (ret < 0) {
+        LOGE ("Start with wrong agent-id.\n");
+        return -;
+    }
+
+    return 0;
 }
 
 static int
 stopAgent (const char *profile) {
+    int ret;
 
+    if (agentStateCacheInstance.state != AGENT_STATE_RUNNING) {
+        LOGE ("Agent is not running.\n");
+        return -1;
+    }
+
+    ret = checkAgentId (profile);
+    if (ret < 0) {
+        LOGE ("Stop with wrong agent-id.\n");
+        return -;
+    }
+
+    /* Stop all tasks */
+    stopAllTask ();
+    /* Sleep 20ms to wait for all tasks exit completely */
+    usleep (20000);
+    /* Update agent state */
+    agentStateCacheInstance.state = AGENT_STATE_STOPPED;
+    /* Save agent profile */
+    dumpAgentStateCache ();
+
+    return 0;
 }
 
 static int
 heartbeat (const char *profile) {
+    int ret;
 
+    ret = checkAgentId (profile);
+    if (ret < 0) {
+        LOGE ("Heartbeat with wrong agent-id.\n");
+        return -1;
+    }
+
+    return 0;
 }
 
 static int
 pushProfile (const char *profile) {
+    int ret;
+    json_error_t error;
+    json_t *root, *tmp;
 
+    if (agentStateCacheInstance.state == AGENT_STATE_INIT) {
+        LOGE ("Agent doesn't exist, please add agent first.\n");
+        return -1;
+    }
+
+    ret = checkAgentId (profile);
+    if (ret < 0) {
+        LOGE ("Push profile with wrong agent-id.\n");
+        return -1;
+    }
+
+    root = json_loads (profile, JSON_DISABLE_EOF_CHECK, &error);
+    if (root == NULL) {
+        LOGE ("Parse profile error: %s.\n", error.text);
+        return -1;
+    }
+
+    tmp = json_object_get (root, "services");
+    if ((root == NULL) || !json_is_array (root)) {
+        LOGE ("Get services error.\n");
+        json_object_clear (root);
+        return -1;
+    }
+
+    /* Update agent services */
+    free (agentStateCacheInstance.services);
+    agentStateCacheInstance.services = strdup (json_string_value (tmp));
+    if (agentStateCacheInstance.services == NULL) {
+        LOGE ("Strdup agent services error: %s.\n", strerror (errno));
+        json_object_clear (root);
+        return -1;
+    }
+
+    json_object_clear (root);
+    /* Save agent profile */
+    dumpAgentStateCache ();
+    /* Push profile */
+    zstr_send (profilePushSock, agentStateCacheInstance.services);
+
+    return 0;
 }
 
 /* Agent control message handler, this handler will always return 0. */
@@ -341,8 +465,16 @@ agentControlMessageHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
         }
     }
 
-    zstr_send (item->socket, out);
-    free (out);
+    if (out) {
+        zstr_send (item->socket, out);
+        free (out);
+    } else {
+        if ((root == NULL) || (ret < 0))
+            zstr_send (item->socket, AGENT_CONTROL_RESPONSE_MESSAGE_ERROR);
+        else
+            zstr_send (item->socket, AGENT_CONTROL_RESPONSE_MESSAGE_SUCCESS);
+    }
+
     free (msg);
     return 0;
 }
@@ -447,12 +579,39 @@ agentRun (void) {
         goto destroyMessageChannel;
     }
 
+    ret = initTaskManager ();
+    if (ret < 0) {
+        LOGE ("Init task manager error.\n");
+        ret = -1;
+        goto resetAgentStateCache;
+    }
+
+    /* Init profile push socket */
+    profilePushSock = newZSock (ZMQ_PUSH);
+    if (profilePushSock == NULL) {
+        LOGE ("Create profilePushSock error.\n");
+        ret = -1;
+        goto destroyTaskManager;
+    }
+    ret = zsocket_connect (profilePushSock, PROFILE_PUSH_CHANNEL);
+    if (ret < 0) {
+        LOGE ("Connect to %s error.\n", PROFILE_PUSH_CHANNEL);
+        ret = -1;
+        goto destroyTaskManager;
+    }
+
     /* Init agent control socket */
     agentControlRecvSock = newZSock (ZMQ_REP);
     if (agentControlRecvSock == NULL) {
-        LOGE ("Create zsocket error.\n");
+        LOGE ("Create agentControlRecvSock error.\n");
         ret = -1;
-        goto freeAgentStateCache;
+        goto destroyTaskManager;
+    }
+    ret = zsocket_bind (agentControlRecvSock, "tcp://*:%u", AGENT_CONTROL_PORT);
+    if (ret < 0) {
+        LOGE ("Bind to tcp://*:%u error.\n", AGENT_CONTROL_PORT);
+        ret = -1;
+        goto destroyTaskManager;
     }
 
     /* Get sub-thread status receive socket */
@@ -460,7 +619,7 @@ agentRun (void) {
     if (subThreadStatusRecvSock == NULL) {
         LOGE ("Get subThreadStatusRecvSock error.\n");
         ret = -1;
-        goto freeAgentStateCache;
+        goto destroyTaskManager;
     }
 
     /* Create zloop reactor */
@@ -468,7 +627,7 @@ agentRun (void) {
     if (loop == Null) {
         LOGE ("Create zloop error.\n");
         ret = -1;
-        goto freeAgentStateCache;
+        goto destroyTaskManager;
     }
 
     /* Init poll item 0*/
@@ -506,8 +665,10 @@ agentRun (void) {
 
 destroyZloop:
     zloop_destroy (&loop);
-freeAgentStateCache:
-    freeAgentStateCache ();
+destroyTaskManager:
+    destroyTaskManager ();
+resetAgentStateCache:
+    resetAgentStateCache ();
 destroyMessageChannel:
     destroyMessageChannel ();
 destroyLog:
@@ -772,6 +933,6 @@ main (int argc, char *argv []) {
     else
         ret = agentRun ();
 exit:
-    freeAgentParameters ();
+    resetAgentParameters ();
     return ret;
 }

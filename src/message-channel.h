@@ -8,19 +8,24 @@
 #define BREAKDOWN_SINK_PUSH_CHANNEL "inproc://breakdownSinkPushChannel"
 #define UPDATE_SERVICE_PUSH_CHANNEL "inproc://updateServicePushChannel"
 
-#endif /* __AGENT_MESSAGE_CHANNEL_H__ */
+#define SUB_THREAD_EXIT "Exit"
 
 /*========================Interfaces definition============================*/
 void
-statusPush (const char *msg);
+subThreadStatusPush (const char *msg);
 const char *
-statusRecv (void);
+subThreadStatusRecv (void);
 const char *
-statusRecvNonBlock (void);
+subThreadStatusRecvNonBlock (void);
 void *
-newZSock (int type);
+getSubThreadStatusRecvSock (void);
+void *
+newZSock (int type)
 int
 initMessageChannel (void);
 void
 destroyMessageChannel (void);
 /*=======================Interfaces definition end=========================*/
+
+#endif /* __AGENT_MESSAGE_CHANNEL_H__ */
+

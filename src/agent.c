@@ -21,6 +21,9 @@
 #include "tcp-packet.h"
 #include "agent.h"
 
+#define AGENT_CONTROL_RESPONSE_SUCCESS 0
+#define AGENT_CONTROL_RESPONSE_FAILURE 1
+
 /* Global agent parameters */
 static agentParams agentParameters = {
     .daemonMode = 0,
@@ -28,12 +31,12 @@ static agentParams agentParameters = {
     .logLevel = 0,
 };
 
-/* Agent run instance */
-static agentRun agentRunInstance = {
+/* Agent state cache instance */
+static agentStateCache agentStateCacheInstance = {
     .state = AGENT_STATE_INIT,
     .agentId = NULL,
-    .srvIp = NULL,
-    .srvPort = 0,
+    .pubIp = NULL,
+    .pubPort = 0,
     .services = NULL
 };
 
@@ -46,11 +49,45 @@ freeAgentParameters (void) {
     free (agentParameters.mirrorInterface);
 }
 
-static void
-dumpAgentRunInstance (void);
+void
+freeAgentStateCache (void) {
+    free (agentStateCacheInstance.agentId);
+    free (agentStateCacheInstance.pubIp);
+    free (agentStateCacheInstance.services);
+}
 
-static int
-initAgentRunInstance (void) {
+void
+dumpAgentStateCache (void) {
+    int fd;
+    json_t *root;
+    char *out;
+
+    root = json_object ();
+    if (root == NULL) {
+        LOGE ("Create json object error.\n");
+        return;
+    }
+
+    fd = open (AGENT_STATE_CACHE_FILE, O_WRONLY | O_TRUNC | O_CREAT, 0755);
+    if (fd < 0) {
+        LOGE ("Open %s error: %s\n", AGENT_STATE_CACHE_FILE, strerror (errno));
+        return;
+    }
+
+    json_object_set_new (root, "state", json_integer (agentStateCacheInstance.state));
+    json_object_set_new (root, "agentId", json_string (agentStateCacheInstance.agentId));
+    json_object_set_new (root, "pubIp", json_string (agentStateCacheInstance.pubIp));
+    json_object_set_new (root, "pubPort", json_integer (agentStateCacheInstance.pubPort));
+    json_object_set_new (root, "services", json_string (agentStateCacheInstance.services));
+    out = json_dumps (root, JSON_INDENT (4));
+    json_object_clear (root);
+
+    safeWrite (fd, dumpOut, strlen (dumpOut));
+    close (fd);
+}
+
+int
+initAgentStateCache (void) {
     int fd;
     json_error_t error;
     json_t *root, *tmp;
@@ -60,94 +97,276 @@ initAgentRunInstance (void) {
         return -1;
     }
 
-    if (!fileExist (AGENT_DB_FILE) || fileIsEmpty (AGENT_DB_FILE))
-        dumpAgentRunInstance ();
-    
-    fd = open (AGENT_DB_FILE, O_RDONLY);
+    if (!fileExist (AGENT_STATE_CACHE_FILE) || fileIsEmpty (AGENT_STATE_CACHE_FILE))
+        dumpAgentStateCache ();
+
+    fd = open (AGENT_STATE_CACHE_FILE, O_RDONLY);
     if (fd < 0) {
-        LOGE ("Open agent DB file error: %s\n", strerror (errno));
+        LOGE ("Open %s error: %s\n", AGENT_STATE_CACHE_FILE, strerror (errno));
         return -1;
     }
-    
-    root = json_load_file (AGENT_DB_FILE, JSON_DISABLE_EOF_CHECK, &error);
+
+    root = json_load_file (AGENT_STATE_CACHE_FILE, JSON_DISABLE_EOF_CHECK, &error);
     if ((root == NULL) ||
         (json_object_get (root, "state") == NULL) ||
-        (json_object_get (root, "agent-id") == NULL) ||
-        (json_object_get (root, "server-ip") == NULL) ||
-        (json_object_get (root, "server-port") == NULL)) {
-        agentRunInstance.state = AGENT_STATE_INIT;
-        agentRunInstance.agentId = NULL;
-        agentRunInstance.srvIp = NULL;
-        agentRunInstance.srvPort = 0;
-        agentRunInstance.services = NULL;
+        (json_object_get (root, "agentId") == NULL) ||
+        (json_object_get (root, "pubIp") == NULL) ||
+        (json_object_get (root, "pubPort") == NULL)) {
+        agentStateCacheInstance.state = AGENT_STATE_INIT;
+        agentStateCacheInstance.agentId = NULL;
+        agentStateCacheInstance.pubIp = NULL;
+        agentStateCacheInstance.pubPort = 0;
+        agentStateCacheInstance.services = NULL;
         close (fd);
         return 0;
     }
 
     tmp = json_object_get (root, "state");
-    agentRunInstance.state = json_integer_value (tmp);
-    tmp = json_object_get (root, "agent-id");
-    agentRunInstance.agentId = strdup (json_string_value (tmp));
-    tmp = json_object_get (root, "server-ip");
-    agentRunInstance.srvIp = strdup (json_string_value (tmp));
-    tmp = json_object_get (root, "server-port");
-    agentRunInstance.srvPort = json_integer_value (tmp);
+    agentStateCacheInstance.state = json_integer_value (tmp);
+    tmp = json_object_get (root, "agentId");
+    agentStateCacheInstance.agentId = strdup (json_string_value (tmp));
+    tmp = json_object_get (root, "pubIp");
+    agentStateCacheInstance.pubIp = strdup (json_string_value (tmp));
+    tmp = json_object_get (root, "pubPort");
+    agentStateCacheInstance.pubPort = json_integer_value (tmp);
     tmp = json_object_get (root, "services");
-    agentRunInstance.services = strdup (json_string_value (tmp));
+    agentStateCacheInstance.services = strdup (json_string_value (tmp));
 
-    if ((agentRunInstance.state == AGENT_STATE_INIT) || (agentRunInstance.agentId == NULL) ||
-        (agentRunInstance.srvIp == NULL) || (agentRunInstance.srvPort == 0)) {
+    if ((agentStateCacheInstance.state == AGENT_STATE_INIT) || (agentStateCacheInstance.agentId == NULL) ||
+        (agentStateCacheInstance.pubIp == NULL) || (agentStateCacheInstance.pubPort == 0)) {
         /* Free */
-        free (agentRunInstance.agentId);
-        free (agentRunInstance.srvIp);
-        free (agentRunInstance.services);
+        freeAgentStateCache ();
         /* Reset */
-        agentRunInstance.state = AGENT_STATE_INIT;
-        agentRunInstance.agentId = NULL;
-        agentRunInstance.srvIp = NULL;
-        agentRunInstance.srvPort = 0;
-        agentRunInstance.services = NULL;
+        agentStateCacheInstance.state = AGENT_STATE_INIT;
+        agentStateCacheInstance.agentId = NULL;
+        agentStateCacheInstance.pubIp = NULL;
+        agentStateCacheInstance.pubPort = 0;
+        agentStateCacheInstance.services = NULL;
     }
 
     close (fd);
     return 0;
 }
 
-static inline void
-freeAgentRunInstance (void) {
-    free (agentRunInstance.agentId);
-    free (agentRunInstance.srvIp);
-    free (agentRunInstance.services);
-}
-
-static void
-dumpAgentRunInstance (void) {
-    int fd;
-    json_t *root;
-    char *dumpOut;
+/*
+ * @brief Build agent control response message
+ *
+ * @param code response code, 0 for success and 1 for error
+ * @param status response status, 1 for stopped, 2 for running and 3 for error.
+ *
+ * @return response message in json if success else NULL
+ */
+static char *
+buildAgentControlResponse (int code, int status) {
+    char *json;
+    json_ *root, *tmp;
 
     root = json_object ();
     if (root == NULL) {
-        LOGE ("Dump agent run instance error.\n");
-        return;
+        LOGE ("Alloc json object root error.\n");
+        return  NULL;
     }
 
-    fd = open (AGENT_DB_FILE, O_RDWR | O_TRUNC | O_CREAT, 0755);
-    if (fd < 0) {
-        LOGE ("Open agent DB file error: %s\n", strerror (errno));
-        return;
+    /* Set response code */
+    json_object_set_new (resp, "code", json_integer (code));
+
+    /* Set response body:status */
+    if (status != AGENT_STATE_INIT) {
+        tmp = json_object ();
+        if (tmp == NULL) {
+            LOGE ("Alloc json object tmp error.\n");
+            json_object_clear (root);
+            return NULL;
+        }
+        json_object_set_new (tmp, "status", json_integer (status));
+        json_object_set_new (root, "body", tmp);
+    }
+    json = json_dumps (resp, JSON_INDENT (4));
+    json_object_clear (root);
+    return json;
+}
+
+static int
+addAgent (const char *profile) {
+    json_error_t error;
+    json_t *root, *tmp;
+
+    if (agentStateCacheInstance.state != AGENT_STATE_INIT) {
+        LOGE ("Add-agent error: agent already added.\n");
+        return -1;
     }
 
-    json_object_set_new (root, "state", json_integer (agentRunInstance.state));
-    json_object_set_new (root, "agent-id", json_string (agentRunInstance.agentId));
-    json_object_set_new (root, "server-ip", json_string (agentRunInstance.srvIp));
-    json_object_set_new (root, "server-port", json_integer (agentRunInstance.srvPort));
-    json_object_set_new (root, "services", json_string (agentRunInstance.services));
-    dumpOut = json_dumps(root, JSON_INDENT (4));
+    /* Free agent state cache */
+    freeAgentStateCache ();
+
+    root = json_loads (profile, JSON_DISABLE_EOF_CHECK, &error);
+    if ((root == NULL) ||
+        (json_object_get (root, "ip") == NULL) ||
+        (json_object_get (root, "port") == NULL) ||
+        (json_object_get (root, "agent-id") == NULL)) {
+        LOGE ("Json parse error.\n");
+        return -1;
+    }
+
+    /* Get pubIp */
+    tmp = json_object_get (root, "ip");
+    agentStateCacheInstance.pubIp = strdup (json_string_value (tmp));
+    if (agentStateCacheInstance.pubIp == NULL) {
+        LOGE ("Get pubIp error.\n");
+        freeAgentStateCache ();
+        json_object_clear (root);
+        return -1;
+    }
+
+    /* Get pubPort */
+    tmp = json_object_get (root, "port");
+    agentStateCacheInstance.pubPort = json_integer_value (tmp);
+
+    /* Get agent id */
+    tmp = json_object_get (root, "agent-id");
+    agentStateCacheInstance.agentId = strdup (json_string_value (tmp));
+    if (agentStateCacheInstance.agentId == NULL) {
+        LOGE ("Get agentId error.\n");
+        freeAgentStateCache ();
+        json_object_clear (root);
+        return -1;
+    }
+
+    /* Set agent state */
+    agentStateCacheInstance.state = AGENT_STATE_STOPPED;
+    /* Free root */
     json_object_clear (root);
 
-    safeWrite (fd, dumpOut, strlen (dumpOut));
-    close (fd);
+    return 0;
+}
+
+static int
+removeAgent (const char *profile) {
+    if (agentStateCacheInstance.state == AGENT_STATE_RUNNING) {
+        LOGE ("Agent is running, please stop it before removing.\n");
+        return -1;
+    }
+
+    
+}
+
+static int
+startAgent (const char *profile) {
+
+}
+
+static int
+stopAgent (const char *profile) {
+
+}
+
+static int
+heartbeat (const char *profile) {
+
+}
+
+static int
+pushProfile (const char *profile) {
+
+}
+
+/* Agent control message handler, this handler will always return 0. */
+static int
+agentControlMessageHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
+    int ret;
+    char *msg;
+    char *cmd, body, out;
+    json_error_t error;
+    json_t *root, *tmp;
+
+    msg = zstr_recv_nowait (item->socket);
+    if (msg == NULL)
+        return 0;
+
+    root = json_loads (msg, JSON_DISABLE_EOF_CHECK, &error);
+    if ((root == NULL) ||
+        (json_object_get (root, "command") == NULL) ||
+        (json_object_get (root, "body") == NULL)) {
+        LOGE ("Json parse error.\n");
+        out = buildAgentControlResponse (AGENT_CONTROL_RESPONSE_FAILURE, AGENT_STATE_ERROR);
+    } else {
+        tmp = json_object_get (root, "command");
+        command = json_string_value (tmp);
+        tmp = json_object_get (root, "body");
+        body = json_string_value (tmp);
+
+        if (strEqual ("add-agent", command)) {
+            ret = addAgent (body);
+            if (ret < 0)
+                out = buildAgentControlResponse (AGENT_CONTROL_RESPONSE_FAILURE, AGENT_STATE_ERROR);
+            else
+                out = buildAgentControlResponse (AGENT_CONTROL_RESPONSE_SUCCESS, agentStateCacheInstance.state);
+        } else if (strEqual("remove-agent", command)) {
+            ret = removeAgent (body);
+            if (ret < 0)
+                out = buildAgentControlResponse (AGENT_CONTROL_RESPONSE_FAILURE, AGENT_STATE_ERROR);
+            else
+                out = buildAgentControlResponse (AGENT_CONTROL_RESPONSE_SUCCESS, agentStateCacheInstance.state);
+
+        } else if (strEqual ("start-agent", command)) {
+            ret = startAgent (body);
+            if (ret < 0)
+                out = buildAgentControlResponse (AGENT_CONTROL_RESPONSE_FAILURE, AGENT_STATE_ERROR);
+            else
+                out = buildAgentControlResponse (AGENT_CONTROL_RESPONSE_SUCCESS, agentStateCacheInstance.state);
+
+        } else if (strEqual ("stop-agent", command)) {
+            ret = stopAgent (body);
+            if (ret < 0)
+                out = buildAgentControlResponse (AGENT_CONTROL_RESPONSE_FAILURE, AGENT_STATE_ERROR);
+            else
+                out = buildAgentControlResponse (AGENT_CONTROL_RESPONSE_SUCCESS, agentStateCacheInstance.state);
+
+        } else if (strEqual ("heartbeat", command)) {
+            ret = heartbeat (body);
+            if (ret < 0)
+                out = buildAgentControlResponse (AGENT_CONTROL_RESPONSE_FAILURE, AGENT_STATE_ERROR);
+            else
+                out = buildAgentControlResponse (AGENT_CONTROL_RESPONSE_SUCCESS, agentStateCacheInstance.state);
+
+        } else if (strEqual ("push-profile", command)) {
+            ret = pushProfile (body);
+            if (ret < 0)
+                out = buildAgentControlResponse (AGENT_CONTROL_RESPONSE_FAILURE, AGENT_STATE_ERROR);
+            else
+                out = buildAgentControlResponse (AGENT_CONTROL_RESPONSE_SUCCESS, agentStateCacheInstance.state);
+        } else {
+            LOGE ("Unknown agent control command.\n");
+            out = buildAgentControlResponse (AGENT_CONTROL_RESPONSE_FAILURE, AGENT_STATE_ERROR);
+        }
+    }
+
+    zstr_send (item->socket, out);
+    free (out);
+    free (msg);
+    return 0;
+}
+
+/*
+ * Sub-thread status message handler, when receiving SUB_THREAD_EXIT
+ * then return -1 to exit.
+ */
+static int
+subThreadStatusMessageHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
+    char *status;
+
+    status = subThreadStatusRecvNonBlock ();
+    if (status == NULL)
+        return 0;
+
+    if (strEqual (status, SUB_THREAD_EXIT)) {
+        LOGE ("Sub-threads exit abnormally\n");
+        free (status);
+        return -1;
+    }
+
+    free (status);
+    return 0;
 }
 
 static int
@@ -196,6 +415,10 @@ unlockPidFile (void) {
 static int
 agentRun (void) {
     int ret;
+    void *agentControlRecvSock;
+    void *subThreadStatusRecvSock;
+    zloop_t *loop;
+    zmq_pollitem_t pollItems [2];
 
     if (lockPidFile () < 0)
         return -1;
@@ -208,6 +431,87 @@ agentRun (void) {
         goto unlockPidFile;
     }
 
+    /* Init message channel */
+    ret = initMessageChannel ();
+    if (ret < 0) {
+        LOGE ("Init message channel error.\n");
+        ret = -1;
+        goto destroyLog;
+    }
+
+    /* Init agent state cache */
+    ret = initAgentStateCache ();
+    if (ret < 0) {
+        LOGE ("Init agent state cache error.\n");
+        ret = -1;
+        goto destroyMessageChannel;
+    }
+
+    /* Init agent control socket */
+    agentControlRecvSock = newZSock (ZMQ_REP);
+    if (agentControlRecvSock == NULL) {
+        LOGE ("Create zsocket error.\n");
+        ret = -1;
+        goto freeAgentStateCache;
+    }
+
+    /* Get sub-thread status receive socket */
+    subThreadStatusRecvSock = getStatusRecvSock ();
+    if (subThreadStatusRecvSock == NULL) {
+        LOGE ("Get subThreadStatusRecvSock error.\n");
+        ret = -1;
+        goto freeAgentStateCache;
+    }
+
+    /* Create zloop reactor */
+    loop = zloop_new ();
+    if (loop == Null) {
+        LOGE ("Create zloop error.\n");
+        ret = -1;
+        goto freeAgentStateCache;
+    }
+
+    /* Init poll item 0*/
+    pollItems [0].socket = agentControlRecvSock;
+    pollItems [0].fd = 0;
+    pollItems [0].events = ZMQ_POLLIN;
+
+    /* Init poll item 1*/
+    pollItems [1].socket = subThreadStatusRecvSock;
+    pollItems [1].fd = 0;
+    pollItems [1].events = ZMQ_POLLIN;
+
+    /* Register poll item 0 */
+    ret = zloop_poller(loop, &pollItems [0], agentControlMessageHandler, NULL);
+    if (ret < 0) {
+        LOGE ("Register poll items [0] error.\n");
+        ret = -1;
+        goto destroyZloop;
+    }
+
+    /* Register poll item 1 */
+    ret = zloop_poller(loop, &pollItems [0], subThreadStatusMessageHandler, NULL);
+    if (ret < 0) {
+        LOGE ("Register poll items [1] error.\n");
+        ret = -1;
+        goto destroyZloop;
+    }
+
+    /* Start zloop */
+    ret = zloop_start (loop);
+    if (ret < 0)
+        LOGE ("Stopped with error");
+    else
+        LOGD ("Stopped by interrupt.\n");
+
+destroyZloop:
+    zloop_destroy (&loop);
+freeAgentStateCache:
+    freeAgentStateCache ();
+destroyMessageChannel:
+    destroyMessageChannel ();
+destroyLog:
+    destroyLog ();
 unlockPidFile:
     unlockPidFile ();
     return ret;
@@ -230,49 +534,49 @@ parseConf (void) {
     }
 
     /* Get daemon mode */
-    ret = get_config_item ("MAIN", "daemon_mode", iniConfig, &item);
+    ret = get_config_item ("MAIN", "daemonMode", iniConfig, &item);
     if (ret) {
-        logToConsole ("Get_config_item \"daemon_mode\" error\n");
+        logToConsole ("Get_config_item \"daemonMode\" error\n");
         ret = -1;
         goto exit;
     }
     agentParameters.daemonMode = get_int_config_value (item, 1, -1, &error);
     if (error) {
-        logToConsole ("Parse \"daemon_mode\" error.\n");
+        logToConsole ("Parse \"daemonMode\" error.\n");
         ret = -1;
         goto exit;
     }
 
     /* Get mirror interface */
-    ret = get_config_item ("MAIN", "mirror_interface", iniConfig, &item);
+    ret = get_config_item ("MAIN", "mirrorInterface", iniConfig, &item);
     if (ret) {
-        logToConsole ("Get_config_item \"mirror_interface\" error\n");
+        logToConsole ("Get_config_item \"mirrorInterface\" error\n");
         ret = -1;
         goto exit;
     }
     tmp = get_const_string_config_value (item, &error);
     if (error) {
-        logToConsole ("Parse \"mirror_interface\" error.\n");
+        logToConsole ("Parse \"mirrorInterface\" error.\n");
         ret = -1;
         goto exit;
     }
     agentParameters.mirrorInterface = strdup (tmp);
     if (agentParameters.mirrorInterface == NULL) {
-        logToConsole ("Get \"mirror_interface\" error\n");
+        logToConsole ("Get \"mirrorInterface\" error\n");
         ret = -1;
         goto exit;
     }
 
     /* Get default log level */
-    ret = get_config_item ("LOG", "log_level", iniConfig, &item);
+    ret = get_config_item ("LOG", "logLevel", iniConfig, &item);
     if (ret) {
-        logToConsole ("Get_config_item \"log_level\" error\n");
+        logToConsole ("Get_config_item \"logLevel\" error\n");
         ret = -1;
         goto exit;
     }
     agentParameters.logLevel = get_int_config_value (item, 1, -1, &error);
     if (error) {
-        logToConsole ("Parse \"log_level\" error.\n");
+        logToConsole ("Parse \"logLevel\" error.\n");
         ret = -1;
         goto exit;
     }
@@ -287,9 +591,9 @@ exit:
 
 /* Agent cmd options */
 static struct option agentOptions [] = {
-    {"daemon-mode", no_argument, NULL, 'D'},
-    {"mirror-interface", required_argument, NULL, 'm'},
-    {"log-level", required_argument, NULL, 'l'},
+    {"daemonMode", no_argument, NULL, 'D'},
+    {"mirrorInterface", required_argument, NULL, 'm'},
+    {"logLevel", required_argument, NULL, 'l'},
     {"version", no_argument, NULL, 'v'},
     {"help", no_argument, NULL, 'h'},
     {NULL, no_argument, NULL, 0},
@@ -303,9 +607,9 @@ showHelpInfo (const char *cmd) {
     logToConsole ("Usage: %s -m <eth*> [options]\n"
                   "       %s [-vh]\n"
                   "Basic options: \n"
-                  "  -D|--daemon-mode, run as daemon\n"
-                  "  -m|--mirror-interface <eth*> interface to collect packets\n"
-                  "  -l|--log-level <level> log level\n"
+                  "  -D|--daemonMode, run as daemon\n"
+                  "  -m|--mirrorInterface <eth*> interface to collect packets\n"
+                  "  -l|--logLevel <level> log level\n"
                   "       Optional level: 0-ERR 1-WARNING 2-INFO 3-DEBUG\n"
                   "  -v|--version, version of %s\n"
                   "  -h|--help, help information\n",

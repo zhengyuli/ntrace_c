@@ -19,33 +19,18 @@ struct _agentParams {
 typedef enum {
     AGENT_STATE_INIT,                   /**< Agent init state */
     AGENT_STATE_STOPPED,                /**< Agent stopped state */
-    AGENT_STATE_RUNNING                 /**< Agent running state */
+    AGENT_STATE_RUNNING,                /**< Agent running state */
+    AGENT_STATE_ERROR                   /**< Agent error state */
 } agentState;
 
-typedef enum {
-    AGENT_EVENT_ADD_AGENT,              /**< Add agent */
-    AGENT_EVENT_REMOVE_AGENT,           /**< Remove agent */
-    AGENT_EVENT_START_AGENT,            /**< Start agent */
-    AGENT_EVENT_STOP_AGENT,             /**< Stop agent */
-    AGENT_EVENT_PUSH_PROFILE,           /**< Push profile */
-    AGENT_EVENT_HEARTBEAT               /**< Heartbeat */
-} agentEvent;
+typedef struct _agentStateCache agentStateCache;
+typedef agentStateCache *agentStateCachePtr;
 
-#define AGENT_EVNET_ADD_AGENT_KEY       "add-agent"
-#define AGENT_EVNET_REMOVE_AGENT_KEY    "remove-agent"
-#define AGENT_EVNET_START_AGENT_KEY     "start-agent"
-#define AGENT_EVNET_STOP_AGENT_KEY      "stop-agent"
-#define AGENT_EVNET_PUSH_PROFILE_KEY    "push-profile"
-#define AGENT_EVNET_HEARTBEAT_KEY       "heartbeat"
-
-typedef struct _agentRun agentRun;
-typedef agentRun *agentRunPtr;
-
-struct _agentRun {
-    agentState state;                   /**< Agent current state */
+struct _agentStateCache {
+    agentState state;                   /**< Agent state */
     char *agentId;                      /**< Agent id */
-    char *srvIp;                        /**< Server ip */
-    u_short srvPort;                    /**< Server port */
+    char *pubIp;                        /**< Publish ip */
+    u_short pubPort;                    /**< Publish port */
     char *servies;                      /**< Services in json */
 };
 

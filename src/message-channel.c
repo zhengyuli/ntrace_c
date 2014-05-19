@@ -11,34 +11,39 @@ static zctx_t *zmqCtx = NULL;
 
 static void *subThreadStatusSndSock = NULL;
 static pthread_mutex_t subThreadStatusSndSockLock = PTHREAD_MUTEX_INITIALIZER;
-static void *subThreadStatusRcvSock = NULL;
-static pthread_mutex_t subThreadStatusRcvSockLock = PTHREAD_MUTEX_INITIALIZER;
+static void *subThreadStatusRecvSock = NULL;
+static pthread_mutex_t subThreadStatusRecvSockLock = PTHREAD_MUTEX_INITIALIZER;
 
 void
-statusPush (const char *msg) {
+subThreadStatusPush (const char *msg) {
     pthread_mutex_lock (&subThreadStatusSndSockLock);
     zstr_send (subThreadStatusSndSock, msg);
     pthread_mutex_unlock (&subThreadStatusSndSockLock);
 }
 
 const char *
-statusRecv (void)
+subThreadStatusRecv (void)
 {
     const char * status;
 
-    pthread_mutex_lock (&subThreadStatusRcvSockLock);
-    status = zstr_recv (subThreadStatusRcvSock);
-    pthread_mutex_unlock (&subThreadStatusRcvSockLock);
+    pthread_mutex_lock (&subThreadStatusRecvSockLock);
+    status = zstr_recv (subThreadStatusRecvSock);
+    pthread_mutex_unlock (&subThreadStatusRecvSockLock);
 }
 
 const char *
-statusRecvNonBlock (void)
+subThreadStatusRecvNonBlock (void)
 {
     const char * status;
 
-    pthread_mutex_lock (&subThreadStatusRcvSockLock);
-    status = zstr_recv_nowait (subThreadStatusRcvSock);
-    pthread_mutex_unlock (&subThreadStatusRcvSockLock);
+    pthread_mutex_lock (&subThreadStatusRecvSockLock);
+    status = zstr_recv_nowait (subThreadStatusRecvSock);
+    pthread_mutex_unlock (&subThreadStatusRecvSockLock);
+}
+
+inline void *
+getSubThreadStatusRecvSock (void) {
+    return subThreadStatusRecvSock;
 }
 
 inline void *
@@ -61,18 +66,18 @@ initMessageChannel (void) {
         return -1;
     }
 
-    subThreadStatusRcvSock = zsocket_new (zmqCtx, ZMQ_PULL);
+    subThreadStatusRecvSock = zsocket_new (zmqCtx, ZMQ_PULL);
     if (statusRecvSock == NULL) {
         zctx_destroy (&zmqCtx);
         subThreadStatusSndSock = NULL;
         return -1;
     }
 
-    ret = zsocket_bind (subThreadStatusRcvSock, SUBTHREAD_STATUS_REPORT_CHANNEL);
+    ret = zsocket_bind (subThreadStatusRecvSock, SUBTHREAD_STATUS_REPORT_CHANNEL);
     if (ret < 0) {
         zctx_destroy (&zmqCtx);
         subThreadStatusSndSock = NULL;
-        subThreadStatusRcvSock = NULL;
+        subThreadStatusRecvSock = NULL;
         return -1;
     }
 
@@ -80,7 +85,7 @@ initMessageChannel (void) {
     if (ret < 0) {
         zctx_destroy (&zmqCtx);
         subThreadStatusSndSock = NULL;
-        subThreadStatusRcvSock = NULL;
+        subThreadStatusRecvSock = NULL;
         return -1;
     }
 
@@ -94,5 +99,5 @@ destroyMessageChannel (void) {
     
     zctx_destroy (&zmqCtx);
     subThreadStatusSndSock = NULL;
-    subThreadStatusRcvSock = NULL;
+    subThreadStatusRecvSock = NULL;
 }

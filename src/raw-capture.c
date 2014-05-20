@@ -10,20 +10,17 @@
 /*
  * @brief Extract ip packet from raw packet
  *
- * @param pkthdr packet pcap header
+ * @param capPkthdr packet pcap header
  * @param rawPkt raw packet captured by pcap
+ * @param linkType datalink type
  *
  * @return Ip packet address if success else NULL
  */
 u_char *
-getIpPacket (struct pcap_pkthdr *pkthdr, u_char *rawPkt) {
+getIpPacket (struct pcap_pkthdr *capPkthdr, u_char *rawPkt, int linkType) {
     u_int offset;
 
-    /* Filter incomplete packet */
-    if (pkthdr->caplen != pkthdr->len)
-        return NULL;
-
-    switch (mirrorNic.linkType) {
+    switch (linkType) {
         /* BSD loopback encapsulation */
         case DLT_NULL:
             offset = 4;
@@ -94,7 +91,7 @@ getIpPacket (struct pcap_pkthdr *pkthdr, u_char *rawPkt) {
             return NULL;
     }
 
-    if (pkthdr->caplen < offset)
+    if (capPkthdr->caplen < offset)
         return NULL;
 
     return (rawPkt + offset);

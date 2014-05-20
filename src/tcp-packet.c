@@ -40,8 +40,10 @@ static pthread_spinlock_t tcpConnectionIdLock;
 static u_long_long tcpBreakdownId = 0;
 /* Tcp breakdown id lock */
 static pthread_spinlock_t tcpBreakdownIdLock;
-/* Tcp context initialization once control */
+/* Tcp context init once control */
 static pthread_once_t tcpInitOnceControl = PTHREAD_ONCE_INIT;
+/* Tcp context destroy once control */
+static pthread_once_t tcpDestroyOnceControl = PTHREAD_ONCE_INIT;
 
 /* Debug statistic data */
 #ifndef NDEBUG
@@ -1164,15 +1166,23 @@ tcpProcess (u_char *data, u_int skbLen, timeValPtr tm) {
 }
 
 static void
-tcpSharedInstance (void) {
+initTcpSharedInstance (void) {
     pthread_spin_init (&tcpConnectionIdLock, PTHREAD_PROCESS_PRIVATE);
     pthread_spin_init (&tcpBreakdownIdLock, PTHREAD_PROCESS_PRIVATE);
+    tcpDestroyOnceControl = PTHREAD_ONCE_INIT;
+}
+
+static void
+destroyTcpSharedInstance (void) {
+    pthread_spin_destroy (&tcpConnectionIdLock);
+    pthread_spin_destroy (&tcpBreakdownIdLock);
+    tcpInitOnceControl = PTHREAD_ONCE_INIT;
 }
 
 /* Init tcp process context */
 int
 initTcp (void) {
-    pthread_once (&tcpInitOnceControl, tcpSharedInstance);
+    pthread_once (&tcpInitOnceControl, initTcpSharedInstance);
     initListHead (&tcpStreamList);
     initListHead (&tcpStreamTimoutList);
     tcpStreamHashTable = hashNew (DEFAULT_TCP_STREAM_HASH_TABLE_SIZE);
@@ -1185,6 +1195,7 @@ initTcp (void) {
 /* Destroy tcp process context */
 void
 destroyTcp (void) {
+    pthread_once (&tcpDestroyOnceControl, destroyTcpSharedInstance);
     hashDestroy (tcpStreamHashTable);
     tcpStreamHashTable = NULL;
 }

@@ -2,11 +2,9 @@
 #define __AGENT_MESSAGE_CHANNEL_H__
 
 #define SUBTHREAD_STATUS_REPORT_CHANNEL "inproc://subThreadStatusReport"
-#define PACKET_CAPTURE_CONTROL_CHANNEL "inproc://packetCaptureControlChannel"
-#define IP_PACKET_PARSING_PUSH_CHANNEL "inproc://ipPacketPushChannel"
-#define TCP_PACKET_PARSING_PUSH_CHANNEL "inproc://tcpPacketPushChannel:%d"
-#define BREAKDOWN_PUSH_CHANNEL "inproc://breakdownPushChannel"
-#define PROFILE_PUSH_CHANNEL "inproc://profilePushChannel"
+#define IP_PACKET_PARSING_PUSH_CHANNEL "inproc://ipPacketParsingPushChannel"
+#define TCP_PACKET_PARSING_PUSH_CHANNEL "inproc://tcpPacketParsingPushChannel"
+#define BREAKDOWN_SINK_PUSH_CHANNEL "inproc://breakdownSinkPushChannel"
 
 #define SUB_THREAD_EXIT "Exit"
 

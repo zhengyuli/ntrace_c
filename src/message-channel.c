@@ -59,6 +59,7 @@ initMessageChannel (void) {
     if (zmqCtx == NULL)
         ret = -1;
     zctx_set_linger (zmqCtx, 0);
+    zctx_set_iothreads (zmqCtx, 5);
 
     subThreadStatusSndSock = zsocket_new (zmqCtx, ZMQ_PUSH);
     if (subThreadStatusSndSock == NULL) {

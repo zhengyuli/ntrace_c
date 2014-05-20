@@ -10,11 +10,21 @@
 typedef struct _agentParams agentParams;
 typedef agentParams *agentParamsPtr;
 
-/* Structure used to describes global parameters of agent */
+/* Agent parameters */
 struct _agentParams {
     BOOL daemonMode;                    /**< Run as daemon */
     char *mirrorInterface;              /**< Mirror interface */
     u_int logLevel;                     /**< Log level */
+};
+
+typedef struct _netInterface netInterface;
+typedef netInterface *netInterfacePtr;
+
+/* Network interface */
+struct _netInterface {
+    char *name;                         /**< NIC name */
+    pcap_t *pcapDesc;                   /**< NIC pcap descriptor */
+    int linkType;                       /**< Datalink type */
 };
 
 /* Agent state */

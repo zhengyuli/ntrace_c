@@ -462,6 +462,7 @@ ipDefrag (struct ip *iph, u_int capLen, timeValPtr tm, struct ip **newIph) {
             return -1;
         } else {
             if (pktShouldBeFilter (newIphdr)) {
+                free (newIphdr);
                 *newIph = NULL;
                 return -1;
             } else {

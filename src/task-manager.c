@@ -73,6 +73,7 @@ stopTaskForEachHashItem (void *data, void *args) {
 void
 stopAllTask (void) {
     hashForEachItemDo (taskManagerHashTable, stopTaskForEachHashItem, NULL);
+    usleep (20000);
     hashClean (taskManagerHashTable);
 }
 
@@ -89,7 +90,6 @@ initTaskManager (void) {
 
 void
 destroyTaskManager (void) {
-    stopAllTask ();
     hashDestroy (taskManagerHashTable);
     taskManagerHashTable = NULL;
 }

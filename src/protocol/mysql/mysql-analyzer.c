@@ -19,6 +19,10 @@ static __thread BOOL currSessionDone;
 static __thread mysqlSessionDetailPtr currSessionDetail;
 /* Mysql parser state map */
 static mysqlStateEvents mysqlStateMap [MYSQL_STATES_NUM];
+/* Mysql proto init once control */
+static pthread_once_t mysqlProtoInitOnceControl = PTHREAD_ONCE_INIT;
+/* Mysql proto destroy once control */
+static pthread_once_t mysqlProtoDestroyOnceControl = PTHREAD_ONCE_INIT;
 
 static void
 resetMysqlSessionDetail (mysqlSessionDetailPtr msd);
@@ -886,8 +890,8 @@ mysqlParserExecute (mysqlParserStatePtr parser, u_char *data, u_int dataLen, BOO
     return parseCount;
 }
 
-static int
-initMysqlProto (void) {
+static void
+initMysqlSharedInstance (void) {
     /* Init mysql state map */
     /* -------------------------------------------------------------- */
     mysqlStateMap [STATE_NOT_CONNECTED].numEvents = 1;
@@ -1167,12 +1171,23 @@ initMysqlProto (void) {
     mysqlStateMap [STATE_STMT_FETCH_RS].nextState [1] = STATE_SLEEP;
     mysqlStateMap [STATE_STMT_FETCH_RS].handler [1] = &pktOkOrError;
 
+    mysqlProtoDestroyOnceControl = PTHREAD_ONCE_INIT;
+}
+
+static void
+destroyMysqlSharedInstance (void) {
+    mysqlProtoInitOnceControl = PTHREAD_ONCE_INIT;
+}
+
+static int
+initMysqlProto (void) {
+    pthread_once (&mysqlProtoInitOnceControl, initMysqlSharedInstance);
     return 0;
 }
 
 static void
 destroyMysqlProto (void) {
-    return;
+    pthread_once (&mysqlProtoDestroyOnceControl, destroyMysqlSharedInstance);
 }
 
 static int

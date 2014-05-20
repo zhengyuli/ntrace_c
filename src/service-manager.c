@@ -48,19 +48,13 @@ freeService (void *data) {
     free (svc);
 }
 
-static int
-addService (servicePtr svc) {
-    int ret;
-    char key [32] = {0};
-
-    snprintf (key, sizeof (key) - 1, "%s:%d", svc->ip, svc->port);
-    ret = hashInsert (serviceHashTableSlave, key, svc, freeService);
-    if (ret < 0) {
-        LOGE ("Insert new service: %u error\n", svc->id);
-        return -1;
-    }
-
-    return 0;
+static void
+displayServiceUpdateDetail (servicePtr svc) {
+    LOGI ("\nAdd service:\n");
+    LOGI ("--id: %u\n", svc->id);
+    LOGI ("--proto: %s\n", getProtoName (svc->proto) ? getProtoName (svc->proto) : "Unknown protoType");
+    LOGI ("--ip: %s\n", svc->ip);
+    LOGI ("--port: %u\n", svc->port);
 }
 
 static void
@@ -72,15 +66,6 @@ serviceMapSwap (void) {
     serviceHashTableMaster = serviceHashTableSlave;
     pthread_rwlock_unlock (&serviceHashTableMasterLock);
     serviceHashTableSlave = tmp;
-}
-
-static void
-displayServiceUpdateDetail (servicePtr svc) {
-    LOGI ("\nAdd service:\n");
-    LOGI ("--id: %u\n", svc->id);
-    LOGI ("--proto: %s\n", getProtoName (svc->proto) ? getProtoName (svc->proto) : "Unknown protoType");
-    LOGI ("--ip: %s\n", svc->ip);
-    LOGI ("--port: %u\n", svc->port);
 }
 
 static servicePtr
@@ -150,6 +135,24 @@ json2Service (json_t *json) {
     return svc;
 }
 
+static int
+addService (servicePtr svc) {
+    int ret;
+    char key [32] = {0};
+
+    snprintf (key, sizeof (key) - 1, "%s:%d", svc->ip, svc->port);
+    ret = hashInsert (serviceHashTableSlave, key, svc, freeService);
+    if (ret < 0) {
+        LOGE ("Insert new service: %u error\n", svc->id);
+        return -1;
+    }
+
+    /* Display service detail info */
+    displayServiceUpdateDetail (svc);
+
+    return 0;
+}
+
 int
 updateService (const char *svcJson) {
     u_int i;
@@ -157,7 +160,7 @@ updateService (const char *svcJson) {
     json_t *root, *tmp;
     servicePtr svc;
 
-    /* Cleanup serviceHashTableSlave */
+    /* Cleanup slave service hash table */
     hashClean (serviceHashTableSlave);
 
     /* Parse services */
@@ -187,6 +190,7 @@ updateService (const char *svcJson) {
             json_object_clear (root);
             return -1;
         }
+
         ret = addService (svc);
         if (ret < 0) {
             LOGE ("Add service error.\n");
@@ -194,7 +198,9 @@ updateService (const char *svcJson) {
             return -1;
         }
     }
+    /* Swap service map */
     serviceMapSwap ();
+
     return 0;
 }
 
@@ -239,7 +245,7 @@ getServiceFilter (void) {
     pthread_rwlock_rdlock (serviceHashTableMasterLock);
     svcNum = hashSize (serviceHashTableMaster);
     filterLen = BPF_FILTER_UNIT_LENGTH * (svcNum + 1);
-    filter = malloc (filterLen);
+    filter = (char *) malloc (filterLen);
     if (filter == NULL) {
         LOGE ("Alloc filter buffer error: %s.\n", strerror (errno));
         pthread_rwlock_unlock (serviceHashTableMasterLock);

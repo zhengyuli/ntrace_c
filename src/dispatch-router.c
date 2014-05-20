@@ -5,21 +5,21 @@
 #include <netinet/tcp.h>
 #include "util.h"
 #include "log.h"
-#include "router.h"
+#include "dispatch-router.h"
 
-typedef struct _router router;
-typedef router *routerPtr;
+typedef struct _dispatchRouter dispatchRouter;
+typedef dispatchRouter *dispatchRouterPtr;
 
-struct _router {
+struct _dispatchRouter {
     u_int parsingThreads;
     void **pushSocks;
 };
 
-/* Global dispatch router */
-static routerPtr dispatchRouter;
+/* Dispatch router */
+static dispatchRouterPtr router;
 
 static size_t
-routerHash (const char *key1, const char *key2) {
+dispatchHash (const char *key1, const char *key2) {
     u_int sum, hash = 0;
     u_int seed = 16777619;
     const char *tmp;
@@ -48,11 +48,11 @@ routerHash (const char *key1, const char *key2) {
 }
 
 /*
- * @brief Dispatch ip packet to one specific worker thread
- *        to process.
+ * @brief Router dispatch ip packet and timestamp to specific
+ *        parsing thread.
  *
  * @param iphdr ip packet to dispatch
- * @param tm capture time to dispatch
+ * @param tm capture timestamp to dispatch
  */
 void
 routerDispatch (struct ip *iphdr, timeValPtr tm) {
@@ -78,8 +78,8 @@ routerDispatch (struct ip *iphdr, timeValPtr tm) {
             return;
     }
 
-    /* Get dispatch router index */
-    index = routerHash (key1, key2) % dispatchRouter->parsingThreads;
+    /* Get dispatch index */
+    index = dispatchHash (key1, key2) % router->parsingThreads;
 
     /* Push timeVal */
     frame = zframe_new (tm, sizeof (timeVal));
@@ -87,7 +87,7 @@ routerDispatch (struct ip *iphdr, timeValPtr tm) {
         LOGE ("Create timestamp zframe error.\n");
         return;
     }
-    ret = zframe_send (&frame, dispatchRouter->pushSocks [index], ZFRAME_MORE);
+    ret = zframe_send (&frame, router->pushSocks [index], ZFRAME_MORE);
     if (ret < 0) {
         LOGE ("Push timestamp zframe error.\n");
         zframe_destroy (&frame);
@@ -100,7 +100,7 @@ routerDispatch (struct ip *iphdr, timeValPtr tm) {
         LOGE ("Create ip packet zframe error.");
         return;
     }
-    ret = zframe_send (&frame, dispatchRouter->pushSocks [index], 0);
+    ret = zframe_send (&frame, router->pushSocks [index], 0);
     if (ret < 0) {
         LOGE ("Push ip packet zframe error.\n");
         zframe_destroy (&frame);
@@ -116,35 +116,38 @@ routerDispatch (struct ip *iphdr, timeValPtr tm) {
  * @return 0 if success else -1
  */
 int
-initRouter (u_int parsingThreads) {
+initDispatchRouter (u_int parsingThreads) {
     int ret;
-    u_int i;
+    u_int i, size;
 
-    dispatchRouter = (routerPtr) malloc (sizeof (router));
-    if (dispatchRouter == NULL) {
-        LOGE ("Alloc router error: %s\n.", strerror (errno));
+    router = (dispatchRouterPtr) malloc (sizeof (dispatchRouter));
+    if (router == NULL) {
+        LOGE ("Alloc dispatchRouter error: %s\n.", strerror (errno));
         return -1;
     }
 
-    dispatchRouter->parsingThreads = parsingThreads;
-    dispatchRouter->pushSocks = (void **) malloc (sizeof (void *) * dispatchRouter->parsingThreads);
-    if (dispatchRouter->pushSocks == NULL) {
-        LOGE ("Alloc router pushSocks error: %s.\n", strerror (errno));
-        goto freeRouter;
-    }
+    router->parsingThreads = parsingThreads;
+    size = sizeof (void *) * router->parsingThreads;
+    router->pushSocks = (void **) malloc (size);
+    if (router->pushSocks == NULL) {
+        LOGE ("Alloc dispatchRouter pushSocks error: %s.\n", strerror (errno));
 
-    for (i = 0; i < dispatchRouter->parsingThreads; i++) {
-        dispatchRouter->pushSocks [i] = newZSock (ZMQ_PUSH);
-        if (dispatchRouter->pushSocks [i] == NULL) {
+        goto freeDispatchRouter;
+    }
+    memset (router->pushSocks, 0, size);
+
+    for (i = 0; i < router->parsingThreads; i++) {
+        router->pushSocks [i] = newZSock (ZMQ_PUSH);
+        if (router->pushSocks [i] == NULL) {
             LOGE ("Create pushSocks [%u] error.\n", i);
             goto freePushSocks;
         }
 
-        /* Set pushSocks [i] hwm to 500000 */
-        zsocket_set_sndhwm (dispatchRouter->pushSocks [i], 500000);
+        /* Set pushSocks [i] sndhwm to 500000 */
+        zsocket_set_sndhwm (router->pushSocks [i], 500000);
 
         /* Connect to tcpPacketParsingPushChannel */
-        ret = zsocket_connect (dispatchRouter->pushSocks [i], TCP_PACKET_PARSING_PUSH_CHANNEL ":%u", i);
+        ret = zsocket_connect (router->pushSocks [i], TCP_PACKET_PARSING_PUSH_CHANNEL ":%u", i);
         if (ret < 0) {
             LOGE ("Connect to %s:%u error.\n", TCP_PACKET_PARSING_PUSH_CHANNEL, i);
             goto freePushSocks;
@@ -154,20 +157,32 @@ initRouter (u_int parsingThreads) {
     return 0;
 
 freePushSocks:
-    free (dispatchRouter->pushSocks);
-    dispatchRouter->pushSocks = NULL;
-freeRouter:
-    free (dispatchRouter);
-    dispatchRouter = NULL;
+    for (i = 0; i < router->parsingThreads; i++) {
+        if (router->pushSocks [i]) {
+            closeZSock (router->pushSocks);
+        }
+    }
+    free (router->pushSocks);
+    router->pushSocks = NULL;
+freeDispatchRouter:
+    free (router);
+    router = NULL;
 
     return -1;
 }
 
 /* Destroy dispatch router */
 void
-destroyRouter (void) {
-    free (dispatchRouter->pushSocks);
-    dispatchRouter->pushSocks = NULL;
-    free (dispatchRouter);
-    dispatchRouter = NULL;
+destroyDispatchRouter (void) {
+    u_int i;
+
+    for (i = 0; i < router->parsingThreads; i++) {
+        if (router->pushSocks [i]) {
+            closeZSock (router->pushSocks);
+        }
+    }
+    free (router->pushSocks);
+    router->pushSocks = NULL;
+    free (router);
+    router = NULL;
 }

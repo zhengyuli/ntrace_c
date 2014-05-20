@@ -51,6 +51,11 @@ newZSock (int type) {
     return zsocket_new (zmqCtx, type);
 }
 
+inline void
+closeZSock (void *sock) {
+    zsocket_destroy (zmqCtx, sock);
+}
+
 int
 initMessageChannel (void) {
     int ret;

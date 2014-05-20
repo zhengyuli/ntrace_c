@@ -184,11 +184,11 @@ struct _tcpBreakdown {
 #define COMMON_SKBD_TCP_DUPLICATE_ACKS           "tcp_duplicate_acks"
 
 /* Tcp session breakdown callback */
-typedef void (*publishTcpBreakdownCB) (const char *tcpBreakdown, void *args);
+typedef void (*publishSessionBreakdownCB) (const char *sessionBreakdown, void *args);
 
 /*========================Interfaces definition============================*/
 void
-tcpProcess (u_char *data, u_int skbLen, timeValPtr tm);
+tcpProcess (struct ip *iph, u_int pktLen, timeValPtr tm);
 int
 initTcp (publishTcpBreakdownCB publishTcpBreakdown, void *args);
 void

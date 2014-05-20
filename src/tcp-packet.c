@@ -57,6 +57,10 @@ static __thread listHead tcpStreamList;
 static __thread listHead tcpStreamTimoutList;
 /* Tcp stream hash table */
 static __thread hashTablePtr tcpStreamHashTable;
+/* Tcp breakdown publish callback */
+static __thread publishSessionBreakdownCB publishSessionBreakdownFunc;
+/* Tcp breakdown publish callback args */
+static __thread void *publishSessionBreakdownArgs;
 
 static inline BOOL
 before (u_int seq1, u_int seq2) {
@@ -519,7 +523,7 @@ tcpBreakdown2Json (tcpStreamPtr stream, tcpBreakdownPtr tbd) {
 }
 
 static void
-publishTcpBreakdown (tcpStreamPtr stream, timeValPtr tm) {
+publishSessionBreakdown (tcpStreamPtr stream, timeValPtr tm) {
     int ret;
     tcpBreakdown tbd;
     char *jsonStr = NULL;
@@ -623,7 +627,7 @@ publishTcpBreakdown (tcpStreamPtr stream, timeValPtr tm) {
     }
 
     /* Push session breakdown to redis server */
-    publishTcpBreakdownFunc (jsonStr, publishTcpBreakdownArgs);
+    publishSessionBreakdownFunc (jsonStr, publishSessionBreakdownArgs);
 
     /* Free json string and application layer session breakdown */
     free (jsonStr);
@@ -655,7 +659,7 @@ checkTcpStreamClosingTimeoutList (timeValPtr tm) {
         else {
             pos->stream->state = STREAM_TIME_OUT;
             pos->stream->closeTime = timeVal2MilliSecond (tm);
-            publishTcpBreakdown (pos->stream, tm);
+            publishSessionBreakdown (pos->stream, tm);
             delTcpStreamFromHash (pos->stream);
         }
     }
@@ -673,7 +677,7 @@ handleEstb (tcpStreamPtr stream, timeValPtr tm) {
 
     (*stream->parser->sessionProcessEstb) (stream->sessionDetail, tm);
     /* Publish tcp connected breakdown */
-    publishTcpBreakdown (stream, tm);
+    publishSessionBreakdown (stream, tm);
 }
 
 /* Tcp urgence data handler callback */
@@ -703,7 +707,7 @@ handleData (tcpStreamPtr stream, halfStreamPtr snd, u_char *data, u_int dataLen,
 
     parseCount = (*stream->parser->sessionProcessData) (fromClient, data, dataLen, stream->sessionDetail, tm, &sessionDone);
     if (sessionDone)
-        publishTcpBreakdown (stream, tm);
+        publishSessionBreakdown (stream, tm);
 
     return parseCount;
 }
@@ -732,7 +736,7 @@ handleReset (tcpStreamPtr stream, halfStreamPtr snd, timeValPtr tm) {
     }
 
     stream->closeTime = timeVal2MilliSecond (tm);
-    publishTcpBreakdown (stream, tm);
+    publishSessionBreakdown (stream, tm);
     delTcpStreamFromHash (stream);
 }
 
@@ -749,7 +753,7 @@ handleFin (tcpStreamPtr stream, halfStreamPtr snd, timeValPtr tm) {
 
     (*stream->parser->sessionProcessFin) (fromClient, stream->sessionDetail, tm, &sessionDone);
     if (sessionDone)
-        publishTcpBreakdown (stream, tm);
+        publishSessionBreakdown (stream, tm);
 
     snd->state = TCP_FIN_SENT;
     stream->state = STREAM_CLOSING;
@@ -761,7 +765,7 @@ static void
 handleClose (tcpStreamPtr stream, timeValPtr tm) {
     stream->state = STREAM_CLOSED;
     stream->closeTime = timeVal2MilliSecond (tm);
-    publishTcpBreakdown (stream, tm);
+    publishSessionBreakdown (stream, tm);
     delTcpStreamFromHash (stream);
 }
 
@@ -968,12 +972,12 @@ tcpQueue (tcpStreamPtr stream, struct tcphdr *tcph, halfStreamPtr snd,
  *        defragment, generate tcp session breakdown, publish tcp session
  *        breakdown and tcp stream context destroy.
  *
- * @param data ip packet to process
- * @param skbLen length of packet captured
+ * @param iph ip packet header
+ * @param pktLen ip packet length
  * @param tm current timestamp
  */
 void
-tcpProcess (u_char *data, u_int skbLen, timeValPtr tm) {
+tcpProcess (struct ip *iph, u_int pktLen, timeValPtr tm) {
     u_int ipLen;
 #if DO_STRICT_CHECK
     u_int tcpLen;
@@ -983,10 +987,8 @@ tcpProcess (u_char *data, u_int skbLen, timeValPtr tm) {
     tcpStreamPtr stream;
     halfStreamPtr snd, rcv;
     BOOL fromClient;
-    struct ip *iph;
     struct tcphdr *tcph;
 
-    iph = (struct ip *) data;
     tcph = (struct tcphdr *) (data + iph->ip_hl * 4);
     ipLen = ntohs (iph->ip_len);
 #if DO_STRICT_CHECK
@@ -1161,7 +1163,7 @@ tcpProcess (u_char *data, u_int skbLen, timeValPtr tm) {
         if (tcpDataLen == 1)
             stream->tinyPkts++;
         tcpQueue (stream, tcph, snd, rcv, (u_char *) tcph + 4 * tcph->doff,
-                  tcpDataLen, skbLen, tm);
+                  tcpDataLen, capLen, tm);
     }
 }
 
@@ -1181,10 +1183,12 @@ destroyTcpSharedInstance (void) {
 
 /* Init tcp process context */
 int
-initTcp (void) {
+initTcp (publishSessionBreakdownCB callback, void *args) {
     pthread_once (&tcpInitOnceControl, initTcpSharedInstance);
     initListHead (&tcpStreamList);
     initListHead (&tcpStreamTimoutList);
+    publishSessionBreakdownFunc = callback;
+    publishSessionBreakdownArgs = args;
     tcpStreamHashTable = hashNew (DEFAULT_TCP_STREAM_HASH_TABLE_SIZE);
     if (tcpStreamHashTable == NULL)
         return -1;
@@ -1196,6 +1200,8 @@ initTcp (void) {
 void
 destroyTcp (void) {
     pthread_once (&tcpDestroyOnceControl, destroyTcpSharedInstance);
+    publishSessionBreakdownFunc = NULL;
+    publishSessionBreakdownArgs = NULL;
     hashDestroy (tcpStreamHashTable);
     tcpStreamHashTable = NULL;
 }

@@ -248,12 +248,14 @@ ipQueueGlue (ipQueuePtr ipq) {
     ipLen = ipq->iphLen + ipq->dataLen;
     if (ipLen > MAX_IP_PACKET_SIZE) {
         LOGE ("Oversized ip packet from %s.\n", inet_ntoa (ipq->sourcIp));
+        delIpQueueFromHash (ipq);
         return NULL;
     }
 
     buf = (u_char *) malloc (ipLen);
     if (buf == NULL) {
         LOGE ("Alloc ipQueue buffer error: %s.\n", strerror (errno));
+        delIpQueueFromHash (ipq);
         return NULL;
     }
 
@@ -266,6 +268,7 @@ ipQueueGlue (ipQueuePtr ipq) {
     iph = (struct ip *) buf;
     iph->ip_off = 0;
     iph->ip_len = htons (ipLen);
+    delIpQueueFromHash (ipq);
 
     return iph;
 }
@@ -334,15 +337,15 @@ pktShouldBeFilter (struct ip *iphdr) {
 /*
  * @brief Ip packet defragment
  *
- * @param iph ip packet
- * @param capLen ip packet capture length
+ * @param iph ip packet header
+ * @param pktLen ip packet length
  * @param tm packet capture timestamp
  * @param newIph pointer to return ip defragment packet
  *
  * @return 0 if success else -1
  */
 int
-ipDefrag (struct ip *iph, u_int capLen, timeValPtr tm, struct ip **newIph) {
+ipDefrag (struct ip *iph, u_int pktLen, timeValPtr tm, struct ip **newIph) {
     int ret;
     u_short iphLen, ipLen, offset, end, flags, gap;
     ipFragPtr ipf, prev, pos, tmp;
@@ -351,7 +354,7 @@ ipDefrag (struct ip *iph, u_int capLen, timeValPtr tm, struct ip **newIph) {
 
     /* Check ipQueue expire timeout list */
     checkIpQueueExpireTimeoutList (tm);
-    ret = checkIpHeader (iph, capLen);
+    ret = checkIpHeader (iph, pktLen);
     if (ret < 0) {
         *newIph = NULL;
         return -1;

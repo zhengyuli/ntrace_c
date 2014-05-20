@@ -33,6 +33,11 @@ static int agentPidFd = -1;
 /* Agent parsing threads */
 static u_int parsingThreads = DEFAULT_PARSING_THREADS;
 
+#ifndef NDEBUG
+/* Session breakdown count */
+static u_int sessionBreakdownCount = 0;
+#endif
+
 /* Global agent parameters */
 static agentParams agentParameters = {
     .daemonMode = 0,
@@ -325,7 +330,7 @@ rawPktCaptureService (void *args) {
     ret = initMirrorNic ();
     if (ret < 0) {
         LOGE ("Init mirror NIC error.\n");
-        goto destroyLog;
+        goto destroyLogContext;
     }
 
     ipPktParsingPushSock = newZSock (ZMQ_PUSH);
@@ -339,7 +344,7 @@ rawPktCaptureService (void *args) {
     ret = zsocket_connect (ipPktParsingPushSock, IP_PACKET_PARSING_PUSH_CHANNEL);
     if (ret < 0) {
         LOGE ("Connect to %s error.\n", IP_PACKET_PARSING_PUSH_CHANNEL);
-        goto resetMirrorNic;
+        goto destroyIpPktParsingPushSock;
     }
 
     while (!zctx_interrupted)
@@ -390,13 +395,15 @@ rawPktCaptureService (void *args) {
             continue;
         } else if (ret == -1) {
             LOGE ("Capture packet fatal error, rawPktCaptureService will exit...\n");
-            goto resetMirrorNic;
+            goto destroyIpPktParsingPushSock;
         }
     }
 
+destroyIpPktParsingPushSock:
+    closeZSock (ipPktParsingPushSock);
 resetMirrorNic:
     resetMirrorNic ();
-destroyLog:
+destroyLogContext:
     destroyLog ();
 exit:
     subThreadStatusPush (SUB_THREAD_EXIT);
@@ -424,7 +431,7 @@ ipPktParsingService (void *args) {
     ret = initIp ();
     if (ret < 0) {
         LOGE ("Init ip context error.\n");
-        goto destroyLog;
+        goto destroyLogContext;
     }
 
     ipPktParsingPullSock = newZSock (ZMQ_PULL);
@@ -436,11 +443,248 @@ ipPktParsingService (void *args) {
     /* Set ipPktParsingPullSock hwm to 500000 */
     zsocket_set_rcvhwm(ipPktParsingPullSock, 500000);
 
-    ret = initRouter (parsingThreads);
+    ret = initDispatchRouter (parsingThreads);
+    if (ret < 0) {
+        LOGE ("Init dispatch router error.\n");
+        goto destroyIpPktParsingPullSock;
+    }
 
+    while (!zctx_interrupted) {
+        /* Receive timestamp */
+        if (tmFrame == NULL) {
+            tmFrame = zframe_recv (ipPktParsingPullSock);
+            if ((tmFrame == NULL) && !zctx_interrupted)
+                continue;
+            else if (!zframe_more (tmFrame)) {
+                LOGE ("Wrong timestamp frame.\n");
+                zframe_destroy (&tmFrame);
+                continue;
+            }
+        }
+
+        /* Receive packet data */
+        pktFrame = zframe_recv (ipPktParsingPullSock);
+        if ((pktFrame == NULL) && !zctx_interrupted)
+            continue;
+        else if (zframe_more (pktFrame)) {
+            LOGE ("Wrong ip packet frame.\n");
+            zframe_destroy (&tmFrame);
+            tmFrame = pktFrame;
+            pktFrame = NULL;
+            continue;
+        }
+
+        ret = ipDefrag ((struct ip *) zframe_data (pktFrame), zframe_size (pktFrame),
+                        (timeValPtr) zframe_data (tmFrame), &newIphdr);
+        if (ret < 0)
+            LOGE ("Ip defrag error.\n");
+        else if (newIphdr) {
+            routerDispatch ((struct ip *) newIphdr, (timeValPtr) zframe_data (tmFrame));
+            /* New ip packet after defragment */
+            if (newIphdr != (struct ip *) zframe_data (pktFrame))
+                free (newIphdr);
+        }
+
+        /* Free zframe */
+        zframe_destroy (&tmFrame);
+        zframe_destroy (&pktFrame);
+    }
+
+    destroyDispatchRouter ();
+destroyIpPktParsingPullSock:
+    closeZSock (ipPktParsingPullSock);
 destroyIp:
     destroyIp ();
-destroyLog:
+destroyLogContext:
+    destroyLog ();
+exit:
+    subThreadStatusPush (SUB_THREAD_EXIT);
+
+    return NULL;
+}
+
+static void
+publishSessionBreakdownCallback (const char *sessionBreakdown, void *args) {
+    void *tcpBreakdownPushSock = args;
+
+    zstr_send (tcpBreakdownPushSock, tcpBreakdown);
+}
+
+static void *
+tcpPktParsingService (void *args) {
+    int ret;
+    u_int id;
+    timeValPtr tm;
+    struct ip *iphdr;
+    zframe_t *tmFrame;
+    zframe_t *pktFrame;
+    u_int pktLen;
+    void *sessionBreakdownSinkPushSock;
+    void *tcpPktParsingPullSock;
+
+    /* Init log context */
+    ret = initLog (agentParameters.logLevel);
+    if (ret < 0) {
+        logToConsole ("Init log context error.\n");
+        goto exit;
+    }
+
+    sessionBreakdownSinkPushSock = newZSock (ZMQ_PUSH);
+    if (sessionBreakdownSinkPushSock == NULL) {
+        LOGE ("Create sessionBreakdownSinkPushSock error.\n");
+        goto destroyLogContext;
+    }
+    /* Set sessionBreakdownSinkPushSock sndhwm to 50000 */
+    zsocket_set_sndhwm (sessionBreakdownSinkPushSock, 50000);
+    ret = zsocket_connect (sessionBreakdownSinkPushSock, SESSION_BREAKDOWN_SINK_PUSH_CHANNEL);
+    if (ret < 0) {
+        LOGE ("Connect to %s error.\n", BREAKDOWN_SINK_PUSH_CHANNEL);
+        goto destroySessionBreakdownSinkPushSock;
+    }
+
+    /* Init tcp context */
+    ret = initTcp (tcpPublishBreakdownCallback, sessionBreakdownSinkPushSock);
+    if (ret < 0) {
+        LOGE ("Init tcp context error.\n");
+        goto destroySessionBreakdownSinkPushSock;
+    }
+
+    ret = initProto ();
+    if (ret < 0) {
+        LOGE ("Init proto context error.\n");
+        goto destroyTcp;
+    }
+
+    tcpPktParsingPullSock = newZSock (ZMQ_PULL);
+    if (tcpPktParsingPullSock == NULL) {
+        LOGE ("Create tcpPktParsingPullSock error.\n");
+        goto destroyProto;
+    }
+    /* Set tcpPktParsingPullSock rcvhwm to 500000 */
+    zsocket_set_rcvhwm (tcpPktParsingPullSock, 500000);
+    ret = zsocket_bind (tcpPktParsingPullSock, TCP_PACKET_PARSING_PUSH_CHANNEL ":%u", (u_int) *args);
+    if (ret < 0) {
+        LOGE ("Connect to %s error.\n", BREAKDOWN_SINK_PUSH_CHANNEL);
+        goto destroyTcpPktParsingPullSock;
+    }
+
+    while (!zctx_interrupted) {
+        /* Receive timestamp */
+        if (tmFrame == NULL) {
+            tmFrame = zframe_recv (tcpPktParsingPullSock);
+            if ((tmFrame == NULL) && !zctx_interrupted)
+                continue;
+            else if (!zframe_more (tmFrame)) {
+                LOGE ("Wrong timestamp frame.\n");
+                zframe_destroy (&tmFrame);
+                continue;
+            }
+        }
+
+        /* Receive packet data */
+        pktFrame = zframe_recv (tcpPktParsingPullSock);
+        if ((pktFrame == NULL) && !zctx_interrupted)
+            continue;
+        else if (zframe_more (pktFrame)) {
+            LOGE ("Wrong ip packet frame.\n");
+            zframe_destroy (&tmFrame);
+            tmFrame = pktFrame;
+            pktFrame = NULL;
+            continue;
+        }
+
+        tm = (timeValPtr) zframe_data (tmFrame);
+        iphdr = (struct ip *) zframe_data (pktFrame);
+        pktLen = zframe_size (pktFrame);
+        switch (iphdr->ip_p) {
+            case IPPROTO_TCP:
+                tcpProcess (iphdr, pktLen, tm);
+                break;
+
+            default:
+                break;
+        }
+        
+        /* Free zframe */
+        zframe_destroy (&tmFrame);
+        zframe_destroy (&pktFrame);
+    }
+
+destroyTcpPktParsingPullSock:
+    closeZSock (tcpPktParsingPullSock);
+destroyProto:
+    destroyProto ();
+destroyTcp:
+    destroyTcp ();
+destroySessionBreakdownSinkPushSock:
+    closeZSock (sessionBreakdownSinkPushSock);
+destroyLogContext:
+    destroyLog ();
+exit:
+    subThreadStatusPush (SUB_THREAD_EXIT);
+
+    return NULL;
+}
+
+static void *
+sessionBreakdownSinkService (void *args) {
+    int ret;
+    void *sessionBreakdownSinkPullSock;
+    void *sessionBreakdownPushSock;
+    char *sessionBreakdown;
+
+    /* Init log context */
+    ret = initLog (agentParameters.logLevel);
+    if (ret < 0) {
+        logToConsole ("Init log context error.\n");
+        goto exit;
+    }
+
+    sessionBreakdownSinkPullSock = newZSock (ZMQ_PULL);
+    if (sessionBreakdownSinkPullSock == NULL) {
+        LOGE ("Create sessionBreakdownSinkPullSock error.\n");
+        goto destroyLogContext;
+    }
+    /* Set sessionBreakdownSinkPullSock rcvhwm to 500000 */
+    zsocket_set_rcvhwm (sessionBreakdownSinkPullSock, 500000);
+    ret = zsocket_bind (sessionBreakdownSinkPullSock, SESSION_BREAKDOWN_SINK_PUSH_CHANNEL);
+    if (ret < 0) {
+        LOGE ("Bind to %s error.\n", BREAKDOWN_SINK_PUSH_CHANNEL);
+        goto destroySessionBreakdownSinkPullSock;
+    }
+
+    sessionBreakdownPushSock = newZSock (ZMQ_PUSH);
+    if (sessionBreakdownPushSock == NULL) {
+        LOGE ("Create sessionBreakdownPushSock error.\n");
+        goto destroySessionBreakdownSinkPullSock;
+    }
+    /* Set sessionBreakdownPushSock sndhwm to 500000 */
+    zsocket_set_sndhwm (sessionBreakdownPushSock, 500000);
+    ret = zsocket_connect (sessionBreakdownPushSock, "tcp://%s:%u", agentStateCacheInstance.pubIp,
+                           agentStateCacheInstance.pubPort);
+    if (ret < 0) {
+        LOGE ("Connect to tcp://%s:%u error.\n", agentStateCacheInstance.pubIp,
+              agentStateCacheInstance.pubPort);
+        goto destroySessionBreakdownPushSock;
+    }
+    
+    while (!zctx_interrupted) {
+        sessionBreakdown = zstr_recv (tbdRecvSock);
+        if (sessionBreakdown) {
+            zstr_send (sessionBreakdownPushSock, sessionBreakdown);
+#ifndef NDEBUG
+            LOGD ("Session breakdown-------------------count: %u\n%s\n",
+                  ATOMIC_FETCH_AND_ADD (&sessionBreakdownCount, 1), sessionBreakdown);
+#endif
+            free (sessionBreakdown);
+        }
+    }
+
+destroySessionBreakdownPushSock:
+    closeZSock (sessionBreakdownPushSock);
+destroySessionBreakdownSinkPullSock:
+    closeZSock (sessionBreakdownSinkPullSock);
+destroyLogContext:
     destroyLog ();
 exit:
     subThreadStatusPush (SUB_THREAD_EXIT);
@@ -756,11 +1000,6 @@ subThreadStatusMessageHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
     return 0;
 }
 
-static void *
-serviceMonitor (void *args) {
-
-}
-
 static int
 lockPidFile (void) {
     pid_t pid;
@@ -828,7 +1067,7 @@ agentRun (void) {
     if (ret < 0) {
         LOGE ("Init message channel error.\n");
         ret = -1;
-        goto destroyLog;
+        goto destroyLogContext;
     }
 
     /* Init task manager */
@@ -859,7 +1098,7 @@ agentRun (void) {
     parsingThreads = getCpuCores () * 2 + 1;
     if (parsingThreads < DEFAULT_PARSING_THREADS)
         parsingThreads = DEFAULT_PARSING_THREADS;
-    
+
     /* Init agent control socket */
     agentControlRecvSock = newZSock (ZMQ_REP);
     if (agentControlRecvSock == NULL) {
@@ -871,7 +1110,7 @@ agentRun (void) {
     if (ret < 0) {
         LOGE ("Bind to tcp://*:%u error.\n", AGENT_CONTROL_PORT);
         ret = -1;
-        goto resetAgentStateCache;
+        goto destroyAgentControlRecvSock;
     }
 
     /* Get sub-thread status receive socket */
@@ -879,7 +1118,7 @@ agentRun (void) {
     if (subThreadStatusRecvSock == NULL) {
         LOGE ("Get subThreadStatusRecvSock error.\n");
         ret = -1;
-        goto resetAgentStateCache;
+        goto destroyAgentControlRecvSock;
     }
 
     /* Create zloop reactor */
@@ -887,7 +1126,7 @@ agentRun (void) {
     if (loop == Null) {
         LOGE ("Create zloop error.\n");
         ret = -1;
-        goto resetAgentStateCache;
+        goto destroyAgentControlRecvSock;
     }
 
     /* Init poll item 0*/
@@ -925,6 +1164,8 @@ agentRun (void) {
 
 destroyZloop:
     zloop_destroy (&loop);
+destroyAgentControlRecvSock:
+    closeZSock (agentControlRecvSock);
 resetAgentStateCache:
     resetAgentStateCache ();
 destroyServiceManager:
@@ -933,7 +1174,7 @@ destroyTaskManager:
     destroyTaskManager ();
 destroyMessageChannel:
     destroyMessageChannel ();
-destroyLog:
+destroyLogContext:
     destroyLog ();
 unlockPidFile:
     unlockPidFile ();

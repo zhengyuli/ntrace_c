@@ -4,7 +4,7 @@
 #define SUBTHREAD_STATUS_REPORT_CHANNEL "inproc://subThreadStatusReport"
 #define IP_PACKET_PARSING_PUSH_CHANNEL "inproc://ipPacketParsingPushChannel"
 #define TCP_PACKET_PARSING_PUSH_CHANNEL "inproc://tcpPacketParsingPushChannel"
-#define BREAKDOWN_SINK_PUSH_CHANNEL "inproc://breakdownSinkPushChannel"
+#define SESSION_BREAKDOWN_SINK_PUSH_CHANNEL "inproc://sessionBreakdownSinkPushChannel"
 
 #define SUB_THREAD_EXIT "Exit"
 

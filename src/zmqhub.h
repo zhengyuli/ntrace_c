@@ -1,5 +1,5 @@
-#ifndef __AGENT_MESSAGE_CHANNEL_H__
-#define __AGENT_MESSAGE_CHANNEL_H__
+#ifndef __AGENT_ZMQHUB_H__
+#define __AGENT_ZMQHUB_H__
 
 #define SUBTHREAD_STATUS_REPORT_CHANNEL "inproc://subThreadStatusReport"
 #define IP_PACKET_PARSING_PUSH_CHANNEL "inproc://ipPacketParsingPushChannel"
@@ -18,12 +18,14 @@ subThreadStatusRecvNonBlock (void);
 void *
 getSubThreadStatusRecvSock (void);
 void *
-newZSock (int type)
-int
-initMessageChannel (void);
+newZSock (int type);
 void
-destroyMessageChannel (void);
+destroyZSock (void *sock);
+int
+initZmqhub (void);
+void
+destroyZmqhub (void);
 /*=======================Interfaces definition end=========================*/
 
-#endif /* __AGENT_MESSAGE_CHANNEL_H__ */
+#endif /* __AGENT_ZMQHUB_H__ */
 

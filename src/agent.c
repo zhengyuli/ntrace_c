@@ -1148,7 +1148,7 @@ agentRun (void) {
     }
 
     /* Register poll item 1 */
-    ret = zloop_poller(loop, &pollItems [0], subThreadStatusMessageHandler, NULL);
+    ret = zloop_poller (loop, &pollItems [0], subThreadStatusMessageHandler, NULL);
     if (ret < 0) {
         LOGE ("Register poll items [1] error.\n");
         ret = -1;

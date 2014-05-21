@@ -46,18 +46,18 @@ getSubThreadStatusRecvSock (void) {
     return subThreadStatusRecvSock;
 }
 
-inline void *
+void *
 newZSock (int type) {
     return zsocket_new (zmqCtx, type);
 }
 
-inline void
+void
 closeZSock (void *sock) {
     zsocket_destroy (zmqCtx, sock);
 }
 
 int
-initMessageChannel (void) {
+initZmqhub (void) {
     int ret;
 
     zmqCtx = zctx_new ();
@@ -99,7 +99,7 @@ initMessageChannel (void) {
 }
 
 void
-destroyMessageChannel (void) {
+destroyZmqhub (void) {
     if (zmqCtx == NULL)
         return;
     

@@ -42,7 +42,7 @@ struct _agentStateCache {
     char *agentId;                      /**< Agent id */
     char *pubIp;                        /**< Publish ip */
     u_short pubPort;                    /**< Publish port */
-    char *servies;                      /**< Services in json */
+    char *services;                     /**< Services in json */
 };
 
 #endif /* __AGENT_H__ */

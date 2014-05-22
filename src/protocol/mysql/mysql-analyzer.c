@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <zlib.h>
+#include <pthread.h>
 #include <jansson.h>
 #include "util.h"
 #include "log.h"

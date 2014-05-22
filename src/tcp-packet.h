@@ -17,7 +17,6 @@ typedef skbuff *skbuffPtr;
 struct _skbuff {
     u_char *data;                       /**< Skbuff data */
     u_int len;                          /**< Skbuff length */
-    u_int truesize;                     /**< Skbuff true size */
     u_int seq;                          /**< Skbuff sequence number */
     u_int ack;                          /**< Skbuff ack number */
     u_char urg;                         /**< Skbuff urgency data flag */
@@ -190,7 +189,7 @@ typedef void (*publishSessionBreakdownCB) (const char *sessionBreakdown, void *a
 void
 tcpProcess (struct ip *iph, u_int pktLen, timeValPtr tm);
 int
-initTcp (publishTcpBreakdownCB publishTcpBreakdown, void *args);
+initTcp (publishSessionBreakdownCB callback, void *args);
 void
 destroyTcp (void);
 /*=======================Interfaces definition end=========================*/

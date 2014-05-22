@@ -12,10 +12,11 @@
 #include <locale.h>
 #include "config.h"
 #include "util.h"
+#include "atomic.h"
 #include "log.h"
 #include "zmqhub.h"
 #include "task-manager.h"
-#include "service-manager.h.h"
+#include "service-manager.h"
 #include "dispatch-router.h"
 #include "raw-packet.h"
 #include "ip-packet.h"
@@ -118,11 +119,11 @@ resetAgentStateCache (void) {
 
 static void
 resetMirrorNic (void) {
-    free (mirrorInterface.name);
-    mirrorInterface.name = NULL;
-    pcap_close (mirrorInterface.pcapDesc);
-    mirrorInterface.pcapDesc = NULL;
-    mirrorInterface.linkType = 0;
+    free (mirrorNic.name);
+    mirrorNic.name = NULL;
+    pcap_close (mirrorNic.pcapDesc);
+    mirrorNic.pcapDesc = NULL;
+    mirrorNic.linkType = 0;
 }
 
 static inline void
@@ -132,13 +133,13 @@ pushSharedStatus (const char *msg) {
     pthread_mutex_unlock (&sharedStatusPushSockLock);
 }
 
-static inline const char *
+static inline char *
 readSharedStatus (void)
 {
     return zstr_recv (sharedStatusPullSock);
 }
 
-static inline const char *
+static inline char *
 readSharedStatusNonBlock (void)
 {
     return zstr_recv_nowait (sharedStatusPullSock);
@@ -146,7 +147,6 @@ readSharedStatusNonBlock (void)
 
 void
 initAgentStateCache (void) {
-    int ret;
     int fd;
     json_error_t error;
     json_t *root, *tmp;
@@ -233,7 +233,7 @@ dumpAgentStateCache (void) {
     json_object_set_new (root, "agentId", json_string (agentStateCacheInstance.agentId));
     json_object_set_new (root, "pubIp", json_string (agentStateCacheInstance.pubIp));
     json_object_set_new (root, "pubPort", json_integer (agentStateCacheInstance.pubPort));
-    if (agentStateCacheInstance.servies)
+    if (agentStateCacheInstance.services)
         json_object_set_new (root, "services", json_string (agentStateCacheInstance.services));
 
     out = json_dumps (root, JSON_INDENT (4));
@@ -246,7 +246,6 @@ dumpAgentStateCache (void) {
 static int
 setFilter (const char *filter) {
     int ret;
-    char errBuf [PCAP_ERRBUF_SIZE];
     struct bpf_program pcapFilter;
 
     ret = pcap_compile (mirrorNic.pcapDesc, &pcapFilter, filter, 1, 0);
@@ -384,12 +383,12 @@ initMirrorNic (void) {
 static void *
 rawPktCaptureService (void *args) {
     int ret;
-    void *ipPktPushSock;
     struct pcap_pkthdr *capPkthdr;
     u_char *rawPkt;
     struct ip *ipPkt;
     timeVal capTime;
     zframe_t *frame;
+    void *ipPktPushSock;
 
     ret = initLog (agentConfiguration.logLevel);
     if (ret < 0) {
@@ -408,7 +407,7 @@ rawPktCaptureService (void *args) {
         LOGE ("Create ipPktPushSock error.\n");
         goto resetMirrorNic;
     }
-    /* Set ipPktPushSock send hwm to 500,000 */
+    /* Set ipPktPushSock sndhwm to 500,000 */
     zsocket_set_sndhwm (ipPktPushSock, 500000);
 
     ret = zsocket_connect (ipPktPushSock, IP_PACKET_PUSH_CHANNEL);
@@ -426,7 +425,7 @@ rawPktCaptureService (void *args) {
                 continue;
 
             /* Get ip packet */
-            ipPkt = (struct ip *) getIpHeader (capPkthdr, rawPkt, mirrorNic.linkType);
+            ipPkt = (struct ip *) getIpPacket (capPkthdr, rawPkt, mirrorNic.linkType);
             if (ipPkt == NULL)
                 continue;
 
@@ -435,7 +434,7 @@ rawPktCaptureService (void *args) {
             capTime.tvUsec = htonll (capPkthdr->ts.tv_usec);
 
             /* Push capture timestamp and ip packet */
-            frame = zframe_new (tm, sizeof (timeVal));
+            frame = zframe_new (&capTime, sizeof (timeVal));
             if (frame == NULL) {
                 LOGE ("Create packet timestamp zframe error.\n");
                 continue;
@@ -480,14 +479,15 @@ exit:
 
 static void
 publishSessionBreakdownCallback (const char *sessionBreakdown, void *args) {
-    void *sessionBreakdownPushSock = args;
+    void *pushSock = args;
 
-    zstr_send (sessionBreakdownPushSock, tcpBreakdown);
+    zstr_send (pushSock, sessionBreakdown);
 }
 
 static void *
 tcpPktParsingService (void *args) {
     int ret;
+    taskId tid;
     timeValPtr tm;
     struct ip *iphdr;
     zframe_t *tmFrame;
@@ -495,6 +495,9 @@ tcpPktParsingService (void *args) {
     u_int pktLen;
     void *tcpPktPullSock;
     void *sessionBreakdownPushSock;
+
+    /* Get task id */
+    tid = * (taskId *) args;
 
     /* Init log context */
     ret = initLog (agentConfiguration.logLevel);
@@ -509,11 +512,11 @@ tcpPktParsingService (void *args) {
         LOGE ("Create tcpPktPullSock error.\n");
         goto destroyLog;
     }
-    /* Set tcpPktPullSock rcvhwm to 500000 */
+    /* Set tcpPktPullSock rcvhwm to 500,000 */
     zsocket_set_rcvhwm (tcpPktPullSock, 500000);
-    ret = zsocket_bind (tcpPktPullSock, TCP_PACKET_PUSH_CHANNEL ":%u", (u_int) *args);
+    ret = zsocket_bind (tcpPktPullSock, "%s:%u", TCP_PACKET_PUSH_CHANNEL, tid);
     if (ret < 0) {
-        LOGE ("Connect to %s error.\n", TCP_PACKET_PUSH_CHANNEL);
+        LOGE ("Connect to %s:%u error.\n", TCP_PACKET_PUSH_CHANNEL, tid);
         goto destroyTcpPktPullSock;
     }
 
@@ -522,7 +525,7 @@ tcpPktParsingService (void *args) {
         LOGE ("Create sessionBreakdownPushSock error.\n");
         goto destroyTcpPktPullSock;
     }
-    /* Set sessionBreakdownPushSock sndhwm to 50000 */
+    /* Set sessionBreakdownPushSock sndhwm to 50,000 */
     zsocket_set_sndhwm (sessionBreakdownPushSock, 50000);
     ret = zsocket_connect (sessionBreakdownPushSock, SESSION_BREAKDOWN_PUSH_CHANNEL);
     if (ret < 0) {
@@ -531,7 +534,7 @@ tcpPktParsingService (void *args) {
     }
 
     /* Init tcp context */
-    ret = initTcp (tcpPublishBreakdownCallback, sessionBreakdownPushSock);
+    ret = initTcp (publishSessionBreakdownCallback, sessionBreakdownPushSock);
     if (ret < 0) {
         LOGE ("Init tcp context error.\n");
         goto destroySessionBreakdownPushSock;
@@ -548,10 +551,10 @@ tcpPktParsingService (void *args) {
         /* Receive timestamp */
         if (tmFrame == NULL) {
             tmFrame = zframe_recv (tcpPktPullSock);
-            if ((tmFrame == NULL) && !zctx_interrupted)
-                continue;
-            else if (!zframe_more (tmFrame)) {
-                LOGE ("Wrong timestamp frame.\n");
+            if ((tmFrame == NULL) && zctx_interrupted) {
+                LOGE ("Receive timestamp frame fatal error.\n");
+                break;
+            } else if (!zframe_more (tmFrame)) {
                 zframe_destroy (&tmFrame);
                 continue;
             }
@@ -559,10 +562,10 @@ tcpPktParsingService (void *args) {
 
         /* Receive packet data */
         pktFrame = zframe_recv (tcpPktPullSock);
-        if ((pktFrame == NULL) && !zctx_interrupted)
-            continue;
-        else if (zframe_more (pktFrame)) {
-            LOGE ("Wrong ip packet frame.\n");
+        if ((pktFrame == NULL) && zctx_interrupted) {
+            LOGE ("Receive packet frame fatal error.\n");
+            break;
+        } else if (zframe_more (pktFrame)) {
             zframe_destroy (&tmFrame);
             tmFrame = pktFrame;
             pktFrame = NULL;
@@ -604,7 +607,6 @@ exit:
 void *
 ipPktParsingService (void *args) {
     int ret;
-    u_int cpuNum, pktParsingThreads;
     void *ipPktPullSock;
     zframe_t *tmFrame = NULL;
     zframe_t *pktFrame = NULL;
@@ -630,9 +632,10 @@ ipPktParsingService (void *args) {
         goto destroyIp;
     }
 
-    /* Set ipPktPullSock hwm to 500000 */
+    /* Set ipPktPullSock rcvhwm to 500,000 */
     zsocket_set_rcvhwm (ipPktPullSock, 500000);
 
+    /* Init dispatch router */
     ret = initDispatchRouter (pktParsingThreads, tcpPktParsingService, TCP_PACKET_PUSH_CHANNEL);
     if (ret < 0) {
         LOGE ("Init dispatch router error.\n");
@@ -643,10 +646,10 @@ ipPktParsingService (void *args) {
         /* Receive timestamp */
         if (tmFrame == NULL) {
             tmFrame = zframe_recv (ipPktPullSock);
-            if ((tmFrame == NULL) && !zctx_interrupted)
-                continue;
-            else if (!zframe_more (tmFrame)) {
-                LOGE ("Wrong timestamp frame.\n");
+            if ((tmFrame == NULL) && zctx_interrupted) {
+                LOGE ("Receive timestamp frame fatal error.\n");
+                break;
+            } else if (!zframe_more (tmFrame)) {
                 zframe_destroy (&tmFrame);
                 continue;
             }
@@ -654,10 +657,10 @@ ipPktParsingService (void *args) {
 
         /* Receive packet data */
         pktFrame = zframe_recv (ipPktPullSock);
-        if ((pktFrame == NULL) && !zctx_interrupted)
-            continue;
-        else if (zframe_more (pktFrame)) {
-            LOGE ("Wrong ip packet frame.\n");
+        if ((pktFrame == NULL) && zctx_interrupted) {
+            LOGE ("Receive packet frame fatal error.\n");
+            break;
+        } else if (zframe_more (pktFrame)) {
             zframe_destroy (&tmFrame);
             tmFrame = pktFrame;
             pktFrame = NULL;
@@ -712,7 +715,7 @@ sessionBreakdownSinkService (void *args) {
         LOGE ("Create sessionBreakdownPullSock error.\n");
         goto destroyLog;
     }
-    /* Set sessionBreakdownPullSock rcvhwm to 500000 */
+    /* Set sessionBreakdownPullSock rcvhwm to 500,000 */
     zsocket_set_rcvhwm (sessionBreakdownPullSock, 500000);
     ret = zsocket_bind (sessionBreakdownPullSock, SESSION_BREAKDOWN_PUSH_CHANNEL);
     if (ret < 0) {
@@ -725,13 +728,12 @@ sessionBreakdownSinkService (void *args) {
         LOGE ("Create sessionBreakdownPushSock error.\n");
         goto destroySessionBreakdownPullSock;
     }
-    /* Set sessionBreakdownPushSock sndhwm to 500000 */
+    /* Set sessionBreakdownPushSock sndhwm to 500,000 */
     zsocket_set_sndhwm (sessionBreakdownPushSock, 500000);
     ret = zsocket_connect (sessionBreakdownPushSock, "tcp://%s:%u", agentStateCacheInstance.pubIp,
                            agentStateCacheInstance.pubPort);
     if (ret < 0) {
-        LOGE ("Connect to tcp://%s:%u error.\n", agentStateCacheInstance.pubIp,
-              agentStateCacheInstance.pubPort);
+        LOGE ("Connect to tcp://%s:%u error.\n", agentStateCacheInstance.pubIp, agentStateCacheInstance.pubPort);
         goto destroySessionBreakdownPushSock;
     }
 
@@ -789,12 +791,12 @@ checkAgentId (const char *profile) {
  * @param code response code, 0 for success and 1 for error
  * @param status response status, 1 for stopped, 2 for running and 3 for error.
  *
- * @return response message in json if success else NULL
+ * @return response message if success else NULL
  */
 static char *
 buildAgentManagementResponse (int code, int status) {
     char *json;
-    json_ *root, *tmp;
+    json_t *root, *tmp;
 
     root = json_object ();
     if (root == NULL) {
@@ -803,7 +805,7 @@ buildAgentManagementResponse (int code, int status) {
     }
 
     /* Set response code */
-    json_object_set_new (resp, "code", json_integer (code));
+    json_object_set_new (root, "code", json_integer (code));
 
     /* Set response body:status */
     if (status != AGENT_STATE_INIT) {
@@ -842,6 +844,19 @@ addAgent (const char *profile) {
         return -1;
     }
 
+    /* Update agent state */
+    agentStateCacheInstance.state = AGENT_STATE_STOPPED;
+
+    /* Get agent id */
+    tmp = json_object_get (root, "agent-id");
+    agentStateCacheInstance.agentId = strdup (json_string_value (tmp));
+    if (agentStateCacheInstance.agentId == NULL) {
+        LOGE ("Get agentId error.\n");
+        resetAgentStateCache ();
+        json_object_clear (root);
+        return -1;
+    }
+
     /* Get pubIp */
     tmp = json_object_get (root, "ip");
     agentStateCacheInstance.pubIp = strdup (json_string_value (tmp));
@@ -856,20 +871,8 @@ addAgent (const char *profile) {
     tmp = json_object_get (root, "port");
     agentStateCacheInstance.pubPort = json_integer_value (tmp);
 
-    /* Get agent id */
-    tmp = json_object_get (root, "agent-id");
-    agentStateCacheInstance.agentId = strdup (json_string_value (tmp));
-    if (agentStateCacheInstance.agentId == NULL) {
-        LOGE ("Get agentId error.\n");
-        resetAgentStateCache ();
-        json_object_clear (root);
-        return -1;
-    }
-
     json_object_clear (root);
-    /* Update agent state */
-    agentStateCacheInstance.state = AGENT_STATE_STOPPED;
-    /* Save agent profile */
+    /* Save agent state cache */
     dumpAgentStateCache ();
 
     return 0;
@@ -890,9 +893,9 @@ removeAgent (const char *profile) {
         return -1;
     }
 
-    /* Reset agent profile */
+    /* Reset agent cache */
     resetAgentStateCache ();
-    /* Save agent profile */
+    /* Save agent state cache */
     dumpAgentStateCache ();
 
     return 0;
@@ -911,7 +914,7 @@ startAgent (const char *profile) {
     ret = checkAgentId (profile);
     if (ret < 0) {
         LOGE ("Start with wrong agent-id.\n");
-        return -;
+        return -1;
     }
 
     tid = newTask (rawPktCaptureService, NULL);
@@ -934,7 +937,7 @@ startAgent (const char *profile) {
 
     /* Update agent state */
     agentStateCacheInstance.state = AGENT_STATE_RUNNING;
-    /* Save agent profile */
+    /* Save agent state cache */
     dumpAgentStateCache ();
 
     return 0;
@@ -956,14 +959,14 @@ stopAgent (const char *profile) {
     ret = checkAgentId (profile);
     if (ret < 0) {
         LOGE ("Stop with wrong agent-id.\n");
-        return -;
+        return -1;
     }
 
     /* Stop all tasks */
     stopAllTask ();
     /* Update agent state */
     agentStateCacheInstance.state = AGENT_STATE_STOPPED;
-    /* Save agent profile */
+    /* Save agent state cache */
     dumpAgentStateCache ();
 
     return 0;
@@ -986,11 +989,12 @@ static int
 pushProfile (const char *profile) {
     int ret;
     char *filter;
+    char *services;
     json_error_t error;
     json_t *root, *tmp;
 
     if (agentStateCacheInstance.state == AGENT_STATE_INIT) {
-        LOGE ("Agent doesn't exist, please add agent first.\n");
+        LOGE ("Agent has not been initialized.\n");
         return -1;
     }
 
@@ -1014,15 +1018,16 @@ pushProfile (const char *profile) {
     }
 
     /* Update agent services */
-    free (agentStateCacheInstance.services);
-    agentStateCacheInstance.services = strdup (json_string_value (tmp));
-    if (agentStateCacheInstance.services == NULL) {
+    services = strdup (json_string_value (tmp));
+    if (services == NULL) {
         LOGE ("Strdup agent services error: %s.\n", strerror (errno));
         json_object_clear (root);
         return -1;
     }
 
     json_object_clear (root);
+    free (agentStateCacheInstance.services);
+    agentStateCacheInstance.services = services;
 
     /* Update service */
     ret = updateService (agentStateCacheInstance.services);
@@ -1046,18 +1051,18 @@ pushProfile (const char *profile) {
             return -1;
         }
     }
-    /* Save agent profile */
+    /* Save agent state cache */
     dumpAgentStateCache ();
 
     return 0;
 }
 
-/* Agent management message handler, this handler will always return 0. */
 static int
 agentManagementMessageHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
     int ret;
     char *msg;
-    char *cmd, body, out;
+    const char *cmd, *body;
+    char *resp;
     json_error_t error;
     json_t *root, *tmp;
 
@@ -1070,62 +1075,62 @@ agentManagementMessageHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
         (json_object_get (root, "command") == NULL) ||
         (json_object_get (root, "body") == NULL)) {
         LOGE ("Json parse error.\n");
-        out = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_FAILURE, AGENT_STATE_ERROR);
+        resp = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_FAILURE, AGENT_STATE_ERROR);
     } else {
         tmp = json_object_get (root, "command");
-        command = json_string_value (tmp);
+        cmd = json_string_value (tmp);
         tmp = json_object_get (root, "body");
         body = json_string_value (tmp);
 
-        if (strEqual ("add-agent", command)) {
+        if (strEqual ("add-agent", cmd)) {
             ret = addAgent (body);
             if (ret < 0)
-                out = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_FAILURE, AGENT_STATE_ERROR);
+                resp = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_FAILURE, AGENT_STATE_ERROR);
             else
-                out = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_SUCCESS, agentStateCacheInstance.state);
-        } else if (strEqual("remove-agent", command)) {
+                resp = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_SUCCESS, agentStateCacheInstance.state);
+        } else if (strEqual("remove-agent", cmd)) {
             ret = removeAgent (body);
             if (ret < 0)
-                out = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_FAILURE, AGENT_STATE_ERROR);
+                resp = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_FAILURE, AGENT_STATE_ERROR);
             else
-                out = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_SUCCESS, agentStateCacheInstance.state);
+                resp = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_SUCCESS, agentStateCacheInstance.state);
 
-        } else if (strEqual ("start-agent", command)) {
+        } else if (strEqual ("start-agent", cmd)) {
             ret = startAgent (body);
             if (ret < 0)
-                out = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_FAILURE, AGENT_STATE_ERROR);
+                resp = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_FAILURE, AGENT_STATE_ERROR);
             else
-                out = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_SUCCESS, agentStateCacheInstance.state);
+                resp = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_SUCCESS, agentStateCacheInstance.state);
 
-        } else if (strEqual ("stop-agent", command)) {
+        } else if (strEqual ("stop-agent", cmd)) {
             ret = stopAgent (body);
             if (ret < 0)
-                out = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_FAILURE, AGENT_STATE_ERROR);
+                resp = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_FAILURE, AGENT_STATE_ERROR);
             else
-                out = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_SUCCESS, agentStateCacheInstance.state);
+                resp = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_SUCCESS, agentStateCacheInstance.state);
 
-        } else if (strEqual ("heartbeat", command)) {
+        } else if (strEqual ("heartbeat", cmd)) {
             ret = heartbeat (body);
             if (ret < 0)
-                out = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_FAILURE, AGENT_STATE_ERROR);
+                resp = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_FAILURE, AGENT_STATE_ERROR);
             else
-                out = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_SUCCESS, agentStateCacheInstance.state);
+                resp = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_SUCCESS, agentStateCacheInstance.state);
 
-        } else if (strEqual ("push-profile", command)) {
+        } else if (strEqual ("push-profile", cmd)) {
             ret = pushProfile (body);
             if (ret < 0)
-                out = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_FAILURE, AGENT_STATE_ERROR);
+                resp = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_FAILURE, AGENT_STATE_ERROR);
             else
-                out = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_SUCCESS, agentStateCacheInstance.state);
+                resp = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_SUCCESS, agentStateCacheInstance.state);
         } else {
             LOGE ("Unknown agent management command.\n");
-            out = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_FAILURE, AGENT_STATE_ERROR);
+            resp = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_FAILURE, AGENT_STATE_ERROR);
         }
     }
 
-    if (out) {
-        zstr_send (agentManagementRespSock, out);
-        free (out);
+    if (resp) {
+        zstr_send (agentManagementRespSock, resp);
+        free (resp);
     } else {
         if ((root == NULL) || (ret < 0))
             zstr_send (agentManagementRespSock, AGENT_MANAGEMENT_RESPONSE_MESSAGE_ERROR);
@@ -1137,10 +1142,6 @@ agentManagementMessageHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
     return 0;
 }
 
-/*
- * Shared status message handler, when receiving SHARED_STATUS_EXIT
- * then return -1 to exit.
- */
 static int
 sharedStatusMessageHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
     char *status;
@@ -1233,7 +1234,7 @@ agentRun (void) {
     if (ret < 0) {
         LOGE ("Init task manager error.\n");
         ret = -1;
-        goto destroyMessageChannel;
+        goto destroyZmqhub;
     }
 
     /* Init service manager */
@@ -1245,12 +1246,7 @@ agentRun (void) {
     }
 
     /* Init agent state cache */
-    ret = initAgentStateCache ();
-    if (ret < 0) {
-        LOGE ("Init agent state cache error.\n");
-        ret = -1;
-        goto destroyServiceManager;
-    }
+    initAgentStateCache ();
 
     /* Get parsing threads number */
     pktParsingThreads = getCpuCores () * 2 + 1;
@@ -1293,7 +1289,7 @@ agentRun (void) {
         goto destroySharedStatusPullSock;
     }
 
-    ret = zsocket_connect (sharedStatusPushSockLock, SHARED_STATUS_PUSH_CHANNEL);
+    ret = zsocket_connect (sharedStatusPushSock, SHARED_STATUS_PUSH_CHANNEL);
     if (ret < 0) {
         LOGE ("Connect to %s error.\n", SHARED_STATUS_PUSH_CHANNEL);
         ret = -1;
@@ -1302,7 +1298,7 @@ agentRun (void) {
 
     /* Create zloop reactor */
     loop = zloop_new ();
-    if (loop == Null) {
+    if (loop == NULL) {
         LOGE ("Create zloop error.\n");
         ret = -1;
         goto destroySharedStatusPullSock;
@@ -1351,12 +1347,11 @@ destroyAgentManagementRespSock:
     zsocket_destroy (zmqHubContext (), agentManagementRespSock);
 resetAgentStateCache:
     resetAgentStateCache ();
-destroyServiceManager:
     destroyServiceManager ();
 destroyTaskManager:
     destroyTaskManager ();
-destroyMessageChannel:
-    destroyMessageChannel ();
+destroyZmqhub:
+    destroyZmqhub ();
 destroyLog:
     destroyLog ();
 unlockPidFile:

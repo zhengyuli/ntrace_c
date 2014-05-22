@@ -19,7 +19,7 @@ struct _dispatchRouter {
     routerPtr routers;
 };
 
-typedef void * (*dispatchRoutine) (*args);
+typedef void * (*dispatchRoutine) (void *args);
 
 /*========================Interfaces definition============================*/
 void

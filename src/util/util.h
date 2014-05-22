@@ -84,7 +84,7 @@ BOOL
 fileExist (const char *path);
 BOOL
 fileIsEmpty (const char *path);
-static char *
+char *
 getIpAddrOfInterface (const char *interface);
 u_int
 getCpuCores (void);

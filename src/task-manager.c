@@ -1,5 +1,9 @@
+#include <stdio.h>
+#include <unistd.h>
 #include <sys/types.h>
+#include <string.h>
 #include <pthread.h>
+#include <signal.h>
 #include "log.h"
 #include "hash.h"
 #include "task-manager.h"
@@ -40,7 +44,7 @@ newTask (taskFunc func, void *args) {
         return -1;
     }
 
-    snprintf (key, sizeof (key) - 1, "%d", tid);
+    snprintf (key, sizeof (key) - 1, "%lu", tid);
     ret = hashInsert (taskManagerHashTable, key, tsk, freeTaskItem);
     if (ret < 0) {
         pthread_kill (tid, SIGINT);
@@ -52,11 +56,10 @@ newTask (taskFunc func, void *args) {
 
 void
 stopTask (taskId tid) {
-    int ret;
     char key [32];
 
     pthread_kill (tid, SIGINT);
-    snprintf (key, sizeof (key) - 1, "%d", tid);
+    snprintf (key, sizeof (key) - 1, "%lu", tid);
     hashDel (taskManagerHashTable, key);
 }
 

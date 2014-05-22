@@ -2,7 +2,7 @@ CMAKE_MINIMUM_REQUIRED (VERSION 2.8.0)
 
 SET (AGENT_CONFIG_FILE  ${AGENT_CONFIG_DIR}/agent.conf)
 SET (AGENT_PID_FILE  /var/run/${ROOT_PROJECT_LOWER}-agent.pid)
-SET (AGENT_RUN_DIR /var/run/${ROOT_PROJECT_LOWER}/)
+SET (AGENT_RUN_DIR /var/run/${ROOT_PROJECT_LOWER})
 SET (AGENT_STATE_CACHE_FILE ${AGENT_RUN_DIR}/agent-state.cache)
 
 # configure a header file to pass some of the CMake settings
@@ -27,14 +27,16 @@ SET (AGENT_SOURCE_FILES
   util/util.c
   util/hash.c
   log/log.c
-  service.c
-  redis-client.c
   checksum.c
+  zmqhub.c
+  task-manager.c
+  service-manager.c
+  raw-packet.c
   ip-options.c
   ip-packet.c
   tcp-options.c
   tcp-packet.c
-  router.c
+  dispatch-router.c
   protocol/protocol.c
   protocol/default/default-analyzer.c
   protocol/http/http-analyzer.c

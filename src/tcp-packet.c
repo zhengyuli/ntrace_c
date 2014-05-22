@@ -12,16 +12,15 @@
 #include <jansson.h>
 #include "config.h"
 #include "util.h"
-#include "atomic.h"
-#include "checksum.h"
 #include "list.h"
 #include "hash.h"
 #include "log.h"
-#include "service.h"
-#include "redis-client.h"
-#include "protocol.h"
+#include "atomic.h"
+#include "checksum.h"
+#include "service-manager.h"
 #include "tcp-options.h"
 #include "tcp-packet.h"
+#include "protocol.h"
 
 /* Default tcp stream closing timeout 30 seconds */
 #define DEFAULT_TCP_STREAM_CLOSING_TIMEOUT 30
@@ -64,18 +63,30 @@ static __thread void *publishSessionBreakdownArgs;
 
 static inline BOOL
 before (u_int seq1, u_int seq2) {
-    seq1 < seq2 ? TRUE : FALSE;
+    int ret;
+
+    ret = (int) (seq1 - seq2);
+    if (ret < 0)
+        return TRUE;
+    else
+        return FALSE;
 }
 
 static inline BOOL
 after (u_int seq1, u_int seq2) {
-    seq1 > seq2 ? TRUE : FALSE;
+    int ret;
+
+    ret = (int) (seq1 - seq2);
+    if (ret > 0)
+        return TRUE;
+    else
+        return FALSE;
 }
 
 static inline u_long_long
 getTcpConnectionId (void) {
     u_long_long connId;
-    
+
     pthread_spin_lock (&tcpConnectionIdLock);
     connId = tcpConnectionId;
     tcpConnectionId ++;
@@ -87,7 +98,7 @@ getTcpConnectionId (void) {
 static inline u_long_long
 getTcpBreakdownId (void) {
     u_long_long bkdId;
-    
+
     pthread_spin_lock (&tcpConnectionIdLock);
     bkdId = tcpBreakdownId;
     tcpBreakdownId ++;
@@ -891,13 +902,11 @@ addFromSkb (tcpStreamPtr stream, halfStreamPtr snd, halfStreamPtr rcv, u_char *d
  * @param rcv tcp receiver
  * @param data data to merge
  * @param dataLen data length
- * @param skbLen data capture length
  * @param tm current timestamp
  */
 static void
 tcpQueue (tcpStreamPtr stream, struct tcphdr *tcph, halfStreamPtr snd,
-          halfStreamPtr rcv, u_char *data, u_int dataLen, u_int skbLen,
-          timeValPtr tm) {
+          halfStreamPtr rcv, u_char *data, u_int dataLen, timeValPtr tm) {
     u_int curSeq;
     skbuffPtr skbuf, prev, tmp;
 
@@ -921,7 +930,7 @@ tcpQueue (tcpStreamPtr stream, struct tcphdr *tcph, halfStreamPtr snd,
                     addFromSkb (stream, snd, rcv, skbuf->data, skbuf->len, skbuf->seq, skbuf->fin,
                                 skbuf->urg, skbuf->seq + skbuf->urgPtr - 1, skbuf->psh, tm);
                 }
-                rcv->rmemAlloc -= skbuf->truesize;
+                rcv->rmemAlloc -= skbuf->len;
                 free (skbuf->data);
                 free (skbuf);
             }
@@ -930,32 +939,33 @@ tcpQueue (tcpStreamPtr stream, struct tcphdr *tcph, halfStreamPtr snd,
     } else {
         /* Accumulate out of order packets */
         stream->outOfOrderPkts++;
+
         /* Alloc new skbuff */
         skbuf = (skbuffPtr) malloc (sizeof (skbuff));
         if (skbuf == NULL) {
             LOGE ("Alloc memory for skbuff error: %s.\n", strerror (errno));
             return;
         }
-        memset(skbuf, 0, sizeof (skbuff));
-        skbuf->truesize = skbLen;
-        rcv->rmemAlloc += skbuf->truesize;
-        skbuf->len = dataLen;
+        memset (skbuf, 0, sizeof (skbuff));
         skbuf->data = (u_char *) malloc (dataLen);
         if (skbuf->data == NULL) {
             LOGE ("Alloc memory for skbuff data error: %s.\n", strerror (errno));
             free (skbuf);
             return;
         }
+        skbuf->len = dataLen;
         memcpy (skbuf->data, data, dataLen);
         skbuf->fin = tcph->fin;
-        if (skbuf->fin) {
-            snd->state = TCP_CLOSING;
-            addTcpStreamToClosingTimeoutList (stream, tm);
-        }
         skbuf->seq = curSeq;
         skbuf->urg = tcph->urg;
         skbuf->urgPtr = ntohs (tcph->urg_ptr);
         skbuf->psh = tcph->psh;
+
+        if (skbuf->fin) {
+            snd->state = TCP_CLOSING;
+            addTcpStreamToClosingTimeoutList (stream, tm);
+        }
+        rcv->rmemAlloc += skbuf->len;
 
         listForEachEntryReverseSafe (prev, tmp, &rcv->head, node) {
             if (before (prev->seq, curSeq)) {
@@ -979,21 +989,27 @@ tcpQueue (tcpStreamPtr stream, struct tcphdr *tcph, halfStreamPtr snd,
 void
 tcpProcess (struct ip *iph, u_int pktLen, timeValPtr tm) {
     u_int ipLen;
+    struct tcphdr *tcph;
 #if DO_STRICT_CHECK
     u_int tcpLen;
 #endif
+    u_char *tcpData;
     u_int tcpDataLen;
-    u_int tmpTs;
+    u_int tmOption;
     tcpStreamPtr stream;
     halfStreamPtr snd, rcv;
     BOOL fromClient;
-    struct tcphdr *tcph;
 
-    tcph = (struct tcphdr *) (data + iph->ip_hl * 4);
     ipLen = ntohs (iph->ip_len);
+    /* Incomplete packet */
+    if (ipLen < pktLen)
+        return;
+    
+    tcph = (struct tcphdr *) ((char *) iph + iph->ip_hl * 4);
 #if DO_STRICT_CHECK
     tcpLen = ipLen - iph->ip_hl * 4;
 #endif
+    tcpData = (u_char *) tcph + 4 * tcph->doff;
     tcpDataLen = ipLen - (iph->ip_hl * 4) - (tcph->doff * 4);
 
     tm->tvSec = ntohll (tm->tvSec);
@@ -1002,7 +1018,7 @@ tcpProcess (struct ip *iph, u_int pktLen, timeValPtr tm) {
     /* Tcp stream closing timout check */
     checkTcpStreamClosingTimeoutList (tm);
     /* Ip packet Check */
-    if ((u_int) ipLen < (iph->ip_hl * 4 + sizeof (struct tcphdr))) {
+    if (ipLen < (iph->ip_hl * 4 + sizeof (struct tcphdr))) {
         LOGE ("Invalid tcp packet.\n");
         return;
     }
@@ -1125,7 +1141,7 @@ tcpProcess (struct ip *iph, u_int pktLen, timeValPtr tm) {
     }
 
     /* PAWS (Protect Against Wrapped Sequence numbers) check */
-    if (rcv->tsOn && getTimeStampOption (tcph, &tmpTs) && before (tmpTs, snd->currTs)) {
+    if (rcv->tsOn && getTimeStampOption (tcph, &tmOption) && before (tmOption, snd->currTs)) {
         stream->pawsPkts++;
         return;
     }
@@ -1162,8 +1178,7 @@ tcpProcess (struct ip *iph, u_int pktLen, timeValPtr tm) {
     if (tcpDataLen + tcph->fin > 0) {
         if (tcpDataLen == 1)
             stream->tinyPkts++;
-        tcpQueue (stream, tcph, snd, rcv, (u_char *) tcph + 4 * tcph->doff,
-                  tcpDataLen, capLen, tm);
+        tcpQueue (stream, tcph, snd, rcv, tcpData, tcpDataLen, tm);
     }
 }
 

@@ -6,6 +6,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <jansson.h>
+#include <pthread.h>
 #include "util.h"
 #include "log.h"
 #include "hash.h"
@@ -154,7 +155,8 @@ addService (servicePtr svc) {
 }
 
 int
-updateService (const char *svcJson) {
+updateService (const char *services) {
+    int ret;
     u_int i;
     json_error_t error;
     json_t *root, *tmp;
@@ -164,7 +166,7 @@ updateService (const char *svcJson) {
     hashClean (serviceHashTableSlave);
 
     /* Parse services */
-    root = json_loads (jsonData, JSON_DISABLE_EOF_CHECK, &error);
+    root = json_loads (services, JSON_DISABLE_EOF_CHECK, &error);
     if (root == NULL) {
         LOGE ("Json parse error: %s.\n", error.text);
         return -1;
@@ -237,18 +239,17 @@ generateFilterFromEachService (void *data, void *args) {
 char *
 getServiceFilter (void) {
     int ret;
-    char errBuf [PCAP_ERRBUF_SIZE];
     u_int svcNum;
     char *filter;
     u_int filterLen;
 
-    pthread_rwlock_rdlock (serviceHashTableMasterLock);
+    pthread_rwlock_rdlock (&serviceHashTableMasterLock);
     svcNum = hashSize (serviceHashTableMaster);
     filterLen = BPF_FILTER_UNIT_LENGTH * (svcNum + 1);
     filter = (char *) malloc (filterLen);
     if (filter == NULL) {
         LOGE ("Alloc filter buffer error: %s.\n", strerror (errno));
-        pthread_rwlock_unlock (serviceHashTableMasterLock);
+        pthread_rwlock_unlock (&serviceHashTableMasterLock);
         return NULL;
     }
     memset(filter, 0, filterLen);
@@ -257,12 +258,12 @@ getServiceFilter (void) {
     if (ret < 0) {
         LOGE ("Generate BPF filter from service error.\n");
         free (filter);
-        pthread_rwlock_unlock (serviceHashTableMasterLock);
+        pthread_rwlock_unlock (&serviceHashTableMasterLock);
         return NULL;
     }
 
     strcat (filter, "icmp");
-    pthread_rwlock_unlock (serviceHashTableMasterLock);
+    pthread_rwlock_unlock (&serviceHashTableMasterLock);
     return filter;
 }
 

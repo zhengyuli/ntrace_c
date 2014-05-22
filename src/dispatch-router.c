@@ -3,8 +3,10 @@
 #include <stdlib.h>
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
+#include <czmq.h>
 #include "util.h"
 #include "log.h"
+#include "zmqhub.h"
 #include "task-manager.h"
 #include "dispatch-router.h"
 
@@ -51,14 +53,14 @@ void
 routerDispatch (struct ip *iphdr, timeValPtr tm) {
     int ret;
     u_int index;
-    u_int ipTotalLen;
+    u_int ipPktLen;
     struct ip *iph = iphdr;
     struct tcphdr *tcph;
     char key1 [32] = {0};
     char key2 [32] = {0};
     zframe_t *frame;
 
-    ipTotalLen = ntohs (iph->ip_len);
+    ipPktLen = ntohs (iph->ip_len);
 
     switch (iph->ip_p) {
         case IPPROTO_TCP:
@@ -88,7 +90,7 @@ routerDispatch (struct ip *iphdr, timeValPtr tm) {
     }
 
     /* Push ip packet */
-    frame = zframe_new (iphdr, ipTotalLen);
+    frame = zframe_new (iphdr, ipPktLen);
     if (frame == NULL) {
         LOGE ("Create ip packet zframe error.");
         return;
@@ -116,9 +118,9 @@ initDispatchRouter (u_int parsingThreads, dispatchRoutine routine, const char *r
     u_int i, n, size;
     taskId tid;
 
-    router = (dispatchRouterPtr) malloc (sizeof (dispatchRouter));
-    if (router == NULL) {
-        LOGE ("Alloc dispatchRouter error: %s\n.", strerror (errno));
+    dispatchRouterInstance = (dispatchRouterPtr) malloc (sizeof (dispatchRouter));
+    if (dispatchRouterInstance == NULL) {
+        LOGE ("Alloc dispatchRouterInstance error: %s\n.", strerror (errno));
         return -1;
     }
 
@@ -141,7 +143,7 @@ initDispatchRouter (u_int parsingThreads, dispatchRoutine routine, const char *r
         /* Set pushSock sndhwm to 500000 */
         zsocket_set_sndhwm (dispatchRouterInstance->routers [i].pushSock, 500000);
         /* Connect to routerAddress:x */
-        ret = zsocket_connect (dispatchRouterInstance->pushSocks [i], "%s:%u", routerAddress, i);
+        ret = zsocket_connect (dispatchRouterInstance->routers [i].pushSock, "%s:%u", routerAddress, i);
         if (ret < 0) {
             LOGE ("Connect to %s:%u error.\n", routerAddress, i);
             goto freeRouters;
@@ -177,8 +179,8 @@ destroyDispatchRouter (void) {
     u_int i;
 
     for (i = 0; i < dispatchRouterInstance->parsingThreads; i++) {
-        if (dispatchRouterInstance->routers [n].pushSock)
-            zsocket_destroy (zmqHubContext (), dispatchRouterInstance->routers [n].pushSock);
+        if (dispatchRouterInstance->routers [i].pushSock)
+            zsocket_destroy (zmqHubContext (), dispatchRouterInstance->routers [i].pushSock);
     }
     free (dispatchRouterInstance->routers);
     dispatchRouterInstance->routers = NULL;

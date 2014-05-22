@@ -155,7 +155,7 @@ fileIsEmpty (const char *path) {
  *
  * @return Ip address if exists else NULL
  */
-static char *
+char *
 getIpAddrOfInterface (const char *interface) {
     int sockfd;
     size_t ifNameLen;

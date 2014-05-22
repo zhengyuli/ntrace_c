@@ -12,7 +12,7 @@
 #include "hash.h"
 #include "log.h"
 #include "checksum.h"
-#include "service.h"
+#include "service-manager.h"
 #include "ip-options.h"
 #include "ip-packet.h"
 

@@ -5,18 +5,11 @@
 #include <netinet/tcp.h>
 #include "util.h"
 #include "log.h"
+#include "task-manager.h"
 #include "dispatch-router.h"
 
-typedef struct _dispatchRouter dispatchRouter;
-typedef dispatchRouter *dispatchRouterPtr;
-
-struct _dispatchRouter {
-    u_int parsingThreads;
-    void **pushSocks;
-};
-
-/* Dispatch router */
-static dispatchRouterPtr router;
+/* Dispatch router instance */
+static dispatchRouterPtr dispatchRouterInstance;
 
 static size_t
 dispatchHash (const char *key1, const char *key2) {
@@ -79,7 +72,7 @@ routerDispatch (struct ip *iphdr, timeValPtr tm) {
     }
 
     /* Get dispatch index */
-    index = dispatchHash (key1, key2) % router->parsingThreads;
+    index = dispatchHash (key1, key2) % dispatchRouterInstance->parsingThreads;
 
     /* Push timeVal */
     frame = zframe_new (tm, sizeof (timeVal));
@@ -87,7 +80,7 @@ routerDispatch (struct ip *iphdr, timeValPtr tm) {
         LOGE ("Create timestamp zframe error.\n");
         return;
     }
-    ret = zframe_send (&frame, router->pushSocks [index], ZFRAME_MORE);
+    ret = zframe_send (&frame, dispatchRouterInstance->routers [index].pushSock, ZFRAME_MORE);
     if (ret < 0) {
         LOGE ("Push timestamp zframe error.\n");
         zframe_destroy (&frame);
@@ -100,7 +93,7 @@ routerDispatch (struct ip *iphdr, timeValPtr tm) {
         LOGE ("Create ip packet zframe error.");
         return;
     }
-    ret = zframe_send (&frame, router->pushSocks [index], 0);
+    ret = zframe_send (&frame, dispatchRouterInstance->routers [index].pushSock, 0);
     if (ret < 0) {
         LOGE ("Push ip packet zframe error.\n");
         zframe_destroy (&frame);
@@ -112,13 +105,16 @@ routerDispatch (struct ip *iphdr, timeValPtr tm) {
  * @brief Init packet dispatch router
  *
  * @param parsingThreads parsing threads number
+ * @param routine routine to dispatch
+ * @param routerAddress router address
  *
  * @return 0 if success else -1
  */
 int
-initDispatchRouter (u_int parsingThreads) {
+initDispatchRouter (u_int parsingThreads, dispatchRoutine routine, const char *routerAddress) {
     int ret;
-    u_int i, size;
+    u_int i, n, size;
+    taskId tid;
 
     router = (dispatchRouterPtr) malloc (sizeof (dispatchRouter));
     if (router == NULL) {
@@ -126,47 +122,51 @@ initDispatchRouter (u_int parsingThreads) {
         return -1;
     }
 
-    router->parsingThreads = parsingThreads;
-    size = sizeof (void *) * router->parsingThreads;
-    router->pushSocks = (void **) malloc (size);
-    if (router->pushSocks == NULL) {
-        LOGE ("Alloc dispatchRouter pushSocks error: %s.\n", strerror (errno));
-
-        goto freeDispatchRouter;
+    dispatchRouterInstance->parsingThreads = parsingThreads;
+    size = sizeof (router) * dispatchRouterInstance->parsingThreads;
+    dispatchRouterInstance->routers = (routerPtr) malloc (size);
+    if (dispatchRouterInstance->routers == NULL) {
+        LOGE ("Alloc dispatchRouter routers error: %s.\n", strerror (errno));
+        goto freeDispatchRouterInstance;
     }
-    memset (router->pushSocks, 0, size);
 
-    for (i = 0; i < router->parsingThreads; i++) {
-        router->pushSocks [i] = newZSock (ZMQ_PUSH);
-        if (router->pushSocks [i] == NULL) {
-            LOGE ("Create pushSocks [%u] error.\n", i);
-            goto freePushSocks;
+    for (i = 0; i < dispatchRouterInstance->parsingThreads; i++) {
+        dispatchRouterInstance->routers [i].id = i;
+        dispatchRouterInstance->routers [i].pushSock = zsocket_new (zmqHubContext (), ZMQ_PUSH);
+        if (dispatchRouterInstance->routers [i].pushSock == NULL) {
+            LOGE ("Create zsocket error.\n");
+            goto freeRouters;
         }
 
-        /* Set pushSocks [i] sndhwm to 500000 */
-        zsocket_set_sndhwm (router->pushSocks [i], 500000);
-
-        /* Connect to tcpPacketParsingPushChannel */
-        ret = zsocket_connect (router->pushSocks [i], TCP_PACKET_PARSING_PUSH_CHANNEL ":%u", i);
+        /* Set pushSock sndhwm to 500000 */
+        zsocket_set_sndhwm (dispatchRouterInstance->routers [i].pushSock, 500000);
+        /* Connect to routerAddress:x */
+        ret = zsocket_connect (dispatchRouterInstance->pushSocks [i], "%s:%u", routerAddress, i);
         if (ret < 0) {
-            LOGE ("Connect to %s:%u error.\n", TCP_PACKET_PARSING_PUSH_CHANNEL, i);
-            goto freePushSocks;
+            LOGE ("Connect to %s:%u error.\n", routerAddress, i);
+            goto freeRouters;
+        }
+
+        /* Create new task for routine */
+        tid = newTask (routine, &dispatchRouterInstance->routers [i].id);
+        if (tid < 0) {
+            LOGE ("Create dispatchRoutine %u error", dispatchRouterInstance->routers [i].id);
+            goto freeRouters;
         }
     }
 
     return 0;
 
-freePushSocks:
-    for (i = 0; i < router->parsingThreads; i++) {
-        if (router->pushSocks [i]) {
-            closeZSock (router->pushSocks);
-        }
+freeRouters:
+    for (n = 0; i < i; n++) {
+        if (dispatchRouterInstance->routers [n].pushSock)
+            zsocket_destroy (zmqHubContext (), dispatchRouterInstance->routers [n].pushSock);
     }
-    free (router->pushSocks);
-    router->pushSocks = NULL;
-freeDispatchRouter:
-    free (router);
-    router = NULL;
+    free (dispatchRouterInstance->routers);
+    dispatchRouterInstance->routers = NULL;
+freeDispatchRouterInstance:
+    free (dispatchRouterInstance);
+    dispatchRouterInstance = NULL;
 
     return -1;
 }
@@ -176,13 +176,12 @@ void
 destroyDispatchRouter (void) {
     u_int i;
 
-    for (i = 0; i < router->parsingThreads; i++) {
-        if (router->pushSocks [i]) {
-            closeZSock (router->pushSocks);
-        }
+    for (i = 0; i < dispatchRouterInstance->parsingThreads; i++) {
+        if (dispatchRouterInstance->routers [n].pushSock)
+            zsocket_destroy (zmqHubContext (), dispatchRouterInstance->routers [n].pushSock);
     }
-    free (router->pushSocks);
-    router->pushSocks = NULL;
-    free (router);
-    router = NULL;
+    free (dispatchRouterInstance->routers);
+    dispatchRouterInstance->routers = NULL;
+    free (dispatchRouterInstance);
+    dispatchRouterInstance = NULL;
 }

@@ -1,12 +1,12 @@
-#ifndef __AGENT_RAW_CAPTURE_H__
-#define __AGENT_RAW_CAPTURE_H__
+#ifndef __AGENT_RAW_PACKET_H__
+#define __AGENT_RAW_PACKET_H__
 
 #include <sys/types.h>
 #include <pcap.h>
 
 /*========================Interfaces definition============================*/
 u_char *
-getIpPacket (struct pcap_pkthdr *pkthdr, u_char *rawPkt);
+getIpPacket (struct pcap_pkthdr *capPkthdr, u_char *rawPkt, u_int linkType);
 /*=======================Interfaces definition end=========================*/
 
-#endif /* __AGENT_RAW_CAPTURE_H__ */
+#endif /* __AGENT_RAW_PACKET_H__ */

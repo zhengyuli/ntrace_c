@@ -1,17 +1,15 @@
-#ifndef __AGENT_AGENT_H__
-#define __AGENT_AGENT_H__
+#ifndef __AGENT_H__
+#define __AGENT_H__
 
 #include <sys/types.h>
 #include <pcap.h>
 #include "util.h"
 
-#define AGENT_CONTROL_PORT 59000
+typedef struct _agentConfig agentConfig;
+typedef agentConfig *agentConfigPtr;
 
-typedef struct _agentParams agentParams;
-typedef agentParams *agentParamsPtr;
-
-/* Agent parameters */
-struct _agentParams {
+/* Agent configuration */
+struct _agentConfig {
     BOOL daemonMode;                    /**< Run as daemon */
     char *mirrorInterface;              /**< Mirror interface */
     u_int logLevel;                     /**< Log level */
@@ -24,7 +22,7 @@ typedef netInterface *netInterfacePtr;
 struct _netInterface {
     char *name;                         /**< NIC name */
     pcap_t *pcapDesc;                   /**< NIC pcap descriptor */
-    int linkType;                       /**< Datalink type */
+    u_int linkType;                     /**< Datalink type */
 };
 
 /* Agent state */
@@ -38,6 +36,7 @@ typedef enum {
 typedef struct _agentStateCache agentStateCache;
 typedef agentStateCache *agentStateCachePtr;
 
+/* Agent state cache */
 struct _agentStateCache {
     agentState state;                   /**< Agent state */
     char *agentId;                      /**< Agent id */
@@ -46,4 +45,4 @@ struct _agentStateCache {
     char *servies;                      /**< Services in json */
 };
 
-#endif /* __AGENT_AGENT_H__ */
+#endif /* __AGENT_H__ */

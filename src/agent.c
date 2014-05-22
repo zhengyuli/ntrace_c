@@ -11,35 +11,71 @@
 #include <jansson.h>
 #include <locale.h>
 #include "config.h"
-#include "list.h"
-#include "hash.h"
-#include "log.h"
 #include "util.h"
+#include "log.h"
+#include "zmqhub.h"
+#include "task-manager.h"
 #include "service-manager.h.h"
-#include "router.h"
+#include "dispatch-router.h"
+#include "raw-packet.h"
 #include "ip-packet.h"
 #include "tcp-packet.h"
+#include "protocol/protocol.h"
 #include "agent.h"
 
-#define AGENT_CONTROL_RESPONSE_SUCCESS 0
-#define AGENT_CONTROL_RESPONSE_MESSAGE_SUCCESS "{\"code\":0}"
-#define AGENT_CONTROL_RESPONSE_FAILURE 1
-#define AGENT_CONTROL_RESPONSE_MESSAGE_ERROR "{\"code\":1}"
+/* Agent management response port */
+#define AGENT_MANAGEMENT_RESPONSE_PORT 59000
 
-#define DEFAULT_PARSING_THREADS 5
+/* Agent management response success message */
+#define AGENT_MANAGEMENT_RESPONSE_SUCCESS 0
+#define AGENT_MANAGEMENT_RESPONSE_MESSAGE_SUCCESS "{\"code\":0}"
+/* Agent management response error message */
+#define AGENT_MANAGEMENT_RESPONSE_FAILURE 1
+#define AGENT_MANAGEMENT_RESPONSE_MESSAGE_ERROR "{\"code\":1}"
+
+/* Agent inproc address */
+#define SHARED_STATUS_PUSH_CHANNEL "inproc://sharedStatusPushChannel"
+#define IP_PACKET_PUSH_CHANNEL "inproc://ipPacketPushChannel"
+#define TCP_PACKET_PUSH_CHANNEL "inproc://tcpPacketPushChannel"
+#define SESSION_BREAKDOWN_PUSH_CHANNEL "inproc://sessionBreakdownPushChannel"
+
+/* Shared status */
+#define SHARED_STATUS_EXIT "Exit"
+
+/* Pcap max packet capture length */
+#define PCAP_MAX_CAPTURE_LENGTH 65535
+/* Pcap packet capture timeout */
+#define PCAP_CAPTURE_TIMEOUT 1000
+/* Pcap capture in promisc mode */
+#define PCAP_CAPTURE_IN_PROMISC 1
+/* Pcap capture buffer size */
+#define PCAP_CAPTURE_BUFFER_SIZE (16 * 1024 * 1024)
+
+/* Minimal packet parsing threads number */
+#define MINIMAL_PACKET_PARSING_THREADS 5
 
 /* Agent pid file fd */
 static int agentPidFd = -1;
+
 /* Agent parsing threads */
-static u_int parsingThreads = DEFAULT_PARSING_THREADS;
+static u_int pktParsingThreads = MINIMAL_PACKET_PARSING_THREADS;
+
+/* Shared status push socket */
+static void *sharedStatusPushSock = NULL;
+/* Shared status push socket mutex lock */
+static pthread_mutex_t sharedStatusPushSockLock = PTHREAD_MUTEX_INITIALIZER;
+/* Shared status pull socket */
+static void *sharedStatusPullSock = NULL;
+/* Agent management response socket */
+static void *agentManagementRespSock = NULL;
 
 #ifndef NDEBUG
 /* Session breakdown count */
 static u_int sessionBreakdownCount = 0;
 #endif
 
-/* Global agent parameters */
-static agentParams agentParameters = {
+/* Agent configuration */
+static agentConfig agentConfiguration = {
     .daemonMode = 0,
     .mirrorInterface = NULL,
     .logLevel = 0,
@@ -58,14 +94,14 @@ static agentStateCache agentStateCacheInstance = {
 static netInterface mirrorNic = {
     .name = NULL,
     .pcapDesc = NULL,
-    .linkType = -1
+    .linkType = 0
 };
 
 static inline void
-resetAgentParameters (void) {
-    agentParameters.daemonMode = 0;
-    free (agentParameters.mirrorInterface);
-    agentParameters.logLevel = 0;
+freeAgentConfiguration (void) {
+    agentConfiguration.daemonMode = 0;
+    free (agentConfiguration.mirrorInterface);
+    agentConfiguration.logLevel = 0;
 }
 
 static void
@@ -84,46 +120,28 @@ static void
 resetMirrorNic (void) {
     free (mirrorInterface.name);
     mirrorInterface.name = NULL;
-    freePcapDev (mirrorInterface.pcapDesc);
+    pcap_close (mirrorInterface.pcapDesc);
     mirrorInterface.pcapDesc = NULL;
-    mirrorInterface.linkType = -1;
+    mirrorInterface.linkType = 0;
 }
 
-void
-dumpAgentStateCache (void) {
-    int fd;
-    json_t *root;
-    char *out;
+static inline void
+pushSharedStatus (const char *msg) {
+    pthread_mutex_lock (&sharedStatusPushSockLock);
+    zstr_send (sharedStatusPushSock, msg);
+    pthread_mutex_unlock (&sharedStatusPushSockLock);
+}
 
-    if (!fileExist (AGENT_RUN_DIR) && (mkdir (AGENT_RUN_DIR, 0755) < 0)) {
-        LOGE ("Create agent run directory error: %s.\n", strerror (errno));
-        return;
-    }
+static inline const char *
+readSharedStatus (void)
+{
+    return zstr_recv (sharedStatusPullSock);
+}
 
-    fd = open (AGENT_STATE_CACHE_FILE, O_WRONLY | O_TRUNC | O_CREAT, 0755);
-    if (fd < 0) {
-        LOGE ("Open %s error: %s\n", AGENT_STATE_CACHE_FILE, strerror (errno));
-        return;
-    }
-
-    root = json_object ();
-    if (root == NULL) {
-        LOGE ("Create json object error.\n");
-        return;
-    }
-
-    json_object_set_new (root, "state", json_integer (agentStateCacheInstance.state));
-    if (agentStateCacheInstance.state != AGENT_STATE_INIT) {
-        json_object_set_new (root, "agentId", json_string (agentStateCacheInstance.agentId));
-        json_object_set_new (root, "pubIp", json_string (agentStateCacheInstance.pubIp));
-        json_object_set_new (root, "pubPort", json_integer (agentStateCacheInstance.pubPort));
-        json_object_set_new (root, "services", json_string (agentStateCacheInstance.services));
-    }
-    out = json_dumps (root, JSON_INDENT (4));
-    json_object_clear (root);
-
-    safeWrite (fd, dumpOut, strlen (dumpOut));
-    close (fd);
+static inline const char *
+readSharedStatusNonBlock (void)
+{
+    return zstr_recv_nowait (sharedStatusPullSock);
 }
 
 void
@@ -133,7 +151,7 @@ initAgentStateCache (void) {
     json_error_t error;
     json_t *root, *tmp;
 
-    /* If AGENT_STATE_CACHE_FILE doesn't exist, use init configuration */
+    /* If AGENT_STATE_CACHE_FILE doesn't exist, use default */
     if (!fileExist (AGENT_STATE_CACHE_FILE))
         return;
 
@@ -144,9 +162,11 @@ initAgentStateCache (void) {
     }
 
     root = json_load_file (AGENT_STATE_CACHE_FILE, JSON_DISABLE_EOF_CHECK, &error);
+    /* Rmove wrong state cache file */
     if ((root == NULL) ||
         (json_object_get (root, "state") == NULL) || (json_object_get (root, "agentId") == NULL) ||
         (json_object_get (root, "pubIp") == NULL) || (json_object_get (root, "pubPort") == NULL)) {
+        remove (AGENT_STATE_CACHE_FILE);
         close (fd);
         return;
     }
@@ -172,6 +192,7 @@ initAgentStateCache (void) {
         (agentStateCacheInstance.pubIp == NULL) || (agentStateCacheInstance.pubPort == 0)) {
         /* Reset Agent cache */
         resetAgentStateCache ();
+        remove (AGENT_STATE_CACHE_FILE);
     }
 
     /* Update service */
@@ -181,68 +202,45 @@ initAgentStateCache (void) {
     close (fd);
 }
 
-/*
- * @brief Build agent control response message
- *
- * @param code response code, 0 for success and 1 for error
- * @param status response status, 1 for stopped, 2 for running and 3 for error.
- *
- * @return response message in json if success else NULL
- */
-static char *
-buildAgentControlResponse (int code, int status) {
-    char *json;
-    json_ *root, *tmp;
+void
+dumpAgentStateCache (void) {
+    int fd;
+    json_t *root;
+    char *out;
+
+    if (!fileExist (AGENT_RUN_DIR) && (mkdir (AGENT_RUN_DIR, 0755) < 0)) {
+        LOGE ("Create directory %s error: %s.\n", AGENT_RUN_DIR, strerror (errno));
+        return;
+    }
+
+    if (agentStateCacheInstance.state == AGENT_STATE_INIT)
+        remove (AGENT_STATE_CACHE_FILE);
+
+    fd = open (AGENT_STATE_CACHE_FILE, O_WRONLY | O_TRUNC | O_CREAT, 0755);
+    if (fd < 0) {
+        LOGE ("Open file %s error: %s\n", AGENT_STATE_CACHE_FILE, strerror (errno));
+        return;
+    }
 
     root = json_object ();
     if (root == NULL) {
-        LOGE ("Alloc json object root error.\n");
-        return  NULL;
+        LOGE ("Create json root object error.\n");
+        close (fd);
+        return;
     }
 
-    /* Set response code */
-    json_object_set_new (resp, "code", json_integer (code));
+    json_object_set_new (root, "state", json_integer (agentStateCacheInstance.state));
+    json_object_set_new (root, "agentId", json_string (agentStateCacheInstance.agentId));
+    json_object_set_new (root, "pubIp", json_string (agentStateCacheInstance.pubIp));
+    json_object_set_new (root, "pubPort", json_integer (agentStateCacheInstance.pubPort));
+    if (agentStateCacheInstance.servies)
+        json_object_set_new (root, "services", json_string (agentStateCacheInstance.services));
 
-    /* Set response body:status */
-    if (status != AGENT_STATE_INIT) {
-        tmp = json_object ();
-        if (tmp == NULL) {
-            LOGE ("Alloc json object tmp error.\n");
-            json_object_clear (root);
-            return NULL;
-        }
-        json_object_set_new (tmp, "status", json_integer (status));
-        json_object_set_new (root, "body", tmp);
-    }
-
-    json = json_dumps (resp, JSON_INDENT (4));
-    json_object_clear (root);
-
-    return json;
-}
-
-static int
-checkAgentId (const char *profile) {
-    json_error_t error;
-    json_t *root, *tmp;
-
-    root = json_loads (profile, JSON_DISABLE_EOF_CHECK, &error);
-    if (root == NULL)
-        return -1;
-
-    tmp = json_object_get (root, "agent-id");
-    if (tmp == NULL) {
-        json_object_clear (root);
-        return -1;
-    }
-
-    if (!strEqual (agentStateCacheInstance.agentId, json_string_value (tmp))) {
-        json_object_clear (root);
-        return -1;
-    }
+    out = json_dumps (root, JSON_INDENT (4));
+    safeWrite (fd, out, strlen (out));
 
     json_object_clear (root);
-    return 0;
+    close (fd);
 }
 
 static int
@@ -253,7 +251,6 @@ setFilter (const char *filter) {
 
     ret = pcap_compile (mirrorNic.pcapDesc, &pcapFilter, filter, 1, 0);
     if (ret < 0) {
-        LOGE ("Pcap filter compile error: %s\n", errBuf);
         pcap_freecode (&pcapFilter);
         return -1;
     }
@@ -263,13 +260,85 @@ setFilter (const char *filter) {
     return ret;
 }
 
+static pcap_t *
+newPcapDev (const char *interface) {
+    int ret;
+    pcap_t *pcapDev;
+    pcap_if_t *alldevs, *devptr;
+    char errBuf [PCAP_ERRBUF_SIZE] = {0};
+
+    /* Check interface exists */
+    ret = pcap_findalldevs (&alldevs, errBuf);
+    if (ret < 0) {
+        LOGE ("No network devices found.\n");
+        return NULL;
+    }
+
+    for (devptr = alldevs; devptr != NULL; devptr = devptr->next) {
+        if (strEqual (devptr->name, interface))
+            break;
+    }
+    if (devptr == NULL)
+        return NULL;
+
+    /* Create pcap descriptor */
+    pcapDev = pcap_create (interface, errBuf);
+    if (pcapDev == NULL) {
+        LOGE ("Create pcap device error: %s.\n", errBuf);
+        return NULL;
+    }
+
+    /* Set pcap max capture length */
+    ret = pcap_set_snaplen (pcapDev, PCAP_MAX_CAPTURE_LENGTH);
+    if (ret < 0) {
+        LOGE ("Set pcap snaplen error\n");
+        pcap_close (pcapDev);
+        return NULL;
+    }
+
+    /* Set pcap timeout */
+    ret = pcap_set_timeout (pcapDev, PCAP_CAPTURE_TIMEOUT);
+    if (ret < 0) {
+        LOGE ("Set capture timeout error.\n");
+        pcap_close (pcapDev);
+        return NULL;
+    }
+
+    /* Set pcap buffer size */
+    ret = pcap_set_buffer_size (pcapDev, PCAP_CAPTURE_BUFFER_SIZE);
+    if (ret < 0) {
+        LOGE ("Set pcap capture buffer size error.\n");
+        pcap_close (pcapDev);
+        return NULL;
+    }
+
+    /* Set pcap promisc mode */
+    ret = pcap_set_promisc (pcapDev, PCAP_CAPTURE_IN_PROMISC);
+    if (ret < 0) {
+        LOGE ("Set pcap promisc mode error.\n");
+        pcap_close (pcapDev);
+        return NULL;
+    }
+
+    /* Activate pcap device */
+    ret = pcap_activate (pcapDev);
+    if (ret < 0) {
+        LOGE ("Activate pcap device error.\n");
+        pcap_close (pcapDev);
+        return NULL;
+    }
+
+    return pcapDev;
+}
+
 static int
 initMirrorNic (void) {
     int ret;
-    char *filter
+    int linkType;
+    char *filter;
 
-            /* Set mirrorNic name */
-            mirrorNic.name = strdup (agentParameters.mirrorInterface);
+    /* Set mirrorNic name */
+    mirrorNic.name = strdup (agentConfiguration.mirrorInterface);
     if (mirrorNic.name == NULL) {
         LOGE ("Strdup mirrorNic name error: %s.\n", strerror (errno));
         return -1;
@@ -278,18 +347,19 @@ initMirrorNic (void) {
     /* Create pcap descriptor */
     mirrorNic.pcapDesc = newPcapDev (mirrorNic.name);
     if (mirrorNic.pcapDesc == NULL) {
-        LOGE ("Create pcap descriptor for %s error: %s.\n", mirrorNic.name, errBuf);
+        LOGE ("Create pcap descriptor for %s error.\n", mirrorNic.name);
         resetMirrorNic ();
         return -1;
     }
 
     /* Get link type */
-    mirrorNic.linkType = pcap_datalink (mirrorNic.pcapDesc);
-    if (mirrorNic.linkType < 0) {
+    linkType = pcap_datalink (mirrorNic.pcapDesc);
+    if (linkType < 0) {
         LOGE ("Get datalink type error.\n");
         resetMirrorNic ();
         return -1;
     }
+    mirrorNic.linkType = linkType;
 
     /* Get service filter */
     filter = getServiceFilter ();
@@ -314,14 +384,14 @@ initMirrorNic (void) {
 static void *
 rawPktCaptureService (void *args) {
     int ret;
-    void *ipPktParsingPushSock;
+    void *ipPktPushSock;
     struct pcap_pkthdr *capPkthdr;
     u_char *rawPkt;
     struct ip *ipPkt;
-    timeVal captureTime;
+    timeVal capTime;
     zframe_t *frame;
 
-    ret = initLog (agentParameters.logLevel);
+    ret = initLog (agentConfiguration.logLevel);
     if (ret < 0) {
         logToConsole ("Init log context error.\n");
         goto exit;
@@ -330,21 +400,21 @@ rawPktCaptureService (void *args) {
     ret = initMirrorNic ();
     if (ret < 0) {
         LOGE ("Init mirror NIC error.\n");
-        goto destroyLogContext;
+        goto destroyLog;
     }
 
-    ipPktParsingPushSock = newZSock (ZMQ_PUSH);
-    if (ipPktParsingPushSock == NULL) {
-        LOGE ("Create ipPktParsingPushSock error.\n");
+    ipPktPushSock = zsocket_new (zmqHubContext (), ZMQ_PUSH);
+    if (ipPktPushSock == NULL) {
+        LOGE ("Create ipPktPushSock error.\n");
         goto resetMirrorNic;
     }
-    /* Set ipPktParsingPushSock send hwm to 500000 */
-    zsocket_set_sndhwm (ipPktParsingPushSock, 500000);
+    /* Set ipPktPushSock send hwm to 500,000 */
+    zsocket_set_sndhwm (ipPktPushSock, 500000);
 
-    ret = zsocket_connect (ipPktParsingPushSock, IP_PACKET_PARSING_PUSH_CHANNEL);
+    ret = zsocket_connect (ipPktPushSock, IP_PACKET_PUSH_CHANNEL);
     if (ret < 0) {
-        LOGE ("Connect to %s error.\n", IP_PACKET_PARSING_PUSH_CHANNEL);
-        goto destroyIpPktParsingPushSock;
+        LOGE ("Connect to %s error.\n", IP_PACKET_PUSH_CHANNEL);
+        goto destroyIpPktPushSock;
     }
 
     while (!zctx_interrupted)
@@ -361,8 +431,8 @@ rawPktCaptureService (void *args) {
                 continue;
 
             /* Get packet capture timestamp */
-            captureTime.tvSec = htonll (capPkthdr->ts.tv_sec);
-            captureTime.tvUsec = htonll (capPkthdr->ts.tv_usec);
+            capTime.tvSec = htonll (capPkthdr->ts.tv_sec);
+            capTime.tvUsec = htonll (capPkthdr->ts.tv_usec);
 
             /* Push capture timestamp and ip packet */
             frame = zframe_new (tm, sizeof (timeVal));
@@ -371,7 +441,7 @@ rawPktCaptureService (void *args) {
                 continue;
             }
 
-            ret = zframe_send (&frame, ipPktParsingPushSock, ZFRAME_MORE);
+            ret = zframe_send (&frame, ipPktPushSock, ZFRAME_MORE);
             if (ret < 0) {
                 LOGE ("Push packet timestamp zframe error.\n");
                 zframe_destroy (&frame);
@@ -384,75 +454,100 @@ rawPktCaptureService (void *args) {
                 continue;
             }
 
-            ret = zframe_send (&frame, sndSock, 0);
+            ret = zframe_send (&frame, ipPktPushSock, 0);
             if (ret < 0) {
                 LOGE ("Push ip packet zframe error.\n");
                 zframe_destroy (&frame);
                 continue;
             }
-        } else if (ret == 0) {
-            LOGD ("Capture packet timeout.\n");
-            continue;
         } else if (ret == -1) {
             LOGE ("Capture packet fatal error, rawPktCaptureService will exit...\n");
-            goto destroyIpPktParsingPushSock;
+            break;
         }
     }
 
-destroyIpPktParsingPushSock:
-    closeZSock (ipPktParsingPushSock);
+destroyIpPktPushSock:
+    zsocket_destroy (zmqHubContext (), ipPktPushSock);
 resetMirrorNic:
     resetMirrorNic ();
-destroyLogContext:
+destroyLog:
     destroyLog ();
 exit:
-    subThreadStatusPush (SUB_THREAD_EXIT);
+    pushSharedStatus (SHARED_STATUS_EXIT);
 
     return NULL;
 }
 
-void *
-ipPktParsingService (void *args) {
+static void
+publishSessionBreakdownCallback (const char *sessionBreakdown, void *args) {
+    void *sessionBreakdownPushSock = args;
+
+    zstr_send (sessionBreakdownPushSock, tcpBreakdown);
+}
+
+static void *
+tcpPktParsingService (void *args) {
     int ret;
-    u_int cpuNum, parsingThreads;
-    void *ipPktParsingPullSock;
-    zframe_t *tmFrame = NULL;
-    zframe_t *pktFrame = NULL;
-    struct ip *newIphdr;
+    timeValPtr tm;
+    struct ip *iphdr;
+    zframe_t *tmFrame;
+    zframe_t *pktFrame;
+    u_int pktLen;
+    void *tcpPktPullSock;
+    void *sessionBreakdownPushSock;
 
     /* Init log context */
-    ret = initLog (agentParameters.logLevel);
+    ret = initLog (agentConfiguration.logLevel);
     if (ret < 0) {
-        LOGE ("Init log context error.\n");
+        logToConsole ("Init log context error.\n");
         goto exit;
     }
 
-    /* Init ip context */
-    ret = initIp ();
+    /* Init tcpPktPullSock */
+    tcpPktPullSock = zsocket_new (zmqHubContext (), ZMQ_PULL);
+    if (tcpPktPullSock == NULL) {
+        LOGE ("Create tcpPktPullSock error.\n");
+        goto destroyLog;
+    }
+    /* Set tcpPktPullSock rcvhwm to 500000 */
+    zsocket_set_rcvhwm (tcpPktPullSock, 500000);
+    ret = zsocket_bind (tcpPktPullSock, TCP_PACKET_PUSH_CHANNEL ":%u", (u_int) *args);
     if (ret < 0) {
-        LOGE ("Init ip context error.\n");
-        goto destroyLogContext;
+        LOGE ("Connect to %s error.\n", TCP_PACKET_PUSH_CHANNEL);
+        goto destroyTcpPktPullSock;
     }
 
-    ipPktParsingPullSock = newZSock (ZMQ_PULL);
-    if (ipPktParsingPullSock == NULL) {
-        LOGE ("Create ipPktParsingPullSock error.\n");
-        goto destroyIp;
+    sessionBreakdownPushSock = zsocket_new (zmqHubContext (), ZMQ_PUSH);
+    if (sessionBreakdownPushSock == NULL) {
+        LOGE ("Create sessionBreakdownPushSock error.\n");
+        goto destroyTcpPktPullSock;
+    }
+    /* Set sessionBreakdownPushSock sndhwm to 50000 */
+    zsocket_set_sndhwm (sessionBreakdownPushSock, 50000);
+    ret = zsocket_connect (sessionBreakdownPushSock, SESSION_BREAKDOWN_PUSH_CHANNEL);
+    if (ret < 0) {
+        LOGE ("Connect to %s error.\n", SESSION_BREAKDOWN_PUSH_CHANNEL);
+        goto destroySessionBreakdownPushSock;
     }
 
-    /* Set ipPktParsingPullSock hwm to 500000 */
-    zsocket_set_rcvhwm(ipPktParsingPullSock, 500000);
-
-    ret = initDispatchRouter (parsingThreads);
+    /* Init tcp context */
+    ret = initTcp (tcpPublishBreakdownCallback, sessionBreakdownPushSock);
     if (ret < 0) {
-        LOGE ("Init dispatch router error.\n");
-        goto destroyIpPktParsingPullSock;
+        LOGE ("Init tcp context error.\n");
+        goto destroySessionBreakdownPushSock;
+    }
+
+    /* Init proto context */
+    ret = initProto ();
+    if (ret < 0) {
+        LOGE ("Init proto context error.\n");
+        goto destroyTcp;
     }
 
     while (!zctx_interrupted) {
         /* Receive timestamp */
         if (tmFrame == NULL) {
-            tmFrame = zframe_recv (ipPktParsingPullSock);
+            tmFrame = zframe_recv (tcpPktPullSock);
             if ((tmFrame == NULL) && !zctx_interrupted)
                 continue;
             else if (!zframe_more (tmFrame)) {
@@ -463,7 +558,102 @@ ipPktParsingService (void *args) {
         }
 
         /* Receive packet data */
-        pktFrame = zframe_recv (ipPktParsingPullSock);
+        pktFrame = zframe_recv (tcpPktPullSock);
+        if ((pktFrame == NULL) && !zctx_interrupted)
+            continue;
+        else if (zframe_more (pktFrame)) {
+            LOGE ("Wrong ip packet frame.\n");
+            zframe_destroy (&tmFrame);
+            tmFrame = pktFrame;
+            pktFrame = NULL;
+            continue;
+        }
+
+        tm = (timeValPtr) zframe_data (tmFrame);
+        iphdr = (struct ip *) zframe_data (pktFrame);
+        pktLen = zframe_size (pktFrame);
+        switch (iphdr->ip_p) {
+            case IPPROTO_TCP:
+                tcpProcess (iphdr, pktLen, tm);
+                break;
+
+            default:
+                break;
+        }
+
+        /* Free zframe */
+        zframe_destroy (&tmFrame);
+        zframe_destroy (&pktFrame);
+    }
+
+    destroyProto ();
+destroyTcp:
+    destroyTcp ();
+destroySessionBreakdownPushSock:
+    zsocket_destroy (zmqHubContext (), sessionBreakdownPushSock);
+destroyTcpPktPullSock:
+    zsocket_destroy (zmqHubContext (), tcpPktPullSock);
+destroyLog:
+    destroyLog ();
+exit:
+    pushSharedStatus (SHARED_STATUS_EXIT);
+
+    return NULL;
+}
+
+void *
+ipPktParsingService (void *args) {
+    int ret;
+    u_int cpuNum, pktParsingThreads;
+    void *ipPktPullSock;
+    zframe_t *tmFrame = NULL;
+    zframe_t *pktFrame = NULL;
+    struct ip *newIphdr;
+
+    /* Init log context */
+    ret = initLog (agentConfiguration.logLevel);
+    if (ret < 0) {
+        LOGE ("Init log context error.\n");
+        goto exit;
+    }
+
+    /* Init ip context */
+    ret = initIp ();
+    if (ret < 0) {
+        LOGE ("Init ip context error.\n");
+        goto destroyLog;
+    }
+
+    ipPktPullSock = zsocket_new (zmqHubContext (), ZMQ_PULL);
+    if (ipPktPullSock == NULL) {
+        LOGE ("Create ipPktPullSock error.\n");
+        goto destroyIp;
+    }
+
+    /* Set ipPktPullSock hwm to 500000 */
+    zsocket_set_rcvhwm (ipPktPullSock, 500000);
+
+    ret = initDispatchRouter (pktParsingThreads, tcpPktParsingService, TCP_PACKET_PUSH_CHANNEL);
+    if (ret < 0) {
+        LOGE ("Init dispatch router error.\n");
+        goto destroyIpPktPullSock;
+    }
+
+    while (!zctx_interrupted) {
+        /* Receive timestamp */
+        if (tmFrame == NULL) {
+            tmFrame = zframe_recv (ipPktPullSock);
+            if ((tmFrame == NULL) && !zctx_interrupted)
+                continue;
+            else if (!zframe_more (tmFrame)) {
+                LOGE ("Wrong timestamp frame.\n");
+                zframe_destroy (&tmFrame);
+                continue;
+            }
+        }
+
+        /* Receive packet data */
+        pktFrame = zframe_recv (ipPktPullSock);
         if ((pktFrame == NULL) && !zctx_interrupted)
             continue;
         else if (zframe_more (pktFrame)) {
@@ -491,137 +681,14 @@ ipPktParsingService (void *args) {
     }
 
     destroyDispatchRouter ();
-destroyIpPktParsingPullSock:
-    closeZSock (ipPktParsingPullSock);
+destroyIpPktPullSock:
+    zsocket_destroy (zmqHubContext (), ipPktPullSock);
 destroyIp:
     destroyIp ();
-destroyLogContext:
+destroyLog:
     destroyLog ();
 exit:
-    subThreadStatusPush (SUB_THREAD_EXIT);
-
-    return NULL;
-}
-
-static void
-publishSessionBreakdownCallback (const char *sessionBreakdown, void *args) {
-    void *tcpBreakdownPushSock = args;
-
-    zstr_send (tcpBreakdownPushSock, tcpBreakdown);
-}
-
-static void *
-tcpPktParsingService (void *args) {
-    int ret;
-    u_int id;
-    timeValPtr tm;
-    struct ip *iphdr;
-    zframe_t *tmFrame;
-    zframe_t *pktFrame;
-    u_int pktLen;
-    void *sessionBreakdownSinkPushSock;
-    void *tcpPktParsingPullSock;
-
-    /* Init log context */
-    ret = initLog (agentParameters.logLevel);
-    if (ret < 0) {
-        logToConsole ("Init log context error.\n");
-        goto exit;
-    }
-
-    sessionBreakdownSinkPushSock = newZSock (ZMQ_PUSH);
-    if (sessionBreakdownSinkPushSock == NULL) {
-        LOGE ("Create sessionBreakdownSinkPushSock error.\n");
-        goto destroyLogContext;
-    }
-    /* Set sessionBreakdownSinkPushSock sndhwm to 50000 */
-    zsocket_set_sndhwm (sessionBreakdownSinkPushSock, 50000);
-    ret = zsocket_connect (sessionBreakdownSinkPushSock, SESSION_BREAKDOWN_SINK_PUSH_CHANNEL);
-    if (ret < 0) {
-        LOGE ("Connect to %s error.\n", BREAKDOWN_SINK_PUSH_CHANNEL);
-        goto destroySessionBreakdownSinkPushSock;
-    }
-
-    /* Init tcp context */
-    ret = initTcp (tcpPublishBreakdownCallback, sessionBreakdownSinkPushSock);
-    if (ret < 0) {
-        LOGE ("Init tcp context error.\n");
-        goto destroySessionBreakdownSinkPushSock;
-    }
-
-    ret = initProto ();
-    if (ret < 0) {
-        LOGE ("Init proto context error.\n");
-        goto destroyTcp;
-    }
-
-    tcpPktParsingPullSock = newZSock (ZMQ_PULL);
-    if (tcpPktParsingPullSock == NULL) {
-        LOGE ("Create tcpPktParsingPullSock error.\n");
-        goto destroyProto;
-    }
-    /* Set tcpPktParsingPullSock rcvhwm to 500000 */
-    zsocket_set_rcvhwm (tcpPktParsingPullSock, 500000);
-    ret = zsocket_bind (tcpPktParsingPullSock, TCP_PACKET_PARSING_PUSH_CHANNEL ":%u", (u_int) *args);
-    if (ret < 0) {
-        LOGE ("Connect to %s error.\n", BREAKDOWN_SINK_PUSH_CHANNEL);
-        goto destroyTcpPktParsingPullSock;
-    }
-
-    while (!zctx_interrupted) {
-        /* Receive timestamp */
-        if (tmFrame == NULL) {
-            tmFrame = zframe_recv (tcpPktParsingPullSock);
-            if ((tmFrame == NULL) && !zctx_interrupted)
-                continue;
-            else if (!zframe_more (tmFrame)) {
-                LOGE ("Wrong timestamp frame.\n");
-                zframe_destroy (&tmFrame);
-                continue;
-            }
-        }
-
-        /* Receive packet data */
-        pktFrame = zframe_recv (tcpPktParsingPullSock);
-        if ((pktFrame == NULL) && !zctx_interrupted)
-            continue;
-        else if (zframe_more (pktFrame)) {
-            LOGE ("Wrong ip packet frame.\n");
-            zframe_destroy (&tmFrame);
-            tmFrame = pktFrame;
-            pktFrame = NULL;
-            continue;
-        }
-
-        tm = (timeValPtr) zframe_data (tmFrame);
-        iphdr = (struct ip *) zframe_data (pktFrame);
-        pktLen = zframe_size (pktFrame);
-        switch (iphdr->ip_p) {
-            case IPPROTO_TCP:
-                tcpProcess (iphdr, pktLen, tm);
-                break;
-
-            default:
-                break;
-        }
-        
-        /* Free zframe */
-        zframe_destroy (&tmFrame);
-        zframe_destroy (&pktFrame);
-    }
-
-destroyTcpPktParsingPullSock:
-    closeZSock (tcpPktParsingPullSock);
-destroyProto:
-    destroyProto ();
-destroyTcp:
-    destroyTcp ();
-destroySessionBreakdownSinkPushSock:
-    closeZSock (sessionBreakdownSinkPushSock);
-destroyLogContext:
-    destroyLog ();
-exit:
-    subThreadStatusPush (SUB_THREAD_EXIT);
+    pushSharedStatus (SHARED_STATUS_EXIT);
 
     return NULL;
 }
@@ -629,34 +696,34 @@ exit:
 static void *
 sessionBreakdownSinkService (void *args) {
     int ret;
-    void *sessionBreakdownSinkPullSock;
+    void *sessionBreakdownPullSock;
     void *sessionBreakdownPushSock;
     char *sessionBreakdown;
 
     /* Init log context */
-    ret = initLog (agentParameters.logLevel);
+    ret = initLog (agentConfiguration.logLevel);
     if (ret < 0) {
         logToConsole ("Init log context error.\n");
         goto exit;
     }
 
-    sessionBreakdownSinkPullSock = newZSock (ZMQ_PULL);
-    if (sessionBreakdownSinkPullSock == NULL) {
-        LOGE ("Create sessionBreakdownSinkPullSock error.\n");
-        goto destroyLogContext;
+    sessionBreakdownPullSock = zsocket_new (zmqHubContext (), ZMQ_PULL);
+    if (sessionBreakdownPullSock == NULL) {
+        LOGE ("Create sessionBreakdownPullSock error.\n");
+        goto destroyLog;
     }
-    /* Set sessionBreakdownSinkPullSock rcvhwm to 500000 */
-    zsocket_set_rcvhwm (sessionBreakdownSinkPullSock, 500000);
-    ret = zsocket_bind (sessionBreakdownSinkPullSock, SESSION_BREAKDOWN_SINK_PUSH_CHANNEL);
+    /* Set sessionBreakdownPullSock rcvhwm to 500000 */
+    zsocket_set_rcvhwm (sessionBreakdownPullSock, 500000);
+    ret = zsocket_bind (sessionBreakdownPullSock, SESSION_BREAKDOWN_PUSH_CHANNEL);
     if (ret < 0) {
-        LOGE ("Bind to %s error.\n", BREAKDOWN_SINK_PUSH_CHANNEL);
-        goto destroySessionBreakdownSinkPullSock;
+        LOGE ("Bind to %s error.\n", SESSION_BREAKDOWN_PUSH_CHANNEL);
+        goto destroySessionBreakdownPullSock;
     }
 
-    sessionBreakdownPushSock = newZSock (ZMQ_PUSH);
+    sessionBreakdownPushSock = zsocket_new (zmqHubContext (), ZMQ_PUSH);
     if (sessionBreakdownPushSock == NULL) {
         LOGE ("Create sessionBreakdownPushSock error.\n");
-        goto destroySessionBreakdownSinkPullSock;
+        goto destroySessionBreakdownPullSock;
     }
     /* Set sessionBreakdownPushSock sndhwm to 500000 */
     zsocket_set_sndhwm (sessionBreakdownPushSock, 500000);
@@ -667,9 +734,9 @@ sessionBreakdownSinkService (void *args) {
               agentStateCacheInstance.pubPort);
         goto destroySessionBreakdownPushSock;
     }
-    
+
     while (!zctx_interrupted) {
-        sessionBreakdown = zstr_recv (tbdRecvSock);
+        sessionBreakdown = zstr_recv (sessionBreakdownPullSock);
         if (sessionBreakdown) {
             zstr_send (sessionBreakdownPushSock, sessionBreakdown);
 #ifndef NDEBUG
@@ -681,15 +748,79 @@ sessionBreakdownSinkService (void *args) {
     }
 
 destroySessionBreakdownPushSock:
-    closeZSock (sessionBreakdownPushSock);
-destroySessionBreakdownSinkPullSock:
-    closeZSock (sessionBreakdownSinkPullSock);
-destroyLogContext:
+    zsocket_destroy (zmqHubContext (), sessionBreakdownPushSock);
+destroySessionBreakdownPullSock:
+    zsocket_destroy (zmqHubContext (), sessionBreakdownPullSock);
+destroyLog:
     destroyLog ();
 exit:
-    subThreadStatusPush (SUB_THREAD_EXIT);
+    pushSharedStatus (SHARED_STATUS_EXIT);
 
     return NULL;
+}
+
+static int
+checkAgentId (const char *profile) {
+    json_error_t error;
+    json_t *root, *tmp;
+
+    root = json_loads (profile, JSON_DISABLE_EOF_CHECK, &error);
+    if (root == NULL)
+        return -1;
+
+    tmp = json_object_get (root, "agent-id");
+    if (tmp == NULL) {
+        json_object_clear (root);
+        return -1;
+    }
+
+    if (!strEqual (agentStateCacheInstance.agentId, json_string_value (tmp))) {
+        json_object_clear (root);
+        return -1;
+    }
+
+    json_object_clear (root);
+    return 0;
+}
+
+/*
+ * @brief Build agent management response message
+ *
+ * @param code response code, 0 for success and 1 for error
+ * @param status response status, 1 for stopped, 2 for running and 3 for error.
+ *
+ * @return response message in json if success else NULL
+ */
+static char *
+buildAgentManagementResponse (int code, int status) {
+    char *json;
+    json_ *root, *tmp;
+
+    root = json_object ();
+    if (root == NULL) {
+        LOGE ("Create json root object error.\n");
+        return  NULL;
+    }
+
+    /* Set response code */
+    json_object_set_new (resp, "code", json_integer (code));
+
+    /* Set response body:status */
+    if (status != AGENT_STATE_INIT) {
+        tmp = json_object ();
+        if (tmp == NULL) {
+            LOGE ("Create json tmp object error.\n");
+            json_object_clear (root);
+            return NULL;
+        }
+        json_object_set_new (tmp, "status", json_integer (status));
+        json_object_set_new (root, "body", tmp);
+    }
+
+    json = json_dumps (root, JSON_INDENT (4));
+    json_object_clear (root);
+
+    return json;
 }
 
 static int
@@ -770,6 +901,7 @@ removeAgent (const char *profile) {
 static int
 startAgent (const char *profile) {
     int ret;
+    taskId tid;
 
     if (agentStateCacheInstance.state != AGENT_STATE_STOPPED) {
         LOGE ("Agent is not ready.\n");
@@ -782,7 +914,34 @@ startAgent (const char *profile) {
         return -;
     }
 
+    tid = newTask (rawPktCaptureService, NULL);
+    if (tid < 0) {
+        LOGE ("Create rawPktCaptureService task error.\n");
+        goto exit;
+    }
+
+    tid = newTask (ipPktParsingService, NULL);
+    if (tid < 0) {
+        LOGE ("Create ipPktParsingService task error.\n");
+        goto exit;
+    }
+
+    tid = newTask (sessionBreakdownSinkService, NULL);
+    if (tid < 0) {
+        LOGE ("Create sessionBreakdownSinkService task error.\n");
+        goto exit;
+    }
+
+    /* Update agent state */
+    agentStateCacheInstance.state = AGENT_STATE_RUNNING;
+    /* Save agent profile */
+    dumpAgentStateCache ();
+
     return 0;
+
+exit:
+    stopAllTask ();
+    return -1;
 }
 
 static int
@@ -893,16 +1052,16 @@ pushProfile (const char *profile) {
     return 0;
 }
 
-/* Agent control message handler, this handler will always return 0. */
+/* Agent management message handler, this handler will always return 0. */
 static int
-agentControlMessageHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
+agentManagementMessageHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
     int ret;
     char *msg;
     char *cmd, body, out;
     json_error_t error;
     json_t *root, *tmp;
 
-    msg = zstr_recv_nowait (item->socket);
+    msg = zstr_recv_nowait (agentManagementRespSock);
     if (msg == NULL)
         return 0;
 
@@ -911,7 +1070,7 @@ agentControlMessageHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
         (json_object_get (root, "command") == NULL) ||
         (json_object_get (root, "body") == NULL)) {
         LOGE ("Json parse error.\n");
-        out = buildAgentControlResponse (AGENT_CONTROL_RESPONSE_FAILURE, AGENT_STATE_ERROR);
+        out = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_FAILURE, AGENT_STATE_ERROR);
     } else {
         tmp = json_object_get (root, "command");
         command = json_string_value (tmp);
@@ -921,57 +1080,57 @@ agentControlMessageHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
         if (strEqual ("add-agent", command)) {
             ret = addAgent (body);
             if (ret < 0)
-                out = buildAgentControlResponse (AGENT_CONTROL_RESPONSE_FAILURE, AGENT_STATE_ERROR);
+                out = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_FAILURE, AGENT_STATE_ERROR);
             else
-                out = buildAgentControlResponse (AGENT_CONTROL_RESPONSE_SUCCESS, agentStateCacheInstance.state);
+                out = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_SUCCESS, agentStateCacheInstance.state);
         } else if (strEqual("remove-agent", command)) {
             ret = removeAgent (body);
             if (ret < 0)
-                out = buildAgentControlResponse (AGENT_CONTROL_RESPONSE_FAILURE, AGENT_STATE_ERROR);
+                out = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_FAILURE, AGENT_STATE_ERROR);
             else
-                out = buildAgentControlResponse (AGENT_CONTROL_RESPONSE_SUCCESS, agentStateCacheInstance.state);
+                out = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_SUCCESS, agentStateCacheInstance.state);
 
         } else if (strEqual ("start-agent", command)) {
             ret = startAgent (body);
             if (ret < 0)
-                out = buildAgentControlResponse (AGENT_CONTROL_RESPONSE_FAILURE, AGENT_STATE_ERROR);
+                out = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_FAILURE, AGENT_STATE_ERROR);
             else
-                out = buildAgentControlResponse (AGENT_CONTROL_RESPONSE_SUCCESS, agentStateCacheInstance.state);
+                out = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_SUCCESS, agentStateCacheInstance.state);
 
         } else if (strEqual ("stop-agent", command)) {
             ret = stopAgent (body);
             if (ret < 0)
-                out = buildAgentControlResponse (AGENT_CONTROL_RESPONSE_FAILURE, AGENT_STATE_ERROR);
+                out = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_FAILURE, AGENT_STATE_ERROR);
             else
-                out = buildAgentControlResponse (AGENT_CONTROL_RESPONSE_SUCCESS, agentStateCacheInstance.state);
+                out = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_SUCCESS, agentStateCacheInstance.state);
 
         } else if (strEqual ("heartbeat", command)) {
             ret = heartbeat (body);
             if (ret < 0)
-                out = buildAgentControlResponse (AGENT_CONTROL_RESPONSE_FAILURE, AGENT_STATE_ERROR);
+                out = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_FAILURE, AGENT_STATE_ERROR);
             else
-                out = buildAgentControlResponse (AGENT_CONTROL_RESPONSE_SUCCESS, agentStateCacheInstance.state);
+                out = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_SUCCESS, agentStateCacheInstance.state);
 
         } else if (strEqual ("push-profile", command)) {
             ret = pushProfile (body);
             if (ret < 0)
-                out = buildAgentControlResponse (AGENT_CONTROL_RESPONSE_FAILURE, AGENT_STATE_ERROR);
+                out = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_FAILURE, AGENT_STATE_ERROR);
             else
-                out = buildAgentControlResponse (AGENT_CONTROL_RESPONSE_SUCCESS, agentStateCacheInstance.state);
+                out = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_SUCCESS, agentStateCacheInstance.state);
         } else {
-            LOGE ("Unknown agent control command.\n");
-            out = buildAgentControlResponse (AGENT_CONTROL_RESPONSE_FAILURE, AGENT_STATE_ERROR);
+            LOGE ("Unknown agent management command.\n");
+            out = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_FAILURE, AGENT_STATE_ERROR);
         }
     }
 
     if (out) {
-        zstr_send (item->socket, out);
+        zstr_send (agentManagementRespSock, out);
         free (out);
     } else {
         if ((root == NULL) || (ret < 0))
-            zstr_send (item->socket, AGENT_CONTROL_RESPONSE_MESSAGE_ERROR);
+            zstr_send (agentManagementRespSock, AGENT_MANAGEMENT_RESPONSE_MESSAGE_ERROR);
         else
-            zstr_send (item->socket, AGENT_CONTROL_RESPONSE_MESSAGE_SUCCESS);
+            zstr_send (agentManagementRespSock, AGENT_MANAGEMENT_RESPONSE_MESSAGE_SUCCESS);
     }
 
     free (msg);
@@ -979,18 +1138,18 @@ agentControlMessageHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
 }
 
 /*
- * Sub-thread status message handler, when receiving SUB_THREAD_EXIT
+ * Shared status message handler, when receiving SHARED_STATUS_EXIT
  * then return -1 to exit.
  */
 static int
-subThreadStatusMessageHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
+sharedStatusMessageHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
     char *status;
 
-    status = subThreadStatusRecvNonBlock ();
+    status = readSharedStatusNonBlock ();
     if (status == NULL)
         return 0;
 
-    if (strEqual (status, SUB_THREAD_EXIT)) {
+    if (strEqual (status, SHARED_STATUS_EXIT)) {
         LOGE ("Sub-threads exit abnormally\n");
         free (status);
         return -1;
@@ -1002,6 +1161,7 @@ subThreadStatusMessageHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
 
 static int
 lockPidFile (void) {
+    int ret;
     pid_t pid;
     ssize_t n;
     char buf [16] = {0};
@@ -1009,25 +1169,22 @@ lockPidFile (void) {
     pid = getpid ();
 
     agentPidFd = open (AGENT_PID_FILE, O_CREAT | O_RDWR, 0666);
-    if (agentPidFd < 0) {
-        fprintf(stderr, "Open pid file %s error: %s.\n", AGENT_PID_FILE, strerror (errno));
+    if (agentPidFd < 0)
         return -1;
-    }
 
-    if (flock (agentPidFd, LOCK_EX | LOCK_NB) == 0) {
+    ret = flock (agentPidFd, LOCK_EX | LOCK_NB);
+    if (ret < 0) {
+        close (agentPidFd);
+        return -1;
+    } else {
         snprintf (buf, sizeof (buf) - 1, "%d", pid);
-        n = write (agentPidFd, buf, strlen (buf));
+        n = safeWrite (agentPidFd, buf, strlen (buf));
         if (n != strlen (buf)) {
-            fprintf(stderr, "Write pid to pid file error: %s.\n", strerror (errno));
             close (agentPidFd);
             remove (AGENT_PID_FILE);
             return -1;
         }
         sync ();
-    } else {
-        fprintf (stderr, "Agent is running.\n");
-        close (agentPidFd);
-        return -1;
     }
 
     return 0;
@@ -1046,16 +1203,17 @@ unlockPidFile (void) {
 static int
 agentRun (void) {
     int ret;
-    void *agentControlRecvSock;
-    void *subThreadStatusRecvSock;
     zloop_t *loop;
     zmq_pollitem_t pollItems [2];
 
-    if (lockPidFile () < 0)
+    ret = lockPidFile ();
+    if (ret < 0) {
+        logToConsole ("Lock pid file error.\n");
         return -1;
+    }
 
     /* Init log context */
-    ret = initLog (agentParameters.logLevel);
+    ret = initLog (agentConfiguration.logLevel);
     if (ret < 0) {
         logToConsole ("Init log context error.\n");
         ret = -1;
@@ -1063,11 +1221,11 @@ agentRun (void) {
     }
 
     /* Init message channel */
-    ret = initMessageChannel ();
+    ret = initZmqhub ();
     if (ret < 0) {
-        LOGE ("Init message channel error.\n");
+        LOGE ("Init zmqhub error.\n");
         ret = -1;
-        goto destroyLogContext;
+        goto destroyLog;
     }
 
     /* Init task manager */
@@ -1094,31 +1252,52 @@ agentRun (void) {
         goto destroyServiceManager;
     }
 
-    /* Get parsing threads */
-    parsingThreads = getCpuCores () * 2 + 1;
-    if (parsingThreads < DEFAULT_PARSING_THREADS)
-        parsingThreads = DEFAULT_PARSING_THREADS;
+    /* Get parsing threads number */
+    pktParsingThreads = getCpuCores () * 2 + 1;
+    if (pktParsingThreads < MINIMAL_PACKET_PARSING_THREADS)
+        pktParsingThreads = MINIMAL_PACKET_PARSING_THREADS;
 
-    /* Init agent control socket */
-    agentControlRecvSock = newZSock (ZMQ_REP);
-    if (agentControlRecvSock == NULL) {
-        LOGE ("Create agentControlRecvSock error.\n");
+    /* Init agentManagementRespSock */
+    agentManagementRespSock = zsocket_new (zmqHubContext (), ZMQ_REP);
+    if (agentManagementRespSock == NULL) {
+        LOGE ("Create agentManagementRespSock error.\n");
         ret = -1;
         goto resetAgentStateCache;
     }
-    ret = zsocket_bind (agentControlRecvSock, "tcp://*:%u", AGENT_CONTROL_PORT);
+    ret = zsocket_bind (agentManagementRespSock, "tcp://*:%u", AGENT_MANAGEMENT_RESPONSE_PORT);
     if (ret < 0) {
-        LOGE ("Bind to tcp://*:%u error.\n", AGENT_CONTROL_PORT);
+        LOGE ("Bind to tcp://*:%u error.\n", AGENT_MANAGEMENT_RESPONSE_PORT);
         ret = -1;
-        goto destroyAgentControlRecvSock;
+        goto destroyAgentManagementRespSock;
     }
 
-    /* Get sub-thread status receive socket */
-    subThreadStatusRecvSock = getStatusRecvSock ();
-    if (subThreadStatusRecvSock == NULL) {
-        LOGE ("Get subThreadStatusRecvSock error.\n");
+    /* Init sharedStatusPushSock */
+    sharedStatusPushSock = zsocket_new (zmqHubContext (), ZMQ_PUSH);
+    if (sharedStatusPushSock == NULL) {
+        LOGE ("Create sharedStatusPushSock error.\n");
         ret = -1;
-        goto destroyAgentControlRecvSock;
+        goto destroyAgentManagementRespSock;
+    }
+
+    sharedStatusPullSock = zsocket_new (zmqHubContext (), ZMQ_PULL);
+    if (sharedStatusPullSock == NULL) {
+        LOGE ("Create sharedStatusPullSock error.\n");
+        ret = -1;
+        goto destroySharedStatusPushSock;
+    }
+
+    ret = zsocket_bind (sharedStatusPullSock, SHARED_STATUS_PUSH_CHANNEL);
+    if (ret < 0) {
+        LOGE ("Bind to %s error.\n", SHARED_STATUS_PUSH_CHANNEL);
+        ret = -1;
+        goto destroySharedStatusPullSock;
+    }
+
+    ret = zsocket_connect (sharedStatusPushSockLock, SHARED_STATUS_PUSH_CHANNEL);
+    if (ret < 0) {
+        LOGE ("Connect to %s error.\n", SHARED_STATUS_PUSH_CHANNEL);
+        ret = -1;
+        goto destroySharedStatusPullSock;
     }
 
     /* Create zloop reactor */
@@ -1126,21 +1305,21 @@ agentRun (void) {
     if (loop == Null) {
         LOGE ("Create zloop error.\n");
         ret = -1;
-        goto destroyAgentControlRecvSock;
+        goto destroySharedStatusPullSock;
     }
 
     /* Init poll item 0*/
-    pollItems [0].socket = agentControlRecvSock;
+    pollItems [0].socket = agentManagementRespSock;
     pollItems [0].fd = 0;
     pollItems [0].events = ZMQ_POLLIN;
 
     /* Init poll item 1*/
-    pollItems [1].socket = subThreadStatusRecvSock;
+    pollItems [1].socket = sharedStatusPullSock;
     pollItems [1].fd = 0;
     pollItems [1].events = ZMQ_POLLIN;
 
     /* Register poll item 0 */
-    ret = zloop_poller (loop, &pollItems [0], agentControlMessageHandler, NULL);
+    ret = zloop_poller (loop, &pollItems [0], agentManagementMessageHandler, NULL);
     if (ret < 0) {
         LOGE ("Register poll items [0] error.\n");
         ret = -1;
@@ -1148,7 +1327,7 @@ agentRun (void) {
     }
 
     /* Register poll item 1 */
-    ret = zloop_poller (loop, &pollItems [0], subThreadStatusMessageHandler, NULL);
+    ret = zloop_poller (loop, &pollItems [0], sharedStatusMessageHandler, NULL);
     if (ret < 0) {
         LOGE ("Register poll items [1] error.\n");
         ret = -1;
@@ -1164,8 +1343,12 @@ agentRun (void) {
 
 destroyZloop:
     zloop_destroy (&loop);
-destroyAgentControlRecvSock:
-    closeZSock (agentControlRecvSock);
+destroySharedStatusPullSock:
+    zsocket_destroy (zmqHubContext (), sharedStatusPullSock);
+destroySharedStatusPushSock:
+    zsocket_destroy (zmqHubContext (), sharedStatusPushSock);
+destroyAgentManagementRespSock:
+    zsocket_destroy (zmqHubContext (), agentManagementRespSock);
 resetAgentStateCache:
     resetAgentStateCache ();
 destroyServiceManager:
@@ -1174,7 +1357,7 @@ destroyTaskManager:
     destroyTaskManager ();
 destroyMessageChannel:
     destroyMessageChannel ();
-destroyLogContext:
+destroyLog:
     destroyLog ();
 unlockPidFile:
     unlockPidFile ();
@@ -1204,7 +1387,7 @@ parseConf (void) {
         ret = -1;
         goto exit;
     }
-    agentParameters.daemonMode = get_int_config_value (item, 1, -1, &error);
+    agentConfiguration.daemonMode = get_int_config_value (item, 1, -1, &error);
     if (error) {
         logToConsole ("Parse \"daemonMode\" error.\n");
         ret = -1;
@@ -1224,8 +1407,8 @@ parseConf (void) {
         ret = -1;
         goto exit;
     }
-    agentParameters.mirrorInterface = strdup (tmp);
-    if (agentParameters.mirrorInterface == NULL) {
+    agentConfiguration.mirrorInterface = strdup (tmp);
+    if (agentConfiguration.mirrorInterface == NULL) {
         logToConsole ("Get \"mirrorInterface\" error\n");
         ret = -1;
         goto exit;
@@ -1238,7 +1421,7 @@ parseConf (void) {
         ret = -1;
         goto exit;
     }
-    agentParameters.logLevel = get_int_config_value (item, 1, -1, &error);
+    agentConfiguration.logLevel = get_int_config_value (item, 1, -1, &error);
     if (error) {
         logToConsole ("Parse \"logLevel\" error.\n");
         ret = -1;
@@ -1290,19 +1473,19 @@ parseCmdline (int argc, char *argv []) {
     while ((option = getopt_long (argc, argv, "Dm:l:vh?", agentOptions, NULL)) != -1) {
         switch (option) {
             case 'D':
-                agentParameters.daemonMode = 1;
+                agentConfiguration.daemonMode = 1;
                 break;
 
             case 'm':
-                agentParameters.mirrorInterface = strdup (optarg);
-                if (agentParameters.mirrorInterface == NULL) {
+                agentConfiguration.mirrorInterface = strdup (optarg);
+                if (agentConfiguration.mirrorInterface == NULL) {
                     logToConsole ("Get mirroring interface error!\n");
                     return -1;
                 }
                 break;
 
             case 'l':
-                agentParameters.logLevel = atoi (optarg);
+                agentConfiguration.logLevel = atoi (optarg);
                 break;
 
             case 'v':
@@ -1431,11 +1614,11 @@ main (int argc, char *argv []) {
         goto exit;
     }
 
-    if (agentParameters.daemonMode)
+    if (agentConfiguration.daemonMode)
         ret = agentDaemon ();
     else
         ret = agentRun ();
 exit:
-    resetAgentParameters ();
+    freeAgentConfiguration ();
     return ret;
 }

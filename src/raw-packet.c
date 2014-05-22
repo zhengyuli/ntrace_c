@@ -2,11 +2,6 @@
 #include <pcap.h>
 #include "log.h"
 
-#define PCAP_MAX_CAPTURE_LENGTH 65535
-#define PCAP_CAPTURE_TIMEOUT 1000
-#define PCAP_CAPTURE_PROMISIC 1
-#define PCAP_DEFAULT_BUFFER_SIZE (16 * 1024 * 1024)
-
 /*
  * @brief Extract ip packet from raw packet
  *
@@ -17,7 +12,7 @@
  * @return Ip packet address if success else NULL
  */
 u_char *
-getIpPacket (struct pcap_pkthdr *capPkthdr, u_char *rawPkt, int linkType) {
+getIpPacket (struct pcap_pkthdr *capPkthdr, u_char *rawPkt, u_int linkType) {
     u_int offset;
 
     switch (linkType) {
@@ -95,79 +90,4 @@ getIpPacket (struct pcap_pkthdr *capPkthdr, u_char *rawPkt, int linkType) {
         return NULL;
 
     return (rawPkt + offset);
-}
-
-pcap_t *
-newPcapDev (const char *interface) {
-    int ret;
-    pcap_t *pcapDev;
-    pcap_if_t *alldevs, *devptr;
-    char errBuf [PCAP_ERRBUF_SIZE] = {0};
-
-    /* Check interface exists */
-    ret = pcap_findalldevs (&alldevs, errBuf);
-    if (ret < 0) {
-        return NULL;
-    }
-
-    for (devptr = alldevs; devptr != NULL; devptr = devptr->next) {
-        if (strEqual (devptr->name, interface))
-            break;
-    }
-    if (devptr == NULL)
-        return NULL;
-
-    /* Create pcap descriptor */
-    pcapDev = pcap_create (interface, errBuf);
-    if (pcapDev == NULL) {
-        LOGE ("Create pcap device error: %s.\n", errBuf);
-        return NULL;
-    }
-
-    /* Set pcap max capture length */
-    ret = pcap_set_snaplen (pcapDev, PCAP_MAX_CAPTURE_LENGTH);
-    if (ret < 0) {
-        LOGE ("Set pcap snaplen error\n");
-        pcap_close (pcapDev);
-        return NULL;
-    }
-
-    /* Set pcap timeout */
-    ret = pcap_set_timeout (pcapDev, PCAP_CAPTURE_TIMEOUT);
-    if (ret < 0) {
-        LOGE ("Set capture timeout error.\n");
-        pcap_close (pcapDev);
-        return NULL;
-    }
-
-    /* Set pcap buffer size */
-    ret = pcap_set_buffer_size (pcapDev, PCAP_DEFAULT_BUFFER_SIZE);
-    if (ret < 0) {
-        LOGE ("Set pcap capture buffer size error.\n");
-        pcap_close (pcapDev);
-        return NULL;
-    }
-
-    /* Set pcap promisc mode */
-    ret = pcap_set_promisc (pcapDev, PCAP_CAPTURE_PROMISIC);
-    if (ret < 0) {
-        LOGE ("Set pcap promisc mode error.\n");
-        pcap_close (pcapDev);
-        return NULL;
-    }
-
-    /* Activate pcap device */
-    ret = pcap_activate (pcapDev);
-    if (ret < 0) {
-        LOGE ("Activate pcap device error.\n");
-        pcap_close (pcapDev);
-        return NULL;
-    }
-
-    return pcapDev;
-}
-
-inline void
-freePcapDev (pcap_t *pcapDev) {
-    pcap_close (pcapDev);
 }

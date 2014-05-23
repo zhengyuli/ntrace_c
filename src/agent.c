@@ -49,7 +49,7 @@
 #define PCAP_CAPTURE_TIMEOUT 1000
 /* Pcap capture in promisc mode */
 #define PCAP_CAPTURE_IN_PROMISC 1
-/* Pcap capture buffer size */
+/* Pcap capture buffer size: 16MB */
 #define PCAP_CAPTURE_BUFFER_SIZE (16 * 1024 * 1024)
 
 /* Minimal packet parsing threads number */

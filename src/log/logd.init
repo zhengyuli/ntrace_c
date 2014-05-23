@@ -8,12 +8,12 @@
 # Default-Start:    2 3 4 5
 # Default-Stop:
 # Short-Description: logd service
-# Description: ${ROOT_PROJECT} Agent log service
+# Description: Agent log service
 ### END INIT INFO
 
 EXEC=/usr/sbin/logd
 PID_FILE=/var/run/logd.pid
-LOG_FILE_DIR=/var/log/${ROOT_PROJECT_LOWER}
+LOG_FILE_DIR=/var/log/wda/
 LOG_FILE_NAME=agent.log
 
 start () {
@@ -22,9 +22,9 @@ start () {
         echo "Logd is running"
     else
         echo -n "Start logd: "
-        $EXEC -D -d $LOG_FILE_DIR -n $LOG_FILE_NAME
+        $EXEC -D -d $LOG_FILE_DIR -f $LOG_FILE_NAME
         loop=1
-        while [ ${loop} -gt 0 ]
+        while [ $loop -gt 0 ]
         do
             sleep 1
             if [ -f $PID_FILE ]
@@ -47,8 +47,8 @@ stop () {
 		echo -n "Stop logd: "
         PID=$(cat $PID_FILE)
         # Send SIGINT signal to logd process
-        kill -2 ${PID}
-        while [ -x /proc/${PID} ]
+        kill -2 $PID
+        while [ -x /proc/$PID ]
         do
             sleep 1
         done

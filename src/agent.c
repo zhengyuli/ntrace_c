@@ -27,12 +27,12 @@
 /* Agent management response port */
 #define AGENT_MANAGEMENT_RESPONSE_PORT 59000
 
-/* Agent management response success message */
+/* Agent management success response */
 #define AGENT_MANAGEMENT_RESPONSE_SUCCESS 0
-#define AGENT_MANAGEMENT_RESPONSE_MESSAGE_SUCCESS "{\"code\":0}"
-/* Agent management response error message */
+#define DEFAULT_AGENT_MANAGEMENT_SUCCESS_RESPONSE "{\"code\":0}"
+/* Agent management error response */
 #define AGENT_MANAGEMENT_RESPONSE_FAILURE 1
-#define AGENT_MANAGEMENT_RESPONSE_MESSAGE_ERROR "{\"code\":1}"
+#define DEFAULT_AGENT_MANAGEMENT_ERROR_RESPONSE "{\"code\":1}"
 
 /* Agent inproc address */
 #define SHARED_STATUS_PUSH_CHANNEL "inproc://sharedStatusPushChannel"
@@ -49,10 +49,10 @@
 #define PCAP_CAPTURE_TIMEOUT 1000
 /* Pcap capture in promisc mode */
 #define PCAP_CAPTURE_IN_PROMISC 1
-/* Pcap capture buffer size: 16MB */
-#define PCAP_CAPTURE_BUFFER_SIZE (16 * 1024 * 1024)
+/* Pcap capture buffer size: 32MB */
+#define PCAP_CAPTURE_BUFFER_SIZE (32 * 1024 * 1024)
 
-/* Minimal packet parsing threads number */
+/* Minimal packet parsing threads */
 #define MINIMAL_PACKET_PARSING_THREADS 5
 
 /* Agent pid file fd */
@@ -91,7 +91,7 @@ static agentStateCache agentStateCacheInstance = {
     .services = NULL
 };
 
-/* Agent mirror interface */
+/* Agent mirror NIC */
 static netInterface mirrorNic = {
     .name = NULL,
     .pcapDesc = NULL,
@@ -134,14 +134,12 @@ pushSharedStatus (const char *msg) {
 }
 
 static inline char *
-readSharedStatus (void)
-{
+readSharedStatus (void) {
     return zstr_recv (sharedStatusPullSock);
 }
 
 static inline char *
-readSharedStatusNonBlock (void)
-{
+readSharedStatusNonBlock (void) {
     return zstr_recv_nowait (sharedStatusPullSock);
 }
 
@@ -151,7 +149,6 @@ initAgentStateCache (void) {
     json_error_t error;
     json_t *root, *tmp;
 
-    /* If AGENT_STATE_CACHE_FILE doesn't exist, use default */
     if (!fileExist (AGENT_STATE_CACHE_FILE))
         return;
 
@@ -492,7 +489,6 @@ tcpPktParsingService (void *args) {
     struct ip *iphdr;
     zframe_t *tmFrame;
     zframe_t *pktFrame;
-    u_int pktLen;
     void *tcpPktPullSock;
     void *sessionBreakdownPushSock;
 
@@ -574,10 +570,9 @@ tcpPktParsingService (void *args) {
 
         tm = (timeValPtr) zframe_data (tmFrame);
         iphdr = (struct ip *) zframe_data (pktFrame);
-        pktLen = zframe_size (pktFrame);
         switch (iphdr->ip_p) {
             case IPPROTO_TCP:
-                tcpProcess (iphdr, pktLen, tm);
+                tcpProcess (iphdr, tm);
                 break;
 
             default:
@@ -667,8 +662,7 @@ ipPktParsingService (void *args) {
             continue;
         }
 
-        ret = ipDefrag ((struct ip *) zframe_data (pktFrame), zframe_size (pktFrame),
-                        (timeValPtr) zframe_data (tmFrame), &newIphdr);
+        ret = ipDefrag ((struct ip *) zframe_data (pktFrame), (timeValPtr) zframe_data (tmFrame), &newIphdr);
         if (ret < 0)
             LOGE ("Ip defrag error.\n");
         else if (newIphdr) {
@@ -902,9 +896,33 @@ removeAgent (const char *profile) {
 }
 
 static int
+agentRun (void) {
+    taskId tid;
+
+    tid = newTask (rawPktCaptureService, NULL);
+    if (tid < 0) {
+        LOGE ("Create rawPktCaptureService task error.\n");
+        return -1;
+    }
+
+    tid = newTask (ipPktParsingService, NULL);
+    if (tid < 0) {
+        LOGE ("Create ipPktParsingService task error.\n");
+        return -1;
+    }
+
+    tid = newTask (sessionBreakdownSinkService, NULL);
+    if (tid < 0) {
+        LOGE ("Create sessionBreakdownSinkService task error.\n");
+        return -1;
+    }
+
+    return 0;
+}
+
+static int
 startAgent (const char *profile) {
     int ret;
-    taskId tid;
 
     if (agentStateCacheInstance.state != AGENT_STATE_STOPPED) {
         LOGE ("Agent is not ready.\n");
@@ -917,22 +935,11 @@ startAgent (const char *profile) {
         return -1;
     }
 
-    tid = newTask (rawPktCaptureService, NULL);
-    if (tid < 0) {
-        LOGE ("Create rawPktCaptureService task error.\n");
-        goto exit;
-    }
-
-    tid = newTask (ipPktParsingService, NULL);
-    if (tid < 0) {
-        LOGE ("Create ipPktParsingService task error.\n");
-        goto exit;
-    }
-
-    tid = newTask (sessionBreakdownSinkService, NULL);
-    if (tid < 0) {
-        LOGE ("Create sessionBreakdownSinkService task error.\n");
-        goto exit;
+    ret = agentRun ();
+    if (ret < 0) {
+        LOGE ("Start agent task error.\n");
+        stopAllTask ();
+        return -1;
     }
 
     /* Update agent state */
@@ -941,10 +948,6 @@ startAgent (const char *profile) {
     dumpAgentStateCache ();
 
     return 0;
-
-exit:
-    stopAllTask ();
-    return -1;
 }
 
 static int
@@ -1133,9 +1136,9 @@ agentManagementMessageHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
         free (resp);
     } else {
         if ((root == NULL) || (ret < 0))
-            zstr_send (agentManagementRespSock, AGENT_MANAGEMENT_RESPONSE_MESSAGE_ERROR);
+            zstr_send (agentManagementRespSock, DEFAULT_AGENT_MANAGEMENT_ERROR_RESPONSE);
         else
-            zstr_send (agentManagementRespSock, AGENT_MANAGEMENT_RESPONSE_MESSAGE_SUCCESS);
+            zstr_send (agentManagementRespSock, DEFAULT_AGENT_MANAGEMENT_SUCCESS_RESPONSE);
     }
 
     free (msg);
@@ -1202,7 +1205,7 @@ unlockPidFile (void) {
 }
 
 static int
-agentRun (void) {
+agentService (void) {
     int ret;
     zloop_t *loop;
     zmq_pollitem_t pollItems [2];
@@ -1330,13 +1333,24 @@ agentRun (void) {
         goto destroyZloop;
     }
 
+    if (agentStateCacheInstance.state == AGENT_STATE_RUNNING) {
+        ret = agentRun ();
+        if (ret < 0) {
+            LOGE ("Restore agent state error.\n");
+            ret = -1;
+            goto stopAllTask;
+        }
+    }
+    
     /* Start zloop */
     ret = zloop_start (loop);
     if (ret < 0)
-        LOGE ("Stopped with error");
+        LOGE ("Exit abnormally");
     else
-        LOGD ("Stopped by interrupt.\n");
+        LOGD ("Exit normally.\n");
 
+stopAllTask:
+    stopAllTask ();
 destroyZloop:
     zloop_destroy (&loop);
 destroySharedStatusPullSock:
@@ -1565,7 +1579,7 @@ agentDaemon (void) {
             next_pid = fork ();
             switch (next_pid) {
                 case 0:
-                    return agentRun ();
+                    return agentService ();
 
                 case -1:
                     return -1;
@@ -1612,7 +1626,7 @@ main (int argc, char *argv []) {
     if (agentConfiguration.daemonMode)
         ret = agentDaemon ();
     else
-        ret = agentRun ();
+        ret = agentService ();
 exit:
     freeAgentConfiguration ();
     return ret;

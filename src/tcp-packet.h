@@ -187,7 +187,7 @@ typedef void (*publishSessionBreakdownCB) (const char *sessionBreakdown, void *a
 
 /*========================Interfaces definition============================*/
 void
-tcpProcess (struct ip *iph, u_int pktLen, timeValPtr tm);
+tcpProcess (struct ip *iph, timeValPtr tm);
 int
 initTcp (publishSessionBreakdownCB callback, void *args);
 void

@@ -11,16 +11,15 @@ static zctx_t *zmqHubCtx = NULL;
 
 void *
 zmqHubContext (void) {
-    return zmqHubContext;
+    return zmqHubCtx;
 }
 
 int
 initZmqhub (void) {
-    int ret;
-
     zmqHubCtx = zctx_new ();
     if (zmqHubCtx == NULL)
-        ret = -1;
+        return -1;
+
     zctx_set_linger (zmqHubCtx, 0);
     zctx_set_iothreads (zmqHubCtx, 5);
 

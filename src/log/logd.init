@@ -8,7 +8,7 @@
 # Default-Start:    2 3 4 5
 # Default-Stop:
 # Short-Description: logd service
-# Description: Agent log service
+# Description: WDA agent log service
 ### END INIT INFO
 
 EXEC=/usr/sbin/logd

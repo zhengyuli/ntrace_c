@@ -983,11 +983,10 @@ tcpQueue (tcpStreamPtr stream, struct tcphdr *tcph, halfStreamPtr snd,
  *        breakdown and tcp stream context destroy.
  *
  * @param iph ip packet header
- * @param pktLen ip packet length
  * @param tm current timestamp
  */
 void
-tcpProcess (struct ip *iph, u_int pktLen, timeValPtr tm) {
+tcpProcess (struct ip *iph, timeValPtr tm) {
     u_int ipLen;
     struct tcphdr *tcph;
 #if DO_STRICT_CHECK
@@ -1001,10 +1000,6 @@ tcpProcess (struct ip *iph, u_int pktLen, timeValPtr tm) {
     BOOL fromClient;
 
     ipLen = ntohs (iph->ip_len);
-    /* Incomplete packet */
-    if (ipLen < pktLen)
-        return;
-    
     tcph = (struct tcphdr *) ((char *) iph + iph->ip_hl * 4);
 #if DO_STRICT_CHECK
     tcpLen = ipLen - iph->ip_hl * 4;

@@ -20,9 +20,9 @@ typedef netInterface *netInterfacePtr;
 
 /* Network interface */
 struct _netInterface {
-    char *name;                         /**< NIC name */
-    pcap_t *pcapDesc;                   /**< NIC pcap descriptor */
-    u_int linkType;                     /**< Datalink type */
+    char *name;                         /**< Net interface name */
+    pcap_t *pcapDesc;                   /**< Net interface pcap descriptor */
+    u_int linkType;                     /**< Net interface link type */
 };
 
 /* Agent state */

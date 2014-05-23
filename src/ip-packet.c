@@ -273,23 +273,14 @@ ipQueueGlue (ipQueuePtr ipq) {
     return iph;
 }
 
-/*
- * @brief Check ip validity
- *
- * @param iph ip header to check
- * @param capLen capture length of ip packet
- *
- * @return 0 if check success else -1
- */
 static int
-checkIpHeader (struct ip *iph, u_int capLen) {
+checkIpHeader (struct ip *iph) {
     u_char ipVer = iph->ip_v;
     u_short iphLen = iph->ip_hl * 4;
     u_short ipLen = ntohs (iph->ip_len);
 
-    if ((ipVer != 4) || (capLen < iphLen) || (capLen < ipLen) ||
-        (iphLen < sizeof (struct ip)) || (ipLen < iphLen)) {
-        LOGE ("IpVer: %d, iphLen: %d, ipLen: %d, capLen: %d.\n", ipVer, iphLen, ipLen, capLen);
+    if ((ipVer != 4) || (iphLen < sizeof (struct ip)) || (ipLen < iphLen)) {
+        LOGE ("IpVer: %d, iphLen: %d, ipLen: %d.\n", ipVer, iphLen, ipLen);
         return -1;
     }
 
@@ -338,14 +329,13 @@ pktShouldBeFilter (struct ip *iphdr) {
  * @brief Ip packet defragment
  *
  * @param iph ip packet header
- * @param pktLen ip packet length
  * @param tm packet capture timestamp
  * @param newIph pointer to return ip defragment packet
  *
  * @return 0 if success else -1
  */
 int
-ipDefrag (struct ip *iph, u_int pktLen, timeValPtr tm, struct ip **newIph) {
+ipDefrag (struct ip *iph, timeValPtr tm, struct ip **newIph) {
     int ret;
     u_short iphLen, ipLen, offset, end, flags, gap;
     ipFragPtr ipf, prev, pos, tmp;
@@ -354,7 +344,7 @@ ipDefrag (struct ip *iph, u_int pktLen, timeValPtr tm, struct ip **newIph) {
 
     /* Check ipQueue expire timeout list */
     checkIpQueueExpireTimeoutList (tm);
-    ret = checkIpHeader (iph, pktLen);
+    ret = checkIpHeader (iph);
     if (ret < 0) {
         *newIph = NULL;
         return -1;

@@ -16,8 +16,8 @@
 #define BPF_IP_FRAGMENT_FILTER "(tcp and (ip[6] & 0x20 != 0 or (ip[6] & 0x20 = 0 and ip[6:2] & 0x1fff != 0)))"
 /* BPF service filter */
 #define BPF_SERVICE_FILTER "(ip host %s and (tcp port %u or %s)) or "
-/* BPF filter length for each service */
-#define BPF_FILTER_UNIT_LENGTH 256
+/* BPF service filter length */
+#define BPF_SERVICE_FILTER_LENGTH 256
 
 static hashTablePtr serviceHashTableMaster = NULL;
 static hashTablePtr serviceHashTableSlave = NULL;
@@ -232,7 +232,7 @@ generateFilterFromEachService (void *data, void *args) {
     char *filter = (char *) args;
 
     len = strlen (filter);
-    snprintf (filter + len, BPF_FILTER_UNIT_LENGTH, BPF_SERVICE_FILTER, svc->ip, svc->port, BPF_IP_FRAGMENT_FILTER);
+    snprintf (filter + len, BPF_SERVICE_FILTER_LENGTH, BPF_SERVICE_FILTER, svc->ip, svc->port, BPF_IP_FRAGMENT_FILTER);
     return 0;
 }
 
@@ -245,7 +245,7 @@ getServiceFilter (void) {
 
     pthread_rwlock_rdlock (&serviceHashTableMasterLock);
     svcNum = hashSize (serviceHashTableMaster);
-    filterLen = BPF_FILTER_UNIT_LENGTH * (svcNum + 1);
+    filterLen = BPF_SERVICE_FILTER_LENGTH * (svcNum + 1);
     filter = (char *) malloc (filterLen);
     if (filter == NULL) {
         LOGE ("Alloc filter buffer error: %s.\n", strerror (errno));

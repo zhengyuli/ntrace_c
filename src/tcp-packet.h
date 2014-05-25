@@ -43,7 +43,7 @@ struct _halfStream {
     u_int urgCountNew;                  /**< Half stream new urg data count received */
     u_char urgData;                     /**< Half stream new urg data received */
     u_char urgSeen;                     /**< Half stream has new urg data flag */
-    u_short urgPtr;                     /**< Hlf stream urg data pointer */
+    u_short urgPtr;                     /**< Half stream urg data pointer */
     u_short window;                     /**< Half stream current window size */
     BOOL tsOn;                          /**< Half stream timestamp options on flag */
     BOOL wscaleOn;                      /**< Half stream window scale options on flag */

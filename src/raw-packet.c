@@ -5,14 +5,13 @@
 /*
  * @brief Extract ip packet from raw packet
  *
- * @param capPkthdr packet pcap header
  * @param rawPkt raw packet captured by pcap
  * @param linkType datalink type
  *
  * @return Ip packet address if success else NULL
  */
 u_char *
-getIpPacket (struct pcap_pkthdr *capPkthdr, u_char *rawPkt, u_int linkType) {
+getIpPacket (u_char *rawPkt, u_int linkType) {
     u_int offset;
 
     switch (linkType) {
@@ -85,9 +84,6 @@ getIpPacket (struct pcap_pkthdr *capPkthdr, u_char *rawPkt, u_int linkType) {
             LOGE ("Unknown link type.\n");
             return NULL;
     }
-
-    if (capPkthdr->caplen < offset)
-        return NULL;
 
     return (rawPkt + offset);
 }

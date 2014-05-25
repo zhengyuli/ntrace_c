@@ -24,7 +24,7 @@
 /* ipQueue hash key format string */
 #define IPQUEUE_HASH_KEY_FORMAT "%s:%s:%u"
 
-/* ipQueue expire timeout list */
+/* IpQueue expire timeout list */
 static LIST_HEAD (ipQueueExpireTimeoutList);
 /* Ip host fragment hash table */
 static hashTablePtr ipQueueHashTable = NULL;
@@ -299,13 +299,7 @@ checkIpHeader (struct ip *iph) {
     return 0;
 }
 
-/*
- * @brief Check whether this ip packet should be filter
- *
- * @param iphdr ip packet to filter
- *
- * @return TRUE if should be filter else FALSE
- */
+/* Check whether ip packet should be filter */
 static BOOL
 pktShouldBeFilter (struct ip *iphdr) {
     struct tcphdr *tcph;
@@ -441,7 +435,7 @@ ipDefrag (struct ip *iph, timeValPtr tm, struct ip **newIph) {
             pos->dataPtr += gap;
         }
     }
-    /* The proper position to insert current ip fragment */
+    /* The proper position to insert ip fragment */
     if (prev == NULL)
         listAdd (&ipf->node, &ipq->fragments);
     else

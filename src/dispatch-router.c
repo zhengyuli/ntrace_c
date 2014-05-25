@@ -74,7 +74,7 @@ routerDispatch (struct ip *iphdr, timeValPtr tm) {
     }
 
     /* Get dispatch index */
-    index = dispatchHash (key1, key2) % dispatchRouterInstance->parsingThreads;
+    index = dispatchHash (key1, key2) % dispatchRouterInstance->pktParsingThreads;
 
     /* Push timeVal */
     frame = zframe_new (tm, sizeof (timeVal));
@@ -104,16 +104,16 @@ routerDispatch (struct ip *iphdr, timeValPtr tm) {
 }
 
 /*
- * @brief Init packet dispatch router
+ * @brief Init dispatch router
  *
- * @param parsingThreads parsing threads number
- * @param routine routine to dispatch
- * @param routerAddress router address
+ * @param pktParsingThreads packet parsing threads
+ * @param routine dispatch routine
+ * @param dispatchAddress dispatch address
  *
  * @return 0 if success else -1
  */
 int
-initDispatchRouter (u_int parsingThreads, dispatchRoutine routine, const char *routerAddress) {
+initDispatchRouter (u_int pktParsingThreads, dispatchRoutine routine, const char *dispatchAddress) {
     int ret;
     u_int i, n, size;
     taskId tid;
@@ -124,28 +124,26 @@ initDispatchRouter (u_int parsingThreads, dispatchRoutine routine, const char *r
         return -1;
     }
 
-    dispatchRouterInstance->parsingThreads = parsingThreads;
-    size = sizeof (router) * dispatchRouterInstance->parsingThreads;
+    dispatchRouterInstance->pktParsingThreads = pktParsingThreads;
+    size = sizeof (router) * dispatchRouterInstance->pktParsingThreads;
     dispatchRouterInstance->routers = (routerPtr) malloc (size);
     if (dispatchRouterInstance->routers == NULL) {
         LOGE ("Alloc dispatchRouter routers error: %s.\n", strerror (errno));
         goto freeDispatchRouterInstance;
     }
 
-    for (i = 0; i < dispatchRouterInstance->parsingThreads; i++) {
+    for (i = 0; i < dispatchRouterInstance->pktParsingThreads; i++) {
         dispatchRouterInstance->routers [i].id = i;
         dispatchRouterInstance->routers [i].pushSock = zsocket_new (zmqHubContext (), ZMQ_PUSH);
         if (dispatchRouterInstance->routers [i].pushSock == NULL) {
             LOGE ("Create zsocket error.\n");
             goto freeRouters;
         }
-
-        /* Set pushSock sndhwm to 500000 */
+        /* Set pushSock sndhwm to 500,000 */
         zsocket_set_sndhwm (dispatchRouterInstance->routers [i].pushSock, 500000);
-        /* Connect to routerAddress:x */
-        ret = zsocket_connect (dispatchRouterInstance->routers [i].pushSock, "%s:%u", routerAddress, i);
+        ret = zsocket_bind (dispatchRouterInstance->routers [i].pushSock, "%s%u", dispatchAddress, i);
         if (ret < 0) {
-            LOGE ("Connect to %s:%u error.\n", routerAddress, i);
+            LOGE ("Bind to %s%u error.\n", dispatchAddress, i);
             goto freeRouters;
         }
 
@@ -160,7 +158,7 @@ initDispatchRouter (u_int parsingThreads, dispatchRoutine routine, const char *r
     return 0;
 
 freeRouters:
-    for (n = 0; i < i; n++) {
+    for (n = 0; n <= i; n++) {
         if (dispatchRouterInstance->routers [n].pushSock)
             zsocket_destroy (zmqHubContext (), dispatchRouterInstance->routers [n].pushSock);
     }
@@ -178,7 +176,7 @@ void
 destroyDispatchRouter (void) {
     u_int i;
 
-    for (i = 0; i < dispatchRouterInstance->parsingThreads; i++) {
+    for (i = 0; i < dispatchRouterInstance->pktParsingThreads; i++) {
         if (dispatchRouterInstance->routers [i].pushSock)
             zsocket_destroy (zmqHubContext (), dispatchRouterInstance->routers [i].pushSock);
     }

@@ -6,7 +6,7 @@
 
 /*========================Interfaces definition============================*/
 u_char *
-getIpPacket (struct pcap_pkthdr *capPkthdr, u_char *rawPkt, u_int linkType);
+getIpPacket (u_char *rawPkt, u_int linkType);
 /*=======================Interfaces definition end=========================*/
 
 #endif /* __AGENT_RAW_PACKET_H__ */

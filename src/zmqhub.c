@@ -32,5 +32,4 @@ destroyZmqhub (void) {
         return;
     
     zctx_destroy (&zmqHubCtx);
-    zmqHubCtx = NULL;
 }

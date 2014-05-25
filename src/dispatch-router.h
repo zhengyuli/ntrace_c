@@ -15,7 +15,7 @@ typedef struct _dispatchRouter dispatchRouter;
 typedef dispatchRouter *dispatchRouterPtr;
 
 struct _dispatchRouter {
-    u_int parsingThreads;
+    u_int pktParsingThreads;
     routerPtr routers;
 };
 
@@ -25,7 +25,7 @@ typedef void * (*dispatchRoutine) (void *args);
 void
 routerDispatch (struct ip *iphdr, timeValPtr tm);
 int
-initDispatchRouter (u_int parsingThreads, dispatchRoutine routine, const char *routerAddress);
+initDispatchRouter (u_int pktParsingThreads, dispatchRoutine routine, const char *routerAddress);
 void
 destroyDispatchRouter (void);
 /*=======================Interfaces definition end=========================*/

@@ -44,6 +44,7 @@ newTask (taskFunc func, void *args) {
         return -1;
     }
 
+    tsk->id = tid;
     snprintf (key, sizeof (key) - 1, "%lu", tid);
     ret = hashInsert (taskManagerHashTable, key, tsk, freeTaskItem);
     if (ret < 0) {
@@ -52,15 +53,6 @@ newTask (taskFunc func, void *args) {
     }
 
     return tid;
-}
-
-void
-stopTask (taskId tid) {
-    char key [32];
-
-    pthread_kill (tid, SIGINT);
-    snprintf (key, sizeof (key) - 1, "%lu", tid);
-    hashDel (taskManagerHashTable, key);
 }
 
 static int
@@ -76,8 +68,8 @@ stopTaskForEachHashItem (void *data, void *args) {
 void
 stopAllTask (void) {
     hashForEachItemDo (taskManagerHashTable, stopTaskForEachHashItem, NULL);
-    usleep (20000);
     hashClean (taskManagerHashTable);
+    sleep (1);
 }
 
 int

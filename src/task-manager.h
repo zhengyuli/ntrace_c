@@ -18,8 +18,6 @@ struct _taskItem {
 taskId
 newTask (taskFunc func, void *args);
 void
-stopTask (taskId tid);
-void
 stopAllTask (void);
 int
 initTaskManager (void);

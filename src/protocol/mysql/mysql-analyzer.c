@@ -14,7 +14,7 @@
 
 /* Current timestamp */
 static __thread timeValPtr currTime;
-/* Current session done indicator */
+/* Current session done flag */
 static __thread BOOL currSessionDone;
 /* Current mysql session detail */
 static __thread mysqlSessionDetailPtr currSessionDetail;

@@ -1012,7 +1012,7 @@ tcpProcess (struct ip *iph, timeValPtr tm) {
 
     /* Tcp stream closing timout check */
     checkTcpStreamClosingTimeoutList (tm);
-    /* Ip packet Check */
+
     if (ipLen < (iph->ip_hl * 4 + sizeof (struct tcphdr))) {
         LOGE ("Invalid tcp packet.\n");
         return;

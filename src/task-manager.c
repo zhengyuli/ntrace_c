@@ -48,7 +48,7 @@ newTask (taskFunc func, void *args) {
     snprintf (key, sizeof (key) - 1, "%lu", tid);
     ret = hashInsert (taskManagerHashTable, key, tsk, freeTaskItem);
     if (ret < 0) {
-        pthread_kill (tid, SIGINT);
+        pthread_kill (tid, SIGUSR1);
         return -1;
     }
 
@@ -60,7 +60,7 @@ stopTaskForEachHashItem (void *data, void *args) {
     taskItemPtr tsk;
 
     tsk = (taskItemPtr) data;
-    pthread_kill (tsk->id, SIGINT);
+    pthread_kill (tsk->id, SIGUSR1);
 
     return 0;
 }

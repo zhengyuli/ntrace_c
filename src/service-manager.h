@@ -17,7 +17,7 @@ struct _service {
 
 /*========================Interfaces definition============================*/
 int
-updateService (const char *services);
+updateService (json_t *services);
 protoType
 lookupServiceProtoType (const char *key);
 char *

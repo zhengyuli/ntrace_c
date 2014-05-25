@@ -155,48 +155,31 @@ addService (servicePtr svc) {
 }
 
 int
-updateService (const char *services) {
+updateService (json_t *services) {
     int ret;
     u_int i;
-    json_error_t error;
-    json_t *root, *tmp;
+    json_t *tmp;
     servicePtr svc;
 
     /* Cleanup slave service hash table */
     hashClean (serviceHashTableSlave);
 
-    /* Parse services */
-    root = json_loads (services, JSON_DISABLE_EOF_CHECK, &error);
-    if (root == NULL) {
-        LOGE ("Json parse error: %s.\n", error.text);
-        return -1;
-    }
-
-    if (!json_is_array (root)) {
-        LOGE ("Wrong json format.\n");
-        json_object_clear (root);
-        return -1;
-    }
-
-    for (i = 0; i < json_array_size (root); i ++) {
-        tmp = json_array_get (root, i);
+    for (i = 0; i < json_array_size (services); i ++) {
+        tmp = json_array_get (services, i);
         if (tmp == NULL) {
             LOGE ("Get json array item error.\n");
-            json_object_clear (root);
             return -1;
         }
 
         svc = json2Service (tmp);
         if (svc == NULL) {
             LOGE ("Convert json to service error.\n");
-            json_object_clear (root);
             return -1;
         }
 
         ret = addService (svc);
         if (ret < 0) {
             LOGE ("Add service error.\n");
-            json_object_clear (root);
             return -1;
         }
     }

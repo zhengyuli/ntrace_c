@@ -5,9 +5,6 @@
 #define SHARED_STATUS_PUSH_CHANNEL "inproc://sharedStatusPushChannel"
 #define IP_PACKET_PUSH_CHANNEL "inproc://ipPacketPushChannel"
 #define TCP_PACKET_PUSH_CHANNEL "inproc://tcpPacketPushChannel"
-#define SESSION_BREAKDOWN_PUSH_CHANNEL "inproc://sessionBreakdownPushChannel"
-
-#define SHARED_STATUS_EXIT "Exit"
 
 /*========================Interfaces definition============================*/
 void *

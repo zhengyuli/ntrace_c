@@ -10,7 +10,7 @@
 static zctx_t *zmqHubCtx = NULL;
 
 void *
-zmqHubContext (void) {
+zmqhubContext (void) {
     return zmqHubCtx;
 }
 

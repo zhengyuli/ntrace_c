@@ -30,11 +30,6 @@
 #define PCAP_CAPTURE_IN_PROMISC 1
 #define PCAP_CAPTURE_BUFFER_SIZE (16 << 20)
 
-/* Minimal packet parsing threads */
-#define MIN_PACKET_PARSING_THREADS 5
-/* Max packet parsing threads */
-#define MAX_PACKET_PARSING_THREADS 61
-
 typedef struct _agentConfig agentConfig;
 typedef agentConfig *agentConfigPtr;
 
@@ -70,8 +65,8 @@ typedef agentStateCache *agentStateCachePtr;
 struct _agentStateCache {
     agentState state;                   /**< Agent state */
     char *agentId;                      /**< Agent id */
-    char *pubIp;                        /**< Agent publish ip */
-    u_short pubPort;                    /**< Agent publish port */
+    char *pushIp;                       /**< Agent push ip */
+    u_short pushPort;                   /**< Agent push port */
     json_t *services;                   /**< Agent services */
 };
 

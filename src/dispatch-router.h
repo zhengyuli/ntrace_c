@@ -2,20 +2,27 @@
 #define __AGENT_DISPATCH_ROUTER_H__
 
 #include <sys/types.h>
+#include <czmq.h>
+
+/* Minimal dispatch router number */
+#define MIN_ROUTER_NUM 5
+/* Max dispatch router number */
+#define MAX_ROUTER_NUM 61
 
 typedef struct _router router;
 typedef router *routerPtr;
 
 struct _router {
-    u_int id;
     void *pushSock;
+    void *pullSock;
 };
 
 typedef struct _dispatchRouter dispatchRouter;
 typedef dispatchRouter *dispatchRouterPtr;
 
 struct _dispatchRouter {
-    u_int pktParsingThreads;
+    zctx_t *zmqCtxt;
+    u_int routerNum;
     routerPtr routers;
 };
 
@@ -25,7 +32,7 @@ typedef void * (*dispatchRoutine) (void *args);
 void
 routerDispatch (struct ip *iphdr, timeValPtr tm);
 int
-initDispatchRouter (u_int pktParsingThreads, dispatchRoutine routine, const char *routerAddress);
+initDispatchRouter (dispatchRoutine routine);
 void
 destroyDispatchRouter (void);
 /*=======================Interfaces definition end=========================*/

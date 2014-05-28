@@ -250,6 +250,13 @@ getServiceFilter (void) {
     return filter;
 }
 
+void
+cleanupServiceManager (void) {
+    hashClean (serviceHashTableSlave);
+    serviceMapSwap ();
+    hashClean (serviceHashTableSlave);
+}
+
 int
 initServiceManager (void) {
     serviceHashTableMaster = hashNew (0);

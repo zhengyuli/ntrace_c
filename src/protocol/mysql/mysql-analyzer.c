@@ -1270,7 +1270,7 @@ freeMysqlSessionDetail (void *sd) {
         return;
 
     msd = (mysqlSessionDetailPtr) sd;
-    /* Clean mysql parser context */
+    /* Destroy mysql parser context */
     destroyMysqlParser (&msd->parser);
     free (msd->reqStmt);
     free (msd->errMsg);

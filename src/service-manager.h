@@ -22,6 +22,8 @@ protoType
 lookupServiceProtoType (const char *key);
 char *
 getServiceFilter (void);
+void
+cleanupServiceManager (void);
 int
 initServiceManager (void);
 void

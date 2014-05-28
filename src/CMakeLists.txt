@@ -28,7 +28,6 @@ SET (AGENT_SOURCE_FILES
   util/hash.c
   log/log.c
   checksum.c
-  zmqhub.c
   task-manager.c
   service-manager.c
   raw-packet.c
@@ -36,7 +35,6 @@ SET (AGENT_SOURCE_FILES
   ip-packet.c
   tcp-options.c
   tcp-packet.c
-  dispatch-router.c
   protocol/protocol.c
   protocol/default/default-analyzer.c
   protocol/http/http-analyzer.c

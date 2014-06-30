@@ -22,22 +22,6 @@
 #include "protocol/protocol.h"
 #include "agent.h"
 
-/* Agent management command */
-#define AGENT_MANAGEMENT_CMD_ADD_AGENT "add-agent"
-#define AGENT_MANAGEMENT_CMD_REMOVE_AGENT "remove-agent"
-#define AGENT_MANAGEMENT_CMD_START_AGENT "start-agent"
-#define AGENT_MANAGEMENT_CMD_STOP_AGENT "stop-agent"
-#define AGENT_MANAGEMENT_CMD_HEARTBEAT "heartbeat"
-#define AGENT_MANAGEMENT_CMD_PUSH_PROFILE "push-profile"
-
-/* Agent management success response */
-#define AGENT_MANAGEMENT_RESPONSE_SUCCESS 0
-#define AGENT_MANAGEMENT_RESPONSE_SUCCESS_MESSAGE "{\"code\":0}"
-
-/* Agent management error response */
-#define AGENT_MANAGEMENT_RESPONSE_ERROR 1
-#define AGENT_MANAGEMENT_RESPONSE_ERROR_MESSAGE "{\"code\":1}"
-
 /* Zmqhub inproc address */
 #define SHARED_STATUS_PUSH_CHANNEL "inproc://sharedStatusPushChannel"
 #define IP_PACKET_PUSH_CHANNEL "inproc://ipPacketPushChannel"
@@ -150,9 +134,9 @@ displayAgentState (void) {
             return;
     }
 
-    LOGD ("      id: %s", agentStateCacheInstance->agentId ? agentStateCacheInstance->agentId : "Null")
-    LOGD ("      pushIp: %s", agentStateCacheInstance->pushIp ? agentStateCacheInstance->pushIp : "Null");
-    LOGD ("      pushPort: %u", agentStateCacheInstance->pushPort);
+    LOGD ("      id: %s\n", agentStateCacheInstance->agentId ? agentStateCacheInstance->agentId : "Null");
+    LOGD ("      pushIp: %s\n", agentStateCacheInstance->pushIp ? agentStateCacheInstance->pushIp : "Null");
+    LOGD ("      pushPort: %u\n", agentStateCacheInstance->pushPort);
 }
 
 /*
@@ -770,6 +754,7 @@ ipPktParsingService (void *args) {
             if (!agentInterrupted) {
                 LOGE ("Receive ip packet zframe fatal error.\n");
             }
+            zframe_destroy (&tmFrame);
             break;
         } else if (zframe_more (pktFrame)) {
             zframe_destroy (&tmFrame);
@@ -810,7 +795,7 @@ publishSessionBreakdown (const char *sessionBreakdown, void *args) {
     void *pubSock = args;
 
     zstr_send (pubSock, sessionBreakdown);
-    LOGD ("Session breakdown----------------\n%s\n", sessionBreakdown);
+    LOGD ("\nSession breakdown:\n%s\n", sessionBreakdown);
 }
 
 /*
@@ -894,6 +879,7 @@ tcpPktParsingService (void *args) {
             if (!agentInterrupted) {
                 LOGE ("Receive ip packet zframe fatal error.\n");
             }
+            zframe_destroy (&tmFrame);
             break;
         } else if (zframe_more (pktFrame)) {
             zframe_destroy (&tmFrame);
@@ -1282,6 +1268,7 @@ agentManagementMessageHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
     if (msg == NULL)
         return 0;
 
+    LOGD ("Management message: %s\n", msg);
     root = json_loads (msg, JSON_DISABLE_EOF_CHECK, &error);
     if ((root == NULL) ||
         (json_object_get (root, "command") == NULL) ||
@@ -1324,7 +1311,6 @@ agentManagementMessageHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
             zstr_send (agentManagementRespSock, AGENT_MANAGEMENT_RESPONSE_SUCCESS_MESSAGE);
     }
 
-    LOGD ("%s\n", msg);
     free (msg);
     return 0;
 }

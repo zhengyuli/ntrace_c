@@ -1186,6 +1186,8 @@ initTcpSharedInstance (void) {
 
 static void
 destroyTcpSharedInstance (void) {
+    tcpStreamsAlloc = 0;
+    tcpStreamsFree = 0;
     pthread_spin_destroy (&tcpConnectionIdLock);
     pthread_spin_destroy (&tcpBreakdownIdLock);
     tcpInitOnceControl = PTHREAD_ONCE_INIT;

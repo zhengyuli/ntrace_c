@@ -494,7 +494,7 @@ hashForEachItemDo (hashTablePtr htbl, hashForEachItemDoCB fun, void *args) {
  */
 void
 hashForEachItemRemoveWithCondition (hashTablePtr htbl, hashForEachItemRemoveWithConditionCB fun, void *args) {
-    BOOL ret;
+    bool ret;
     u_int index;
     hashItemPtr item;
     hlistHeadPtr head;

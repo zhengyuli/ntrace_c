@@ -18,6 +18,14 @@ struct _logContext {
 /* Thread local log context */
 static __thread logContextPtr logCtxt = NULL;
 
+/*
+ * @brief Get log level from log message.
+ * 
+ * @param msg log message
+ * @param level pointer to return log level
+ * 
+ * @return 0 if success else -1
+ */
 static int
 getLogLevel (const char *msg, u_int *level) {
     int ret;
@@ -29,6 +37,11 @@ getLogLevel (const char *msg, u_int *level) {
         return -1;
 }
 
+/*
+ * @brief Write log message to console.
+ * 
+ * @param msg log message to write
+ */
 void
 logToConsole (const char *msg, ...) {
     va_list va;
@@ -41,9 +54,9 @@ logToConsole (const char *msg, ...) {
 }
 
 /*
- * @brief Format log message and send log to log service.
+ * @brief Format log message and push log message to log service.
  *
- * @param file File name info
+ * @param file Source file name info
  * @param line Line number info
  * @param func Function name info
  * @param msg Real log message
@@ -59,6 +72,7 @@ doLog (char *file, u_int line, const char *func, const char *msg, ...) {
     struct tm *localTime;
     char timeStr [32] = {0};
     char logLevel [10] = {0};
+    /* Thread local message buffer */
     static __thread char tmp [MAX_LOG_LENGTH] = {0};
     static __thread char buf [MAX_LOG_LENGTH] = {0};
     zframe_t *frame;
@@ -75,9 +89,12 @@ doLog (char *file, u_int line, const char *func, const char *msg, ...) {
               localTime->tm_mon + 1, localTime->tm_mday, (localTime->tm_year + 1900));
 
     ret = getLogLevel (msg, &level);
-    if (ret < 0)
+    if (ret < 0) {
+        fprintf (stderr, "Get log level error.\n");
         return;
+    }
     else
+        /* Drop log level info and get real log message */
         message = msg + 3;
 
     va_start (va, msg);
@@ -117,19 +134,23 @@ doLog (char *file, u_int line, const char *func, const char *msg, ...) {
     buf [sizeof (buf) - 1] = 0;
 
     frame = zframe_new ((void *) buf, strlen (buf));
-    if (frame == NULL)
+    if (frame == NULL) {
+        fprintf (stderr, "Create zframe for log message error.\n");
         return;
+    }
     ret = zframe_send (&frame, logCtxt->logSock, 0);
     if (ret < 0) {
+        fprintf (stderr, "Send log message error.\n");
         zframe_destroy (&frame);
         return;
     }
 }
 
 /*
- * @brief Init log context
- *
- * @param logLevel Log level
+ * @brief Init thread local log context.
+ *        It will create a thread local log context, every thread want to
+ *        use log function must init log context before do logging.
+ * @param logLevel Log level used to do logging 
  *
  * @return 0 if success else -1
  */
@@ -171,7 +192,7 @@ initLog (u_int logLevel) {
     return 0;
 }
 
-/* Destroy log context */
+/* Destroy thread local log context */
 void
 destroyLog (void) {
     zctx_destroy (&logCtxt->ctxt);

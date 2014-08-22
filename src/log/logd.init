@@ -12,22 +12,24 @@
 ### END INIT INFO
 
 EXEC=/usr/sbin/logd
-PID_FILE=/var/run/logd.pid
+LOGD_PID_FILE=/var/run/logd.pid
 LOG_FILE_DIR=/var/log/wda/
 LOG_FILE_NAME=agent.log
+LOG_FILE_MAX_SIZE=512
+LOG_FILE_ROTATION_COUNT=6
 
 start () {
-    if [ -f $PID_FILE ]
+    if [ -f $LOGD_PID_FILE ]
     then
         echo "Logd is running"
     else
         echo -n "Start logd: "
-        $EXEC -D -d $LOG_FILE_DIR -f $LOG_FILE_NAME
+        $EXEC -D -d $LOG_FILE_DIR -f $LOG_FILE_NAME -m $LOG_FILE_MAX_SIZE -p $LOGD_PID_FILE -r $LOG_FILE_ROTATION_COUNT
         loop=1
         while [ $loop -gt 0 ]
         do
             sleep 1
-            if [ -f $PID_FILE ]
+            if [ -f $LOGD_PID_FILE ]
             then
                 echo "[OK]"
                 exit 0
@@ -40,12 +42,12 @@ start () {
 }
 
 stop () {
-    if [ ! -f $PID_FILE ]
+    if [ ! -f $LOGD_PID_FILE ]
     then
         echo "Logd is not running"
     else
 		echo -n "Stop logd: "
-        PID=$(cat $PID_FILE)
+        PID=$(cat $LOGD_PID_FILE)
         # Send SIGINT signal to logd process
         kill -2 $PID
         while [ -x /proc/$PID ]
@@ -63,7 +65,7 @@ restart () {
 
 status () {
     echo -n "Logd status: "
-    if [ ! -f $PID_FILE ]
+    if [ ! -f $LOGD_PID_FILE ]
     then
         echo "[Stopped]"
     else

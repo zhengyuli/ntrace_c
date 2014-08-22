@@ -1,5 +1,5 @@
 #
-# Agent cmake build config
+# WDA Agent cmake build config
 # Authors: Zhengyu li <lizhengyu419@gmail.com>
 #
 

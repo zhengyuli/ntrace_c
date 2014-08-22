@@ -12,7 +12,7 @@
 /* log server ip */
 static char *logServerIp = NULL;
 /* Display log with detail info */
-static BOOL showInDetail  = FALSE;
+static bool showInDetail  = false;
 /* Process name to filter */
 static char *procName = NULL;
 /* Log level to filter */
@@ -26,27 +26,27 @@ static zctx_t *zmqContext = NULL;
 static void *subSock = NULL;
 
 /* Check log level is valid */
-static BOOL
+static bool
 checkLogLevel (const char *logLevel) {
     if (strEqual ("ERR", logLevel) ||
         strEqual ("WARNING", logLevel) ||
         strEqual ("INFO", logLevel) ||
         strEqual ("DEBUG", logLevel))
-        return TRUE;
+        return true;
     else
-        return FALSE;
+        return false;
 }
 
-static BOOL
+static bool
 pidTableIsEqual (pid_t pidTable1 [], pid_t pidTable2 [], u_int size) {
     u_int i;
 
     for (i = 0; i < size; i++) {
         if (pidTable1 [i] != pidTable2 [i])
-            return FALSE;
+            return false;
     }
 
-    return TRUE;
+    return true;
 }
 
 static inline void
@@ -212,7 +212,7 @@ parseCmdline (int argc, char *argv []) {
 
 /* Thread to update subscribe filter */
 static void *
-subUpdateMonitor (void *args) {
+subFilterUpdateMonitor (void *args) {
     while (1)
     {
         updateSubRules ();
@@ -286,10 +286,10 @@ main (int argc, char *argv []) {
         return -1;
     }
 
-    /* Create sub-thread to check update rule periodically */
-    ret = zthread_new (subUpdateMonitor, NULL);
+    /* Create sub-thread to check and update rule periodically */
+    ret = zthread_new (subFilterUpdateMonitor, NULL);
     if (ret < 0) {
-        fprintf (stderr, "Create subUpdateMonitor thread error.\n");
+        fprintf (stderr, "Create subFilterUpdateMonitor thread error.\n");
         zctx_destroy (&zmqContext);
         return -1;
     }

@@ -22,9 +22,9 @@
 #define DEFAULT_LOGLEVEL 2
 #define MAX_LOG_LENGTH 4096
 
-/* Log service log sink port */
+/* Log service log message sink port */
 #define LOG_SERVICE_SINK_PORT 59001
-/* Log service log publish port */
+/* Log service log message publish port */
 #define LOG_SERVICE_PUBLISH_PORT 59002
 
 /*========================Interfaces definition============================*/

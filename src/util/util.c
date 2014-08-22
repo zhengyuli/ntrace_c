@@ -12,6 +12,7 @@
 #include <arpa/inet.h>
 #include "util.h"
 
+/* Translate timeVal to seconds */
 inline u_long_long
 timeVal2Second (timeValPtr tm) {
     u_long_long second;
@@ -20,6 +21,7 @@ timeVal2Second (timeValPtr tm) {
     return second;
 }
 
+/* Translate timeVal to milliseconds */
 inline u_long_long
 timeVal2MilliSecond (timeValPtr tm) {
     u_long_long milli;
@@ -28,6 +30,7 @@ timeVal2MilliSecond (timeValPtr tm) {
     return milli;
 }
 
+/* Translate timeVal to microseconds */
 inline u_long_long
 timeVal2MicoSecond (timeValPtr tm) {
     u_long_long micro;
@@ -36,6 +39,7 @@ timeVal2MicoSecond (timeValPtr tm) {
     return micro;
 }
 
+/* Translate 64bit byte-order from net to host */
 inline u_long_long
 ntohll (u_long_long src) {
 #if __BYTE_ORDER == __LITTLE_ENDIAN
@@ -57,37 +61,41 @@ ntohll (u_long_long src) {
 #endif
 }
 
+/* Translate 64bit byte-order from host to net */
 inline u_long_long
 htonll (u_long_long src) {
     return ntohll (src);
 }
 
-BOOL
+/* Compare strings without case sensitive */
+bool
 strEqualIgnoreCase (const char *str1, const char *str2) {
     if (strlen (str1) != strlen (str2))
-        return FALSE;
+        return false;
     else {
         while (*str1) {
             if (tolower (*str1) != tolower (*str2))
-                return FALSE;
+                return false;
             str1++;
             str2++;
         }
-        return TRUE;
+        return true;
     }
 }
 
-BOOL
+/* Compare strings with case sensitive */
+bool
 strEqual (const char *str1, const char *str2) {
     if (strlen (str1) != strlen (str2))
-        return FALSE;
+        return false;
 
     if (!strcmp (str1, str2))
-        return TRUE;
+        return true;
     else
-        return FALSE;
+        return false;
 }
 
+/* Read safe version */
 ssize_t
 safeRead (int fd, void *buf, size_t count) {
     size_t nread = 0;
@@ -106,6 +114,7 @@ safeRead (int fd, void *buf, size_t count) {
     return nread;
 }
 
+/* Write safe version */
 ssize_t
 safeWrite (int fd, const void *buf, size_t count) {
     size_t nwritten = 0;
@@ -125,31 +134,33 @@ safeWrite (int fd, const void *buf, size_t count) {
     return nwritten;
 }
 
-BOOL
-fileExist (const char *path) {
+/* Check whether file exists */
+bool
+fileExists (const char *path) {
     if (access (path, F_OK))
-        return FALSE;
+        return false;
     else
-        return TRUE;
+        return true;
 }
 
-BOOL
+/* Check whether file is empty */
+bool
 fileIsEmpty (const char *path) {
     int ret;
     struct stat st;
 
     ret = stat(path, &st);
     if (ret < 0)
-        return TRUE;
+        return true;
 
     if (!st.st_size)
-        return TRUE;
+        return true;
     else
-        return FALSE;
+        return false;
 }
 
 /*
- * @brief Get ip address of interface
+ * @brief Get ip address of interface.
  *
  * @param interface interface name, like eth0
  *
@@ -184,6 +195,7 @@ getIpAddrOfInterface (const char *interface) {
     return ipAddr;
 }
 
+/* Get cpu cores */
 inline u_int
 getCpuCores (void) {
     return sysconf (_SC_NPROCESSORS_CONF);

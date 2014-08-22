@@ -8,9 +8,9 @@ typedef long long int long_long;
 typedef unsigned long long int u_long_long;
 
 typedef enum {
-    FALSE = 0,
-    TRUE = 1
-} BOOL;
+    false = 0,
+    true = 1
+} bool;
 
 typedef struct _timeVal timeVal;
 typedef timeVal *timeValPtr;
@@ -72,17 +72,17 @@ u_long_long
 ntohll (u_long_long src);
 u_long_long
 htonll (u_long_long src);
-BOOL
+bool
 strEqualIgnoreCase (const char *str1, const char *str2);
-BOOL
+bool
 strEqual (const char *str1, const char *str2);
 ssize_t
 safeRead (int fd, void *buf, size_t count);
 ssize_t
 safeWrite (int fd, const void *buf, size_t count);
-BOOL
-fileExist (const char *path);
-BOOL
+bool
+fileExists (const char *path);
+bool
 fileIsEmpty (const char *path);
 char *
 getIpAddrOfInterface (const char *interface);

@@ -61,26 +61,26 @@ static __thread publishSessionBreakdownCB publishSessionBreakdownFunc;
 /* Tcp breakdown publish callback args */
 static __thread void *publishSessionBreakdownArgs;
 
-static inline BOOL
+static inline bool
 before (u_int seq1, u_int seq2) {
     int ret;
 
     ret = (int) (seq1 - seq2);
     if (ret < 0)
-        return TRUE;
+        return true;
     else
-        return FALSE;
+        return false;
 }
 
-static inline BOOL
+static inline bool
 after (u_int seq1, u_int seq2) {
     int ret;
 
     ret = (int) (seq1 - seq2);
     if (ret > 0)
-        return TRUE;
+        return true;
     else
-        return FALSE;
+        return false;
 }
 
 static inline u_long_long
@@ -127,7 +127,7 @@ addTcpStreamToClosingTimeoutList (tcpStreamPtr stream, timeValPtr tm) {
         return;
     }
 
-    stream->inClosingTimeout = TRUE;
+    stream->inClosingTimeout = true;
     tst->stream = stream;
     tst->timeout = tm->tvSec + DEFAULT_TCP_STREAM_CLOSING_TIMEOUT;
     listAddTail (&tst->node, &tcpStreamTimoutList);
@@ -229,7 +229,7 @@ delTcpStreamFromHash (tcpStreamPtr stream) {
  * @return Tcp stream if success else NULL
  */
 static tcpStreamPtr
-findTcpStream (struct tcphdr *tcph, struct ip * iph, BOOL *fromClient) {
+findTcpStream (struct tcphdr *tcph, struct ip * iph, bool *fromClient) {
     tuple4 addr, reversed;
     tcpStreamPtr stream;
 
@@ -239,7 +239,7 @@ findTcpStream (struct tcphdr *tcph, struct ip * iph, BOOL *fromClient) {
     addr.dest = ntohs (tcph->dest);
     stream = lookupTcpStreamFromHash (&addr);
     if (stream) {
-        *fromClient = TRUE;
+        *fromClient = true;
         return stream;
     }
 
@@ -249,7 +249,7 @@ findTcpStream (struct tcphdr *tcph, struct ip * iph, BOOL *fromClient) {
     reversed.dest = ntohs (tcph->source);
     stream = lookupTcpStreamFromHash (&reversed);
     if (stream) {
-        *fromClient = FALSE;
+        *fromClient = false;
         return stream;
     }
 
@@ -294,8 +294,8 @@ newTcpStream (protoType proto) {
     stream->client.urgSeen = 0;
     stream->client.urgPtr = 0;
     stream->client.window = 0;
-    stream->client.tsOn = FALSE;
-    stream->client.wscaleOn = FALSE;
+    stream->client.tsOn = false;
+    stream->client.wscaleOn = false;
     stream->client.currTs = 0;
     stream->client.wscale = 0;
     stream->client.mss = 0;
@@ -318,8 +318,8 @@ newTcpStream (protoType proto) {
     stream->server.urgSeen = 0;
     stream->server.urgPtr = 0;
     stream->server.window = 0;
-    stream->server.tsOn = FALSE;
-    stream->server.wscaleOn = FALSE;
+    stream->server.tsOn = false;
+    stream->server.wscaleOn = false;
     stream->server.currTs = 0;
     stream->server.wscale = 0;
     stream->server.mss = 0;
@@ -347,7 +347,7 @@ newTcpStream (protoType proto) {
         free (stream);
         return NULL;
     }
-    stream->inClosingTimeout = FALSE;
+    stream->inClosingTimeout = false;
     stream->closeTime = 0;
     initListHead (&stream->node);
 
@@ -694,12 +694,12 @@ handleEstb (tcpStreamPtr stream, timeValPtr tm) {
 /* Tcp urgence data handler callback */
 static void
 handleUrgData (tcpStreamPtr stream, halfStreamPtr snd, u_char urgData, timeValPtr tm) {
-    BOOL fromClient;
+    bool fromClient;
 
     if (snd == &stream->client)
-        fromClient = TRUE;
+        fromClient = true;
     else
-        fromClient = FALSE;
+        fromClient = false;
 
     (*stream->parser->sessionProcessUrgData) (fromClient, urgData, stream->sessionDetail, tm);
 }
@@ -707,14 +707,14 @@ handleUrgData (tcpStreamPtr stream, halfStreamPtr snd, u_char urgData, timeValPt
 /* Tcp data handler callback */
 static u_int
 handleData (tcpStreamPtr stream, halfStreamPtr snd, u_char *data, u_int dataLen, timeValPtr tm) {
-    BOOL fromClient;
+    bool fromClient;
     u_int parseCount;
-    BOOL sessionDone = FALSE;
+    bool sessionDone = false;
 
     if (snd == &stream->client)
-        fromClient = TRUE;
+        fromClient = true;
     else
-        fromClient = FALSE;
+        fromClient = false;
 
     parseCount = (*stream->parser->sessionProcessData) (fromClient, data, dataLen, stream->sessionDetail, tm, &sessionDone);
     if (sessionDone)
@@ -726,12 +726,12 @@ handleData (tcpStreamPtr stream, halfStreamPtr snd, u_char *data, u_int dataLen,
 /* Tcp reset handler callback */
 static void
 handleReset (tcpStreamPtr stream, halfStreamPtr snd, timeValPtr tm) {
-    BOOL fromClient;
+    bool fromClient;
 
     if (snd == &stream->client)
-        fromClient = TRUE;
+        fromClient = true;
     else
-        fromClient = FALSE;
+        fromClient = false;
 
     if (stream->state == STREAM_INIT) {
         if (fromClient)
@@ -754,13 +754,13 @@ handleReset (tcpStreamPtr stream, halfStreamPtr snd, timeValPtr tm) {
 /* Tcp fin handler callback */
 static void
 handleFin (tcpStreamPtr stream, halfStreamPtr snd, timeValPtr tm) {
-    BOOL fromClient;
-    BOOL sessionDone = FALSE;
+    bool fromClient;
+    bool sessionDone = false;
 
     if (snd == &stream->client)
-        fromClient = TRUE;
+        fromClient = true;
     else
-        fromClient = FALSE;
+        fromClient = false;
 
     (*stream->parser->sessionProcessFin) (fromClient, stream->sessionDetail, tm, &sessionDone);
     if (sessionDone)
@@ -997,7 +997,7 @@ tcpProcess (struct ip *iph, timeValPtr tm) {
     u_int tmOption;
     tcpStreamPtr stream;
     halfStreamPtr snd, rcv;
-    BOOL fromClient;
+    bool fromClient;
 
     ipLen = ntohs (iph->ip_len);
     tcph = (struct tcphdr *) ((char *) iph + iph->ip_hl * 4);
@@ -1095,19 +1095,19 @@ tcpProcess (struct ip *iph, timeValPtr tm) {
             if (stream->client.tsOn) {
                 stream->server.tsOn = getTimeStampOption (tcph, &stream->server.currTs);
                 if (!stream->server.tsOn)
-                    stream->client.tsOn = FALSE;
+                    stream->client.tsOn = false;
             } else
-                stream->server.tsOn = FALSE;
+                stream->server.tsOn = false;
 
             if (stream->client.wscaleOn) {
                 stream->server.wscaleOn = getTcpWindowScaleOption (tcph, &stream->server.wscale);
                 if (!stream->server.wscaleOn) {
-                    stream->client.wscaleOn = FALSE;
+                    stream->client.wscaleOn = false;
                     stream->client.wscale  = 1;
                     stream->server.wscale = 1;
                 }
             } else {
-                stream->server.wscaleOn = FALSE;
+                stream->server.wscaleOn = false;
                 stream->server.wscale = 1;
             }
 

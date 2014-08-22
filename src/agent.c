@@ -69,11 +69,11 @@ static pcap_t *pcapDesc = NULL;
 /* Pcap link type */
 static int linkType = -1;
 /* Agent SIGUSR1 interrupt flag */
-static BOOL agentInterrupted = FALSE;
+static bool agentInterrupted = false;
 
 static void
 sigUser1Handler (int signo) {
-    agentInterrupted = TRUE;
+    agentInterrupted = true;
 }
 
 static inline void
@@ -151,7 +151,7 @@ dumpAgentStateCache (void) {
     json_t *root;
     char *out;
 
-    if (!fileExist (AGENT_RUN_DIR) && (mkdir (AGENT_RUN_DIR, 0755) < 0)) {
+    if (!fileExists (AGENT_RUN_DIR) && (mkdir (AGENT_RUN_DIR, 0755) < 0)) {
         LOGE ("Create directory %s error: %s.\n", AGENT_RUN_DIR, strerror (errno));
         return;
     }
@@ -238,7 +238,7 @@ initAgentStateCache (void) {
     }
 
     /* If cache file not exits, use default configuration */
-    if (!fileExist (AGENT_STATE_CACHE_FILE))
+    if (!fileExists (AGENT_STATE_CACHE_FILE))
         return 0;
 
     fd = open (AGENT_STATE_CACHE_FILE, O_RDONLY);
@@ -1030,7 +1030,7 @@ agentRun (void) {
     taskId tid;
 
     /* Restore agent interrupt flag */
-    agentInterrupted = FALSE;
+    agentInterrupted = false;
 
     tid = newTask (rawPktCaptureService, ipPktPushSock);
     if (tid < 0) {
@@ -1701,8 +1701,8 @@ showHelpInfo (const char *cmd) {
 static int
 parseCmdline (int argc, char *argv []) {
     char option;
-    BOOL showVersion = FALSE;
-    BOOL showHelp = FALSE;
+    bool showVersion = false;
+    bool showHelp = false;
 
     while ((option = getopt_long (argc, argv, "Dm:l:vh?", agentOptions, NULL)) != -1) {
         switch (option) {
@@ -1723,11 +1723,11 @@ parseCmdline (int argc, char *argv []) {
                 break;
 
             case 'v':
-                showVersion = TRUE;
+                showVersion = true;
                 break;
 
             case 'h':
-                showHelp = TRUE;
+                showHelp = true;
                 break;
 
             case '?':

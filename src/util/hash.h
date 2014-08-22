@@ -32,7 +32,7 @@ INIT_HLIST_NODE (hlistNodePtr node) {
 
 typedef void (*hashFreeCB) (void *item);
 typedef int (*hashForEachItemDoCB) (void *item, void *args);
-typedef BOOL (*hashForEachItemRemoveWithConditionCB) (void *item, void *args);
+typedef bool (*hashForEachItemRemoveWithConditionCB) (void *item, void *args);
 typedef void * (*hashForEachItemCheckCB) (void *item, void *args);
 
 typedef struct _hashItem hashItem;
@@ -56,12 +56,12 @@ struct _hashTable {
     hlistHeadPtr heads;                 /**< Array of hlist_head */
 };
 
-static inline BOOL
+static inline bool
 hlistIsEmpty (const hlistHeadPtr head) {
     if (head->first == NULL)
-        return TRUE;
+        return true;
     else
-        return FALSE;
+        return false;
 }
 
 /* Delete hash node from hash list */

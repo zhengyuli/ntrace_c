@@ -5,8 +5,7 @@ SET (AGENT_PID_FILE  /var/run/${ROOT_PROJECT_LOWER}-agent.pid)
 SET (AGENT_RUN_DIR /var/run/${ROOT_PROJECT_LOWER})
 SET (AGENT_STATE_CACHE_FILE ${AGENT_RUN_DIR}/agent-state.cache)
 
-# configure a header file to pass some of the CMake settings
-# to the source code
+# Configuration header file
 configure_file (
   ${PROJECT_SOURCE_DIR}/src/config.h.in
   ${PROJECT_BINARY_DIR}/config.h)
@@ -19,7 +18,7 @@ INCLUDE_DIRECTORIES (
   protocol/mysql
   util
   log
-  3rdParty/http_parser
+  3rd-party/http_parser
   ${PROJECT_BINARY_DIR})
 
 SET (AGENT_SOURCE_FILES
@@ -39,7 +38,7 @@ SET (AGENT_SOURCE_FILES
   protocol/default/default-analyzer.c
   protocol/http/http-analyzer.c
   protocol/mysql/mysql-analyzer.c
-  3rdParty/http_parser/http_parser.c)
+  3rd-party/http_parser/http_parser.c)
 
 ADD_EXECUTABLE (${ROOT_PROJECT_LOWER}-agent ${AGENT_SOURCE_FILES})
 TARGET_LINK_LIBRARIES (${ROOT_PROJECT_LOWER}-agent pcap czmq hiredis pthread ini_config z jansson)

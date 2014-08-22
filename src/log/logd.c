@@ -16,10 +16,14 @@
 #include "list.h"
 #include "log.h"
 
-#define LOGD_PID_FILE "/var/run/logd.pid"
 #define LOG_TO_FILE_MASK (1 << 0)
 #define LOG_TO_NET_MASK (1 << 1)
 
+#define DEFAULT_LOGD_PID_FILE "/var/run/logd.pid"
+
+/* Logd service pid file path */
+static char *logdPidFilePath = NULL;
+/* Logd service pid file fd */
 static int logdPidFileFd = -1;
 /* Log devices list */
 static listHead logDevices;
@@ -27,42 +31,46 @@ static listHead logDevices;
 typedef struct _logDev logDev;
 typedef logDev *logDevPtr;
 /*
- * Log backend dev, every dev has three interfaces,
- * you can add new log dev into log system with log_dev_add
+ * Logd service backend dev, every dev has three interfaces,
+ * you can add new log dev into logd service with log_dev_add
  */
 struct _logDev {
-    listHead node;
-    void *data;
+listHead node;                      /**< Log dev list node of global log devices */
+void *data;                         /**< Log dev private data */
 
-    /* Operations for log dev */
-    int (*init) (logDevPtr dev);
-    void (*destroy) (logDevPtr dev);
-    void (*write) (const char *msg, logDevPtr dev, u_int flag);
+/* Log dev file operations */
+int (*init) (logDevPtr dev);
+void (*destroy) (logDevPtr dev);
+void (*write) (const char *msg, logDevPtr dev, u_int flag);
 };
 
-/* Bit test */
-static inline BOOL
-testBit (u_int flag, u_int bitMask) {
-    if (flag & bitMask)
-        return TRUE;
-    else
-        return FALSE;
+/* Flag test */
+static inline bool
+flagOn (u_int flag, u_int bitMask) {
+if (flag & bitMask)
+    return true;
+else
+    return false;
 }
 
-/*===========================log file dev=================================*/
+/*===========================Log file dev=================================*/
 
 /* Defautl log file dir */
 #define DEFAULT_LOG_FILE_DIR "/var/log/logd/"
 /* Defautl log file name */
 #define DEFAULT_LOG_FILE_NAME "logd.log"
-/* Max log file size is 128 MB */
-#define LOG_FILE_MAX_SIZE (128 << 20)
-#define LOG_FILE_ROTATE_NUMBER 8
-#define LOG_FILE_SIZE_CHECK_COUNT 200
+/* Default max log file size */
+#define DEFAULT_LOG_FILE_MAX_SIZE (128 << 20)
+/* Default log file rotation count */
+#define DEFAULT_LOG_FILE_ROTATION_COUNT 8
+
+#define LOG_FILE_SIZE_CHECK_COUNT 500
 #define LOG_FILE_PATH_MAX_LEN 256
 
 static char *logFileDir = NULL;
 static char *logFileName = NULL;
+static u_int logFileMaxSize = DEFAULT_LOG_FILE_MAX_SIZE;
+static u_int logFileRotationCount = DEFAULT_LOG_FILE_ROTATION_COUNT;
 
 typedef struct _logFile logFile;
 typedef logFile *logFilePtr;
@@ -70,24 +78,38 @@ typedef logFile *logFilePtr;
 struct _logFile {
     int fd;                             /**< Log file fd */
     char *filePath;                     /**< Log file path */
-    u_int writeCount;                   /**< Log file write count for size checking */
+    u_int checkCount;                   /**< Log file size check count */
 };
 
-static BOOL
+/*
+ * @brief Check whether log file is oversize
+ *
+ * @param filePath log file path to check
+ *
+ * @return true if oversize else FALE
+ */
+static bool
 logFileOversize (const char *filePath) {
     int ret;
     struct stat fileStat;
 
     ret = stat (filePath, &fileStat);
     if (ret < 0)
-        return TRUE;
+        return true;
 
-    if (fileStat.st_size >= LOG_FILE_MAX_SIZE)
-        return TRUE;
+    if (fileStat.st_size >= logFileMaxSize)
+        return true;
     else
-        return FALSE;
+        return false;
 }
 
+/*
+ * @brief Rotate log file based on logFileRotationCount.
+ *
+ * @param logFileName log file name to ratate
+ *
+ * @return 0 if success else -1
+ */
 static int
 logFileRotate (const char *logFileName) {
     int ret;
@@ -95,10 +117,10 @@ logFileRotate (const char *logFileName) {
     char fileNameBuf1 [LOG_FILE_PATH_MAX_LEN] = {0};
     char fileNameBuf2 [LOG_FILE_PATH_MAX_LEN] = {0};
 
-    for (index = (LOG_FILE_ROTATE_NUMBER - 1); index > 0; index--) {
-        if (index == (LOG_FILE_ROTATE_NUMBER - 1)) {
+    for (index = (logFileRotationCount - 1); index > 0; index--) {
+        if (index == (logFileRotationCount - 1)) {
             snprintf (fileNameBuf2, sizeof (fileNameBuf2) - 1, "%s_%d", logFileName, index);
-            if (fileExist (fileNameBuf2)) {
+            if (fileExists (fileNameBuf2)) {
                 ret = remove (fileNameBuf2);
                 if (ret < 0) {
                     fprintf (stderr, "Log file rotate error.\n");
@@ -108,7 +130,7 @@ logFileRotate (const char *logFileName) {
         } else {
             snprintf (fileNameBuf1, sizeof (fileNameBuf1) - 1, "%s_%d", logFileName, index);
             snprintf (fileNameBuf2, sizeof (fileNameBuf2) - 1, "%s_%d", logFileName, index + 1);
-            if (fileExist (fileNameBuf1)) {
+            if (fileExists (fileNameBuf1)) {
                 ret = rename (fileNameBuf1, fileNameBuf2);
                 if (ret < 0) {
                     fprintf (stderr, "Log file rotate error.\n");
@@ -118,7 +140,7 @@ logFileRotate (const char *logFileName) {
         }
     }
 
-    if (LOG_FILE_ROTATE_NUMBER == 1) {
+    if (logFileRotationCount == 1) {
         ret = remove (logFileName);
         if (ret < 0) {
             fprintf (stderr, "Log file rotate error.\n");
@@ -136,6 +158,7 @@ logFileRotate (const char *logFileName) {
     return 0;
 }
 
+/* Update log file when log file is oversize. */
 static int
 logFileUpdate (logDevPtr dev) {
     int ret;
@@ -150,7 +173,7 @@ logFileUpdate (logDevPtr dev) {
     if (logfile->fd < 0)
         return -1;
 
-    logfile->writeCount = 0;
+    logfile->checkCount = 0;
     return 0;
 }
 
@@ -159,7 +182,7 @@ initLogFile (logDevPtr dev) {
     char logFilePath [LOG_FILE_PATH_MAX_LEN] = {0};
     logFilePtr logfile;
 
-    if (!fileExist (logFileDir) &&
+    if (!fileExists (logFileDir) &&
         (mkdir (logFileDir, 0755) < 0))
         return -1;
 
@@ -181,7 +204,8 @@ initLogFile (logDevPtr dev) {
         return -1;
     }
 
-    logfile->writeCount = 0;
+    /* Update log file context */
+    logfile->checkCount = 0;
     dev->data = logfile;
 
     return 0;
@@ -201,7 +225,7 @@ writeLogFile (const char *msg, logDevPtr dev, u_int flag) {
     int ret;
     logFilePtr logfile;
 
-    if (!testBit (flag, LOG_TO_FILE_MASK))
+    if (!flagOn (flag, LOG_TO_FILE_MASK))
         return;
 
     logfile = (logFilePtr) dev->data;
@@ -211,8 +235,9 @@ writeLogFile (const char *msg, logDevPtr dev, u_int flag) {
         fprintf (stderr, "log file write error.\n");
         return;
     }
-    logfile->writeCount++;
-    if ((logfile->writeCount >= LOG_FILE_SIZE_CHECK_COUNT) &&
+    logfile->checkCount++;
+    /* Check whether log file is oversize after checkCount writing */
+    if ((logfile->checkCount >= LOG_FILE_SIZE_CHECK_COUNT) &&
         logFileOversize (logfile->filePath)) {
         ret = logFileUpdate (dev);
         if (ret < 0)
@@ -221,7 +246,7 @@ writeLogFile (const char *msg, logDevPtr dev, u_int flag) {
     }
 }
 
-/*===========================log net dev=================================*/
+/*===========================Log net dev=================================*/
 
 typedef struct _logNet logNet;
 typedef logNet *logNetPtr;
@@ -267,7 +292,7 @@ writeLogNet (const char *msg, logDevPtr dev, u_int flag) {
     logNetPtr lognet;
     zframe_t *frame = NULL;
 
-    if (!testBit (flag, LOG_TO_NET_MASK))
+    if (!flagOn (flag, LOG_TO_NET_MASK))
         return;
 
     lognet = (logNetPtr) dev->data;
@@ -313,7 +338,7 @@ logDevWrite (listHeadPtr logDevices, const char *msg) {
     logDevPtr dev;
     const char *message;
 
-    /* Get flag */
+    /* Get log flag */
     ret = sscanf (msg, "%u", &flag);
     if (ret != 1)
         return;
@@ -357,9 +382,9 @@ lockPidFile (void) {
 
     pid = getpid ();
 
-    logdPidFileFd = open (LOGD_PID_FILE, O_CREAT | O_RDWR, 0666);
+    logdPidFileFd = open (logdPidFilePath, O_CREAT | O_RDWR, 0666);
     if (logdPidFileFd < 0) {
-        fprintf(stderr, "Open pid file %s error: %s.\n", LOGD_PID_FILE, strerror (errno));
+        fprintf(stderr, "Open pid file %s error: %s.\n", logdPidFilePath, strerror (errno));
         return -1;
     }
 
@@ -369,7 +394,7 @@ lockPidFile (void) {
         if (n != strlen (buf)) {
             fprintf(stderr, "Write pid to pid file error: %s.\n", strerror (errno));
             close (logdPidFileFd);
-            remove (LOGD_PID_FILE);
+            remove (logdPidFilePath);
             return -1;
         }
         sync ();
@@ -389,7 +414,7 @@ unlockPidFile (void) {
         close (logdPidFileFd);
         logdPidFileFd = -1;
     }
-    remove (LOGD_PID_FILE);
+    remove (logdPidFilePath);
 }
 
 static int
@@ -399,12 +424,14 @@ logdRun (void) {
     zctx_t *context;
     void *logRcvSock;
 
+    /* Init log file backend dev */
     logDev logFileDev = {
         .init = initLogFile,
         .destroy = destroyLogFile,
         .write = writeLogFile,
     };
 
+    /* Init log net backend dev */
     logDev logNetDev = {
         .init = initLogNet,
         .destroy = destroyLogNet,
@@ -535,6 +562,9 @@ static struct option logdOptions [] = {
     {"dir", required_argument, NULL, 'd'},
     {"name", required_argument, NULL, 'f'},
     {"daemon", no_argument, NULL, 'D'},
+    {"maxsize", required_argument, NULL, 'm'},
+    {"pidfile", required_argument, NULL, 'p'},
+    {"rotation-count", required_argument, NULL, 'r'},
     {"help", no_argument, NULL, 'h'},
     {NULL, no_argument, NULL, 0},
 };
@@ -547,9 +577,12 @@ showHelpInfo (const char *cmd) {
     fprintf (stdout,
              "Usage: %s -f <pid-file> [-d]\n"
              "Basic options: \n"
-             "  -d|--dir <directory>, log file directory\n"
-             "  -f|--name <fileName>, log file name\n"
+             "  -d|--dir <dir path>, log file directory\n"
+             "  -f|--name <file name>, log file name\n"
              "  -D|--daemon, run as daemon\n"
+             "  -m|--maxsize <size in MB>, log file max size\n"
+             "  -p|--pidfile <file path>, pid file path\n"
+             "  -r|--rotation-count <count>, log file rotation count\n"
              "  -h|--help, show help message\n",
              cmdName);
 }
@@ -558,8 +591,8 @@ int
 main (int argc, char *argv []) {
     int ret;
     char option;
-    /* Whether run as daemon service */
-    BOOL runDaemon = FALSE;
+    /* Daemon flag  */
+    bool runDaemon = false;
 
     if (getuid () != 0) {
         fprintf (stderr, "Permission denied, please run as root\n");
@@ -589,7 +622,19 @@ main (int argc, char *argv []) {
                 break;
 
             case 'D':
-                runDaemon = TRUE;
+                runDaemon = true;
+                break;
+
+            case 'm':
+                logFileMaxSize = atoi (optarg) << 20;
+                break;
+
+            case 'r':
+                logFileRotationCount = atoi (optarg);
+                break;
+
+            case 'p':
+                logdPidFilePath = strdup (optarg);
                 break;
 
             case 'h':
@@ -605,6 +650,7 @@ main (int argc, char *argv []) {
         }
     }
 
+    /* Use default log file dir */
     if (logFileDir == NULL) {
         logFileDir = strdup (DEFAULT_LOG_FILE_DIR);
         if (logFileDir == NULL) {
@@ -614,6 +660,7 @@ main (int argc, char *argv []) {
         }
     }
 
+    /* Use default log file name */
     if (logFileName == NULL) {
         logFileName = strdup (DEFAULT_LOG_FILE_NAME);
         if (logFileName == NULL) {
@@ -623,13 +670,24 @@ main (int argc, char *argv []) {
         }
     }
 
-    if (runDaemon)
+    if (runDaemon) {
+        /* Use default logd pid file path */
+        if (logdPidFilePath == NULL) {
+            logdPidFilePath = strdup (DEFAULT_LOGD_PID_FILE);
+            if (logdPidFilePath == NULL) {
+                fprintf (stderr, "Strdup log pid file path error: %s.\n", strerror (errno));
+                ret = -1;
+                goto exit;
+            }
+        }
         ret = logdDaemon ();
+    }
     else
         ret = logdRun ();
 
 exit:
     free (logFileDir);
     free (logFileName);
+    free (logdPidFilePath);
     return ret;
 }

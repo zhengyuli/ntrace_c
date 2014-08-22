@@ -19,7 +19,7 @@
 #define ATOMIC_NAND_AND_FETCH(xPtr, y) __sync_nand_and_fetch ((xPtr), (y))
 
 /* If *xPtr == oldVal then wrtie newVal to *xPtr and return true, else return false */
-#define ATOMIC_BOOL_COMPARE_AND_SWAP(xPtr, oldVal, newVal) __sync_BOOL_compare_and_swap ((xPtr), (oldVal), (newVal))
+#define ATOMIC_bool_COMPARE_AND_SWAP(xPtr, oldVal, newVal) __sync_bool_compare_and_swap ((xPtr), (oldVal), (newVal))
 /* If *xPtr == oldVal then write newVal to *xPtr and return *xPtr before write operation */
 #define ATOMIC_VAL_COMPARE_AND_SWAP(xPtr, oldVal, newVal) __sync_val_compare_and_swap ((xPtr), (oldVal), (newVal))
 

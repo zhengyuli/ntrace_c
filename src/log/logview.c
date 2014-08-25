@@ -9,10 +9,10 @@
 
 #define MAX_PID_TABLE_SIZE 100
 
-/* log server ip */
+/* Log server ip */
 static char *logServerIp = NULL;
 /* Display log with detail info */
-static bool showInDetail  = false;
+static BOOL showInDetail  = FALSE;
 /* Process name to filter */
 static char *procName = NULL;
 /* Log level to filter */
@@ -26,27 +26,28 @@ static zctx_t *zmqContext = NULL;
 static void *subSock = NULL;
 
 /* Check log level is valid */
-static bool
+static BOOL
 checkLogLevel (const char *logLevel) {
     if (strEqual ("ERR", logLevel) ||
         strEqual ("WARNING", logLevel) ||
         strEqual ("INFO", logLevel) ||
         strEqual ("DEBUG", logLevel))
-        return true;
+        return TRUE;
     else
-        return false;
+        return FALSE;
 }
 
-static bool
+/* Check pid table is equal */
+static BOOL
 pidTableIsEqual (pid_t pidTable1 [], pid_t pidTable2 [], u_int size) {
     u_int i;
 
     for (i = 0; i < size; i++) {
         if (pidTable1 [i] != pidTable2 [i])
-            return false;
+            return FALSE;
     }
 
-    return true;
+    return TRUE;
 }
 
 static inline void

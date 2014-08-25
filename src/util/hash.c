@@ -5,19 +5,12 @@
 #include "util.h"
 #include "hash.h"
 
-/* Default initial size of hash table */
-#define DEFAULT_HASH_TABLE_INIT_SIZE 331
+/* Default hash table size */
+#define DEFAULT_HASH_TABLE_SIZE 331
 #define HASH_TABLE_RESIZE_FACTOR 2
 #define HASH_TABLE_LOAD_FACTOR 80
 
-/*
- * @brief Generate index from hash key and hash table size.
- *
- * @param key key to generate hash value
- * @param tableSize hash table size
- *
- * @return index in hash table
- */
+/* Generate index from hash key and hash table size */
 static u_int
 itemIndex (const char *key, u_int tableSize) {
     u_int hash = 0;
@@ -33,14 +26,13 @@ itemIndex (const char *key, u_int tableSize) {
 }
 
 /*
- * @brief Lookup the corresponding item, if not exits return null,
- *        else return it.
+ * @brief Lookup hash item by key.
  *
  * @param htbl hash table
  * @param key hash key
- * @param index hash table index to return
+ * @param index pointer to return item hash index
  *
- * @return Return hash item if exists, else reutrn NULL.
+ * @return Return hash item if exists else reutrn NULL.
  */
 static hashItemPtr
 hashItemLookup (hashTablePtr htbl, const char *key, u_int *index) {
@@ -60,6 +52,7 @@ hashItemLookup (hashTablePtr htbl, const char *key, u_int *index) {
 
 /*
  * @brief Insert item to hash table.
+ *        It will call freeFun to free opaque data if alloc hash item failed.
  *
  * @param htbl hash table to insert
  * @param key hash key
@@ -74,7 +67,7 @@ hashItemInsert (hashTablePtr htbl, const char *key, void *data, hashFreeCB freeF
     hlistHeadPtr head;
     hashItemPtr item;
 
-    /* Check that if there is a item with the same key */
+    /* Check item with duplicate key */
     item = hashItemLookup (htbl, key, &index);
     if (item == NULL) {
         item = (hashItemPtr ) malloc (sizeof (hashItem));
@@ -92,7 +85,7 @@ hashItemInsert (hashTablePtr htbl, const char *key, void *data, hashFreeCB freeF
         item->index = index;
         item->freeFun = freeFun;
         head = &htbl->heads [index];
-        hlistAddHead (&item->node, head);
+        hlistAdd (&item->node, head);
         htbl->currSize++;
         return 0;
     } else {
@@ -102,7 +95,7 @@ hashItemInsert (hashTablePtr htbl, const char *key, void *data, hashFreeCB freeF
 }
 
 /*
- * @brief Delete an item from hash table.
+ * @brief Delete item from hash table.
  *
  * @param htbl hash table
  * @param item item to delete
@@ -121,7 +114,7 @@ hashItemDel (hashTablePtr htbl, hashItemPtr item) {
 }
 
 /*
- * @brief Attach an item to hash table.
+ * @brief Attach item to hash table.
  *
  * @param htbl hash table to attach
  * @param item item to attach
@@ -141,7 +134,7 @@ hashItemAttach (hashTablePtr htbl, hashItemPtr item) {
     if (tmp == NULL) {
         item->index = index;
         head = &htbl->heads [index];
-        hlistAddHead (&item->node, head);
+        hlistAdd (&item->node, head);
         htbl->currSize++;
         return 0;
     } else
@@ -164,10 +157,10 @@ hashItemDetach (hashTablePtr htbl, hashItemPtr item) {
     htbl->currSize--;
 }
 
-/* Create a new hash table */
 /*
- * @brief Create a new hash table, if hashSize is 0 then use default
- *        hash table init size, else use hashSize instead.
+ * @brief Create a new hash table.
+ *        If hashSize is 0 then use default hash table size,
+ *        else use hashSize instead.
  *
  * @param hashSize hash table size to create
  *
@@ -184,7 +177,7 @@ hashNew (u_int hashSize) {
         if (hashSize)
             htbl->totalSize = hashSize;
         else
-            htbl->totalSize = DEFAULT_HASH_TABLE_INIT_SIZE;
+            htbl->totalSize = DEFAULT_HASH_TABLE_SIZE;
         htbl->limit = (htbl->totalSize * HASH_TABLE_LOAD_FACTOR) / 100;
         memSize = htbl->totalSize * sizeof (hlistHead);
         htbl->heads = (hlistHeadPtr) malloc (memSize);
@@ -227,8 +220,9 @@ hashDestroy (hashTablePtr htbl) {
 }
 
 /*
- * @brief Insert a new item into hash table, if current size is over limit size
- *        then recreate a new hash table and copy all items to the new hash table.
+ * @brief Insert new item into hash table.
+ *        If current size is exceed limit size then recreate a new hash
+ *        table and copy all items to the new hash table.
  *
  * @param htbl hash table to insert
  * @param key hash key
@@ -494,7 +488,7 @@ hashForEachItemDo (hashTablePtr htbl, hashForEachItemDoCB fun, void *args) {
  */
 void
 hashForEachItemRemoveWithCondition (hashTablePtr htbl, hashForEachItemRemoveWithConditionCB fun, void *args) {
-    bool ret;
+    BOOL ret;
     u_int index;
     hashItemPtr item;
     hlistHeadPtr head;

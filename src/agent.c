@@ -69,11 +69,11 @@ static pcap_t *pcapDesc = NULL;
 /* Pcap link type */
 static int linkType = -1;
 /* Agent SIGUSR1 interrupt flag */
-static bool agentInterrupted = false;
+static BOOL agentInterrupted = FALSE;
 
 static void
 sigUser1Handler (int signo) {
-    agentInterrupted = true;
+    agentInterrupted = TRUE;
 }
 
 static inline void
@@ -1030,7 +1030,7 @@ agentRun (void) {
     taskId tid;
 
     /* Restore agent interrupt flag */
-    agentInterrupted = false;
+    agentInterrupted = FALSE;
 
     tid = newTask (rawPktCaptureService, ipPktPushSock);
     if (tid < 0) {
@@ -1701,8 +1701,8 @@ showHelpInfo (const char *cmd) {
 static int
 parseCmdline (int argc, char *argv []) {
     char option;
-    bool showVersion = false;
-    bool showHelp = false;
+    BOOL showVersion = FALSE;
+    BOOL showHelp = FALSE;
 
     while ((option = getopt_long (argc, argv, "Dm:l:vh?", agentOptions, NULL)) != -1) {
         switch (option) {
@@ -1723,11 +1723,11 @@ parseCmdline (int argc, char *argv []) {
                 break;
 
             case 'v':
-                showVersion = true;
+                showVersion = TRUE;
                 break;
 
             case 'h':
-                showHelp = true;
+                showHelp = TRUE;
                 break;
 
             case '?':

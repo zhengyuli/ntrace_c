@@ -24,10 +24,10 @@ typedef void (*freeSessionBreakdownCB) (void *sbd);
 typedef int (*generateSessionBreakdownCB) (void *sd, void *sbd);
 typedef void (*sessionBreakdown2JsonCB) (json_t *root, void *sd, void *sbd);
 typedef void (*sessionProcessEstbCB) (void *sd, timeValPtr tm);
-typedef void (*sessionProcessUrgeDataCB) (bool fromClient, char urgData, void *sd, timeValPtr tm);
-typedef u_int (*sessionProcessDataCB) (bool fromClient, u_char *data, u_int dataLen, void *sd, timeValPtr tm, bool *sessionDone);
-typedef void (*sessionProcessResetCB) (bool fromClient, void *sd, timeValPtr tm);
-typedef void (*sessionProcessFinCB) (bool fromClient, void *sd, timeValPtr tm, bool *sessionDone);
+typedef void (*sessionProcessUrgeDataCB) (BOOL fromClient, char urgData, void *sd, timeValPtr tm);
+typedef u_int (*sessionProcessDataCB) (BOOL fromClient, u_char *data, u_int dataLen, void *sd, timeValPtr tm, BOOL *sessionDone);
+typedef void (*sessionProcessResetCB) (BOOL fromClient, void *sd, timeValPtr tm);
+typedef void (*sessionProcessFinCB) (BOOL fromClient, void *sd, timeValPtr tm, BOOL *sessionDone);
 
 typedef struct _protoParser protoParser;
 typedef protoParser *protoParserPtr;

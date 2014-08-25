@@ -54,7 +54,7 @@ listDel (listHeadPtr node) {
     node->prev = node;
 }
 
-/* Replace the old node with the new one. */
+/* Replace old node with new one. */
 static inline void
 listReplace (listHeadPtr old, listHeadPtr new) {
     new->next = old->next;
@@ -67,21 +67,21 @@ listReplace (listHeadPtr old, listHeadPtr new) {
 }
 
 /* Check whether node is the tail node of list.  */
-static inline bool
+static inline BOOL
 listIsTail (const listHeadPtr node, const listHeadPtr head) {
     if (node->next == head)
-        return true;
+        return TRUE;
     else
-        return false;
+        return FALSE;
 }
 
 /* Check whether list is empty */
-static inline bool
+static inline BOOL
 listIsEmpty (const listHeadPtr head) {
     if (head->next == head)
-        return true;
+        return TRUE;
     else
-        return false;
+        return FALSE;
 }
 
 /* Get offset of member in type */
@@ -137,11 +137,11 @@ listIsEmpty (const listHeadPtr head) {
          pos = tmp, tmp = listEntry (tmp->member.next, typeof (*tmp), member))
 
 #define listForEachEntrySafeKeepPrev(prev, pos, tmp, head, member)      \
-        for (prev = NULL,                                               \
-              pos = listEntry ((head)->next, typeof (*pos), member),    \
-              tmp = listEntry (pos->member.next, typeof (*pos), member); \
-             &pos->member != (head);                                    \
-             prev = pos, pos = tmp, tmp = listEntry (tmp->member.next, typeof (*tmp), member))
+     for (prev = NULL,                                                  \
+          pos = listEntry ((head)->next, typeof (*pos), member),        \
+          tmp = listEntry (pos->member.next, typeof (*pos), member);    \
+          &pos->member != (head);                                       \
+          prev = pos, pos = tmp, tmp = listEntry (tmp->member.next, typeof (*tmp), member))
 
 #define listForEachEntryReverse(pos, head, member)                  \
     for (pos = listEntry ((head)->prev, typeof (*pos), member);     \
@@ -168,18 +168,16 @@ listIsEmpty (const listHeadPtr head) {
          prev = pos, pos = tmp, tmp = listEntry (tmp->member.prev, typeof (*tmp), member))
 
 #define listForEachEntryFrom(pos, head, member)                     \
-    for (;                                                          \
-         &pos->member != (head);                                    \
+    for (; &pos->member != (head);                                  \
          pos = listEntry (pos->member.next, typeof (*pos), member))
 
 #define listForEachEntryFromSafe(pos, tmp, head, member)                \
-        for (tmp = listEntry (pos->member.next, typeof (*pos), member); \
-             &pos->member != (head);                                    \
-             pos = tmp, tmp = listEntry (tmp->member.next, typeof (*tmp), member))
-
-#define listForEachEntryFromReverse(pos, head, member)              \
-    for (;                                                          \
+    for (tmp = listEntry (pos->member.next, typeof (*pos), member); \
          &pos->member != (head);                                    \
+         pos = tmp, tmp = listEntry (tmp->member.next, typeof (*tmp), member))
+
+#define listForEachEntryFromReverse(pos, head, member)                  \
+    for (; &pos->member != (head);                                      \
          pos = listEntry (pos->member.prev, typeof (*pos), member))
 
 #define listForEachEntryFromReverseSafe(pos, tmp, head, member)         \

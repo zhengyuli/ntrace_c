@@ -212,23 +212,23 @@ checkIpQueueExpireTimeoutList (timeValPtr tm) {
 }
 
 /* Check ipQueue done state */
-static bool
+static BOOL
 ipQueueDone (ipQueuePtr ipq) {
     ipFragPtr pos, tmp;
     u_short offset;
 
     if (!ipq->dataLen)
-        return false;
+        return FALSE;
 
     /* Init offset */
     offset = 0;
     listForEachEntrySafe (pos, tmp, &ipq->fragments, node) {
         if (pos->offset != offset)
-            return false;
+            return FALSE;
         offset = pos->end;
     }
 
-    return true;
+    return TRUE;
 }
 
 /*
@@ -300,7 +300,7 @@ checkIpHeader (struct ip *iph) {
 }
 
 /* Check whether ip packet should be filter */
-static bool
+static BOOL
 pktShouldBeFilter (struct ip *iphdr) {
     struct tcphdr *tcph;
     char key1 [32] = {0};
@@ -312,11 +312,11 @@ pktShouldBeFilter (struct ip *iphdr) {
         snprintf (key1, sizeof (key1) - 1, "%s:%d", inet_ntoa (iphdr->ip_src), ntohs (tcph->source));
         snprintf (key2, sizeof (key2) - 1, "%s:%d", inet_ntoa (iphdr->ip_dst), ntohs (tcph->dest));
         if (lookupServiceProtoType (key1) != PROTO_UNKNOWN || lookupServiceProtoType (key2) != PROTO_UNKNOWN)
-            return true;
+            return TRUE;
         else
-            return false;
+            return FALSE;
     } else
-        return true;
+        return TRUE;
 }
 
 /*

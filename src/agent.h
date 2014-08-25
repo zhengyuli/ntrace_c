@@ -29,7 +29,7 @@ typedef agentConfig *agentConfigPtr;
 
 /* Agent configuration */
 struct _agentConfig {
-    bool daemonMode;                    /**< Run as daemon */
+    BOOL daemonMode;                    /**< Run as daemon */
     char *mirrorInterface;              /**< Mirror interface */
     u_int logLevel;                     /**< Log level */
 };

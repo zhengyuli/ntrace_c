@@ -10,9 +10,9 @@
  * @param tcph tcp header
  * @param ts pointer to return time stamp
  *
- * @return true if time stamp option on else false
+ * @return TRUE if time stamp option on else FALSE
  */
-bool
+BOOL
 getTimeStampOption (struct tcphdr *tcph, u_int *ts) {
     u_int len;
     u_int timeStamp;
@@ -25,7 +25,7 @@ getTimeStampOption (struct tcphdr *tcph, u_int *ts) {
     while (index <=  len - sizeof (struct tcphdr) - 10 ) {
         switch (options [index]) {
             case 0: /* TCPOPT_EOL */
-                return false;
+                return FALSE;
 
             case 1: /* TCPOPT_NOP */
                 index++;
@@ -34,16 +34,16 @@ getTimeStampOption (struct tcphdr *tcph, u_int *ts) {
             case 8: /* TCPOPT_TIMESTAMP */
                 memcpy ((char *) &timeStamp, options + index + 2, 4);
                 *ts = ntohl (timeStamp);
-                return true;
+                return TRUE;
 
             default:
                 if (options [index + 1] < 2 ) /* "silly option" */
-                    return false;
+                    return FALSE;
                 index += options [index + 1];
         }
     }
 
-    return false;
+    return FALSE;
 }
 
 /*
@@ -52,9 +52,9 @@ getTimeStampOption (struct tcphdr *tcph, u_int *ts) {
  * @param tcph tcp header
  * @param ws pointer to return window scale
  *
- * @return true if window scale option on else false
+ * @return TRUE if window scale option on else FALSE
  */
-bool
+BOOL
 getTcpWindowScaleOption (struct tcphdr *tcph, u_short *ws) {
     u_int len;
     u_char wscale;
@@ -68,7 +68,7 @@ getTcpWindowScaleOption (struct tcphdr *tcph, u_short *ws) {
     while (index <=  len - sizeof (struct tcphdr) - 3) {
         switch (options [index]) {
             case 0: /* TCPOPT_EOL */
-                return false;
+                return FALSE;
 
             case 1: /* TCPOPT_NOP */
                 index++;
@@ -79,16 +79,16 @@ getTcpWindowScaleOption (struct tcphdr *tcph, u_short *ws) {
                 if (wscale > 14)
                     wscale = 14;
                 *ws = (1 << wscale);
-                return true;
+                return TRUE;
 
             default:
                 if (options [index + 1] < 2 ) /* "silly option" */
-                    return false;
+                    return FALSE;
                 index += options [index + 1];
         }
     }
 
-    return false;
+    return FALSE;
 }
 
 /*
@@ -97,9 +97,9 @@ getTcpWindowScaleOption (struct tcphdr *tcph, u_short *ws) {
  * @param tcph tcp header
  * @param mss pointer to return mss
  *
- * @return true if MSS option on else false
+ * @return TRUE if MSS option on else FALSE
  */
-bool
+BOOL
 getTcpMssOption (struct tcphdr *tcph, u_short *mss) {
     u_int len;
     u_short maxiumSegSize;
@@ -112,7 +112,7 @@ getTcpMssOption (struct tcphdr *tcph, u_short *mss) {
     while (index <=  len - sizeof (struct tcphdr) - 4 ) {
         switch (options [index]) {
             case 0: /* TCPOPT_EOL */
-                return false;
+                return FALSE;
 
             case 1: /* TCPOPT_NOP */
                 index++;
@@ -121,14 +121,14 @@ getTcpMssOption (struct tcphdr *tcph, u_short *mss) {
             case 2: /* TCPOPT_MSS */
                 memcpy ((char *) &maxiumSegSize, options + index + 2, 2);
                 *mss = ntohs (maxiumSegSize);
-                return true;
+                return TRUE;
 
             default:
                 if (options [index + 1] < 2 ) /* "silly option" */
-                    return false;
+                    return FALSE;
                 index += options [index + 1];
         }
     }
 
-    return false;
+    return FALSE;
 }

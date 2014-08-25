@@ -21,18 +21,21 @@ struct _hlistHead {
 };
 
 /* Init hash list head */
-#define HLIST_HEAD(head) hlistHead head = {.first = NULL}
-#define INIT_HLIST_HEAD(head) ((head)->first =  NULL)
+#define HLIST_HEAD(head)                        \
+    hlistHead head = {.first = NULL}
+#define INIT_HLIST_HEAD(head)                   \
+    ((head)->first =  NULL)
 
 static inline void
 INIT_HLIST_NODE (hlistNodePtr node) {
-    node->next = NULL;
-    node->pprev = NULL;
+node->next = NULL;
+node->pprev = NULL;
 }
 
+/* Callback functions */
 typedef void (*hashFreeCB) (void *item);
 typedef int (*hashForEachItemDoCB) (void *item, void *args);
-typedef bool (*hashForEachItemRemoveWithConditionCB) (void *item, void *args);
+typedef BOOL (*hashForEachItemRemoveWithConditionCB) (void *item, void *args);
 typedef void * (*hashForEachItemCheckCB) (void *item, void *args);
 
 typedef struct _hashItem hashItem;
@@ -42,7 +45,7 @@ struct _hashItem {
     char *key;                          /**< Key string used to compute hash value */
     u_int index;                        /**< Index in hash table */
     void *data;                         /**< Opaque item value */
-    hashFreeCB freeFun;                 /**< Mem free func */
+    hashFreeCB freeFun;                 /**< Hash free callback */
     hlistNode node;                     /**< Hash list node */
 };
 
@@ -50,18 +53,18 @@ typedef struct _hashTable hashTable;
 typedef hashTable *hashTablePtr;
 
 struct _hashTable {
-    u_int currSize;                     /**< Num of items in hash table */
-    u_int totalSize;                    /**< Size of hash table */
+    u_int currSize;                     /**< Current size of hash table */
+    u_int totalSize;                    /**< Total size of hash table */
     u_int limit;                        /**< Limit of hash table */
     hlistHeadPtr heads;                 /**< Array of hlist_head */
 };
 
-static inline bool
+static inline BOOL
 hlistIsEmpty (const hlistHeadPtr head) {
     if (head->first == NULL)
-        return true;
+        return TRUE;
     else
-        return false;
+        return FALSE;
 }
 
 /* Delete hash node from hash list */
@@ -69,15 +72,19 @@ static inline void
 hlistDel (hlistNodePtr node) {
     hlistNodePtr next = node->next;
     hlistNodePtr *pprev = node->pprev;
-    *pprev = next;
+
+    if (pprev)
+        *pprev = next;
     if (next)
         next->pprev = pprev;
-    INIT_HLIST_NODE (node);
+
+    node->next = NULL;
+    node->pprev = NULL;
 }
 
-/* Add hash node to the head */
+/* Add hash node after head */
 static inline void
-hlistAddHead (hlistNodePtr node, hlistHeadPtr head) {
+hlistAdd (hlistNodePtr node, hlistHeadPtr head) {
     hlistNodePtr first = head->first;
     node->next = first;
     head->first = node;
@@ -86,12 +93,7 @@ hlistAddHead (hlistNodePtr node, hlistHeadPtr head) {
         first->pprev = &node->next;
 }
 
-/*
- * @brief Add hash node before specified node
- *
- * @param node node to add
- * @param nnode the specified node to insert before
- */
+/* Add hash node before nnode */
 static inline void
 hlistAddBefore (hlistNodePtr node, hlistNodePtr nnode) {
     node->pprev = nnode->pprev;
@@ -100,12 +102,7 @@ hlistAddBefore (hlistNodePtr node, hlistNodePtr nnode) {
     nnode->pprev = &node->next;
 }
 
-/*
- * @brief Add hash node after specified node
- *
- * @param node node to add
- * @param pnode the specified node to insert after
- */
+/* Add hash node after pnode */
 static inline void
 hlistAddAfter (hlistNodePtr node, hlistNodePtr pnode) {
     node->next = pnode->next;
@@ -115,52 +112,34 @@ hlistAddAfter (hlistNodePtr node, hlistNodePtr pnode) {
         node->next->pprev = &node->next;
 }
 
-/*
- * @brief Move a hash list from one list head to another. Fixup the pprev
- *        reference of the first entry if it exists
- *
- * @param old the old hash list head
- * @param new the new hash list head
- */
-static inline void
-hlistMoveList (hlistHeadPtr old, hlistHeadPtr new) {
-    new->first = old->first;
-    if(new->first)
-        new->first->pprev = &new->first;
-    old->first = NULL;
-}
-
+/* Get container of hash list node */
 #define hlistEntry(ptr, type, member)           \
     containerOfMember (ptr, type, member)
+
+/* Iterate over hash list */
 #define hlistForEach(pos, head)                     \
     for (pos = (head)->first; pos; pos = pos->next)
-/*
- * @brief Iterate over a hash list of given type
- *
- * @param tpos the type * to use as a loop cursor
- * @param pos the struct hlist_node & to use as a loop cursor
- * @param head the head of hash list
- * @param member the name the hlist_node within the type
- */
+
+/* Iterate over hash list of given type */
 #define hlistForEachEntry(tpos, pos, head, member)                      \
     for (tpos = NULL, pos = (head)->first;                              \
          pos && ({tpos = hlistEntry (pos, typeof (*tpos), member); 1;}); \
          pos = pos->next)
 
-/* Iterate over list of given type safe against removal of list entry */
-#define hlistForEachEntrySafe(tpos, pos, tmp, head, member)               \
+/* Iterate over hash list of given type safe version */
+#define hlistForEachEntrySafe(tpos, pos, tmp, head, member)             \
     for (tpos = NULL, pos = (head)->first;                              \
          pos && ({tmp = pos->next; 1;}) && ({tpos = hlistEntry (pos, typeof (*tpos), member); 1;}); \
          pos = tmp)
 
+/* Iterate over hash list of given type from pos */
 #define hlistForEachEntryFrom(tpos, pos, member)                        \
-    for (;                                                              \
-         pos && ({tpos = hlistEntry (pos, typeof (*tpos), member); 1;}); \
+    for (; pos && ({tpos = hlistEntry (pos, typeof (*tpos), member); 1;}); \
          pos = pos->next)
 
+/* Iterate over hash list of given type from pos safe version */
 #define hlistForEachEntryFromSafe(tpos, pos, tmp, member)               \
-    for (;                                                              \
-         pos && ({tmp = pos->next; 1;}) && ({tpos = hlistEntry (pos, typeof (*tpos), member); 1;}); \
+    for (; pos && ({tmp = pos->next; 1;}) && ({tpos = hlistEntry (pos, typeof (*tpos), member); 1;}); \
          pos = tmp)
 
 /*========================Interfaces definition============================*/

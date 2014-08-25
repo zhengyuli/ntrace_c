@@ -60,9 +60,9 @@ base64Encode (u_char *to, const u_char *from, u_int len) {
             *top++ = '=';
         *top++ = '=';
     }
-    
+
     *top = 0;
-    
+
     return top - to;
 }
 

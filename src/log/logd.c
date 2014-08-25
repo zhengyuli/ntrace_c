@@ -35,22 +35,20 @@ typedef logDev *logDevPtr;
  * you can add new log dev into logd service with log_dev_add
  */
 struct _logDev {
-listHead node;                      /**< Log dev list node of global log devices */
-void *data;                         /**< Log dev private data */
-
-/* Log dev file operations */
-int (*init) (logDevPtr dev);
-void (*destroy) (logDevPtr dev);
-void (*write) (const char *msg, logDevPtr dev, u_int flag);
+    listHead node;                      /**< Log dev list node of global log devices */
+    void *data;                         /**< Log dev private data */
+    int (*init) (logDevPtr dev);        /**< Log dev init operation */
+    void (*destroy) (logDevPtr dev);    /**< Log dev destroy operation */
+    void (*write) (const char *msg, logDevPtr dev, u_int flag); /**< Log dev write operation */
 };
 
 /* Flag test */
-static inline bool
+static inline BOOL
 flagOn (u_int flag, u_int bitMask) {
-if (flag & bitMask)
-    return true;
-else
-    return false;
+    if (flag & bitMask)
+        return TRUE;
+    else
+        return FALSE;
 }
 
 /*===========================Log file dev=================================*/
@@ -86,21 +84,21 @@ struct _logFile {
  *
  * @param filePath log file path to check
  *
- * @return true if oversize else FALE
+ * @return TRUE if oversize else FALE
  */
-static bool
+static BOOL
 logFileOversize (const char *filePath) {
     int ret;
     struct stat fileStat;
 
     ret = stat (filePath, &fileStat);
     if (ret < 0)
-        return true;
+        return TRUE;
 
     if (fileStat.st_size >= logFileMaxSize)
-        return true;
+        return TRUE;
     else
-        return false;
+        return FALSE;
 }
 
 /*
@@ -592,7 +590,7 @@ main (int argc, char *argv []) {
     int ret;
     char option;
     /* Daemon flag  */
-    bool runDaemon = false;
+    BOOL runDaemon = FALSE;
 
     if (getuid () != 0) {
         fprintf (stderr, "Permission denied, please run as root\n");
@@ -622,7 +620,7 @@ main (int argc, char *argv []) {
                 break;
 
             case 'D':
-                runDaemon = true;
+                runDaemon = TRUE;
                 break;
 
             case 'm':

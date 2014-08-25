@@ -85,12 +85,12 @@ defaultSessionProcessEstb (void *sd, timeValPtr tm) {
 }
 
 static void
-defaultSessionProcessUrgData (bool fromClient, char urgData, void *sd, timeValPtr tm) {
+defaultSessionProcessUrgData (BOOL fromClient, char urgData, void *sd, timeValPtr tm) {
     return;
 }
 
 static u_int
-defaultSessionProcessData (bool fromClient, u_char *data, u_int dataLen, void *sd, timeValPtr tm, bool *sessionDone) {
+defaultSessionProcessData (BOOL fromClient, u_char *data, u_int dataLen, void *sd, timeValPtr tm, BOOL *sessionDone) {
     defaultSessionDetailPtr dsd = (defaultSessionDetailPtr) sd;
 
     dsd->exchangeSize += dataLen;
@@ -98,21 +98,21 @@ defaultSessionProcessData (bool fromClient, u_char *data, u_int dataLen, void *s
 }
 
 static void
-defaultSessionProcessReset (bool fromClient, void *sd, timeValPtr tm) {
+defaultSessionProcessReset (BOOL fromClient, void *sd, timeValPtr tm) {
     defaultSessionDetailPtr dsd = (defaultSessionDetailPtr) sd;
 
     dsd->serverTimeEnd = timeVal2MilliSecond (tm);
 }
 
 static void
-defaultSessionProcessFin (bool fromClient, void *sd, timeValPtr tm, bool *sessionDone) {
+defaultSessionProcessFin (BOOL fromClient, void *sd, timeValPtr tm, BOOL *sessionDone) {
     defaultSessionDetailPtr dsd = (defaultSessionDetailPtr) sd;
 
     if (dsd->serverTimeEnd == 0)
         dsd->serverTimeEnd = timeVal2MilliSecond (tm);
     else {
         dsd->serverTimeEnd = timeVal2MilliSecond (tm);
-        *sessionDone = true;
+        *sessionDone = TRUE;
     }
 }
 

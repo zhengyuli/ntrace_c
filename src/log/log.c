@@ -20,10 +20,10 @@ static __thread logContextPtr logCtxt = NULL;
 
 /*
  * @brief Get log level from log message.
- * 
+ *
  * @param msg log message
  * @param level pointer to return log level
- * 
+ *
  * @return 0 if success else -1
  */
 static int
@@ -39,7 +39,7 @@ getLogLevel (const char *msg, u_int *level) {
 
 /*
  * @brief Write log message to console.
- * 
+ *
  * @param msg log message to write
  */
 void
@@ -150,7 +150,7 @@ doLog (char *file, u_int line, const char *func, const char *msg, ...) {
  * @brief Init thread local log context.
  *        It will create a thread local log context, every thread want to
  *        use log function must init log context before do logging.
- * @param logLevel Log level used to do logging 
+ * @param logLevel Log level used to do logging
  *
  * @return 0 if success else -1
  */

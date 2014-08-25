@@ -45,8 +45,8 @@ struct _halfStream {
     u_char urgSeen;                     /**< Half stream has new urg data flag */
     u_short urgPtr;                     /**< Half stream urg data pointer */
     u_short window;                     /**< Half stream current window size */
-    bool tsOn;                          /**< Half stream timestamp options on flag */
-    bool wscaleOn;                      /**< Half stream window scale options on flag */
+    BOOL tsOn;                          /**< Half stream timestamp options on flag */
+    BOOL wscaleOn;                      /**< Half stream window scale options on flag */
     u_int currTs;                       /**< Half stream current timestamp */
     u_short wscale;                     /**< Half stream window scale size */
     u_short mss;                        /**< Half stream MSS (Maxium Segment Size) */
@@ -105,7 +105,7 @@ struct _tcpStream {
     u_int zeroWindows;                  /**< Tcp zero windows */
     u_int dupAcks;                      /**< Tcp duplicate acks */
     void *sessionDetail;                /**< Appliction session detail */
-    bool inClosingTimeout;              /**< In closing timeout list */
+    BOOL inClosingTimeout;              /**< In closing timeout list */
     u_long_long closeTime;              /**< Tcp close time */
     listHead node;                      /**< Tcp stream list node */
 };

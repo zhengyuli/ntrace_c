@@ -67,21 +67,21 @@ listReplace (listHeadPtr old, listHeadPtr new) {
 }
 
 /* Check whether node is the tail node of list.  */
-static inline BOOL
+static inline boolean
 listIsTail (const listHeadPtr node, const listHeadPtr head) {
     if (node->next == head)
-        return TRUE;
+        return true;
     else
-        return FALSE;
+        return false;
 }
 
 /* Check whether list is empty */
-static inline BOOL
+static inline boolean
 listIsEmpty (const listHeadPtr head) {
     if (head->next == head)
-        return TRUE;
+        return true;
     else
-        return FALSE;
+        return false;
 }
 
 /* Get offset of member in type */

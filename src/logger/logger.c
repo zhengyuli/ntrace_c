@@ -4,7 +4,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <czmq.h>
-#include "log.h"
+#include "logger.h"
 
 typedef struct _logContext logContext;
 typedef logContext *logContextPtr;

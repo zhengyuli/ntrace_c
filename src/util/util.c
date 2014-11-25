@@ -68,31 +68,31 @@ htonll (u_long_long src) {
 }
 
 /* Compare strings without case sensitive */
-BOOL
+boolean
 strEqualIgnoreCase (const char *str1, const char *str2) {
     if (strlen (str1) != strlen (str2))
-        return FALSE;
+        return false;
     else {
         while (*str1) {
             if (tolower (*str1) != tolower (*str2))
-                return FALSE;
+                return false;
             str1++;
             str2++;
         }
-        return TRUE;
+        return true;
     }
 }
 
 /* Compare strings with case sensitive */
-BOOL
+boolean
 strEqual (const char *str1, const char *str2) {
     if (strlen (str1) != strlen (str2))
-        return FALSE;
+        return false;
 
     if (!strcmp (str1, str2))
-        return TRUE;
+        return true;
     else
-        return FALSE;
+        return false;
 }
 
 /* Read safe version */
@@ -135,28 +135,28 @@ safeWrite (int fd, const void *buf, size_t count) {
 }
 
 /* Check whether file exists */
-BOOL
+boolean
 fileExists (const char *path) {
     if (access (path, F_OK))
-        return FALSE;
+        return false;
     else
-        return TRUE;
+        return true;
 }
 
 /* Check whether file is empty */
-BOOL
+boolean
 fileIsEmpty (const char *path) {
     int ret;
     struct stat st;
 
     ret = stat(path, &st);
     if (ret < 0)
-        return TRUE;
+        return true;
 
     if (!st.st_size)
-        return TRUE;
+        return true;
     else
-        return FALSE;
+        return false;
 }
 
 /*

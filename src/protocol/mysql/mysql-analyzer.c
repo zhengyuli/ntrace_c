@@ -6,7 +6,7 @@
 #include <pthread.h>
 #include <jansson.h>
 #include "util.h"
-#include "log.h"
+#include "logger.h"
 #include "mysql-analyzer.h"
 
 #define PKT_WRONG_TYPE    0
@@ -15,7 +15,7 @@
 /* Current timestamp */
 static __thread timeValPtr currTime;
 /* Current session done flag */
-static __thread BOOL currSessionDone;
+static __thread boolean currSessionDone;
 /* Current mysql session detail */
 static __thread mysqlSessionDetailPtr currSessionDetail;
 /* Mysql parser state map */
@@ -54,7 +54,7 @@ lenencInt (u_char *pkt, u_int *len) {
 /* =================================Handshake================================= */
 
 static int
-pktServerHandshake (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOOL fromClient) {
+pktServerHandshake (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, boolean fromClient) {
     u_int caps;
     u_int srvVer;
     u_short status;
@@ -77,9 +77,9 @@ pktServerHandshake (mysqlParserStatePtr parser, u_char *payload, u_int payloadLe
     pkt += strlen ((const char *) pkt) + 1;
     srvVer = (parser->serverVer [0] - '0') * 10 + (parser->serverVer [2] - '0');
     if (srvVer >= 41)
-        parser->cliProtoV41 = TRUE;
+        parser->cliProtoV41 = true;
     else
-        parser->cliProtoV41 = FALSE;
+        parser->cliProtoV41 = false;
     /* Connection id */
     parser->conId = G4 (pkt);
     pkt += 4;
@@ -103,7 +103,7 @@ pktServerHandshake (mysqlParserStatePtr parser, u_char *payload, u_int payloadLe
 }
 
 static int
-pktClientHandshake (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOOL fromClient) {
+pktClientHandshake (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, boolean fromClient) {
     u_int caps;
     u_char cs;
     char *db;
@@ -159,8 +159,8 @@ pktClientHandshake (mysqlParserStatePtr parser, u_char *payload, u_int payloadLe
     }
 
     parser->cliCaps = caps;
-    parser->doSSL = ((caps & CLIENT_SSL) ? TRUE : FALSE);
-    parser->doCompress = ((caps & CLIENT_COMPRESS) ? TRUE : FALSE);
+    parser->doSSL = ((caps & CLIENT_SSL) ? true : false);
+    parser->doCompress = ((caps & CLIENT_COMPRESS) ? true : false);
 
     LOGD ("Cli------>Server: client handshake packet, user name: %s, doCompress: %s.\n",
           parser->userName, parser->doCompress ? "Yes" : "No");
@@ -168,7 +168,7 @@ pktClientHandshake (mysqlParserStatePtr parser, u_char *payload, u_int payloadLe
 }
 
 static int
-pktSecureAuth (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOOL fromClient) {
+pktSecureAuth (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, boolean fromClient) {
     u_char *pkt = payload;
 
     if ((*pkt == 0x00) || (*pkt == 0xFF))
@@ -186,7 +186,7 @@ pktSecureAuth (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BO
 /* ==================================Request================================== */
 
 static int
-pktComX (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOOL fromClient) {
+pktComX (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, boolean fromClient) {
     u_int pktEventMatch;
     u_char *pkt = payload;
 
@@ -262,7 +262,7 @@ pktComX (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOOL fro
 }
 
 static int
-pktInitDB (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOOL fromClient) {
+pktInitDB (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, boolean fromClient) {
     u_int argsLen;
     char com [128] = {0};
     u_char *pkt = payload;
@@ -282,7 +282,7 @@ pktInitDB (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOOL f
 }
 
 static int
-pktQuery (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOOL fromClient) {
+pktQuery (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, boolean fromClient) {
     u_int argsLen;
     char com [4096] = {0};
     u_char *pkt = payload;
@@ -302,7 +302,7 @@ pktQuery (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOOL fr
 }
 
 static int
-pktFieldList (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOOL fromClient) {
+pktFieldList (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, boolean fromClient) {
     u_int argsLen;
     u_int tableLen;
     char com [128] = {0};
@@ -324,7 +324,7 @@ pktFieldList (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOO
 }
 
 static int
-pktCreateDB (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOOL fromClient) {
+pktCreateDB (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, boolean fromClient) {
     u_int argsLen;
     char com [128] = {0};
     u_char *pkt = payload;
@@ -344,7 +344,7 @@ pktCreateDB (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOOL
 }
 
 static int
-pktDropDB (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOOL fromClient) {
+pktDropDB (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, boolean fromClient) {
     u_int argsLen;
     char com [128] = {0};
     u_char *pkt = payload;
@@ -364,7 +364,7 @@ pktDropDB (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOOL f
 }
 
 static int
-pktRefresh (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOOL fromClient) {
+pktRefresh (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, boolean fromClient) {
     char com [128] = {0};
     u_char *pkt = payload;
 
@@ -379,7 +379,7 @@ pktRefresh (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOOL 
 }
 
 static int
-pktShutdown (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOOL fromClient) {
+pktShutdown (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, boolean fromClient) {
     char com [128] = {0};
     u_char *pkt = payload;
 
@@ -397,7 +397,7 @@ pktShutdown (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOOL
 }
 
 static int
-pktProcessKill (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOOL fromClient) {
+pktProcessKill (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, boolean fromClient) {
     char com [128] = {0};
     u_char *pkt = payload;
 
@@ -412,7 +412,7 @@ pktProcessKill (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, B
 }
 
 static int
-pktChangeUser (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOOL fromClient) {
+pktChangeUser (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, boolean fromClient) {
     char com [128] = {0};
     u_char *pkt = payload;
 
@@ -427,7 +427,7 @@ pktChangeUser (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BO
 }
 
 static int
-pktRegisterSlave (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOOL fromClient) {
+pktRegisterSlave (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, boolean fromClient) {
     char com [128] = {0};
     u_char *pkt = payload;
 
@@ -442,7 +442,7 @@ pktRegisterSlave (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen,
 }
 
 static int
-pktStmtPrepare (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOOL fromClient) {
+pktStmtPrepare (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, boolean fromClient) {
     u_int argsLen;
     char com [128] = {0};
     u_char *pkt = payload;
@@ -462,7 +462,7 @@ pktStmtPrepare (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, B
 }
 
 static int
-pktStmtX (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOOL fromClient) {
+pktStmtX (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, boolean fromClient) {
     char com [128] = {0};
     u_char *pkt = payload;
 
@@ -479,7 +479,7 @@ pktStmtX (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOOL fr
 }
 
 static int
-pktSetOption (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOOL fromClient) {
+pktSetOption (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, boolean fromClient) {
     char com [128] = {0};
     u_char *pkt = payload;
 
@@ -494,7 +494,7 @@ pktSetOption (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOO
 }
 
 static int
-pktStmtFetch (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOOL fromClient) {
+pktStmtFetch (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, boolean fromClient) {
     char com [128] = {0};
     u_char *pkt = payload;
 
@@ -513,7 +513,7 @@ pktStmtFetch (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOO
 /* =================================Response================================== */
 
 static int
-pktOkOrError (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOOL fromClient) {
+pktOkOrError (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, boolean fromClient) {
     u_int len;
     u_long_long rows;
     u_long_long insertId;
@@ -563,7 +563,7 @@ pktOkOrError (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOO
         if (currSessionDetail->reqStmt) {
             currSessionDetail->state = MYSQL_RESPONSE_OK;
             currSessionDetail->respTimeEnd = timeVal2MilliSecond (currTime);
-            currSessionDone = TRUE;
+            currSessionDone = true;
         } else {
             resetMysqlSessionDetail (currSessionDetail);
             LOGD ("Cli<------Server: OK packet.\n");
@@ -605,7 +605,7 @@ pktOkOrError (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOO
             if (*sqlState)
                 currSessionDetail->sqlState = atoi (sqlState);
             currSessionDetail->errMsg = strdup (errMsg);
-            currSessionDone = TRUE;
+            currSessionDone = true;
         } else {
             resetMysqlSessionDetail (currSessionDetail);
             LOGD ("Cli<------Server: ERROR packet, error code: %d, error msg: %s.\n", errCode, errMsg);
@@ -617,7 +617,7 @@ pktOkOrError (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOO
 }
 
 static int
-pktEnd (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOOL fromClient) {
+pktEnd (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, boolean fromClient) {
     u_short warn = 0;
     u_short status = 0;
     u_char *pkt = payload;
@@ -647,7 +647,7 @@ pktEnd (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOOL from
         (parser->state == STATE_BIN_ROW)) {
         currSessionDetail->state = MYSQL_RESPONSE_OK;
         currSessionDetail->respTimeEnd = timeVal2MilliSecond (currTime);
-        currSessionDone = TRUE;
+        currSessionDone = true;
     }
 
     if ((parser->state == STATE_SECURE_AUTH) && fromClient)
@@ -657,11 +657,11 @@ pktEnd (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOOL from
 }
 
 static int
-pktStatistics (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOOL fromClient) {
+pktStatistics (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, boolean fromClient) {
     if (payloadLen > 1) {
         currSessionDetail->respTimeEnd = timeVal2MilliSecond (currTime);
         currSessionDetail->state = MYSQL_RESPONSE_OK;
-        currSessionDone = TRUE;
+        currSessionDone = true;
 
         return PKT_HANDLED;
     } else
@@ -669,7 +669,7 @@ pktStatistics (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BO
 }
 
 static int
-pktNFields (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOOL fromClient) {
+pktNFields (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, boolean fromClient) {
     u_int len;
     u_long_long count;
     u_char *pkt = payload;
@@ -682,7 +682,7 @@ pktNFields (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOOL 
 }
 
 static int
-pktField (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOOL fromClient) {
+pktField (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, boolean fromClient) {
     u_char *pkt = payload;
 
     if (*pkt == 0xFE)
@@ -692,7 +692,7 @@ pktField (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOOL fr
 }
 
 static int
-pktRow (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOOL fromClient) {
+pktRow (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, boolean fromClient) {
     u_char *pkt = payload;
 
     /* EOF packet */
@@ -703,7 +703,7 @@ pktRow (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOOL from
 }
 
 static int
-pktBinaryRow (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOOL fromClient) {
+pktBinaryRow (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, boolean fromClient) {
     u_char *pkt = payload;
 
     if (*pkt != 0x00)
@@ -713,7 +713,7 @@ pktBinaryRow (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOO
 }
 
 static int
-pktStmtMeta (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOOL fromClient) {
+pktStmtMeta (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, boolean fromClient) {
     if (payloadLen != 12)
         return PKT_WRONG_TYPE;
 
@@ -721,7 +721,7 @@ pktStmtMeta (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOOL
 }
 
 static int
-pktStmtFetchRS (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOOL fromClient) {
+pktStmtFetchRS (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, boolean fromClient) {
     u_char *pkt = payload;
 
     if ((*pkt == 0x00) || (*pkt == 0xFF))
@@ -733,7 +733,7 @@ pktStmtFetchRS (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, B
 /* =================================Response================================== */
 
 static u_int
-sqlParse (mysqlParserStatePtr parser, u_char *data, u_int dataLen, BOOL fromClient) {
+sqlParse (mysqlParserStatePtr parser, u_char *data, u_int dataLen, boolean fromClient) {
     u_int parseCount = 0;
     u_int parseLeft = dataLen;
     u_char *pkt;
@@ -783,7 +783,7 @@ sqlParse (mysqlParserStatePtr parser, u_char *data, u_int dataLen, BOOL fromClie
 }
 
 static u_int
-mysqlParserExecute (mysqlParserStatePtr parser, u_char *data, u_int dataLen, BOOL fromClient) {
+mysqlParserExecute (mysqlParserStatePtr parser, u_char *data, u_int dataLen, boolean fromClient) {
     u_int parseCount = 0;
     u_int parseLeft = dataLen;
     u_char *compPkt;
@@ -1196,11 +1196,11 @@ initMysqlParser (mysqlParserStatePtr parser) {
     parser->protoVer = 0;
     parser->serverVer = NULL;
     parser->cliCaps = 0;
-    parser->cliProtoV41 = FALSE;
+    parser->cliProtoV41 = false;
     parser->conId = 0;
     parser->maxPktSize = 0;
-    parser->doCompress = FALSE;
-    parser->doSSL = FALSE;
+    parser->doCompress = false;
+    parser->doSSL = false;
     parser->userName = NULL;
     parser->seqId = 0;
     parser->state = STATE_NOT_CONNECTED;
@@ -1481,16 +1481,16 @@ mysqlSessionProcessEstb (void *sd, timeValPtr tm) {
 }
 
 static void
-mysqlSessionProcessUrgData (BOOL fromClient, char urgData, void *sd, timeValPtr tm) {
+mysqlSessionProcessUrgData (boolean fromClient, char urgData, void *sd, timeValPtr tm) {
     return;
 }
 
 static u_int
-mysqlSessionProcessData (BOOL fromClient, u_char *data, u_int dataLen, void *sd, timeValPtr tm, BOOL *sessionDone) {
+mysqlSessionProcessData (boolean fromClient, u_char *data, u_int dataLen, void *sd, timeValPtr tm, boolean *sessionDone) {
     u_int parseCount;
 
     currTime = tm;
-    currSessionDone = FALSE;
+    currSessionDone = false;
     currSessionDetail = (mysqlSessionDetailPtr) sd;
 
     parseCount = mysqlParserExecute (&currSessionDetail->parser, data, dataLen, fromClient);
@@ -1500,7 +1500,7 @@ mysqlSessionProcessData (BOOL fromClient, u_char *data, u_int dataLen, void *sd,
 }
 
 static void
-mysqlSessionProcessReset (BOOL fromClient, void *sd, timeValPtr tm) {
+mysqlSessionProcessReset (boolean fromClient, void *sd, timeValPtr tm) {
     mysqlSessionDetailPtr msd = (mysqlSessionDetailPtr) sd;
 
     if (msd->state == MYSQL_REQUEST_BEGIN)
@@ -1516,7 +1516,7 @@ mysqlSessionProcessReset (BOOL fromClient, void *sd, timeValPtr tm) {
 }
 
 static void
-mysqlSessionProcessFin (BOOL fromClient, void *sd, timeValPtr tm, BOOL *sessionDone) {
+mysqlSessionProcessFin (boolean fromClient, void *sd, timeValPtr tm, boolean *sessionDone) {
     return;
 }
 

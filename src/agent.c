@@ -13,7 +13,7 @@
 #include "config.h"
 #include "util.h"
 #include "atomic.h"
-#include "log.h"
+#include "logger.h"
 #include "task-manager.h"
 #include "service-manager.h"
 #include "raw-packet.h"
@@ -69,11 +69,11 @@ static pcap_t *pcapDesc = NULL;
 /* Pcap link type */
 static int linkType = -1;
 /* Agent SIGUSR1 interrupt flag */
-static BOOL agentInterrupted = FALSE;
+static boolean agentInterrupted = false;
 
 static void
 sigUser1Handler (int signo) {
-    agentInterrupted = TRUE;
+    agentInterrupted = true;
 }
 
 static inline void
@@ -1030,7 +1030,7 @@ agentRun (void) {
     taskId tid;
 
     /* Restore agent interrupt flag */
-    agentInterrupted = FALSE;
+    agentInterrupted = false;
 
     tid = newTask (rawPktCaptureService, ipPktPushSock);
     if (tid < 0) {
@@ -1701,8 +1701,8 @@ showHelpInfo (const char *cmd) {
 static int
 parseCmdline (int argc, char *argv []) {
     char option;
-    BOOL showVersion = FALSE;
-    BOOL showHelp = FALSE;
+    boolean showVersion = false;
+    boolean showHelp = false;
 
     while ((option = getopt_long (argc, argv, "Dm:l:vh?", agentOptions, NULL)) != -1) {
         switch (option) {
@@ -1723,11 +1723,11 @@ parseCmdline (int argc, char *argv []) {
                 break;
 
             case 'v':
-                showVersion = TRUE;
+                showVersion = true;
                 break;
 
             case 'h':
-                showHelp = TRUE;
+                showHelp = true;
                 break;
 
             case '?':

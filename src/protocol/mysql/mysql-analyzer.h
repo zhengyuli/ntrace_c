@@ -220,18 +220,18 @@ struct _mysqlParserState {
     u_int protoVer;                     /**< Mysql protocol version */
     char *serverVer;                    /**< Mysql server version */
     u_int cliCaps;                      /**< Mysql client capability flags */
-    BOOL cliProtoV41;                   /**< Mysql client protocol V41 flag */
+    boolean cliProtoV41;                   /**< Mysql client protocol V41 flag */
     u_int conId;                        /**< Mysql connection id */
     u_int maxPktSize;                   /**< Mysq max packet size support */
-    BOOL doCompress;                    /**< Mysql client do compression flag */
-    BOOL doSSL;                         /**< Mysql client authentication with SSL flag */
+    boolean doCompress;                    /**< Mysql client do compression flag */
+    boolean doSSL;                         /**< Mysql client authentication with SSL flag */
     char *userName;                     /**< Mysql user name to access */
     u_int seqId;                        /**< Mysql sequence id */
     mysqlState state;                   /**< Mysql session state */
     mysqlEvent event;                   /**< Mysql session event */
 };
 
-typedef int (*mysqlHandler) (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, BOOL fromClient);
+typedef int (*mysqlHandler) (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, boolean fromClient);
 
 #define MYSQL_MAX_EVENTS_PER_STATE 32
 

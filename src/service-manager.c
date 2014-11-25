@@ -8,7 +8,7 @@
 #include <jansson.h>
 #include <pthread.h>
 #include "util.h"
-#include "log.h"
+#include "logger.h"
 #include "hash.h"
 #include "service-manager.h"
 

@@ -5,14 +5,14 @@
 #include <czmq.h>
 #include <string.h>
 #include "util.h"
-#include "log.h"
+#include "logger.h"
 
 #define MAX_PID_TABLE_SIZE 100
 
 /* Log server ip */
 static char *logServerIp = NULL;
 /* Display log with detail info */
-static BOOL showInDetail  = FALSE;
+static boolean showInDetail  = false;
 /* Process name to filter */
 static char *procName = NULL;
 /* Log level to filter */
@@ -26,28 +26,28 @@ static zctx_t *zmqContext = NULL;
 static void *subSock = NULL;
 
 /* Check log level is valid */
-static BOOL
+static boolean
 checkLogLevel (const char *logLevel) {
     if (strEqual ("ERR", logLevel) ||
         strEqual ("WARNING", logLevel) ||
         strEqual ("INFO", logLevel) ||
         strEqual ("DEBUG", logLevel))
-        return TRUE;
+        return true;
     else
-        return FALSE;
+        return false;
 }
 
 /* Check pid table is equal */
-static BOOL
+static boolean
 pidTableIsEqual (pid_t pidTable1 [], pid_t pidTable2 [], u_int size) {
     u_int i;
 
     for (i = 0; i < size; i++) {
         if (pidTable1 [i] != pidTable2 [i])
-            return FALSE;
+            return false;
     }
 
-    return TRUE;
+    return true;
 }
 
 static inline void

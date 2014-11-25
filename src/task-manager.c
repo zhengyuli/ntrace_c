@@ -4,7 +4,7 @@
 #include <string.h>
 #include <pthread.h>
 #include <signal.h>
-#include "log.h"
+#include "logger.h"
 #include "hash.h"
 #include "task-manager.h"
 

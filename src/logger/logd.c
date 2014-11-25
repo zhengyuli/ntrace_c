@@ -14,7 +14,7 @@
 #include <locale.h>
 #include "util.h"
 #include "list.h"
-#include "log.h"
+#include "logger.h"
 
 #define LOG_TO_FILE_MASK (1 << 0)
 #define LOG_TO_NET_MASK (1 << 1)
@@ -43,12 +43,12 @@ struct _logDev {
 };
 
 /* Flag test */
-static inline BOOL
+static inline boolean
 flagOn (u_int flag, u_int bitMask) {
     if (flag & bitMask)
-        return TRUE;
+        return true;
     else
-        return FALSE;
+        return false;
 }
 
 /*===========================Log file dev=================================*/
@@ -84,21 +84,21 @@ struct _logFile {
  *
  * @param filePath log file path to check
  *
- * @return TRUE if oversize else FALE
+ * @return true if oversize else FALE
  */
-static BOOL
+static boolean
 logFileOversize (const char *filePath) {
     int ret;
     struct stat fileStat;
 
     ret = stat (filePath, &fileStat);
     if (ret < 0)
-        return TRUE;
+        return true;
 
     if (fileStat.st_size >= logFileMaxSize)
-        return TRUE;
+        return true;
     else
-        return FALSE;
+        return false;
 }
 
 /*
@@ -373,7 +373,7 @@ logDevDestroy (void) {
 }
 
 static int
-lockPidFile (void) {
+tryLockPidFile (void) {
     pid_t pid;
     ssize_t n;
     char buf [16] = {0};
@@ -416,7 +416,7 @@ unlockPidFile (void) {
 }
 
 static int
-logdRun (void) {
+logdRun (boolean lockPidFile) {
     int ret;
     char *msg;
     zctx_t *context;
@@ -437,7 +437,7 @@ logdRun (void) {
     };
 
     /* Lock pid file */
-    if (lockPidFile () < 0)
+    if (lockPidFile && tryLockPidFile () < 0)
         return -1;
 
     context = zctx_new ();
@@ -538,7 +538,7 @@ logdDaemon (void) {
             next_pid = fork ();
             switch (next_pid) {
                 case 0:
-                    return logdRun ();
+                    return logdRun (true);
 
                 case -1:
                     return -1;
@@ -590,7 +590,7 @@ main (int argc, char *argv []) {
     int ret;
     char option;
     /* Daemon flag  */
-    BOOL runDaemon = FALSE;
+    boolean runDaemon = false;
 
     if (getuid () != 0) {
         fprintf (stderr, "Permission denied, please run as root\n");
@@ -599,7 +599,7 @@ main (int argc, char *argv []) {
 
     /* Set locale */
     setlocale(LC_COLLATE,"");
-    while ((option = getopt_long (argc, argv, "d:f:Dh?", logdOptions, NULL)) != -1) {
+    while ((option = getopt_long (argc, argv, "d:f:Dm:p:r:h?", logdOptions, NULL)) != -1) {
         switch (option) {
             case 'd':
                 logFileDir = strdup (optarg);
@@ -620,7 +620,7 @@ main (int argc, char *argv []) {
                 break;
 
             case 'D':
-                runDaemon = TRUE;
+                runDaemon = true;
                 break;
 
             case 'm':
@@ -681,7 +681,7 @@ main (int argc, char *argv []) {
         ret = logdDaemon ();
     }
     else
-        ret = logdRun ();
+        ret = logdRun (false);
 
 exit:
     free (logFileDir);

@@ -4,13 +4,13 @@
 #include <stdlib.h>
 #include <jansson.h>
 #include "util.h"
-#include "log.h"
+#include "logger.h"
 #include "http-analyzer.h"
 
 /* Current timestamp */
 static __thread timeValPtr currTime;
 /* Current session done indicator */
-static __thread BOOL currSessionDone;
+static __thread boolean currSessionDone;
 /* Current http header type */
 static __thread httpHeaderType currHeaderType;
 /* Current http session detail */
@@ -22,15 +22,15 @@ newHttpSessionDetailNode (void);
 static void
 freeHttpSessionDetailNode (httpSessionDetailNodePtr hsdn);
 
-static inline BOOL
+static inline boolean
 httpHeaderEqualWithLen (const char *hdr1, const char *hdr2, size_t hdr2Len) {
     if (strlen (hdr1) != hdr2Len)
-        return FALSE;
+        return false;
 
     if (!strncmp(hdr1, hdr2, hdr2Len))
-        return TRUE;
+        return true;
     else
-        return FALSE;
+        return false;
 }
 
 /* =====================================Http_parser callback===================================== */
@@ -331,7 +331,7 @@ onRespMessageComplete (http_parser *parser) {
 
     currNode->state = HTTP_RESPONSE_BODY_COMPLETE;
     currNode->respTimeEnd = timeVal2MilliSecond (currTime);
-    currSessionDone = TRUE;
+    currSessionDone = true;
 
     return 0;
 }
@@ -863,16 +863,16 @@ httpSessionProcessEstb (void *sd, timeValPtr tm) {
 }
 
 static void
-httpSessionProcessUrgData (BOOL fromClient, char urgData, void *sd, timeValPtr tm) {
+httpSessionProcessUrgData (boolean fromClient, char urgData, void *sd, timeValPtr tm) {
     return;
 }
 
 static u_int
-httpSessionProcessData (BOOL fromClient, u_char *data, u_int dataLen, void *sd, timeValPtr tm, BOOL *sessionDone) {
+httpSessionProcessData (boolean fromClient, u_char *data, u_int dataLen, void *sd, timeValPtr tm, boolean *sessionDone) {
     u_int parseCount;
 
     currTime = tm;
-    currSessionDone = FALSE;
+    currSessionDone = false;
     currHeaderType = HTTP_HEADER_IGNORE;
     currSessionDetail = (httpSessionDetailPtr) sd;
 
@@ -888,7 +888,7 @@ httpSessionProcessData (BOOL fromClient, u_char *data, u_int dataLen, void *sd, 
 }
 
 static void
-httpSessionProcessReset (BOOL fromClient, void *sd, timeValPtr tm) {
+httpSessionProcessReset (boolean fromClient, void *sd, timeValPtr tm) {
     httpSessionDetailNodePtr currNode;
     httpSessionDetailPtr hsd = (httpSessionDetailPtr) sd;
 
@@ -920,7 +920,7 @@ httpSessionProcessReset (BOOL fromClient, void *sd, timeValPtr tm) {
 }
 
 static void
-httpSessionProcessFin (BOOL fromClient, void *sd, timeValPtr tm, BOOL *sessionDone) {
+httpSessionProcessFin (boolean fromClient, void *sd, timeValPtr tm, boolean *sessionDone) {
     httpSessionDetailNodePtr currNode;
     httpSessionDetailPtr hsd = (httpSessionDetailPtr) sd;
 
@@ -932,7 +932,7 @@ httpSessionProcessFin (BOOL fromClient, void *sd, timeValPtr tm, BOOL *sessionDo
         if (currNode->state == HTTP_RESPONSE_BODY_BEGIN) {
             currNode->state = HTTP_RESPONSE_BODY_COMPLETE;
             currNode->respTimeEnd = timeVal2MilliSecond (tm);
-            *sessionDone = TRUE;
+            *sessionDone = true;
         }
     }
 }

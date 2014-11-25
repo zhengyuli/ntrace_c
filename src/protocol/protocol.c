@@ -1,7 +1,7 @@
 #include <jansson.h>
 #include "util.h"
 #include "hash.h"
-#include "log.h"
+#include "logger.h"
 #include "protocol.h"
 
 /* Protocol parser definitions */

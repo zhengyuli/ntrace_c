@@ -10,7 +10,7 @@
 #include "util.h"
 #include "list.h"
 #include "hash.h"
-#include "log.h"
+#include "logger.h"
 #include "checksum.h"
 #include "service-manager.h"
 #include "ip-options.h"
@@ -212,23 +212,23 @@ checkIpQueueExpireTimeoutList (timeValPtr tm) {
 }
 
 /* Check ipQueue done state */
-static BOOL
+static boolean
 ipQueueDone (ipQueuePtr ipq) {
     ipFragPtr pos, tmp;
     u_short offset;
 
     if (!ipq->dataLen)
-        return FALSE;
+        return false;
 
     /* Init offset */
     offset = 0;
     listForEachEntrySafe (pos, tmp, &ipq->fragments, node) {
         if (pos->offset != offset)
-            return FALSE;
+            return false;
         offset = pos->end;
     }
 
-    return TRUE;
+    return true;
 }
 
 /*
@@ -300,7 +300,7 @@ checkIpHeader (struct ip *iph) {
 }
 
 /* Check whether ip packet should be filter */
-static BOOL
+static boolean
 pktShouldBeFilter (struct ip *iphdr) {
     struct tcphdr *tcph;
     char key1 [32] = {0};
@@ -312,11 +312,11 @@ pktShouldBeFilter (struct ip *iphdr) {
         snprintf (key1, sizeof (key1) - 1, "%s:%d", inet_ntoa (iphdr->ip_src), ntohs (tcph->source));
         snprintf (key2, sizeof (key2) - 1, "%s:%d", inet_ntoa (iphdr->ip_dst), ntohs (tcph->dest));
         if (lookupServiceProtoType (key1) != PROTO_UNKNOWN || lookupServiceProtoType (key2) != PROTO_UNKNOWN)
-            return TRUE;
+            return true;
         else
-            return FALSE;
+            return false;
     } else
-        return TRUE;
+        return true;
 }
 
 /*

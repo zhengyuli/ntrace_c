@@ -4,11 +4,11 @@
 #include <netinet/tcp.h>
 
 /*========================Interfaces definition============================*/
-BOOL
+boolean
 getTimeStampOption (struct tcphdr *tcph, u_int *ts);
-BOOL
+boolean
 getTcpWindowScaleOption (struct tcphdr *tcph, u_short *ws);
-BOOL
+boolean
 getTcpMssOption (struct tcphdr *tcph, u_short *mss);
 /*=======================Interfaces definition end=========================*/
 

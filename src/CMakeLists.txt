@@ -17,7 +17,7 @@ INCLUDE_DIRECTORIES (
   protocol/http
   protocol/mysql
   util
-  log
+  logger
   3rd-party/http_parser
   ${PROJECT_BINARY_DIR})
 
@@ -25,7 +25,7 @@ SET (AGENT_SOURCE_FILES
   agent.c
   util/util.c
   util/hash.c
-  log/log.c
+  logger/logger.c
   checksum.c
   task-manager.c
   service-manager.c
@@ -46,4 +46,4 @@ INSTALL (
   TARGETS ${ROOT_PROJECT_LOWER}-agent
   DESTINATION ${AGENT_BIN_DIR})
 
-ADD_SUBDIRECTORY (log)
+ADD_SUBDIRECTORY (logger)

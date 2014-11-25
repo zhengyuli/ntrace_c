@@ -3,7 +3,7 @@
 #include <arpa/inet.h>
 #include <stdlib.h>
 #include <string.h>
-#include "log.h"
+#include "logger.h"
 #include "ssl-packet.h"
 
 static char *priKeyFile = NULL;

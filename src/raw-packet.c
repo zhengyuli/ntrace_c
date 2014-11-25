@@ -1,6 +1,6 @@
 #include <sys/types.h>
 #include <pcap.h>
-#include "log.h"
+#include "logger.h"
 
 /*
  * @brief Extract ip packet from raw packet

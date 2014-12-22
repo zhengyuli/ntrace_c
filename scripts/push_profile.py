@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 
 #---------------------------------------------------------------------------------
-# Name: push-profile.py
+# Name: push_profile.py
 # Purpose:
 #
-# Time-stamp: <2014-05-25 00:37:11 Sunday by lzy>
+# Time-stamp: <2014-12-23 13:43:32 Tuesday by lzy>
 #
 # Author: zhengyu li
 # Created: 24 May 2014
@@ -23,10 +23,10 @@ service1 ['service_ip'] = '210.28.129.4'
 service1 ['service_port'] = 80
 serviceList = [service1]
 pushProfileBody = {}
-pushProfileBody ['agent-id'] = '12345'
+pushProfileBody ['agent_id'] = '12345'
 pushProfileBody ['services'] = serviceList
 pushProfileDict = {}
-pushProfileDict ['command'] = 'push-profile'
+pushProfileDict ['command'] = 'push_profile'
 pushProfileDict ['body'] = pushProfileBody
 pushProfileJson = json.dumps (pushProfileDict)
 print pushProfileJson

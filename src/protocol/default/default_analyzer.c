@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <jansson.h>
 #include "util.h"
-#include "default-analyzer.h"
+#include "default_analyzer.h"
 
 static int
 initDefaultProto (void) {

@@ -5,7 +5,7 @@
 #include <jansson.h>
 #include "util.h"
 #include "logger.h"
-#include "http-analyzer.h"
+#include "http_analyzer.h"
 
 /* Current timestamp */
 static __thread timeValPtr currTime;

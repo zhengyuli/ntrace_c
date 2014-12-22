@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 
 #---------------------------------------------------------------------------------
-# Name: stop-agent.py
+# Name: stop_agent.py
 # Purpose:
 #
-# Time-stamp: <2014-05-25 00:28:02 Sunday by lzy>
+# Time-stamp: <2014-12-23 13:43:32 Tuesday by lzy>
 #
 # Author: zhengyu li
 # Created: 24 May 2014
@@ -16,9 +16,9 @@ import json
 import zmq
 
 stopAgentBody = {}
-stopAgentBody ['agent-id'] = '12345'
+stopAgentBody ['agent_id'] = '12345'
 stopAgentDict = {}
-stopAgentDict ['command'] = 'stop-agent'
+stopAgentDict ['command'] = 'stop_agent'
 stopAgentDict ['body'] = stopAgentBody
 stopAgentJson = json.dumps (stopAgentDict)
 print stopAgentJson

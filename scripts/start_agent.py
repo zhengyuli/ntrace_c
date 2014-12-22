@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 
 #---------------------------------------------------------------------------------
-# Name: remove-agent.py
+# Name: start_agent.py
 # Purpose:
 #
-# Time-stamp: <2014-05-25 00:27:24 Sunday by lzy>
+# Time-stamp: <2014-12-23 13:43:32 Tuesday by lzy>
 #
 # Author: zhengyu li
 # Created: 24 May 2014
@@ -15,16 +15,16 @@
 import json
 import zmq
 
-removeAgentBody = {}
-removeAgentBody ['agent-id'] = '12345'
-removeAgentDict = {}
-removeAgentDict ['command'] = 'remove-agent'
-removeAgentDict ['body'] = removeAgentBody
-removeAgentJson = json.dumps (removeAgentDict)
-print removeAgentJson
+startAgentBody = {}
+startAgentBody ['agent_id'] = '12345'
+startAgentDict = {}
+startAgentDict ['command'] = 'start_agent'
+startAgentDict ['body'] = startAgentBody
+startAgentJson = json.dumps (startAgentDict)
+print startAgentJson
 
 context = zmq.Context ()
 request = context.socket (zmq.REQ)
 request.connect ("tcp://127.0.0.1:59000")
-request.send_json (removeAgentDict)
+request.send_json (startAgentDict)
 print request.recv_json ()

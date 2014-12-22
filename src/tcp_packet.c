@@ -17,9 +17,9 @@
 #include "logger.h"
 #include "atomic.h"
 #include "checksum.h"
-#include "service-manager.h"
-#include "tcp-options.h"
-#include "tcp-packet.h"
+#include "service_manager.h"
+#include "tcp_options.h"
+#include "tcp_packet.h"
 #include "protocol.h"
 
 /* Default tcp stream closing timeout 30 seconds */
@@ -176,7 +176,7 @@ lookupTcpStreamFromHash (tuple4Ptr addr) {
  * @return 0 if success else -1
  */
 static int
-addTcpStreamToHash (tcpStreamPtr stream, hashFreeCB freeFun) {
+addTcpStreamToHash (tcpStreamPtr stream, hashItemFreeCB freeFun) {
     int ret;
     tuple4Ptr addr;
     char key [64] = {0};
@@ -443,7 +443,7 @@ addNewTcpStream (struct tcphdr *tcph, struct ip *iph, timeValPtr tm) {
      * percent of tcpStreamHashTable limit size then remove the oldest tcp stream
      * from global tcp stream list.
      */
-    if (hashSize (tcpStreamHashTable) >= (hashLimit (tcpStreamHashTable) * 0.8)) {
+    if (hashSize (tcpStreamHashTable) >= (hashCapacityLimit (tcpStreamHashTable) * 0.8)) {
         listFirstEntry (tmp, &tcpStreamList, node);
         delTcpStreamFromHash (tmp);
     }

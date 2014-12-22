@@ -1,9 +1,9 @@
 CMAKE_MINIMUM_REQUIRED (VERSION 2.8.0)
 
 SET (AGENT_CONFIG_FILE  ${AGENT_CONFIG_DIR}/agent.conf)
-SET (AGENT_PID_FILE  /var/run/${ROOT_PROJECT_LOWER}-agent.pid)
+SET (AGENT_PID_FILE  /var/run/${ROOT_PROJECT_LOWER}_agent.pid)
 SET (AGENT_RUN_DIR /var/run/${ROOT_PROJECT_LOWER})
-SET (AGENT_STATE_CACHE_FILE ${AGENT_RUN_DIR}/agent-state.cache)
+SET (AGENT_CONTEXT_CACHE_DB ${AGENT_RUN_DIR}/context_cache.json)
 
 # Configuration header file
 configure_file (
@@ -18,7 +18,7 @@ INCLUDE_DIRECTORIES (
   protocol/mysql
   util
   logger
-  3rd-party/http_parser
+  3rd_party/http_parser
   ${PROJECT_BINARY_DIR})
 
 SET (AGENT_SOURCE_FILES
@@ -27,23 +27,25 @@ SET (AGENT_SOURCE_FILES
   util/hash.c
   logger/logger.c
   checksum.c
-  task-manager.c
-  service-manager.c
-  raw-packet.c
-  ip-options.c
-  ip-packet.c
-  tcp-options.c
-  tcp-packet.c
+  task_manager.c
+  context_cache.c
+  service.c
+  service_manager.c
+  raw_packet.c
+  ip_options.c
+  ip_packet.c
+  tcp_options.c
+  tcp_packet.c
   protocol/protocol.c
-  protocol/default/default-analyzer.c
-  protocol/http/http-analyzer.c
-  protocol/mysql/mysql-analyzer.c
-  3rd-party/http_parser/http_parser.c)
+  protocol/default/default_analyzer.c
+  protocol/http/http_analyzer.c
+  protocol/mysql/mysql_analyzer.c
+  3rd_party/http_parser/http_parser.c)
 
-ADD_EXECUTABLE (${ROOT_PROJECT_LOWER}-agent ${AGENT_SOURCE_FILES})
-TARGET_LINK_LIBRARIES (${ROOT_PROJECT_LOWER}-agent pcap czmq hiredis pthread ini_config z jansson)
+ADD_EXECUTABLE (${ROOT_PROJECT_LOWER}_agent ${AGENT_SOURCE_FILES})
+TARGET_LINK_LIBRARIES (${ROOT_PROJECT_LOWER}_agent pcap czmq hiredis pthread ini_config z jansson)
 INSTALL (
-  TARGETS ${ROOT_PROJECT_LOWER}-agent
+  TARGETS ${ROOT_PROJECT_LOWER}_agent
   DESTINATION ${AGENT_BIN_DIR})
 
 ADD_SUBDIRECTORY (logger)

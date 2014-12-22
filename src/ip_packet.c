@@ -12,9 +12,9 @@
 #include "hash.h"
 #include "logger.h"
 #include "checksum.h"
-#include "service-manager.h"
-#include "ip-options.h"
-#include "ip-packet.h"
+#include "service_manager.h"
+#include "ip_options.h"
+#include "ip_packet.h"
 
 #define MAX_IP_PACKET_SIZE 65535
 /* Default expire timeout of ipQueue is 30 seconds */
@@ -127,7 +127,7 @@ updateIpQueueExpireTimeout (ipQueuePtr ipq, timeValPtr tm) {
 }
 
 static int
-addIpQueueToHash (ipQueuePtr ipq, hashFreeCB fun) {
+addIpQueueToHash (ipQueuePtr ipq, hashItemFreeCB fun) {
     int ret;
     char key [64] = {0};
 

@@ -32,11 +32,9 @@ node->next = NULL;
 node->pprev = NULL;
 }
 
-/* Callback functions */
-typedef void (*hashFreeCB) (void *item);
+/* Callback function definitions */
+typedef void (*hashItemFreeCB) (void *item);
 typedef int (*hashForEachItemDoCB) (void *item, void *args);
-typedef boolean (*hashForEachItemRemoveWithConditionCB) (void *item, void *args);
-typedef void * (*hashForEachItemCheckCB) (void *item, void *args);
 
 typedef struct _hashItem hashItem;
 typedef hashItem *hashItemPtr;
@@ -45,7 +43,7 @@ struct _hashItem {
     char *key;                          /**< Key string used to compute hash value */
     u_int index;                        /**< Index in hash table */
     void *data;                         /**< Opaque item value */
-    hashFreeCB freeFun;                 /**< Hash free callback */
+    hashItemFreeCB freeFun;             /**< Hash item free callback */
     hlistNode node;                     /**< Hash list node */
 };
 
@@ -53,9 +51,9 @@ typedef struct _hashTable hashTable;
 typedef hashTable *hashTablePtr;
 
 struct _hashTable {
-    u_int currSize;                     /**< Current size of hash table */
-    u_int totalSize;                    /**< Total size of hash table */
-    u_int limit;                        /**< Limit of hash table */
+    u_int size;                         /**< Size of hash table */
+    u_int capacity;                     /**< Capacity of hash table */
+    u_int limit;                        /**< Capacity Limit of hash table */
     hlistHeadPtr heads;                 /**< Array of hlist_head */
 };
 
@@ -150,9 +148,9 @@ hashClean (hashTablePtr htbl);
 void
 hashDestroy (hashTablePtr htbl);
 int
-hashInsert (hashTablePtr htbl, const char *key, void *data, hashFreeCB fun);
+hashInsert (hashTablePtr htbl, const char *key, void *data, hashItemFreeCB fun);
 int
-hashUpdate (hashTablePtr htbl, const char *key, void *data, hashFreeCB fun);
+hashUpdate (hashTablePtr htbl, const char *key, void *data, hashItemFreeCB fun);
 int
 hashDel (hashTablePtr htbl, const char *key);
 void *
@@ -162,13 +160,9 @@ hashRename (hashTablePtr htbl, const char *old_key, const char *new_key);
 u_int
 hashSize (hashTablePtr htbl);
 u_int
-hashLimit (hashTablePtr htbl);
+hashCapacityLimit (hashTablePtr htbl);
 int
 hashForEachItemDo (hashTablePtr htbl, hashForEachItemDoCB fun, void *args);
-void
-hashForEachItemRemoveWithCondition (hashTablePtr htbl, hashForEachItemRemoveWithConditionCB fun, void *args);
-void *
-hashForEachItemCheck (hashTablePtr htbl, hashForEachItemCheckCB fun, void *args);
 /*=======================Interfaces definition end=========================*/
 
 #endif /* __AGENT_HASH_H__ */

@@ -6,7 +6,7 @@
 #include <signal.h>
 #include "logger.h"
 #include "hash.h"
-#include "task-manager.h"
+#include "task_manager.h"
 
 static hashTablePtr taskManagerHashTable = NULL;
 
@@ -69,6 +69,7 @@ void
 stopAllTask (void) {
     hashForEachItemDo (taskManagerHashTable, stopTaskForEachHashItem, NULL);
     hashClean (taskManagerHashTable);
+    /* Wait for all tasks exit completely */
     sleep (1);
 }
 

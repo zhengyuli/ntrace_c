@@ -4,7 +4,7 @@
 # Name: heartbeat.py
 # Purpose:
 #
-# Time-stamp: <2014-05-25 00:26:46 Sunday by lzy>
+# Time-stamp: <2014-12-23 13:40:25 Tuesday by lzy>
 #
 # Author: zhengyu li
 # Created: 24 May 2014
@@ -16,7 +16,7 @@ import json
 import zmq
 
 heartbeatBody = {}
-heartbeatBody ['agent-id'] = '12345'
+heartbeatBody ['agent_id'] = '12345'
 heartbeatDict = {}
 heartbeatDict ['command'] = 'heartbeat'
 heartbeatDict ['body'] = heartbeatBody

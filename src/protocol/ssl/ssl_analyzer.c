@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "logger.h"
-#include "ssl-packet.h"
+#include "ssl_packet.h"
 
 static char *priKeyFile = NULL;
 static char *priKeyPwd = NULL;

@@ -7,7 +7,7 @@
 #include <jansson.h>
 #include "util.h"
 #include "logger.h"
-#include "mysql-analyzer.h"
+#include "mysql_analyzer.h"
 
 #define PKT_WRONG_TYPE    0
 #define PKT_HANDLED       1

@@ -2,7 +2,7 @@
 #include <arpa/inet.h>
 #include <netinet/tcp.h>
 #include "util.h"
-#include "tcp-options.h"
+#include "tcp_options.h"
 
 /*
  * @brief Get tcp timestamp option

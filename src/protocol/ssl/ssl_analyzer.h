@@ -5,7 +5,7 @@
 #include "util.h"
 #include "hash.h"
 #include "data.h"
-#incldue "ssl-ciphersuites.h"
+#incldue "ssl_ciphersuites.h"
 
 typedef struct _sslRecDecoder sslRecDecoder;
 typedef sslRecDecoder *sslRecDecoderPtr;

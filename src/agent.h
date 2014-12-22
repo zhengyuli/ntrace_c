@@ -6,12 +6,12 @@
 #include "util.h"
 
 /* Agent management command */
-#define AGENT_MANAGEMENT_CMD_ADD_AGENT "add-agent"
-#define AGENT_MANAGEMENT_CMD_REMOVE_AGENT "remove-agent"
-#define AGENT_MANAGEMENT_CMD_START_AGENT "start-agent"
-#define AGENT_MANAGEMENT_CMD_STOP_AGENT "stop-agent"
+#define AGENT_MANAGEMENT_CMD_ADD_AGENT "add_agent"
+#define AGENT_MANAGEMENT_CMD_REMOVE_AGENT "remove_agent"
+#define AGENT_MANAGEMENT_CMD_START_AGENT "start_agent"
+#define AGENT_MANAGEMENT_CMD_STOP_AGENT "stop_agent"
 #define AGENT_MANAGEMENT_CMD_HEARTBEAT "heartbeat"
-#define AGENT_MANAGEMENT_CMD_PUSH_PROFILE "push-profile"
+#define AGENT_MANAGEMENT_CMD_PUSH_PROFILE "push_profile"
 
 /* Agent management success response */
 #define AGENT_MANAGEMENT_RESPONSE_SUCCESS 0
@@ -32,26 +32,6 @@ struct _agentConfig {
     boolean daemonMode;                    /**< Run as daemon */
     char *mirrorInterface;              /**< Mirror interface */
     u_int logLevel;                     /**< Log level */
-};
-
-/* Agent state */
-typedef enum {
-    AGENT_STATE_INIT,                   /**< Agent init state */
-    AGENT_STATE_STOPPED,                /**< Agent stopped state */
-    AGENT_STATE_RUNNING,                /**< Agent running state */
-    AGENT_STATE_ERROR                   /**< Agent error state */
-} agentState;
-
-typedef struct _agentStateCache agentStateCache;
-typedef agentStateCache *agentStateCachePtr;
-
-/* Agent state cache */
-struct _agentStateCache {
-    agentState state;                   /**< Agent state */
-    char *agentId;                      /**< Agent id */
-    char *pushIp;                       /**< Agent push ip */
-    u_short pushPort;                   /**< Agent push port */
-    json_t *services;                   /**< Agent services */
 };
 
 typedef struct _dispatchRouter dispatchRouter;

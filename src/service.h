@@ -1,10 +1,10 @@
-#ifndef __AGENT_SERVICE_MANAGER_H__
-#define __AGENT_SERVICE_MANAGER_H__
+#ifndef __AGENT_SERVICE_H__
+#define __AGENT_SERVICE_H__
 
 #include <stdlib.h>
+#include <jansson.h>
 #include "protocol.h"
 
-/* This structure is used to describe a tcp service */
 typedef struct _service service;
 typedef service *servicePtr;
 
@@ -16,19 +16,14 @@ struct _service {
 };
 
 /*========================Interfaces definition============================*/
-int
-updateService (json_t *services);
-protoType
-lookupServiceProtoType (const char *key);
-char *
-getServiceFilter (void);
+servicePtr
+newService (void);
 void
-cleanupServiceManager (void);
-int
-initServiceManager (void);
+freeService (void *data);
 void
-destroyServiceManager (void);
+displayServiceDetail (servicePtr svc);
+servicePtr
+json2Service (json_t *json);
 /*=======================Interfaces definition end=========================*/
 
-#endif /* __AGENT_SERVICE_MANAGER_H__ */
-
+#endif /* __AGENT_SERVICE_H__ */

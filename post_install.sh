@@ -4,7 +4,7 @@
 # Name: post_install.sh
 # Purpose:
 #
-# Time-stamp: <2014-08-21 19:30:19 Thursday by lzy>
+# Time-stamp: <2014-12-22 19:24:17 Monday by lzy>
 #
 # Author: zhengyu li
 # Created: 2014-03-27

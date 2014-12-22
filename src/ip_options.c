@@ -1,7 +1,7 @@
 #include <string.h>
 #include <netinet/ip.h>
 #include "util.h"
-#include "ip-options.h"
+#include "ip_options.h"
 
 /*
  * @brief Check ip header options

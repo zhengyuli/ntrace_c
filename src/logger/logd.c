@@ -42,7 +42,7 @@ struct _logDev {
     void (*write) (const char *msg, logDevPtr dev, u_int flag); /**< Log dev write operation */
 };
 
-/* Flag test */
+/* Flag check */
 static inline boolean
 flagOn (u_int flag, u_int bitMask) {
     if (flag & bitMask)
@@ -102,7 +102,7 @@ logFileOversize (const char *filePath) {
 }
 
 /*
- * @brief Rotate log file based on logFileRotationCount.
+ * @brief Rotate log file.
  *
  * @param logFileName log file name to ratate
  *

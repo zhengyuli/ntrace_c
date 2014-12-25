@@ -12,7 +12,7 @@
 #include "hash.h"
 #include "logger.h"
 #include "checksum.h"
-#include "service_manager.h"
+#include "app_service_manager.h"
 #include "ip_options.h"
 #include "ip_packet.h"
 
@@ -30,7 +30,7 @@ static LIST_HEAD (ipQueueExpireTimeoutList);
 static hashTablePtr ipQueueHashTable = NULL;
 
 static void
-displayIphdr (const struct ip *iph) {
+indentIphdr (const struct ip *iph) {
     u_short offset, flags;
 
     offset = ntohs (iph->ip_off);
@@ -311,7 +311,7 @@ pktShouldBeFilter (struct ip *iphdr) {
 
         snprintf (key1, sizeof (key1) - 1, "%s:%d", inet_ntoa (iphdr->ip_src), ntohs (tcph->source));
         snprintf (key2, sizeof (key2) - 1, "%s:%d", inet_ntoa (iphdr->ip_dst), ntohs (tcph->dest));
-        if (lookupServiceProtoType (key1) != PROTO_UNKNOWN || lookupServiceProtoType (key2) != PROTO_UNKNOWN)
+        if (lookupAppServiceProtoType (key1) != PROTO_UNKNOWN || lookupAppServiceProtoType (key2) != PROTO_UNKNOWN)
             return true;
         else
             return false;
@@ -364,8 +364,8 @@ ipDefrag (struct ip *iph, timeValPtr tm, struct ip **newIph) {
     }
 
 #ifndef NDEBUG
-    /* Display ip fragment header information */
-    displayIphdr (iph);
+    /* Indent ip fragment header information */
+    indentIphdr (iph);
 #endif
 
     if (ipq == NULL) {

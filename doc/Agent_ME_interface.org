@@ -1,4 +1,4 @@
-#+TITLE: Agent-ME restful interface
+#+TITLE: Agent_ME restful interface
 #+AUTHOR: zhengyu li
 #+OPTIONS: ^:nil \n:t
 
@@ -8,11 +8,11 @@ Http request url: http://host:port/post-command
 ** request:
 #+BEGIN_SRC js
   {
-      "command":"add-agent"
+      "command":"add_agent"
       "body":{
-          "ip":"192.168.1.100"
-          "port":"4499"
-          "agent-id":"1"
+          "agent_id":"1"
+          "push_ip":"192.168.1.100"
+          "push_port":"4499"
       }
   }
 #+END_SRC
@@ -31,9 +31,9 @@ Http request url: http://host:port/post-command
 ** request:
 #+BEGIN_SRC js
   {
-      "command":"remove-agent"
+      "command":"remove_agent"
       "body":{
-          "agent-id":"1"
+          "agent_id":"1"
       }
   }
 #+END_SRC
@@ -49,9 +49,9 @@ Http request url: http://host:port/post-command
 ** request:
 #+BEGIN_SRC js
   {
-      "command":"start-agent"
+      "command":"start_agent"
       "body":{
-          "agent-id":"1"
+          "agent_id":"1"
       }
   }
 #+END_SRC
@@ -67,9 +67,9 @@ Http request url: http://host:port/post-command
 ** request:
 #+BEGIN_SRC js
   {
-      "command":"stop-agent"
+      "command":"stop_agent"
       "body":{
-          "agent-id":"1"
+          "agent_id":"1"
       }
   }
 #+END_SRC
@@ -85,9 +85,9 @@ Http request url: http://host:port/post-command
 ** request:
 #+BEGIN_SRC js
   {
-      "command":"heart-beat"
+      "command":"heartbeat"
       "body":{
-          "agent-id":"1"
+          "agent_id":"1"
       }
   }
 #+END_SRC
@@ -101,14 +101,15 @@ Http request url: http://host:port/post-command
       }
   }
 #+END_SRC
+
 * Push profile
 ** request:
 #+BEGIN_SRC js
   {
-      "command":"push-profile"
+      "command":"push_profile"
       "body":{
-          "agent-id":"1"
-          "service-list":[{"service-id":"1" ...}, {"service-id":"2" ...}]
+          "agent_id":"1"
+          "app_services":[{"service_id":"1" ...}, {"service_id":"2" ...}]
       }
   }
 #+END_SRC

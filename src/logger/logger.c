@@ -3,7 +3,9 @@
 #include <time.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/types.h>
 #include <czmq.h>
+#include "util.h"
 #include "logger.h"
 
 typedef struct _logContext logContext;
@@ -62,11 +64,12 @@ logToConsole (const char *msg, ...) {
  * @param msg Real log message
  */
 void
-doLog (char *file, u_int line, const char *func, const char *msg, ...) {
+doLog (char *filePath, u_int line, const char *func, const char *msg, ...) {
     int ret;
     u_int level;
     u_int flag;
     va_list va;
+    char *fileName;
     const char *message;
     time_t seconds;
     struct tm *localTime;
@@ -84,9 +87,9 @@ doLog (char *file, u_int line, const char *func, const char *msg, ...) {
 
     seconds = time (NULL);
     localTime = localtime (&seconds);
-    snprintf (timeStr, sizeof (timeStr) - 1, "%02d:%02d:%02d %02d/%02d/%04d",
-              localTime->tm_hour, localTime->tm_min, localTime->tm_sec,
-              localTime->tm_mon + 1, localTime->tm_mday, (localTime->tm_year + 1900));
+    snprintf (timeStr, sizeof (timeStr) - 1, "%04d-%02d-%02d %02d:%02d:%02d",
+              (localTime->tm_year + 1900), localTime->tm_mon + 1, localTime->tm_mday,
+              localTime->tm_hour, localTime->tm_min, localTime->tm_sec);
 
     ret = getLogLevel (msg, &level);
     if (ret < 0) {
@@ -129,8 +132,10 @@ doLog (char *file, u_int line, const char *func, const char *msg, ...) {
     else
         flag = LOG_TO_NET_TAG;
 
-    snprintf (buf, sizeof (buf) - 1, "%u[pid:%u %s]:[%s] <file=%s:line=%u:func_name=%s>:%s",
-              flag, getpid (), logLevel, timeStr, file, line, func, tmp);
+    fileName = strrchr (filePath, '/') + 1;
+    snprintf (buf, sizeof (buf) - 1, "%u %s[thread:%u]#>%s [thread:%u] %s file=%s (line=%u, func=%s): %s",
+              flag, LOG_MESSAGE_INDICATOR, gettid (), timeStr, gettid (), logLevel, fileName,
+              line, func, tmp);
     buf [sizeof (buf) - 1] = 0;
 
     frame = zframe_new ((void *) buf, strlen (buf));

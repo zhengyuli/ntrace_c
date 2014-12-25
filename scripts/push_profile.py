@@ -4,7 +4,7 @@
 # Name: push_profile.py
 # Purpose:
 #
-# Time-stamp: <2014-12-23 13:43:32 Tuesday by lzy>
+# Time-stamp: <2014-12-25 08:13:46 Thursday by lzy>
 #
 # Author: zhengyu li
 # Created: 24 May 2014
@@ -15,19 +15,21 @@
 import json
 import zmq
 
+appService1 = {}
+appService1 ['id'] = 1
+appService1 ['proto'] = 'HTTP'
+appService1 ['ip'] = '210.28.129.4'
+appService1 ['port'] = 80
 
-service1 = {}
-service1 ['service_id'] = 1
-service1 ['service_proto'] = 'HTTP'
-service1 ['service_ip'] = '210.28.129.4'
-service1 ['service_port'] = 80
-serviceList = [service1]
 pushProfileBody = {}
 pushProfileBody ['agent_id'] = '12345'
-pushProfileBody ['services'] = serviceList
+appServiceList = [appService1]
+pushProfileBody ['app_services'] = appServiceList
+
 pushProfileDict = {}
 pushProfileDict ['command'] = 'push_profile'
 pushProfileDict ['body'] = pushProfileBody
+
 pushProfileJson = json.dumps (pushProfileDict)
 print pushProfileJson
 

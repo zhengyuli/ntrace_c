@@ -69,7 +69,7 @@ subLog (void) {
     if (procName) {
         if (pidTableCount) {
             for (index = 0; index < pidTableCount; index++) {
-                snprintf (filter, sizeof (filter) - 1, "[pid:%d", pidTable [index]);
+                snprintf (filter, sizeof (filter) - 1, "[thread:%u", pidTable [index]);
                 zsocket_set_subscribe (subSock, filter);
             }
         } else {
@@ -202,9 +202,11 @@ parseCmdline (int argc, char *argv []) {
                 break;
 
             case 'h':
-            default:
                 showHelp (argv [0]);
-                ret = -1;
+                exit (0);
+
+            default:
+                return -1;
         }
     }
 
@@ -257,7 +259,7 @@ logServerIsRunning (const char *ip) {
 int
 main (int argc, char *argv []) {
     int ret;
-    char *logMsg, *tmp;
+    char *logMsg, *realLogMsg;
 
     /* Parse command line */
     ret = parseCmdline (argc, argv);
@@ -297,22 +299,14 @@ main (int argc, char *argv []) {
 
     while (!zctx_interrupted) {
         logMsg = zstr_recv (subSock);
-        if (logMsg) {
-            if (logLevel && strstr (logMsg, logLevel)) {
-                if (showInDetail)
-                    printf ("%s", logMsg);
-                else {
-                    tmp = strstr (logMsg, ">:");
-                    printf ("%s", (tmp + 2));
-                }
-            } else {
-                if (showInDetail)
-                    printf ("%s", logMsg);
-                else {
-                    tmp = strstr (logMsg, ">:");
-                    printf ("%s", (tmp + 2));
-                }
-            }
+
+        if (logMsg && ((logLevel == NULL) ||
+                       (logLevel && strstr (logMsg, logLevel)))) {
+            if (showInDetail)
+                realLogMsg = strstr (logMsg, LOG_REAL_MESSAGE_INDICATOR) + strlen (LOG_REAL_MESSAGE_INDICATOR);
+            else
+                realLogMsg = strstr (logMsg, "): ") + strlen ("): ");
+            printf ("%s", realLogMsg);
             free (logMsg);
         }
     }

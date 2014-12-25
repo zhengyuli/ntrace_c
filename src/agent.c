@@ -14,9 +14,9 @@
 #include "util.h"
 #include "atomic.h"
 #include "logger.h"
-#include "context_cache.h"
+#include "runtime_context.h"
 #include "task_manager.h"
-#include "service_manager.h"
+#include "app_service_manager.h"
 #include "raw_packet.h"
 #include "ip_packet.h"
 #include "tcp_packet.h"
@@ -45,8 +45,8 @@
 static int agentPidFd = -1;
 /* Agent configuration instance */
 static agentConfigPtr agentConfigInstance = NULL;
-/* Context cache instance */
-static contextCachePtr agentContextCacheInstance = NULL;
+/* Runtime context instance */
+static runtimeContextPtr agentRuntimeContextInstance = NULL;
 /* Shared status push socket */
 static void *sharedStatusPushSock = NULL;
 /* Shared status push socket mutex lock */
@@ -430,21 +430,21 @@ rawPktCaptureService (void *args) {
         goto destroyPcapDesc;
     }
 
-    /* Get service filter */
-    filter = getServicesFilter ();
+    /* Get application service filter */
+    filter = getAppServicesFilter ();
     if (filter == NULL) {
-        LOGE ("Get service filter error.\n");
+        LOGE ("Get application service filter error.\n");
         goto destroyPcapDesc;
     }
 
-    /* Set service filter */
+    /* Set application services filter */
     ret = updateFilter (filter);
     if (ret < 0) {
-        LOGE ("Update filter error.\n");
+        LOGE ("Update application services filter error.\n");
         free (filter);
         goto destroyPcapDesc;
     }
-    LOGD ("Update filter: %s\n", filter);
+    LOGD ("Update application services filter: %s\n", filter);
     free (filter);
 
     while (!agentInterrupted)
@@ -640,9 +640,9 @@ tcpPktParsingService (void *args) {
     /* Set sessionBreakdownPushSock sndhwm to 50,000 */
     zsocket_set_sndhwm (sessionBreakdownPushSock, 50000);
     ret = zsocket_connect (sessionBreakdownPushSock, "tcp://%s:%u",
-                           agentContextCacheInstance->pushIp, agentContextCacheInstance->pushPort);
+                           agentRuntimeContextInstance->pushIp, agentRuntimeContextInstance->pushPort);
     if (ret < 0) {
-        LOGE ("Connect to tcp://%s:%u error.\n", agentContextCacheInstance->pushIp, agentContextCacheInstance->pushPort);
+        LOGE ("Connect to tcp://%s:%u error.\n", agentRuntimeContextInstance->pushIp, agentRuntimeContextInstance->pushPort);
         goto destroyCtxt;
     }
 
@@ -733,7 +733,7 @@ checkAgentId (json_t *profile) {
     if (tmp == NULL)
         return -1;
 
-    if (!strEqual (agentContextCacheInstance->agentId, json_string_value (tmp)))
+    if (!strEqual (agentRuntimeContextInstance->agentId, json_string_value (tmp)))
         return -1;
 
     return 0;
@@ -750,7 +750,7 @@ static int
 addAgent (json_t *profile) {
     json_t *tmp;
 
-    if (agentContextCacheInstance->state != CONTEXT_CACHE_STATE_INIT) {
+    if (agentRuntimeContextInstance->state != AGENT_STATE_INIT) {
         LOGE ("Add agent error: agent already added.\n");
         return -1;
     }
@@ -762,33 +762,33 @@ addAgent (json_t *profile) {
         return -1;
     }
 
-    /* Update context cache state */
-    agentContextCacheInstance->state = CONTEXT_CACHE_STATE_STOPPED;
+    /* Update runtime context state */
+    agentRuntimeContextInstance->state = AGENT_STATE_STOPPED;
 
     /* Get agent id */
     tmp = json_object_get (profile, "agent_id");
-    agentContextCacheInstance->agentId = strdup (json_string_value (tmp));
-    if (agentContextCacheInstance->agentId == NULL) {
+    agentRuntimeContextInstance->agentId = strdup (json_string_value (tmp));
+    if (agentRuntimeContextInstance->agentId == NULL) {
         LOGE ("Get agent id error.\n");
-        resetContextCache (agentContextCacheInstance);
+        resetRuntimeContext (agentRuntimeContextInstance);
         return -1;
     }
 
-    /* Get context cache push ip */
+    /* Get runtime context push ip */
     tmp = json_object_get (profile, "push_ip");
-    agentContextCacheInstance->pushIp = strdup (json_string_value (tmp));
-    if (agentContextCacheInstance->pushIp == NULL) {
+    agentRuntimeContextInstance->pushIp = strdup (json_string_value (tmp));
+    if (agentRuntimeContextInstance->pushIp == NULL) {
         LOGE ("Get push ip error.\n");
-        resetContextCache (agentContextCacheInstance);
+        resetRuntimeContext (agentRuntimeContextInstance);
         return -1;
     }
 
-    /* Get context cache push port */
+    /* Get runtime context push port */
     tmp = json_object_get (profile, "push_port");
-    agentContextCacheInstance->pushPort = json_integer_value (tmp);
+    agentRuntimeContextInstance->pushPort = json_integer_value (tmp);
 
-    /* Sync context cache */
-    syncContextCache (agentContextCacheInstance);
+    /* Sync runtime context */
+    dumpRuntimeContext (agentRuntimeContextInstance);
 
     return 0;
 }
@@ -805,7 +805,7 @@ static int
 removeAgent (json_t *profile) {
     int ret;
 
-    if (agentContextCacheInstance->state == CONTEXT_CACHE_STATE_RUNNING) {
+    if (agentRuntimeContextInstance->state == AGENT_STATE_RUNNING) {
         LOGE ("Agent is running, please stop it before removing.\n");
         return -1;
     }
@@ -816,12 +816,12 @@ removeAgent (json_t *profile) {
         return -1;
     }
 
-    /* Cleanup service manager */
-    cleanServiceManager ();
-    /* Reset context cache */
-    resetContextCache (agentContextCacheInstance);
-    /* Sync context cache */
-    syncContextCache (agentContextCacheInstance);
+    /* Cleanup application service manager */
+    cleanAppServiceManager ();
+    /* Reset runtime context */
+    resetRuntimeContext (agentRuntimeContextInstance);
+    /* Sync runtime context */
+    dumpRuntimeContext (agentRuntimeContextInstance);
 
     return 0;
 }
@@ -862,7 +862,7 @@ stopAllTask:
 }
 
 /*
- * @brief Start agent if agent state is CONTEXT_CACHE_STATE_STOPPED
+ * @brief Start agent if agent state is AGENT_STATE_STOPPED
  *
  * @param profile start agent profile
  *
@@ -872,12 +872,12 @@ static int
 startAgent (json_t *profile) {
     int ret;
 
-    if (agentContextCacheInstance->state == CONTEXT_CACHE_STATE_INIT) {
+    if (agentRuntimeContextInstance->state == AGENT_STATE_INIT) {
         LOGE ("Agent is not ready now.\n");
         return -1;
     }
 
-    if (agentContextCacheInstance->state == CONTEXT_CACHE_STATE_RUNNING) {
+    if (agentRuntimeContextInstance->state == AGENT_STATE_RUNNING) {
         LOGE ("Agent is running now.\n");
         return -1;
     }
@@ -895,9 +895,9 @@ startAgent (json_t *profile) {
     }
 
     /* Update agent state */
-    agentContextCacheInstance->state = CONTEXT_CACHE_STATE_RUNNING;
-    /* Sync context cache */
-    syncContextCache (agentContextCacheInstance);
+    agentRuntimeContextInstance->state = AGENT_STATE_RUNNING;
+    /* Sync runtime context */
+    dumpRuntimeContext (agentRuntimeContextInstance);
 
     return 0;
 }
@@ -913,7 +913,7 @@ static int
 stopAgent (json_t *profile) {
     int ret;
 
-    if (agentContextCacheInstance->state != CONTEXT_CACHE_STATE_RUNNING) {
+    if (agentRuntimeContextInstance->state != AGENT_STATE_RUNNING) {
         LOGE ("Agent is not running.\n");
         return -1;
     }
@@ -927,9 +927,9 @@ stopAgent (json_t *profile) {
     stopAllTask ();
 
     /* Update agent state */
-    agentContextCacheInstance->state = CONTEXT_CACHE_STATE_STOPPED;
-    /* Sync context cache */
-    syncContextCache (agentContextCacheInstance);
+    agentRuntimeContextInstance->state = AGENT_STATE_STOPPED;
+    /* Sync runtime context */
+    dumpRuntimeContext (agentRuntimeContextInstance);
 
     return 0;
 }
@@ -965,9 +965,9 @@ static int
 pushProfile (json_t *profile) {
     int ret;
     char *filter;
-    json_t *services;
+    json_t *appServices;
 
-    if (agentContextCacheInstance->state == CONTEXT_CACHE_STATE_INIT) {
+    if (agentRuntimeContextInstance->state == AGENT_STATE_INIT) {
         LOGE ("Agent has not been added.\n");
         return -1;
     }
@@ -978,43 +978,48 @@ pushProfile (json_t *profile) {
         return -1;
     }
 
-    services = json_object_get (profile, "services");
-    if ((services == NULL) || !json_is_array (services)) {
-        LOGE ("Get services error.\n");
+    appServices = json_object_get (profile, "app_services");
+    if ((appServices == NULL) || !json_is_array (appServices)) {
+        LOGE ("Get application services error.\n");
         return -1;
     }
 
-    json_object_clear (agentContextCacheInstance->services);
-    agentContextCacheInstance->services = json_deep_copy (services);
-
-    /* Update service */
-    ret = updateServiceManager (agentContextCacheInstance->services);
+    /* Update application services for runtime context */
+    ret = updateRuntimeContextAppServices (agentRuntimeContextInstance, appServices);
     if (ret < 0) {
-        LOGE ("Update service error.\n");
+        LOGE ("Update application services for runtime context error.\n");
         return -1;
     }
 
-    /* Update filter */
-    if (agentContextCacheInstance->state == CONTEXT_CACHE_STATE_RUNNING) {
-        filter = getServicesFilter ();
+    /* Update application services error for application service manager */
+    ret = updateAppServiceManager (agentRuntimeContextInstance->appServices,
+                                   agentRuntimeContextInstance->appServiceCount);
+    if (ret < 0) {
+        LOGE ("Update application services error for application service manager.\n");
+        return -1;
+    }
+
+    /* Update application services filter */
+    if (agentRuntimeContextInstance->state == AGENT_STATE_RUNNING) {
+        filter = getAppServicesFilter ();
         if (filter == NULL) {
-            LOGE ("Get service filter error.\n");
+            LOGE ("Get application services filter error.\n");
             return -1;
         }
 
         ret = updateFilter (filter);
         if (ret < 0) {
-            LOGE ("Update filter error.\n");
+            LOGE ("Update application services filter error.\n");
             free (filter);
             return -1;
         }
-        LOGD ("Update filter: %s\n", filter);
+        LOGD ("Update application services filter: %s\n", filter);
         free (filter);
     }
-    
-    /* Sync context cache */
-    syncContextCache (agentContextCacheInstance);
-    
+
+    /* Sync runtime context */
+    dumpRuntimeContext (agentRuntimeContextInstance);
+
     return 0;
 }
 
@@ -1041,7 +1046,7 @@ buildAgentManagementResponse (int code, int status) {
     json_object_set_new (root, "code", json_integer (code));
 
     /* Set response body:status */
-    if (status != CONTEXT_CACHE_STATE_INIT) {
+    if (status != AGENT_STATE_INIT) {
         tmp = json_object ();
         if (tmp == NULL) {
             LOGE ("Create json tmp object error.\n");
@@ -1074,44 +1079,48 @@ agentManagementMessageHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
     LOGD ("Management message: %s\n", msg);
     root = json_loads (msg, JSON_DISABLE_EOF_CHECK, &error);
     if ((root == NULL) ||
-        (json_object_get (root, "command") == NULL) ||
-        (json_object_get (root, "body") == NULL)) {
+        (json_object_get (root, AGENT_MANAGEMENT_CMD_KEY) == NULL) ||
+        (json_object_get (root, AGENT_MANAGEMENT_BODY_KEY) == NULL)) {
         LOGE ("Agent management message parse error: %s\n", error.text);
         ret = -1;
     } else {
-        tmp = json_object_get (root, "command");
+        tmp = json_object_get (root, AGENT_MANAGEMENT_CMD_KEY);
         cmd = json_string_value (tmp);
-        body = json_object_get (root, "body");
+        body = json_object_get (root, AGENT_MANAGEMENT_BODY_KEY);
 
-        if (strEqual ("add_agent", cmd))
+        if (strEqual (AGENT_MANAGEMENT_CMD_ADD_AGENT, cmd))
             ret = addAgent (body);
-        else if (strEqual ("remove_agent", cmd))
+        else if (strEqual (AGENT_MANAGEMENT_CMD_REMOVE_AGENT, cmd))
             ret = removeAgent (body);
-        else if (strEqual ("start_agent", cmd))
+        else if (strEqual (AGENT_MANAGEMENT_CMD_START_AGENT, cmd))
             ret = startAgent (body);
-        else if (strEqual ("stop_agent", cmd))
+        else if (strEqual (AGENT_MANAGEMENT_CMD_STOP_AGENT, cmd))
             ret = stopAgent (body);
-        else if (strEqual ("heartbeat", cmd))
+        else if (strEqual (AGENT_MANAGEMENT_CMD_HEARTBEAT, cmd))
             ret = heartbeat (body);
-        else if (strEqual ("push_profile", cmd))
+        else if (strEqual (AGENT_MANAGEMENT_CMD_PUSH_PROFILE, cmd))
             ret = pushProfile (body);
         else
             ret = -1;
     }
 
     if (ret < 0)
-        resp = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_ERROR, CONTEXT_CACHE_STATE_ERROR);
+        resp = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_ERROR,
+                                             AGENT_STATE_ERROR);
     else
-        resp = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_SUCCESS, agentContextCacheInstance->state);
+        resp = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_SUCCESS,
+                                             agentRuntimeContextInstance->state);
 
     if (resp) {
         zstr_send (agentManagementRespSock, resp);
         free (resp);
     } else {
         if (ret < 0)
-            zstr_send (agentManagementRespSock, AGENT_MANAGEMENT_RESPONSE_ERROR_MESSAGE);
+            zstr_send (agentManagementRespSock,
+                       AGENT_MANAGEMENT_RESPONSE_ERROR_MESSAGE);
         else
-            zstr_send (agentManagementRespSock, AGENT_MANAGEMENT_RESPONSE_SUCCESS_MESSAGE);
+            zstr_send (agentManagementRespSock,
+                       AGENT_MANAGEMENT_RESPONSE_SUCCESS_MESSAGE);
     }
 
     json_object_clear (root);
@@ -1265,20 +1274,31 @@ agentService (void) {
         goto destroyDispatchRouter;
     }
 
-    /* Init service manager */
-    ret = initServiceManager ();
-    if (ret < 0) {
-        LOGE ("Init service manager error.\n");
+    /* Init agent runtime context */
+    agentRuntimeContextInstance = loadRuntimeContext ();
+    if (agentRuntimeContextInstance == NULL) {
+        LOGE ("load agent runtime context error.\n");
         ret = -1;
         goto destroyTaskManager;
     }
 
-    /* Init agent context cache */
-    agentContextCacheInstance = loadContextCache ();
-    if (agentContextCacheInstance == NULL) {
-        LOGE ("load agent context cache error.\n");
+    /* Init application service manager */
+    ret = initAppServiceManager ();
+    if (ret < 0) {
+        LOGE ("Init application service manager error.\n");
         ret = -1;
-        goto destroyServiceManager;
+        goto destroyRuntimeContext;
+    }
+
+    /* Update application services for application service manager
+     * from agent runtime context.
+     */
+    ret = updateAppServiceManager (agentRuntimeContextInstance->appServices,
+                                   agentRuntimeContextInstance->appServiceCount);
+    if (ret < 0) {
+        LOGE ("Update application services for application service manager error.\n");
+        ret = -1;
+        goto destroyAppServiceManager;
     }
 
     /* Init zmq context */
@@ -1286,7 +1306,7 @@ agentService (void) {
     if (ctxt == NULL) {
         LOGE ("Init zmq context error.\n");
         ret = -1;
-        goto destroyContextCache;
+        goto destroyAppServiceManager;
     }
 
     /* Init agentManagementRespSock */
@@ -1364,7 +1384,7 @@ agentService (void) {
         goto destroyZloop;
     }
 
-    if (agentContextCacheInstance->state == CONTEXT_CACHE_STATE_RUNNING) {
+    if (agentRuntimeContextInstance->state == AGENT_STATE_RUNNING) {
         ret = agentRun ();
         if (ret < 0) {
             LOGE ("Restore agent to run error.\n");
@@ -1385,10 +1405,10 @@ destroyZloop:
     zloop_destroy (&loop);
 destroyCtxt:
     zctx_destroy (&ctxt);
-destroyContextCache:
-    destroyContextCache (agentContextCacheInstance);
-destroyServiceManager:
-    destroyServiceManager ();
+destroyAppServiceManager:
+    destroyAppServiceManager ();
+destroyRuntimeContext:
+    destroyRuntimeContext (agentRuntimeContextInstance);
 destroyTaskManager:
     destroyTaskManager ();
 destroyDispatchRouter:
@@ -1642,7 +1662,7 @@ main (int argc, char *argv []) {
         LOGE ("Init agent configuration error.\n");
         return -1;
     }
-    
+
     /* Parse configuration file */
     ret = parseConfig ();
     if (ret < 0) {

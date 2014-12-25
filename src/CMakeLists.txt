@@ -3,7 +3,7 @@ CMAKE_MINIMUM_REQUIRED (VERSION 2.8.0)
 SET (AGENT_CONFIG_FILE  ${AGENT_CONFIG_DIR}/agent.conf)
 SET (AGENT_PID_FILE  /var/run/${ROOT_PROJECT_LOWER}_agent.pid)
 SET (AGENT_RUN_DIR /var/run/${ROOT_PROJECT_LOWER})
-SET (AGENT_CONTEXT_CACHE_DB ${AGENT_RUN_DIR}/context_cache.json)
+SET (AGENT_RUNTIME_CONTEXT_CACHE ${AGENT_RUN_DIR}/runtime_context_cache.json)
 
 # Configuration header file
 configure_file (
@@ -28,9 +28,10 @@ SET (AGENT_SOURCE_FILES
   logger/logger.c
   checksum.c
   task_manager.c
-  context_cache.c
-  service.c
-  service_manager.c
+  indent_level.c
+  runtime_context.c
+  app_service.c
+  app_service_manager.c
   raw_packet.c
   ip_options.c
   ip_packet.c

@@ -62,7 +62,7 @@ flagOn (u_int flag, u_int bitMask) {
 /* Default log file rotation count */
 #define DEFAULT_LOG_FILE_ROTATION_COUNT 8
 
-#define LOG_FILE_SIZE_CHECK_COUNT 500
+#define LOG_FILE_SIZE_CHECK_THRESHOLD 500
 #define LOG_FILE_PATH_MAX_LEN 256
 
 static char *logFileDir = NULL;
@@ -218,30 +218,41 @@ destroyLogFile (logDevPtr dev) {
     free (logfile);
 }
 
+static int
+resetLogFile (logDevPtr dev) {
+    destroyLogFile (dev);
+    return initLogFile (dev);
+}
+
 static void
 writeLogFile (const char *msg, logDevPtr dev, u_int flag) {
     int ret;
+    const char *realMsg;
     logFilePtr logfile;
 
     if (!flagOn (flag, LOG_TO_FILE_MASK))
         return;
 
     logfile = (logFilePtr) dev->data;
-    ret = safeWrite (logfile->fd, msg, strlen (msg));
+    realMsg = strstr (msg, LOG_REAL_MESSAGE_INDICATOR) + strlen (LOG_REAL_MESSAGE_INDICATOR);
+    ret = safeWrite (logfile->fd, realMsg, strlen (realMsg));
     if (ret < 0) {
-        zctx_interrupted = 1;
-        fprintf (stderr, "log file write error.\n");
+        if (resetLogFile (dev) < 0) {
+            zctx_interrupted = 1;
+            fprintf (stderr, "Log file write error.\n");
+        }
         return;
     }
     logfile->checkCount++;
     /* Check whether log file is oversize after checkCount writing */
-    if ((logfile->checkCount >= LOG_FILE_SIZE_CHECK_COUNT) &&
+    if ((logfile->checkCount >= LOG_FILE_SIZE_CHECK_THRESHOLD) &&
         logFileOversize (logfile->filePath)) {
         ret = logFileUpdate (dev);
         if (ret < 0)
             zctx_interrupted = 1;
-        fprintf (stderr, "log file update error.\n");
+        fprintf (stderr, "Log file update error.\n");
     }
+    sync ();
 }
 
 /*===========================Log net dev=================================*/
@@ -354,11 +365,11 @@ logDevWrite (listHeadPtr logDevices, const char *msg) {
     }
 
     /* Get real log message */
-    message = strstr (msg, "[pid:");
+    message = strstr (msg, LOG_MESSAGE_INDICATOR);
     if (message == NULL)
         return;
     listForEachEntry (dev, logDevices, node) {
-        dev->write (message, dev, flag);
+        dev->write (message + strlen (LOG_MESSAGE_INDICATOR), dev, flag);
     }
 }
 
@@ -560,7 +571,7 @@ static struct option logdOptions [] = {
     {"dir", required_argument, NULL, 'd'},
     {"name", required_argument, NULL, 'f'},
     {"daemon", no_argument, NULL, 'D'},
-    {"maxsize", required_argument, NULL, 'm'},
+    {"maximum-size", required_argument, NULL, 'm'},
     {"pidfile", required_argument, NULL, 'p'},
     {"rotation-count", required_argument, NULL, 'r'},
     {"help", no_argument, NULL, 'h'},
@@ -573,12 +584,12 @@ showHelpInfo (const char *cmd) {
 
     cmdName = strrchr (cmd, '/') ? (strrchr (cmd, '/') + 1) : cmd;
     fprintf (stdout,
-             "Usage: %s -f <pid-file> [-d]\n"
+             "Usage: %s -f <pidfile> [-d]\n"
              "Basic options: \n"
              "  -d|--dir <dir path>, log file directory\n"
              "  -f|--name <file name>, log file name\n"
              "  -D|--daemon, run as daemon\n"
-             "  -m|--maxsize <size in MB>, log file max size\n"
+             "  -m|--maximum-size <size in MB>, log file maximum size\n"
              "  -p|--pidfile <file path>, pid file path\n"
              "  -r|--rotation-count <count>, log file rotation count\n"
              "  -h|--help, show help message\n",

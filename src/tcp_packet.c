@@ -17,7 +17,7 @@
 #include "logger.h"
 #include "atomic.h"
 #include "checksum.h"
-#include "service_manager.h"
+#include "app_service_manager.h"
 #include "tcp_options.h"
 #include "tcp_packet.h"
 #include "protocol.h"
@@ -405,7 +405,7 @@ addNewTcpStream (struct tcphdr *tcph, struct ip *iph, timeValPtr tm) {
     tcpStreamPtr stream, tmp;
 
     snprintf (key, sizeof (key) - 1, "%s:%d", inet_ntoa (iph->ip_dst), ntohs (tcph->dest));
-    proto = lookupServiceProtoType (key);
+    proto = lookupAppServiceProtoType (key);
     if (proto == PROTO_UNKNOWN) {
         LOGD ("Service (%s:%d) has not been registered.\n",
               inet_ntoa (iph->ip_dst), ntohs (tcph->dest));

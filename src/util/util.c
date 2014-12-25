@@ -10,7 +10,14 @@
 #include <net/if.h>
 #include <netinet/ip.h>
 #include <arpa/inet.h>
+#include <sys/syscall.h>
 #include "util.h"
+
+pid_t
+gettid ()
+{
+    return syscall (SYS_gettid);
+}
 
 /* Translate timeVal to seconds */
 inline u_long_long

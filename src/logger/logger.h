@@ -22,6 +22,9 @@
 #define DEFAULT_LOGLEVEL 2
 #define MAX_LOG_LENGTH 4096
 
+#define LOG_MESSAGE_INDICATOR "<#>"
+#define LOG_REAL_MESSAGE_INDICATOR "]#>"
+
 /* Log service log message sink port */
 #define LOG_SERVICE_SINK_PORT 59001
 /* Log service log message publish port */
@@ -31,7 +34,7 @@
 void
 logToConsole (const char *msg, ...);
 void
-doLog (char *file, u_int line, const char *func, const char *msg, ...);
+doLog (char *filePath, u_int line, const char *func, const char *msg, ...);
 int
 initLog (u_int logLevel);
 void

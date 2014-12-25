@@ -62,6 +62,8 @@ struct _timeVal {
 #define STRING_TO_DOUBLE(dst, str) sscanf (str, "%lf", (double *) dst)
 
 /*========================Interfaces definition============================*/
+pid_t
+gettid ();
 u_long_long
 timeVal2Second (timeValPtr tm);
 u_long_long

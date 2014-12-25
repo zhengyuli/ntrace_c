@@ -5,6 +5,9 @@
 #include <pcap.h>
 #include "util.h"
 
+#define AGENT_MANAGEMENT_CMD_KEY "command"
+#define AGENT_MANAGEMENT_BODY_KEY "body"
+
 /* Agent management command */
 #define AGENT_MANAGEMENT_CMD_ADD_AGENT "add_agent"
 #define AGENT_MANAGEMENT_CMD_REMOVE_AGENT "remove_agent"

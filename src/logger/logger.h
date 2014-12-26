@@ -22,8 +22,8 @@
 #define DEFAULT_LOGLEVEL 2
 #define MAX_LOG_LENGTH 4096
 
-#define LOG_MESSAGE_INDICATOR "<#>"
-#define LOG_REAL_MESSAGE_INDICATOR "]#>"
+#define LOG_MESSAGE_INDICATOR_1 "@#>"
+#define LOG_MESSAGE_INDICATOR_2 "&#>"
 
 /* Log service log message sink port */
 #define LOG_SERVICE_SINK_PORT 59001

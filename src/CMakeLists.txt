@@ -28,7 +28,6 @@ SET (AGENT_SOURCE_FILES
   logger/logger.c
   checksum.c
   task_manager.c
-  indent_level.c
   runtime_context.c
   app_service.c
   app_service_manager.c

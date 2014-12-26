@@ -105,7 +105,7 @@ struct _tcpStream {
     u_int zeroWindows;                  /**< Tcp zero windows */
     u_int dupAcks;                      /**< Tcp duplicate acks */
     void *sessionDetail;                /**< Appliction session detail */
-    boolean inClosingTimeout;              /**< In closing timeout list */
+    boolean inClosingTimeout;           /**< In closing timeout list flag */
     u_long_long closeTime;              /**< Tcp close time */
     listHead node;                      /**< Tcp stream list node */
 };

@@ -25,25 +25,43 @@ struct _runtimeContext {
 };
 
 /* Context cache json key definitions */
-#define RUNTIME_CONTEXT_AGENT_STATE "agent_state"
-#define RUNTIME_CONTEXT_AGENT_ID "agent_id"
-#define RUNTIME_CONTEXT_PUSH_IP "push_ip"
-#define RUNTIME_CONTEXT_PUSH_PORT "push_port"
-#define RUNTIME_CONTEXT_APP_SERVICES "app_services"
+#define RUNTIME_CONTEXT_CACHE_AGENT_STATE "agent_state"
+#define RUNTIME_CONTEXT_CACHE_AGENT_ID "agent_id"
+#define RUNTIME_CONTEXT_CACHE_PUSH_IP "push_ip"
+#define RUNTIME_CONTEXT_CACHE_PUSH_PORT "push_port"
+#define RUNTIME_CONTEXT_CACHE_APP_SERVICES "app_services"
 
 /*========================Interfaces definition============================*/
-void
-displayRuntimeContextDetail (runtimeContextPtr runtimeContextInstance);
+agentState
+getRuntimeContextAgentState (void);
 int
-dumpRuntimeContext (runtimeContextPtr runtimeContextInstance);
-void
-resetRuntimeContext (runtimeContextPtr runtimeContextInstance);
+setRuntimeContextAgentState (agentState state);
+char *
+getRuntimeContextAgentId (void);
 int
-updateRuntimeContextAppServices (runtimeContextPtr runtimeContextInstance, json_t *appServices);
-runtimeContextPtr
-loadRuntimeContext (void);
+setRuntimeContextAgentId (char *agentId);
+char *
+getRuntimeContextPushIp (void);
+int
+setRuntimeContextPushIp (char *pushIp);
+u_short
+getRuntimeContextPushPort (void);
+int
+setRuntimeContextPushPort (u_short pushPort);
+appServicePtr *
+getRuntimeContextAppServices (void);
+int
+setRuntimeContextAppServices (json_t *appServices);
+u_int
+getRuntimeContextAppServiceCount (void);
 void
-destroyRuntimeContext (runtimeContextPtr runtimeContextInstance);
+resetRuntimeContext (void);
+void
+dumpRuntimeContext (void);
+int
+initRuntimeContext (void);
+void
+destroyRuntimeContext (void);
 /*=======================Interfaces definition end=========================*/
 
 #endif /* __AGENT_RUNTIME_CONTEXT_H__ */

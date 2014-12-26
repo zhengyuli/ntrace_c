@@ -93,7 +93,7 @@ unsubLog (void) {
     if (procName) {
         if (pidTableCount) {
             for (index = 0; index < pidTableCount; index++) {
-                snprintf (filter, sizeof (filter) - 1, "[pid:%d", pidTable [index]);
+                snprintf (filter, sizeof (filter) - 1, "[pid:%u]", pidTable [index]);
                 zsocket_set_unsubscribe (subSock, filter);
             }
         } else {
@@ -303,7 +303,7 @@ main (int argc, char *argv []) {
         if (logMsg && ((logLevel == NULL) ||
                        (logLevel && strstr (logMsg, logLevel)))) {
             if (showInDetail)
-                realLogMsg = strstr (logMsg, LOG_REAL_MESSAGE_INDICATOR) + strlen (LOG_REAL_MESSAGE_INDICATOR);
+                realLogMsg = strstr (logMsg, LOG_MESSAGE_INDICATOR_2) + strlen (LOG_MESSAGE_INDICATOR_2);
             else
                 realLogMsg = strstr (logMsg, "): ") + strlen ("): ");
             printf ("%s", realLogMsg);

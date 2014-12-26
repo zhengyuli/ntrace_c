@@ -11,7 +11,7 @@ lookupAppServiceProtoType (const char *key);
 char *
 getAppServicesFilter (void);
 int
-updateAppServiceManager (appServicePtr *appServiceArray, u_int appServiceCount);
+updateAppServiceManager (void);
 void
 cleanAppServiceManager (void);
 int

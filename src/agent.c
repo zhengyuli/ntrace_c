@@ -45,8 +45,6 @@
 static int agentPidFd = -1;
 /* Agent configuration instance */
 static agentConfigPtr agentConfigInstance = NULL;
-/* Runtime context instance */
-static runtimeContextPtr agentRuntimeContextInstance = NULL;
 /* Shared status push socket */
 static void *sharedStatusPushSock = NULL;
 /* Shared status push socket mutex lock */
@@ -437,7 +435,7 @@ rawPktCaptureService (void *args) {
         goto destroyPcapDesc;
     }
 
-    /* Set application services filter */
+    /* Update application services filter */
     ret = updateFilter (filter);
     if (ret < 0) {
         LOGE ("Update application services filter error.\n");
@@ -640,9 +638,9 @@ tcpPktParsingService (void *args) {
     /* Set sessionBreakdownPushSock sndhwm to 50,000 */
     zsocket_set_sndhwm (sessionBreakdownPushSock, 50000);
     ret = zsocket_connect (sessionBreakdownPushSock, "tcp://%s:%u",
-                           agentRuntimeContextInstance->pushIp, agentRuntimeContextInstance->pushPort);
+                           getRuntimeContextPushIp (), getRuntimeContextPushPort ());
     if (ret < 0) {
-        LOGE ("Connect to tcp://%s:%u error.\n", agentRuntimeContextInstance->pushIp, agentRuntimeContextInstance->pushPort);
+        LOGE ("Connect to tcp://%s:%u error.\n", getRuntimeContextPushIp (), getRuntimeContextPushPort ());
         goto destroyCtxt;
     }
 
@@ -733,7 +731,7 @@ checkAgentId (json_t *profile) {
     if (tmp == NULL)
         return -1;
 
-    if (!strEqual (agentRuntimeContextInstance->agentId, json_string_value (tmp)))
+    if (!strEqual (getRuntimeContextAgentId (), json_string_value (tmp)))
         return -1;
 
     return 0;
@@ -748,9 +746,10 @@ checkAgentId (json_t *profile) {
  */
 static int
 addAgent (json_t *profile) {
+    int ret;
     json_t *tmp;
 
-    if (agentRuntimeContextInstance->state != AGENT_STATE_INIT) {
+    if (getRuntimeContextAgentState () != AGENT_STATE_INIT) {
         LOGE ("Add agent error: agent already added.\n");
         return -1;
     }
@@ -762,33 +761,33 @@ addAgent (json_t *profile) {
         return -1;
     }
 
-    /* Update runtime context state */
-    agentRuntimeContextInstance->state = AGENT_STATE_STOPPED;
+    /* Update runtime context agent state */
+    setRuntimeContextAgentState (AGENT_STATE_STOPPED);
 
-    /* Get agent id */
+    /* Update runtime context agent id */
     tmp = json_object_get (profile, "agent_id");
-    agentRuntimeContextInstance->agentId = strdup (json_string_value (tmp));
-    if (agentRuntimeContextInstance->agentId == NULL) {
-        LOGE ("Get agent id error.\n");
-        resetRuntimeContext (agentRuntimeContextInstance);
+    ret = setRuntimeContextAgentId (strdup (json_string_value (tmp)));
+    if (ret < 0) {
+        LOGE ("Update runtime context agent id error.\n");
+        resetRuntimeContext ();
         return -1;
     }
 
-    /* Get runtime context push ip */
+    /* Update runtime context push ip */
     tmp = json_object_get (profile, "push_ip");
-    agentRuntimeContextInstance->pushIp = strdup (json_string_value (tmp));
-    if (agentRuntimeContextInstance->pushIp == NULL) {
-        LOGE ("Get push ip error.\n");
-        resetRuntimeContext (agentRuntimeContextInstance);
+    ret = setRuntimeContextPushIp (strdup (json_string_value (tmp)));
+    if (ret < 0) {
+        LOGE ("Update runtime context push ip error.\n");
+        resetRuntimeContext ();
         return -1;
     }
 
-    /* Get runtime context push port */
+    /* Update runtime context push port */
     tmp = json_object_get (profile, "push_port");
-    agentRuntimeContextInstance->pushPort = json_integer_value (tmp);
+    setRuntimeContextPushPort (json_integer_value (tmp));
 
-    /* Sync runtime context */
-    dumpRuntimeContext (agentRuntimeContextInstance);
+    /* Dump runtime context */
+    dumpRuntimeContext ();
 
     return 0;
 }
@@ -805,7 +804,7 @@ static int
 removeAgent (json_t *profile) {
     int ret;
 
-    if (agentRuntimeContextInstance->state == AGENT_STATE_RUNNING) {
+    if (getRuntimeContextAgentState () == AGENT_STATE_RUNNING) {
         LOGE ("Agent is running, please stop it before removing.\n");
         return -1;
     }
@@ -819,9 +818,9 @@ removeAgent (json_t *profile) {
     /* Cleanup application service manager */
     cleanAppServiceManager ();
     /* Reset runtime context */
-    resetRuntimeContext (agentRuntimeContextInstance);
-    /* Sync runtime context */
-    dumpRuntimeContext (agentRuntimeContextInstance);
+    resetRuntimeContext ();
+    /* Dump runtime context */
+    dumpRuntimeContext ();
 
     return 0;
 }
@@ -872,12 +871,12 @@ static int
 startAgent (json_t *profile) {
     int ret;
 
-    if (agentRuntimeContextInstance->state == AGENT_STATE_INIT) {
+    if (getRuntimeContextAgentState () == AGENT_STATE_INIT) {
         LOGE ("Agent is not ready now.\n");
         return -1;
     }
 
-    if (agentRuntimeContextInstance->state == AGENT_STATE_RUNNING) {
+    if (getRuntimeContextAgentState () == AGENT_STATE_RUNNING) {
         LOGE ("Agent is running now.\n");
         return -1;
     }
@@ -894,10 +893,10 @@ startAgent (json_t *profile) {
         return -1;
     }
 
-    /* Update agent state */
-    agentRuntimeContextInstance->state = AGENT_STATE_RUNNING;
-    /* Sync runtime context */
-    dumpRuntimeContext (agentRuntimeContextInstance);
+    /* Update runtime context agent state */
+    setRuntimeContextAgentState (AGENT_STATE_RUNNING);
+    /* Dump runtime context */
+    dumpRuntimeContext ();
 
     return 0;
 }
@@ -913,7 +912,7 @@ static int
 stopAgent (json_t *profile) {
     int ret;
 
-    if (agentRuntimeContextInstance->state != AGENT_STATE_RUNNING) {
+    if (getRuntimeContextAgentState () != AGENT_STATE_RUNNING) {
         LOGE ("Agent is not running.\n");
         return -1;
     }
@@ -926,10 +925,10 @@ stopAgent (json_t *profile) {
 
     stopAllTask ();
 
-    /* Update agent state */
-    agentRuntimeContextInstance->state = AGENT_STATE_STOPPED;
-    /* Sync runtime context */
-    dumpRuntimeContext (agentRuntimeContextInstance);
+    /* Update runtime context agent state */
+    setRuntimeContextAgentState (AGENT_STATE_STOPPED);
+    /* Dump runtime context */
+    dumpRuntimeContext ();
 
     return 0;
 }
@@ -967,7 +966,7 @@ pushProfile (json_t *profile) {
     char *filter;
     json_t *appServices;
 
-    if (agentRuntimeContextInstance->state == AGENT_STATE_INIT) {
+    if (getRuntimeContextAgentState () == AGENT_STATE_INIT) {
         LOGE ("Agent has not been added.\n");
         return -1;
     }
@@ -984,23 +983,22 @@ pushProfile (json_t *profile) {
         return -1;
     }
 
-    /* Update application services for runtime context */
-    ret = updateRuntimeContextAppServices (agentRuntimeContextInstance, appServices);
+    /* Update runtime context application services*/
+    ret = setRuntimeContextAppServices (appServices);
     if (ret < 0) {
         LOGE ("Update application services for runtime context error.\n");
         return -1;
     }
 
-    /* Update application services error for application service manager */
-    ret = updateAppServiceManager (agentRuntimeContextInstance->appServices,
-                                   agentRuntimeContextInstance->appServiceCount);
+    /* Update application service manager */
+    ret = updateAppServiceManager ();
     if (ret < 0) {
         LOGE ("Update application services error for application service manager.\n");
         return -1;
     }
 
     /* Update application services filter */
-    if (agentRuntimeContextInstance->state == AGENT_STATE_RUNNING) {
+    if (getRuntimeContextAgentState () == AGENT_STATE_RUNNING) {
         filter = getAppServicesFilter ();
         if (filter == NULL) {
             LOGE ("Get application services filter error.\n");
@@ -1017,8 +1015,8 @@ pushProfile (json_t *profile) {
         free (filter);
     }
 
-    /* Sync runtime context */
-    dumpRuntimeContext (agentRuntimeContextInstance);
+    /* Dump runtime context */
+    dumpRuntimeContext ();
 
     return 0;
 }
@@ -1109,7 +1107,7 @@ agentManagementMessageHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
                                              AGENT_STATE_ERROR);
     else
         resp = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_SUCCESS,
-                                             agentRuntimeContextInstance->state);
+                                             getRuntimeContextAgentState ());
 
     if (resp) {
         zstr_send (agentManagementRespSock, resp);
@@ -1275,9 +1273,9 @@ agentService (void) {
     }
 
     /* Init agent runtime context */
-    agentRuntimeContextInstance = loadRuntimeContext ();
-    if (agentRuntimeContextInstance == NULL) {
-        LOGE ("load agent runtime context error.\n");
+    ret = initRuntimeContext ();
+    if (ret < 0) {
+        LOGE ("Init agent runtime context error.\n");
         ret = -1;
         goto destroyTaskManager;
     }
@@ -1288,17 +1286,6 @@ agentService (void) {
         LOGE ("Init application service manager error.\n");
         ret = -1;
         goto destroyRuntimeContext;
-    }
-
-    /* Update application services for application service manager
-     * from agent runtime context.
-     */
-    ret = updateAppServiceManager (agentRuntimeContextInstance->appServices,
-                                   agentRuntimeContextInstance->appServiceCount);
-    if (ret < 0) {
-        LOGE ("Update application services for application service manager error.\n");
-        ret = -1;
-        goto destroyAppServiceManager;
     }
 
     /* Init zmq context */
@@ -1384,7 +1371,7 @@ agentService (void) {
         goto destroyZloop;
     }
 
-    if (agentRuntimeContextInstance->state == AGENT_STATE_RUNNING) {
+    if (getRuntimeContextAgentState () == AGENT_STATE_RUNNING) {
         ret = agentRun ();
         if (ret < 0) {
             LOGE ("Restore agent to run error.\n");
@@ -1408,7 +1395,7 @@ destroyCtxt:
 destroyAppServiceManager:
     destroyAppServiceManager ();
 destroyRuntimeContext:
-    destroyRuntimeContext (agentRuntimeContextInstance);
+    destroyRuntimeContext ();
 destroyTaskManager:
     destroyTaskManager ();
 destroyDispatchRouter:

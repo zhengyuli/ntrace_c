@@ -4,7 +4,7 @@
 # Name: post_install.sh
 # Purpose:
 #
-# Time-stamp: <2014-12-22 19:24:17 Monday by lzy>
+# Time-stamp: <2014-12-26 12:21:52 Friday by lzy>
 #
 # Author: zhengyu li
 # Created: 2014-03-27
@@ -15,4 +15,4 @@
 source /etc/profile
 export LC_ALL=C
 
-chkconfig --level 2345 logd on
+chkconfig --level 2345 wda_logd on

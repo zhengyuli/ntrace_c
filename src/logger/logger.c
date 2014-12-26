@@ -133,10 +133,10 @@ doLog (char *filePath, u_int line, const char *func, const char *msg, ...) {
         flag = LOG_TO_NET_TAG;
 
     fileName = strrchr (filePath, '/') + 1;
-    snprintf (buf, sizeof (buf) - 1, "%u %s[thread:%u]#>%s [thread:%u] %s file=%s (line=%u, func=%s): %s",
-              flag, LOG_MESSAGE_INDICATOR, gettid (), timeStr, gettid (), logLevel, fileName,
-              line, func, tmp);
-    buf [sizeof (buf) - 1] = 0;
+    snprintf (buf, sizeof (buf) - 1, "%u%s[thread:%u]%s%s [thread:%u] %s file=%s (line=%u, func=%s): %s",
+              flag, LOG_MESSAGE_INDICATOR_1, gettid (), LOG_MESSAGE_INDICATOR_2, timeStr, gettid (),
+              logLevel, fileName, line, func, tmp);
+    buf [MAX_LOG_LENGTH - 1] = 0;
 
     frame = zframe_new ((void *) buf, strlen (buf));
     if (frame == NULL) {

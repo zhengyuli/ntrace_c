@@ -234,7 +234,7 @@ writeLogFile (const char *msg, logDevPtr dev, u_int flag) {
         return;
 
     logfile = (logFilePtr) dev->data;
-    realMsg = strstr (msg, LOG_REAL_MESSAGE_INDICATOR) + strlen (LOG_REAL_MESSAGE_INDICATOR);
+    realMsg = strstr (msg, LOG_MESSAGE_INDICATOR_2) + strlen (LOG_MESSAGE_INDICATOR_2);
     ret = safeWrite (logfile->fd, realMsg, strlen (realMsg));
     if (ret < 0) {
         if (resetLogFile (dev) < 0) {
@@ -365,11 +365,11 @@ logDevWrite (listHeadPtr logDevices, const char *msg) {
     }
 
     /* Get real log message */
-    message = strstr (msg, LOG_MESSAGE_INDICATOR);
+    message = strstr (msg, LOG_MESSAGE_INDICATOR_1);
     if (message == NULL)
         return;
     listForEachEntry (dev, logDevices, node) {
-        dev->write (message + strlen (LOG_MESSAGE_INDICATOR), dev, flag);
+        dev->write (message + strlen (LOG_MESSAGE_INDICATOR_1), dev, flag);
     }
 }
 

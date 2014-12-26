@@ -4,20 +4,7 @@
 #include <errno.h>
 #include <jansson.h>
 #include "logger.h"
-#include "indent_level.h"
 #include "app_service.h"
-
-void
-displayAppServiceDetail (appServicePtr svc, u_int indentLevel) {
-    LOGD ("\n%sappService-%d:\n", getIndentLevel (indentLevel), svc->id);
-    LOGD ("%s{\n", getIndentLevel (indentLevel));
-    LOGD ("%sid: %d\n", getIndentLevel (indentLevel + 1), svc->id);
-    LOGD ("%sproto: %s\n", getIndentLevel (indentLevel + 1),
-          getProtoName (svc->proto) ? getProtoName (svc->proto) : "Unknown protoType");
-    LOGD ("%sip: %s\n", getIndentLevel (indentLevel + 1), svc->ip);
-    LOGD ("%sport: %u\n", getIndentLevel (indentLevel + 1), svc->port);
-    LOGD ("%s}\n", getIndentLevel (indentLevel));
-}
 
 appServicePtr
 newAppService (void) {

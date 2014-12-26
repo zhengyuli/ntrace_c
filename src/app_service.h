@@ -23,8 +23,6 @@ struct _appService {
 #define APP_SERVICE_PORT "port"
 
 /*========================Interfaces definition============================*/
-void
-displayAppServiceDetail (appServicePtr svc, u_int indentLevel);
 appServicePtr
 newAppService (void);
 appServicePtr

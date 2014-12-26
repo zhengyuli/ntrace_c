@@ -7,6 +7,7 @@
 #include "util.h"
 #include "logger.h"
 #include "hash.h"
+#include "runtime_context.h"
 #include "app_service_manager.h"
 
 /* Application service BPF ip fragment filter */
@@ -107,30 +108,32 @@ addAppService (appServicePtr svc) {
     return 0;
 }
 
+/* Update application service manager from runtime context */
 int
-updateAppServiceManager (appServicePtr *appServiceArray, u_int appServiceCount) {
+updateAppServiceManager (void) {
     int ret;
-    u_int i;
-    appServicePtr tmp, svc;
+    u_int i, appServiceCount;
+    appServicePtr tmp, svc, *appServiceArray;
 
     /* Cleanup slave application service hash table */
     hashClean (appServiceHashTableSlave);
 
-    for (i = 0; i < appServiceCount; i ++) {
+    appServiceArray = getRuntimeContextAppServices ();
+    appServiceCount = getRuntimeContextAppServiceCount ();
+    for (i = 0; i <  appServiceCount; i ++) {
         tmp = appServiceArray [i];
         svc = copyAppService (tmp);
         if (svc == NULL) {
             LOGE ("Copy appService error.\n");
             return -1;
         }
-        
+
         ret = addAppService (svc);
         if (ret < 0) {
             LOGE ("Add appService error.\n");
             return -1;
         }
     }
-    /* Swap application service map */
     appServiceMapSwap ();
 
     return 0;
@@ -145,6 +148,8 @@ cleanAppServiceManager (void) {
 
 int
 initAppServiceManager (void) {
+    int ret;
+
     appServiceHashTableMaster = hashNew (0);
     if (appServiceHashTableMaster == NULL) {
         LOGE ("Create appServiceHashTableMaster error.\n");
@@ -154,6 +159,16 @@ initAppServiceManager (void) {
     appServiceHashTableSlave = hashNew (0);
     if (appServiceHashTableSlave == NULL) {
         LOGE ("Create appServiceHashTableSlave error.\n");
+        hashDestroy (appServiceHashTableMaster);
+        appServiceHashTableMaster = NULL;
+        return -1;
+    }
+
+    ret = updateAppServiceManager ();
+    if (ret < 0) {
+        LOGE ("Update application service manager error.\n");
+        hashDestroy (appServiceHashTableSlave);
+        appServiceHashTableSlave = NULL;
         hashDestroy (appServiceHashTableMaster);
         appServiceHashTableMaster = NULL;
         return -1;

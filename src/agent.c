@@ -7,26 +7,25 @@
 #include <net/if.h>
 #include <netinet/ip.h>
 #include <czmq.h>
-#include <ini_config.h>
 #include <jansson.h>
 #include <locale.h>
 #include "config.h"
+#include "properties_manager.h"
 #include "util.h"
-#include "atomic.h"
 #include "logger.h"
 #include "runtime_context.h"
 #include "task_manager.h"
 #include "app_service_manager.h"
+#include "dispatch_router.h"
 #include "raw_packet.h"
 #include "ip_packet.h"
 #include "tcp_packet.h"
-#include "protocol/protocol.h"
+#include "protocol.h"
 #include "agent.h"
 
 /* Zmqhub inproc address */
 #define SHARED_STATUS_PUSH_CHANNEL "inproc://sharedStatusPushChannel"
 #define IP_PACKET_PUSH_CHANNEL "inproc://ipPacketPushChannel"
-#define TCP_PACKET_PUSH_CHANNEL "inproc://tcpPacketPushChannel"
 
 /* Shared exit status */
 #define SHARED_STATUS_EXIT "Exit"
@@ -37,14 +36,8 @@
 #define PCAP_CAPTURE_IN_PROMISC 1
 #define PCAP_CAPTURE_BUFFER_SIZE (16 << 20)
 
-/* Max/Min dispatch threads */
-#define MIN_DISPATCH_THREADS 5
-#define MAX_DISPATCH_THREADS 61
-
 /* Agent pid file fd */
 static int agentPidFd = -1;
-/* Agent configuration instance */
-static agentConfigPtr agentConfigInstance = NULL;
 /* Shared status push socket */
 static void *sharedStatusPushSock = NULL;
 /* Shared status push socket mutex lock */
@@ -59,10 +52,6 @@ static zctx_t *zmqHubCtxt = NULL;
 static void *ipPktPushSock = NULL;
 /* Ip packet pull socket */
 static void *ipPktPullSock = NULL;
-/* Dispatch threads number */
-static u_int dispatchThreads = 0;
-/* Dispatch router instance */
-static dispatchRouterPtr dispatchRouterInstance = NULL;
 /* Pcap descriptor */
 static pcap_t *pcapDesc = NULL;
 /* Pcap link type */
@@ -85,27 +74,6 @@ pushSharedStatus (const char *msg) {
 static inline char *
 readSharedStatusNonBlock (void) {
     return zstr_recv_nowait (sharedStatusPullSock);
-}
-
-static int
-initAgentConfiguration (void) {
-    agentConfigInstance = (agentConfigPtr) malloc (sizeof (agentConfig));
-    if (agentConfigInstance == NULL)
-        return -1;
-
-    agentConfigInstance->daemonMode = 0;
-    agentConfigInstance->mirrorInterface = NULL;
-    agentConfigInstance->logLevel = 0;
-
-    return 0;
-}
-
-static void
-destroyAgentConfiguration (void) {
-    free (agentConfigInstance->mirrorInterface);
-
-    free (agentConfigInstance);
-    agentConfigInstance = NULL;
 }
 
 static int
@@ -172,6 +140,7 @@ packetDispatch (struct ip *iphdr, timeValPtr tm) {
     char key1 [32] = {0};
     char key2 [32] = {0};
     zframe_t *frame;
+    void *pushSock;
 
     ipPktLen = ntohs (iph->ip_len);
 
@@ -187,7 +156,8 @@ packetDispatch (struct ip *iphdr, timeValPtr tm) {
     }
 
     /* Get dispatch index */
-    index = dispatchHash (key1, key2) % dispatchRouterInstance->dispatchThreads;
+    index = dispatchHash (key1, key2) % getDispatchCount ();
+    pushSock = getDispatchPushSock (index);
 
     /* Push timeVal */
     frame = zframe_new (tm, sizeof (timeVal));
@@ -195,7 +165,7 @@ packetDispatch (struct ip *iphdr, timeValPtr tm) {
         LOGE ("Create timestamp zframe error.\n");
         return;
     }
-    ret = zframe_send (&frame, dispatchRouterInstance->pushSocks [index], ZFRAME_MORE);
+    ret = zframe_send (&frame, pushSock, ZFRAME_MORE);
     if (ret < 0) {
         LOGE ("Push timestamp zframe error.\n");
         zframe_destroy (&frame);
@@ -208,93 +178,12 @@ packetDispatch (struct ip *iphdr, timeValPtr tm) {
         LOGE ("Create ip packet zframe error.");
         return;
     }
-    ret = zframe_send (&frame, dispatchRouterInstance->pushSocks [index], 0);
+    ret = zframe_send (&frame, pushSock, 0);
     if (ret < 0) {
         LOGE ("Push ip packet zframe error.\n");
         zframe_destroy (&frame);
         return;
     }
-}
-
-/* Init dispatch router */
-static int
-initDispatchRouter (u_int dispatchThreads) {
-    int ret;
-    u_int i, size;
-
-    dispatchRouterInstance = (dispatchRouterPtr) malloc (sizeof (dispatchRouter));
-    if (dispatchRouterInstance == NULL) {
-        LOGE ("Alloc dispatchRouterInstance error: %s\n.", strerror (errno));
-        return -1;
-    }
-
-    dispatchRouterInstance->dispatchThreads = dispatchThreads;
-
-    size = sizeof (void *) * dispatchRouterInstance->dispatchThreads;
-    dispatchRouterInstance->pushSocks = malloc (size);
-    if (dispatchRouterInstance->pushSocks == NULL) {
-        LOGE ("Alloc dispatchRouter pushSocks error: %s.\n", strerror (errno));
-        goto destroyDispatchRouterInstance;
-    }
-
-    dispatchRouterInstance->pullSocks = malloc (size);
-    if (dispatchRouterInstance->pullSocks == NULL) {
-        LOGE ("Alloc dispatchRouter pullSocks error: %s.\n", strerror (errno));
-        goto freePushSocks;
-    }
-
-    for (i = 0; i < dispatchRouterInstance->dispatchThreads; i++) {
-        dispatchRouterInstance->pushSocks [i] = zsocket_new (zmqHubCtxt, ZMQ_PUSH);
-        if (dispatchRouterInstance->pushSocks [i] == NULL) {
-            LOGE ("Create pushSocks [i] error.\n", i);
-            goto freePullSocks;
-        }
-        /* Set pushSock sndhwm to 500,000 */
-        zsocket_set_sndhwm (dispatchRouterInstance->pushSocks [i], 500000);
-        ret = zsocket_bind (dispatchRouterInstance->pushSocks [i], "%s%u", TCP_PACKET_PUSH_CHANNEL, i);
-        if (ret < 0) {
-            LOGE ("Bind to %s%u error.\n", TCP_PACKET_PUSH_CHANNEL, i);
-            goto freePullSocks;
-        }
-
-        dispatchRouterInstance->pullSocks [i] = zsocket_new (zmqHubCtxt, ZMQ_PULL);
-        if (dispatchRouterInstance->pullSocks [i] == NULL) {
-            LOGE ("Create pullSock [i] error.\n", i);
-            goto freePullSocks;
-        }
-        /* Set pullSock rcvhwm to 500,000 */
-        zsocket_set_rcvhwm (dispatchRouterInstance->pullSocks [i], 500000);
-        ret = zsocket_connect (dispatchRouterInstance->pullSocks [i], "%s%u", TCP_PACKET_PUSH_CHANNEL, i);
-        if (ret < 0) {
-            LOGE ("Connect to %s%u error.\n", TCP_PACKET_PUSH_CHANNEL, i);
-            goto freePullSocks;
-        }
-    }
-
-    return 0;
-
-freePullSocks:
-    free (dispatchRouterInstance->pullSocks);
-    dispatchRouterInstance->pullSocks = NULL;
-freePushSocks:
-    free (dispatchRouterInstance->pushSocks);
-    dispatchRouterInstance->pushSocks = NULL;
-destroyDispatchRouterInstance:
-    free (dispatchRouterInstance);
-    dispatchRouterInstance = NULL;
-
-    return -1;
-}
-
-/* Destroy dispatch router */
-void
-destroyDispatchRouter (void) {
-    free (dispatchRouterInstance->pushSocks);
-    dispatchRouterInstance->pushSocks = NULL;
-    free (dispatchRouterInstance->pullSocks);
-    dispatchRouterInstance->pullSocks = NULL;
-    free (dispatchRouterInstance);
-    dispatchRouterInstance = NULL;
 }
 
 /*
@@ -408,16 +297,16 @@ rawPktCaptureService (void *args) {
     zframe_t *frame;
 
     /* Init log context */
-    ret = initLog (agentConfigInstance->logLevel);
+    ret = initLog (getPropertiesLogLevel ());
     if (ret < 0) {
         logToConsole ("Init log context error.\n");
         goto exit;
     }
 
     /* Create pcap descriptor */
-    pcapDesc = newPcapDev (agentConfigInstance->mirrorInterface);
+    pcapDesc = newPcapDev (getPropertiesMirrorInterface ());
     if (pcapDesc == NULL) {
-        LOGE ("Create pcap descriptor for %s error.\n", agentConfigInstance->mirrorInterface);
+        LOGE ("Create pcap descriptor for %s error.\n", getPropertiesMirrorInterface ());
         goto destroyLog;
     }
 
@@ -520,7 +409,7 @@ ipPktParsingService (void *args) {
     struct ip *newIphdr;
 
     /* Init log context */
-    ret = initLog (agentConfigInstance->logLevel);
+    ret = initLog (getPropertiesLogLevel ());
     if (ret < 0) {
         LOGE ("Init log context error.\n");
         goto exit;
@@ -609,8 +498,8 @@ tcpPktParsingService (void *args) {
     zctx_t *ctxt;
     timeValPtr tm;
     struct ip *iphdr;
-    zframe_t *tmFrame;
-    zframe_t *pktFrame;
+    zframe_t *tmFrame = NULL;
+    zframe_t *pktFrame = NULL;
     void *tcpPktPullSock;
     void *sessionBreakdownPushSock;
 
@@ -618,7 +507,7 @@ tcpPktParsingService (void *args) {
     tcpPktPullSock = args;
 
     /* Init log context */
-    ret = initLog (agentConfigInstance->logLevel);
+    ret = initLog (getPropertiesLogLevel ());
     if (ret < 0) {
         logToConsole ("Init log context error.\n");
         goto exit;
@@ -738,7 +627,7 @@ checkAgentId (json_t *profile) {
 }
 
 /*
- * @brief Add and init agent configuration
+ * @brief Add and init agent runtime context
  *
  * @param profile add agent profile
  *
@@ -794,7 +683,7 @@ addAgent (json_t *profile) {
 
 /*
  * @brief Remove agent if agent is not running and reset agent
- *        configuration.
+ *        runtime context.
  *
  * @param profile remove agent profile
  *
@@ -845,8 +734,8 @@ agentRun (void) {
         goto stopAllTask;
     }
 
-    for (i = 0; i < dispatchThreads; i++) {
-        tid = newTask (tcpPktParsingService, dispatchRouterInstance->pullSocks [i]);
+    for (i = 0; i < getDispatchCount (); i++) {
+        tid = newTask (tcpPktParsingService, getDispatchPullSock (i));
         if (tid < 0) {
             LOGE ("Create tcpPktParsingService %u task error.\n", i);
             goto stopAllTask;
@@ -877,7 +766,7 @@ startAgent (json_t *profile) {
     }
 
     if (getRuntimeContextAgentState () == AGENT_STATE_RUNNING) {
-        LOGE ("Agent is running now.\n");
+        LOGW ("Agent is already running now.\n");
         return -1;
     }
 
@@ -897,6 +786,7 @@ startAgent (json_t *profile) {
     setRuntimeContextAgentState (AGENT_STATE_RUNNING);
     /* Dump runtime context */
     dumpRuntimeContext ();
+    LOGD ("Start agent: [Success]\n");
 
     return 0;
 }
@@ -1208,7 +1098,7 @@ agentService (void) {
     }
 
     /* Init log context */
-    ret = initLog (agentConfigInstance->logLevel);
+    ret = initLog (getPropertiesLogLevel ());
     if (ret < 0) {
         logToConsole ("Init log context error.\n");
         ret = -1;
@@ -1250,14 +1140,7 @@ agentService (void) {
         goto destroyZmqHub;
     }
 
-    /* Get dispatch threads */
-    dispatchThreads = getCpuCores () * 2 + 1;
-    if (dispatchThreads < MIN_DISPATCH_THREADS)
-        dispatchThreads = MIN_DISPATCH_THREADS;
-    else if (dispatchThreads > MAX_DISPATCH_THREADS)
-        dispatchThreads = MAX_DISPATCH_THREADS;
-
-    ret = initDispatchRouter (dispatchThreads);
+    ret = initDispatchRouter ();
     if (ret < 0) {
         LOGE ("Init dispatch router error.\n");
         ret = -1;
@@ -1409,78 +1292,6 @@ unlockPidFile:
     return ret;
 }
 
-/* Parse configuration of agent */
-static int
-parseConfig (void) {
-    int ret, error;
-    const char *tmp;
-    struct collection_item *iniConfig = NULL;
-    struct collection_item *errorSet = NULL;
-    struct collection_item *item;
-
-    ret = config_from_file ("Agent", AGENT_CONFIG_FILE,
-                            &iniConfig, INI_STOP_ON_ANY, &errorSet);
-    if (ret) {
-        logToConsole ("Parse config file: %s error.\n", AGENT_CONFIG_FILE);
-        return -1;
-    }
-
-    /* Get daemon mode */
-    ret = get_config_item ("MAIN", "daemonMode", iniConfig, &item);
-    if (ret) {
-        logToConsole ("Get_config_item \"daemonMode\" error\n");
-        ret = -1;
-        goto exit;
-    }
-    agentConfigInstance->daemonMode = get_int_config_value (item, 1, -1, &error);
-    if (error) {
-        logToConsole ("Parse \"daemonMode\" error.\n");
-        ret = -1;
-        goto exit;
-    }
-
-    /* Get mirror interface */
-    ret = get_config_item ("MAIN", "mirrorInterface", iniConfig, &item);
-    if (ret) {
-        logToConsole ("Get_config_item \"mirrorInterface\" error\n");
-        ret = -1;
-        goto exit;
-    }
-    tmp = get_const_string_config_value (item, &error);
-    if (error) {
-        logToConsole ("Parse \"mirrorInterface\" error.\n");
-        ret = -1;
-        goto exit;
-    }
-    agentConfigInstance->mirrorInterface = strdup (tmp);
-    if (agentConfigInstance->mirrorInterface == NULL) {
-        logToConsole ("Get \"mirrorInterface\" error\n");
-        ret = -1;
-        goto exit;
-    }
-
-    /* Get log level */
-    ret = get_config_item ("LOG", "logLevel", iniConfig, &item);
-    if (ret) {
-        logToConsole ("Get_config_item \"logLevel\" error\n");
-        ret = -1;
-        goto exit;
-    }
-    agentConfigInstance->logLevel = get_int_config_value (item, 1, -1, &error);
-    if (error) {
-        logToConsole ("Parse \"logLevel\" error.\n");
-        ret = -1;
-        goto exit;
-    }
-
-exit:
-    if (iniConfig)
-        free_ini_config (iniConfig);
-    if (errorSet)
-        free_ini_config_errors (errorSet);
-    return ret;
-}
-
 /* Agent cmd options */
 static struct option agentOptions [] = {
     {"daemonMode", no_argument, NULL, 'D'},
@@ -1511,6 +1322,7 @@ showHelpInfo (const char *cmd) {
 /* Cmd line parser */
 static int
 parseCmdline (int argc, char *argv []) {
+    int ret;
     char option;
     boolean showVersion = false;
     boolean showHelp = false;
@@ -1518,19 +1330,19 @@ parseCmdline (int argc, char *argv []) {
     while ((option = getopt_long (argc, argv, "Dm:l:vh?", agentOptions, NULL)) != -1) {
         switch (option) {
             case 'D':
-                agentConfigInstance->daemonMode = 1;
+                setPropertiesDaemonMode (true);
                 break;
 
             case 'm':
-                agentConfigInstance->mirrorInterface = strdup (optarg);
-                if (agentConfigInstance->mirrorInterface == NULL) {
-                    logToConsole ("Get mirroring interface error!\n");
+                ret = setPropertiesMirrorInterface (strdup (optarg));
+                if (ret < 0) {
+                    logToConsole ("Parse mirroring interface error!\n");
                     return -1;
                 }
                 break;
 
             case 'l':
-                agentConfigInstance->logLevel = atoi (optarg);
+                setPropertiesLogLevel (atoi (optarg));
                 break;
 
             case 'v':
@@ -1644,34 +1456,26 @@ main (int argc, char *argv []) {
     /* Set locale */
     setlocale (LC_COLLATE,"");
 
-    ret = initAgentConfiguration ();
+    ret = initPropertiesManager ();
     if (ret < 0) {
-        LOGE ("Init agent configuration error.\n");
+        logToConsole ("Init properties manager error.\n");
         return -1;
-    }
-
-    /* Parse configuration file */
-    ret = parseConfig ();
-    if (ret < 0) {
-        fprintf (stderr, "Parse configuration file error.\n");
-        ret = -1;
-        goto destroyAgentConfiguration;
     }
 
     /* Parse command */
     ret = parseCmdline (argc, argv);
     if (ret < 0) {
-        fprintf (stderr, "Parse command line error.\n");
+        logToConsole ("Parse command line error.\n");
         ret = -1;
-        goto destroyAgentConfiguration;
+        goto destroyPropertiesManager;
     }
 
-    if (agentConfigInstance->daemonMode)
+    if (getPropertiesDaemonMode ())
         ret = agentDaemon ();
     else
         ret = agentService ();
 
-destroyAgentConfiguration:
-    destroyAgentConfiguration ();
+destroyPropertiesManager:
+    destroyPropertiesManager ();
     return ret;
 }

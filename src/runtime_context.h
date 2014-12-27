@@ -21,7 +21,7 @@ struct _runtimeContext {
     char *pushIp;                       /**< Breakdown push ip */
     u_short pushPort;                   /**< Breakdown push port */
     appServicePtr *appServices;         /**< Application services to monitor */
-    u_int appServiceCount;              /**< Application service count */
+    u_int appServicesCount;              /**< Application service count */
 };
 
 /* Context cache json key definitions */
@@ -53,7 +53,9 @@ getRuntimeContextAppServices (void);
 int
 setRuntimeContextAppServices (json_t *appServices);
 u_int
-getRuntimeContextAppServiceCount (void);
+getRuntimeContextAppServicesCount (void);
+int
+setRuntimeContextAppServicesCount (u_int);
 void
 resetRuntimeContext (void);
 void

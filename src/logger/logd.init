@@ -1,30 +1,31 @@
 #!/bin/bash
 
 ### BEGIN INIT INFO
-# Provides: wda_logd
+# Provides: PROJECT_NAME_logd
 # Required-Start:
 # Required-Stop:
 # X-Start-Before:
 # Default-Start:    2 3 4 5
 # Default-Stop:
-# Short-Description: wda_logd service
-# Description: WDA agent log service
+# Short-Description: PROJECT_NAME_logd service
+# Description: PROJECT_NAME log service
 ### END INIT INFO
 
-EXEC=/usr/sbin/wda_logd
-PID_FILE=/var/run/wda_logd.pid
+SERVICE_NAME=PROJECT_NAME_logd
+SERVICE_PATH=/usr/sbin/${SERVICE_NAME}
+PID_FILE=/var/run/${SERVICE_NAME}.pid
 LOG_FILE_DIR=/var/log/wda/
 LOG_FILE_NAME=agent.log
-LOG_FILE_MAX_SIZE=512
-LOG_FILE_ROTATION_COUNT=6
+LOG_FILE_MAXIMUM_SIZE=512
+LOG_FILE_ROTATION_COUNT=15
 
 start () {
     if [ -f $PID_FILE ]
     then
-        echo "wda_logd is running"
+        echo "${SERVICE_NAME} is running"
     else
-        echo -n "Start wda_logd: "
-        $EXEC -D -d $LOG_FILE_DIR -f $LOG_FILE_NAME -m $LOG_FILE_MAX_SIZE -p $PID_FILE -r $LOG_FILE_ROTATION_COUNT
+        echo -n "Start ${SERVICE_NAME}: "
+        ${SERVICE_PATH} -D -d ${LOG_FILE_DIR} -f ${LOG_FILE_NAME}-m ${LOG_FILE_MAXIMUM_SIZE} -p ${PID_FILE} -r ${LOG_FILE_ROTATION_COUNT}
         loop=1
         while [ $loop -gt 0 ]
         do
@@ -44,11 +45,10 @@ start () {
 stop () {
     if [ ! -f $PID_FILE ]
     then
-        echo "wda_logd is not running"
+        echo "${SERVICE_NAME} is not running"
     else
-		echo -n "Stop wda_logd: "
+		echo -n "Stop ${SERVICE_NAME}: "
         PID=$(cat $PID_FILE)
-        # Send SIGINT signal to wda_logd service
         kill -2 $PID
         while [ -x /proc/$PID ]
         do
@@ -64,7 +64,7 @@ restart () {
 }
 
 status () {
-    echo -n "wda_logd status: "
+    echo -n "${SERVICE_NAME} status: "
     if [ ! -f $PID_FILE ]
     then
         echo "[Stopped]"

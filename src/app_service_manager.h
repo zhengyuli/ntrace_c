@@ -21,4 +21,3 @@ destroyAppServiceManager (void);
 /*=======================Interfaces definition end=========================*/
 
 #endif /* __AGENT_APP_SERVICE_MANAGER_H__ */
-

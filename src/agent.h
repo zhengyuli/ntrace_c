@@ -27,23 +27,4 @@
 /* Agent management response port */
 #define AGENT_MANAGEMENT_RESPONSE_PORT 59000
 
-typedef struct _agentConfig agentConfig;
-typedef agentConfig *agentConfigPtr;
-
-/* Agent configuration */
-struct _agentConfig {
-    boolean daemonMode;                    /**< Run as daemon */
-    char *mirrorInterface;              /**< Mirror interface */
-    u_int logLevel;                     /**< Log level */
-};
-
-typedef struct _dispatchRouter dispatchRouter;
-typedef dispatchRouter *dispatchRouterPtr;
-
-struct _dispatchRouter {
-    u_int dispatchThreads;              /**< Dispatch threads number */
-    void **pushSocks;                   /**< Dispatch push sockets */
-    void **pullSocks;                   /**< Dispatch pull sockets */
-};
-
 #endif /* __AGENT_AGENT_H__ */

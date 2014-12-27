@@ -17,6 +17,7 @@
 /* Application service BPF filter length */
 #define APP_SERVICE_BPF_FILTER_LENGTH 256
 
+/* Application service local hash tables */
 static hashTablePtr appServiceHashTableMaster = NULL;
 static hashTablePtr appServiceHashTableSlave = NULL;
 static pthread_rwlock_t appServiceHashTableMasterLock = PTHREAD_RWLOCK_INITIALIZER;
@@ -83,7 +84,7 @@ getAppServicesFilter (void) {
 }
 
 static void
-appServiceMapSwap (void) {
+swapAppServiceMap (void) {
     hashTablePtr tmp;
 
     tmp = appServiceHashTableMaster;
@@ -112,15 +113,15 @@ addAppService (appServicePtr svc) {
 int
 updateAppServiceManager (void) {
     int ret;
-    u_int i, appServiceCount;
+    u_int i, appServicesCount;
     appServicePtr tmp, svc, *appServiceArray;
 
     /* Cleanup slave application service hash table */
     hashClean (appServiceHashTableSlave);
 
     appServiceArray = getRuntimeContextAppServices ();
-    appServiceCount = getRuntimeContextAppServiceCount ();
-    for (i = 0; i <  appServiceCount; i ++) {
+    appServicesCount = getRuntimeContextAppServicesCount ();
+    for (i = 0; i <  appServicesCount; i ++) {
         tmp = appServiceArray [i];
         svc = copyAppService (tmp);
         if (svc == NULL) {
@@ -134,7 +135,7 @@ updateAppServiceManager (void) {
             return -1;
         }
     }
-    appServiceMapSwap ();
+    swapAppServiceMap ();
 
     return 0;
 }
@@ -142,7 +143,7 @@ updateAppServiceManager (void) {
 void
 cleanAppServiceManager (void) {
     hashClean (appServiceHashTableSlave);
-    appServiceMapSwap ();
+    swapAppServiceMap ();
     hashClean (appServiceHashTableSlave);
 }
 

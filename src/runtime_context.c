@@ -9,6 +9,7 @@
 #include "logger.h"
 #include "runtime_context.h"
 
+/* Runtime context local instance */
 static runtimeContextPtr runtimeContextInstance = NULL;
 
 /* Create a new runtime context with default configuration */
@@ -25,7 +26,7 @@ newRuntimeContext (void) {
     tmp->pushIp = NULL;
     tmp->pushPort = 0;
     tmp->appServices = NULL;
-    tmp->appServiceCount = 0;
+    tmp->appServicesCount = 0;
     return tmp;
 }
 
@@ -35,13 +36,13 @@ resetRuntimeContextAppServices (void) {
     int i;
 
     if (runtimeContextInstance->appServices) {
-        for (i = 0; i < runtimeContextInstance->appServiceCount; i++)
+        for (i = 0; i < runtimeContextInstance->appServicesCount; i++)
             freeAppService (runtimeContextInstance->appServices [i]);
         free (runtimeContextInstance->appServices);
     }
 
     runtimeContextInstance->appServices = NULL;
-    runtimeContextInstance->appServiceCount = 0;
+    runtimeContextInstance->appServicesCount = 0;
 }
 
 /*
@@ -112,7 +113,7 @@ runtimeContext2Json (void) {
                          json_string (runtimeContextInstance->pushIp));
     json_object_set_new (root, RUNTIME_CONTEXT_CACHE_PUSH_PORT,
                          json_integer (runtimeContextInstance->pushPort));
-    if (runtimeContextInstance->appServices && runtimeContextInstance->appServiceCount) {
+    if (runtimeContextInstance->appServices && runtimeContextInstance->appServicesCount) {
         appServiceArray = json_array ();
         if (appServiceArray == NULL) {
             LOGE ("Create json array for appServices error.\n");
@@ -120,7 +121,7 @@ runtimeContext2Json (void) {
             return NULL;
         }
 
-        for (i = 0; i < runtimeContextInstance->appServiceCount; i++) {
+        for (i = 0; i < runtimeContextInstance->appServicesCount; i++) {
             appService = appService2Json (runtimeContextInstance->appServices [i]);
             if (appService == NULL) {
                 LOGE ("Convert application service to json error.\n");
@@ -171,7 +172,7 @@ json2RuntimeContext (json_t *root) {
     /* Get runtime context application services */
     tmp = json_object_get (root, RUNTIME_CONTEXT_CACHE_APP_SERVICES);
     if (tmp)
-        context->appServices = parseAppServicesFromJson (tmp, &context->appServiceCount);
+        context->appServices = parseAppServicesFromJson (tmp, &context->appServicesCount);
 
     if ((context->state == AGENT_STATE_INIT) || (context->agentId == NULL) ||
         (context->pushIp == NULL) || (context->pushPort == 0) ||
@@ -183,12 +184,12 @@ json2RuntimeContext (json_t *root) {
         context->pushIp = NULL;
         context->pushPort = 0;
         if (context->appServices) {
-            for (i = 0; i < context->appServiceCount; i++)
+            for (i = 0; i < context->appServicesCount; i++)
                 freeAppService (context->appServices [i]);
             free (context->appServices);
         }
         context->appServices = NULL;
-        context->appServiceCount = 0;
+        context->appServicesCount = 0;
     }
 
     return context;
@@ -260,15 +261,21 @@ setRuntimeContextAppServices (json_t *root) {
     if (tmp) {
         resetRuntimeContextAppServices ();
         runtimeContextInstance->appServices = tmp;
-        runtimeContextInstance->appServiceCount = count;
+        runtimeContextInstance->appServicesCount = count;
         return 0;
     } else
         return -1;
 }
 
 u_int
-getRuntimeContextAppServiceCount (void) {
-    return runtimeContextInstance->appServiceCount;
+getRuntimeContextAppServicesCount (void) {
+    return runtimeContextInstance->appServicesCount;
+}
+
+int
+setRuntimeContextAppServicesCount (u_int count) {
+    runtimeContextInstance->appServicesCount = count;
+    return 0;
 }
 
 /* Reset runtime context */

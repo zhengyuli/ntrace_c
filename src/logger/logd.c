@@ -236,10 +236,11 @@ writeLogFile (const char *msg, logDevPtr dev, u_int flag) {
     logfile = (logFilePtr) dev->data;
     realMsg = strstr (msg, LOG_MESSAGE_INDICATOR_2) + strlen (LOG_MESSAGE_INDICATOR_2);
     ret = safeWrite (logfile->fd, realMsg, strlen (realMsg));
-    if (ret < 0) {
-        if (resetLogFile (dev) < 0) {
+    if ((ret < 0) || (ret != strlen (realMsg))) {
+        ret = resetLogFile (dev);
+        if (ret < 0) {
             zctx_interrupted = 1;
-            fprintf (stderr, "Log file write error.\n");
+            fprintf (stderr, "Reset log file error.\n");
         }
         return;
     }

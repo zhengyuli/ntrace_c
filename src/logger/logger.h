@@ -1,6 +1,8 @@
 #ifndef __AGENT_LOGGER_H__
 #define __AGENT_LOGGER_H__
 
+#include <stdlib.h>
+
 /* Log level tag */
 #define LOG_ERR_TAG "<0>"       /* Error message */
 #define LOG_WARNING_TAG "<1>"   /* Warning message */

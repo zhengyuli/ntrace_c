@@ -25,17 +25,19 @@ SET (AGENT_SOURCE_FILES
   agent.c
   util/util.c
   util/hash.c
+  properties_manager.c
   logger/logger.c
-  checksum.c
   task_manager.c
   runtime_context.c
   app_service.c
   app_service_manager.c
-  raw_packet.c
-  ip_options.c
-  ip_packet.c
-  tcp_options.c
-  tcp_packet.c
+  dispatch_router.c
+  protocol/checksum.c
+  protocol/raw_packet.c
+  protocol/ip_options.c
+  protocol/ip_packet.c
+  protocol/tcp_options.c
+  protocol/tcp_packet.c
   protocol/protocol.c
   protocol/default/default_analyzer.c
   protocol/http/http_analyzer.c

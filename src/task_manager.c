@@ -9,6 +9,24 @@
 #include "task_manager.h"
 
 static hashTablePtr taskManagerHashTable = NULL;
+static __thread boolean taskInterruptedFlag = false;
+
+static void
+taskSigHandler (int signo) {
+    if (signo == SIGUSR1)
+        taskInterruptedFlag = true;
+}
+
+static void
+setupTaskSignal (void) {
+    struct sigaction action;
+
+    /* Setup task SIGUSR1 handler */
+    action.sa_handler = taskSigHandler;
+    action.sa_flags = 0;
+    sigemptyset (&action.sa_mask);
+    sigaction (SIGUSR1, &action, NULL);
+}
 
 static taskItemPtr
 newTaskItem (void) {
@@ -25,6 +43,16 @@ newTaskItem (void) {
 static void
 freeTaskItem (void *data) {
     free (data);
+}
+
+boolean
+taskInterrupted (void) {
+    return taskInterruptedFlag;
+}
+
+void
+resetTaskInterruptFlag (void) {
+    taskInterruptedFlag = false;
 }
 
 taskId
@@ -45,6 +73,8 @@ newTask (taskFunc func, void *args) {
     }
 
     tsk->id = tid;
+    tsk->func = func;
+    tsk->args = args;
     snprintf (key, sizeof (key) - 1, "%lu", tid);
     ret = hashInsert (taskManagerHashTable, key, tsk, freeTaskItem);
     if (ret < 0) {
@@ -75,6 +105,7 @@ stopAllTask (void) {
 
 int
 initTaskManager (void) {
+    setupTaskSignal ();
     taskManagerHashTable = hashNew (0);
     if (taskManagerHashTable == NULL) {
         LOGE ("Create taskManagerHashTable error.\n");

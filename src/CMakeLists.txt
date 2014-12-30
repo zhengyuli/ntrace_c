@@ -27,6 +27,7 @@ SET (AGENT_SOURCE_FILES
   util/hash.c
   properties_manager.c
   logger/logger.c
+  zmq_hub.c
   task_manager.c
   runtime_context.c
   app_service.c

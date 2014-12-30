@@ -12,9 +12,15 @@ typedef taskItem *taskItemPtr;
 
 struct _taskItem {
     taskId id;
+    taskFunc func;
+    void *args;
 };
 
 /*========================Interfaces definition============================*/
+boolean
+taskInterrupted (void);
+void
+resetTaskInterruptFlag (void);
 taskId
 newTask (taskFunc func, void *args);
 void

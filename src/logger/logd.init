@@ -1,17 +1,17 @@
 #!/bin/bash
 
 ### BEGIN INIT INFO
-# Provides: PROJECT_NAME_logd
+# Provides: PROJECT_NAME_LOWER_logd
 # Required-Start:
 # Required-Stop:
 # X-Start-Before:
 # Default-Start:    2 3 4 5
 # Default-Stop:
-# Short-Description: PROJECT_NAME_logd service
+# Short-Description: PROJECT_NAME_LOWER_logd service
 # Description: PROJECT_NAME log service
 ### END INIT INFO
 
-SERVICE_NAME=PROJECT_NAME_logd
+SERVICE_NAME=PROJECT_NAME_LOWER_logd
 SERVICE_PATH=/usr/sbin/${SERVICE_NAME}
 PID_FILE=/var/run/${SERVICE_NAME}.pid
 LOG_FILE_DIR=/var/log/wda/

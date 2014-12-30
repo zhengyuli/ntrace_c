@@ -113,11 +113,11 @@ freeDispatchRouterInstance:
 /* Destroy dispatch router */
 void
 destroyDispatchRouter (void) {
+    zctx_destroy (&dispatchRouterInstance->ctxt);
     free (dispatchRouterInstance->pushSocks);
     dispatchRouterInstance->pushSocks = NULL;
     free (dispatchRouterInstance->pullSocks);
     dispatchRouterInstance->pullSocks = NULL;
-    zctx_destroy (&dispatchRouterInstance->ctxt);
     free (dispatchRouterInstance);
     dispatchRouterInstance = NULL;
 }

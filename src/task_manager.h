@@ -4,6 +4,9 @@
 #include <sys/types.h>
 #include <pthread.h>
 
+#define TASK_STATUS_READY "Ready"
+#define TASK_STATUS_EXIT "Exit"
+
 typedef pthread_t taskId;
 typedef void * (*taskFunc) (void *args);
 
@@ -25,6 +28,12 @@ taskId
 newTask (taskFunc func, void *args);
 void
 stopAllTask (void);
+void
+sendTaskStatus (const char *msg);
+char *
+recvTaskStatus (void);
+char *
+recvTaskStatusNonBlock (void);
 int
 initTaskManager (void);
 void

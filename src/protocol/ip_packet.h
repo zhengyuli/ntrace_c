@@ -2,8 +2,6 @@
 #define __AGENT_IP_PACKET_H__
 
 #include <netinet/ip.h>
-#include <sys/types.h>
-#include <netinet/ip.h>
 #include "util.h"
 #include "list.h"
 

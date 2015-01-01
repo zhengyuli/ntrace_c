@@ -1,9 +1,7 @@
 #ifndef __AGENT_TCP_PACKET_H__
 #define __AGENT_TCP_PACKET_H__
 
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
+#include <netinet/ip.h>
 #include "util.h"
 #include "list.h"
 #include "protocol.h"

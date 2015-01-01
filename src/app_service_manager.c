@@ -17,10 +17,9 @@
 /* Application service BPF filter length */
 #define APP_SERVICE_BPF_FILTER_LENGTH 256
 
-/* Application service local hash tables */
+static pthread_rwlock_t appServiceHashTableMasterRWLock;
 static hashTablePtr appServiceHashTableMaster = NULL;
 static hashTablePtr appServiceHashTableSlave = NULL;
-static pthread_rwlock_t appServiceHashTableMasterLock = PTHREAD_RWLOCK_INITIALIZER;
 
 protoType
 lookupAppServiceProtoType (const char *key) {
@@ -30,13 +29,13 @@ lookupAppServiceProtoType (const char *key) {
     if (key ==  NULL)
         return PROTO_UNKNOWN;
 
-    pthread_rwlock_rdlock (&appServiceHashTableMasterLock);
+    pthread_rwlock_rdlock (&appServiceHashTableMasterRWLock);
     svc = (appServicePtr) hashLookup (appServiceHashTableMaster, key);
     if (svc == NULL)
         proto = PROTO_UNKNOWN;
     else
         proto = svc->proto;
-    pthread_rwlock_unlock (&appServiceHashTableMasterLock);
+    pthread_rwlock_unlock (&appServiceHashTableMasterRWLock);
 
     return proto;
 }
@@ -59,13 +58,13 @@ getAppServicesFilter (void) {
     char *filter;
     u_int filterLen;
 
-    pthread_rwlock_rdlock (&appServiceHashTableMasterLock);
+    pthread_rwlock_rdlock (&appServiceHashTableMasterRWLock);
     svcNum = hashSize (appServiceHashTableMaster);
     filterLen = APP_SERVICE_BPF_FILTER_LENGTH * (svcNum + 1);
     filter = (char *) malloc (filterLen);
     if (filter == NULL) {
         LOGE ("Alloc filter buffer error: %s.\n", strerror (errno));
-        pthread_rwlock_unlock (&appServiceHashTableMasterLock);
+        pthread_rwlock_unlock (&appServiceHashTableMasterRWLock);
         return NULL;
     }
     memset(filter, 0, filterLen);
@@ -74,12 +73,12 @@ getAppServicesFilter (void) {
     if (ret < 0) {
         LOGE ("Generate BPF filter from each application service error.\n");
         free (filter);
-        pthread_rwlock_unlock (&appServiceHashTableMasterLock);
+        pthread_rwlock_unlock (&appServiceHashTableMasterRWLock);
         return NULL;
     }
 
     strcat (filter, "icmp");
-    pthread_rwlock_unlock (&appServiceHashTableMasterLock);
+    pthread_rwlock_unlock (&appServiceHashTableMasterRWLock);
     return filter;
 }
 
@@ -88,9 +87,9 @@ swapAppServiceMap (void) {
     hashTablePtr tmp;
 
     tmp = appServiceHashTableMaster;
-    pthread_rwlock_wrlock (&appServiceHashTableMasterLock);
+    pthread_rwlock_wrlock (&appServiceHashTableMasterRWLock);
     appServiceHashTableMaster = appServiceHashTableSlave;
-    pthread_rwlock_unlock (&appServiceHashTableMasterLock);
+    pthread_rwlock_unlock (&appServiceHashTableMasterRWLock);
     appServiceHashTableSlave = tmp;
 }
 
@@ -109,7 +108,6 @@ addAppService (appServicePtr svc) {
     return 0;
 }
 
-/* Update application service manager from runtime context */
 int
 updateAppServiceManager (void) {
     int ret;
@@ -119,8 +117,8 @@ updateAppServiceManager (void) {
     /* Cleanup slave application service hash table */
     hashClean (appServiceHashTableSlave);
 
-    appServiceArray = getRuntimeContextAppServices ();
-    appServicesCount = getRuntimeContextAppServicesCount ();
+    appServiceArray = getAppServices ();
+    appServicesCount = getAppServicesCount ();
     for (i = 0; i <  appServicesCount; i ++) {
         tmp = appServiceArray [i];
         svc = copyAppService (tmp);
@@ -151,37 +149,48 @@ int
 initAppServiceManager (void) {
     int ret;
 
+    ret = pthread_rwlock_init (&appServiceHashTableMasterRWLock, NULL);
+    if (ret) {
+        LOGE ("Init appServiceHashTableMasterRWLock error.\n");
+        return -1;
+    }
+    
     appServiceHashTableMaster = hashNew (0);
     if (appServiceHashTableMaster == NULL) {
         LOGE ("Create appServiceHashTableMaster error.\n");
-        return -1;
+        goto destroyAppServiceHashTableMasterRWLock;
     }
 
     appServiceHashTableSlave = hashNew (0);
     if (appServiceHashTableSlave == NULL) {
         LOGE ("Create appServiceHashTableSlave error.\n");
-        hashDestroy (appServiceHashTableMaster);
-        appServiceHashTableMaster = NULL;
-        return -1;
+        goto destroyAppServiceHashTableMaster;
     }
 
     ret = updateAppServiceManager ();
     if (ret < 0) {
         LOGE ("Update application service manager error.\n");
-        hashDestroy (appServiceHashTableSlave);
-        appServiceHashTableSlave = NULL;
-        hashDestroy (appServiceHashTableMaster);
-        appServiceHashTableMaster = NULL;
-        return -1;
+        goto destroyAppServiceHashTableSlave;
     }
 
     return 0;
+    
+destroyAppServiceHashTableSlave:
+    hashDestroy (appServiceHashTableSlave);
+    appServiceHashTableSlave = NULL;
+destroyAppServiceHashTableMaster:
+    hashDestroy (appServiceHashTableMaster);
+    appServiceHashTableMaster = NULL;
+destroyAppServiceHashTableMasterRWLock:
+    pthread_rwlock_destroy (&appServiceHashTableMasterRWLock);
+    return -1;
 }
 
 void
 destroyAppServiceManager (void) {
-    hashDestroy (appServiceHashTableSlave);
-    appServiceHashTableSlave = NULL;
+    pthread_rwlock_destroy (&appServiceHashTableMasterRWLock);
     hashDestroy (appServiceHashTableMaster);
     appServiceHashTableMaster = NULL;
+    hashDestroy (appServiceHashTableSlave);
+    appServiceHashTableSlave = NULL;
 }

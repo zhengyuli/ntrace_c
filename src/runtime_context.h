@@ -18,44 +18,44 @@ typedef runtimeContext *runtimeContextPtr;
 struct _runtimeContext {
     agentState state;                   /**< Agent state */
     char *agentId;                      /**< Agent id */
-    char *pushIp;                       /**< Breakdown push ip */
-    u_short pushPort;                   /**< Breakdown push port */
+    char *breakdownSinkIp;              /**< Session breakdown sink ip */
+    u_short breakdownSinkPort;          /**< Session breakdown sink port */
     appServicePtr *appServices;         /**< Application services to monitor */
-    u_int appServicesCount;              /**< Application service count */
+    u_int appServicesCount;             /**< Application services count */
 };
 
 /* Context cache json key definitions */
 #define RUNTIME_CONTEXT_CACHE_AGENT_STATE "agent_state"
 #define RUNTIME_CONTEXT_CACHE_AGENT_ID "agent_id"
-#define RUNTIME_CONTEXT_CACHE_PUSH_IP "push_ip"
-#define RUNTIME_CONTEXT_CACHE_PUSH_PORT "push_port"
+#define RUNTIME_CONTEXT_CACHE_BREAKDOWN_SINK_IP "breakdown_sink_ip"
+#define RUNTIME_CONTEXT_CACHE_BREAKDOWN_SINK_PORT "breakdown_sink_port"
 #define RUNTIME_CONTEXT_CACHE_APP_SERVICES "app_services"
 
 /*========================Interfaces definition============================*/
 agentState
-getRuntimeContextAgentState (void);
+getAgentState (void);
 int
-setRuntimeContextAgentState (agentState state);
+setAgentState (agentState state);
 char *
-getRuntimeContextAgentId (void);
+getAgentId (void);
 int
-setRuntimeContextAgentId (char *agentId);
+setAgentId (char *agentId);
 char *
-getRuntimeContextPushIp (void);
+getBreakdownSinkIp (void);
 int
-setRuntimeContextPushIp (char *pushIp);
+setBreakdownSinkIp (char *ip);
 u_short
-getRuntimeContextPushPort (void);
+getBreakdownSinkPort (void);
 int
-setRuntimeContextPushPort (u_short pushPort);
+setBreakdownSinkPort (u_short port);
 appServicePtr *
-getRuntimeContextAppServices (void);
+getAppServices (void);
 int
-setRuntimeContextAppServices (json_t *appServices);
+setAppServices (json_t *appServices);
 u_int
-getRuntimeContextAppServicesCount (void);
+getAppServicesCount (void);
 int
-setRuntimeContextAppServicesCount (u_int);
+setAppServicesCount (u_int);
 void
 resetRuntimeContext (void);
 void

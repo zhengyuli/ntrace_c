@@ -1,7 +1,7 @@
 #ifndef __AGENT_CHECKSUM_H__
 #define __AGENT_CHECKSUM_H__
 
-#include <netinet/tcp.h>
+#include <stdlib.h>
 
 /*========================Interfaces definition============================*/
 u_short

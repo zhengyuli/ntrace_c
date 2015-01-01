@@ -32,7 +32,9 @@ SET (AGENT_SOURCE_FILES
   runtime_context.c
   app_service.c
   app_service_manager.c
-  dispatch_router.c
+  raw_packet_service.c
+  ip_packet_service.c
+  tcp_packet_service.c
   protocol/checksum.c
   protocol/raw_packet.c
   protocol/ip_options.c

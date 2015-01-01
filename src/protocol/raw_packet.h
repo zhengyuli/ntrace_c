@@ -1,7 +1,7 @@
 #ifndef __AGENT_RAW_PACKET_H__
 #define __AGENT_RAW_PACKET_H__
 
-#include <sys/types.h>
+#include <stdlib.h>
 #include <pcap.h>
 
 /*========================Interfaces definition============================*/

@@ -24,7 +24,4 @@
 #define AGENT_MANAGEMENT_RESPONSE_ERROR 1
 #define AGENT_MANAGEMENT_RESPONSE_ERROR_MESSAGE "{\"code\":1}"
 
-/* Agent management response port */
-#define AGENT_MANAGEMENT_RESPONSE_PORT 59000
-
 #endif /* __AGENT_AGENT_H__ */

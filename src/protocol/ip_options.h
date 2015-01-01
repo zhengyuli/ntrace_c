@@ -1,7 +1,7 @@
 #ifndef __AGENT_IP_OPTIONS_H__
 #define __AGENT_IP_OPTIONS_H__
 
-#include <sys/types.h>
+#include <stdlib.h>
 
 #define ipCheckAddr(x) 0
 

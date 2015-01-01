@@ -1,4 +1,4 @@
-#include <sys/types.h>
+#include <stdlib.h>
 #include <pcap.h>
 #include "logger.h"
 

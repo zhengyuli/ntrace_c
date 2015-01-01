@@ -3,585 +3,26 @@
 #include <unistd.h>
 #include <getopt.h>
 #include <string.h>
-#include <sys/ioctl.h>
-#include <net/if.h>
-#include <netinet/ip.h>
 #include <czmq.h>
 #include <jansson.h>
 #include <locale.h>
 #include "config.h"
-#include "properties_manager.h"
 #include "util.h"
 #include "logger.h"
 #include "zmq_hub.h"
+#include "properties_manager.h"
 #include "runtime_context.h"
 #include "task_manager.h"
 #include "app_service_manager.h"
-#include "dispatch_router.h"
-#include "raw_packet.h"
-#include "ip_packet.h"
-#include "tcp_packet.h"
-#include "protocol.h"
+#include "raw_packet_service.h"
+#include "ip_packet_service.h"
+#include "tcp_packet_service.h"
 #include "agent.h"
-
-#define SHARED_STATUS_PUSH_CHANNEL "inproc://sharedStatusPushChannel"
-#define SHARED_STATUS_EXIT "Exit"
-
-/* Agent pcap configuration */
-#define PCAP_MAX_CAPTURE_LENGTH 65535
-#define PCAP_CAPTURE_TIMEOUT 500
-#define PCAP_CAPTURE_IN_PROMISC 1
-#define PCAP_CAPTURE_BUFFER_SIZE (16 << 20)
 
 /* Agent pid file fd */
 static int agentPidFd = -1;
-/* Shared status push socket */
-static void *sharedStatusPushSock = NULL;
-/* Shared status push socket mutex lock */
-static pthread_mutex_t sharedStatusPushSockLock = PTHREAD_MUTEX_INITIALIZER;
-/* Shared status pull socket */
-static void *sharedStatusPullSock = NULL;
 /* Agent management response socket */
 static void *agentManagementRespSock = NULL;
-/* Pcap descriptor */
-static pcap_t *pcapDesc = NULL;
-/* Pcap link type */
-static int linkType = -1;
-
-static inline void
-pushSharedStatus (const char *msg) {
-    pthread_mutex_lock (&sharedStatusPushSockLock);
-    zstr_send (sharedStatusPushSock, msg);
-    pthread_mutex_unlock (&sharedStatusPushSockLock);
-}
-
-static inline char *
-readSharedStatusNonBlock (void) {
-    return zstr_recv_nowait (sharedStatusPullSock);
-}
-
-/* Dispatch hash */
-static size_t
-dispatchHash (const char *key1, const char *key2) {
-    u_int sum, hash = 0;
-    u_int seed = 16777619;
-    const char *tmp;
-
-    if (strlen (key1) < strlen (key2)) {
-        tmp = key1;
-        key1 = key2;
-        key2 = tmp;
-    }
-
-    while (*key2) {
-        hash *= seed;
-        sum = *key1 + *key2;
-        hash ^= sum;
-        key1++;
-        key2++;
-    }
-
-    while (*key1) {
-        hash *= seed;
-        hash ^= (size_t) (*key1);
-        key1++;
-    }
-
-    return hash;
-}
-
-/*
- * @brief Dispatch ip packet and timestamp to specific parsing
- *        thread.
- *
- * @param iphdr ip packet to dispatch
- * @param tm capture timestamp to dispatch
- */
-void
-packetDispatch (struct ip *iphdr, timeValPtr tm) {
-    int ret;
-    u_int index;
-    u_int ipPktLen;
-    struct ip *iph = iphdr;
-    struct tcphdr *tcph;
-    char key1 [32] = {0};
-    char key2 [32] = {0};
-    zframe_t *frame;
-    void *pushSock;
-
-    ipPktLen = ntohs (iph->ip_len);
-
-    switch (iph->ip_p) {
-        case IPPROTO_TCP:
-            tcph = (struct tcphdr *) ((u_char *) iph + (iph->ip_hl * 4));
-            snprintf (key1, sizeof (key1) - 1, "%s:%d", inet_ntoa (iph->ip_src), ntohs (tcph->source));
-            snprintf (key2, sizeof (key2) - 1, "%s:%d", inet_ntoa (iph->ip_dst), ntohs (tcph->dest));
-            break;
-
-        default:
-            return;
-    }
-
-    /* Get dispatch index */
-    index = dispatchHash (key1, key2) % getDispatchCount ();
-    pushSock = getDispatchPushSock (index);
-
-    /* Push timeVal */
-    frame = zframe_new (tm, sizeof (timeVal));
-    if (frame == NULL) {
-        LOGE ("Create timestamp zframe error.\n");
-        return;
-    }
-    ret = zframe_send (&frame, pushSock, ZFRAME_MORE);
-    if (ret < 0) {
-        LOGE ("Push timestamp zframe error.\n");
-        zframe_destroy (&frame);
-        return;
-    }
-
-    /* Push ip packet */
-    frame = zframe_new (iphdr, ipPktLen);
-    if (frame == NULL) {
-        LOGE ("Create ip packet zframe error.");
-        return;
-    }
-    ret = zframe_send (&frame, pushSock, 0);
-    if (ret < 0) {
-        LOGE ("Push ip packet zframe error.\n");
-        zframe_destroy (&frame);
-        return;
-    }
-}
-
-/*
- * @brief Create a new pcap descriptor
- *
- * @param interface net interface bind to pcap descriptor
- *
- * @return pcap descriptor if success else NULL
- */
-static pcap_t *
-newPcapDev (const char *interface) {
-    int ret;
-    pcap_t *pcapDev;
-    pcap_if_t *alldevs, *devptr;
-    char errBuf [PCAP_ERRBUF_SIZE] = {0};
-
-    /* Check interface exists */
-    ret = pcap_findalldevs (&alldevs, errBuf);
-    if (ret < 0) {
-        LOGE ("No network devices found.\n");
-        return NULL;
-    }
-
-    for (devptr = alldevs; devptr != NULL; devptr = devptr->next) {
-        if (strEqual (devptr->name, interface))
-            break;
-    }
-    if (devptr == NULL)
-        return NULL;
-
-    /* Create pcap descriptor */
-    pcapDev = pcap_create (interface, errBuf);
-    if (pcapDev == NULL) {
-        LOGE ("Create pcap device error: %s.\n", errBuf);
-        return NULL;
-    }
-
-    /* Set pcap max capture length */
-    ret = pcap_set_snaplen (pcapDev, PCAP_MAX_CAPTURE_LENGTH);
-    if (ret < 0) {
-        LOGE ("Set pcap snaplen error\n");
-        pcap_close (pcapDev);
-        return NULL;
-    }
-
-    /* Set pcap timeout */
-    ret = pcap_set_timeout (pcapDev, PCAP_CAPTURE_TIMEOUT);
-    if (ret < 0) {
-        LOGE ("Set capture timeout error.\n");
-        pcap_close (pcapDev);
-        return NULL;
-    }
-
-    /* Set pcap buffer size */
-    ret = pcap_set_buffer_size (pcapDev, PCAP_CAPTURE_BUFFER_SIZE);
-    if (ret < 0) {
-        LOGE ("Set pcap capture buffer size error.\n");
-        pcap_close (pcapDev);
-        return NULL;
-    }
-
-    /* Set pcap promisc mode */
-    ret = pcap_set_promisc (pcapDev, PCAP_CAPTURE_IN_PROMISC);
-    if (ret < 0) {
-        LOGE ("Set pcap promisc mode error.\n");
-        pcap_close (pcapDev);
-        return NULL;
-    }
-
-    /* Activate pcap device */
-    ret = pcap_activate (pcapDev);
-    if (ret < 0) {
-        LOGE ("Activate pcap device error.\n");
-        pcap_close (pcapDev);
-        return NULL;
-    }
-
-    return pcapDev;
-}
-
-/* Update BPF filter */
-static int
-updateFilter (const char *filter) {
-    int ret;
-    struct bpf_program pcapFilter;
-
-    ret = pcap_compile (pcapDesc, &pcapFilter, filter, 1, 0);
-    if (ret < 0) {
-        pcap_freecode (&pcapFilter);
-        return -1;
-    }
-
-    ret = pcap_setfilter (pcapDesc, &pcapFilter);
-    pcap_freecode (&pcapFilter);
-    return ret;
-}
-
-/*
- * Raw packet capture service.
- * Capture raw packet from mirror interface, then get ip packet
- * from raw packet and push it to ip packet parsing service.
- */
-static void *
-rawPktCaptureService (void *args) {
-    int ret;
-    char *filter;
-    struct pcap_pkthdr *capPkthdr;
-    void *ipPktPushSock;
-    u_char *rawPkt;
-    struct ip *ipPkt;
-    timeVal capTime;
-    zframe_t *frame;
-
-    /* Init log context */
-    ret = initLog (getPropertiesLogLevel ());
-    if (ret < 0) {
-        logToConsole ("Init log context error.\n");
-        goto exit;
-    }
-
-    /* Get zmqhub ipPktPushSock */
-    ipPktPushSock = getZmqHubIpPktPushSock ();
-    
-    /* Create pcap descriptor */
-    pcapDesc = newPcapDev (getPropertiesMirrorInterface ());
-    if (pcapDesc == NULL) {
-        LOGE ("Create pcap descriptor for %s error.\n", getPropertiesMirrorInterface ());
-        goto destroyLog;
-    }
-
-    /* Get link type */
-    linkType = pcap_datalink (pcapDesc);
-    if (linkType < 0) {
-        LOGE ("Get datalink type error.\n");
-        goto destroyPcapDesc;
-    }
-
-    /* Get application service filter */
-    filter = getAppServicesFilter ();
-    if (filter == NULL) {
-        LOGE ("Get application service filter error.\n");
-        goto destroyPcapDesc;
-    }
-
-    /* Update application services filter */
-    ret = updateFilter (filter);
-    if (ret < 0) {
-        LOGE ("Update application services filter error.\n");
-        free (filter);
-        goto destroyPcapDesc;
-    }
-    LOGD ("Update application services filter: %s\n", filter);
-    free (filter);
-
-    while (!taskInterrupted ())
-    {
-        ret = pcap_next_ex (pcapDesc, &capPkthdr, (const u_char **) &rawPkt);
-        if (ret == 1) {
-            /* Filter incomplete packet */
-            if (capPkthdr->caplen != capPkthdr->len)
-                continue;
-
-            /* Get ip packet */
-            ipPkt = (struct ip *) getIpPacket (rawPkt, linkType);
-            if (ipPkt == NULL)
-                continue;
-
-            /* Get packet capture timestamp */
-            capTime.tvSec = htonll (capPkthdr->ts.tv_sec);
-            capTime.tvUsec = htonll (capPkthdr->ts.tv_usec);
-
-            /* Push capture timestamp zframe */
-            frame = zframe_new (&capTime, sizeof (timeVal));
-            if (frame == NULL) {
-                LOGE ("Create packet timestamp zframe error.\n");
-                continue;
-            }
-            ret = zframe_send (&frame, ipPktPushSock, ZFRAME_MORE);
-            if (ret < 0) {
-                LOGE ("Push packet timestamp zframe error.\n");
-                zframe_destroy (&frame);
-                continue;
-            }
-
-            /* Push ip packet zframe */
-            frame = zframe_new (ipPkt, ntohs (ipPkt->ip_len));
-            if (frame == NULL) {
-                LOGE ("Create ip packet zframe error.\n");
-                continue;
-            }
-            ret = zframe_send (&frame, ipPktPushSock, 0);
-            if (ret < 0) {
-                LOGE ("Push ip packet zframe error.\n");
-                zframe_destroy (&frame);
-                continue;
-            }
-        } else if (ret == -1) {
-            LOGE ("Capture packet fatal error, rawPktCaptureService will exit...\n");
-            break;
-        }
-    }
-
-    LOGD ("RawPktCaptureService will exit...\n");
-destroyPcapDesc:
-    pcap_close (pcapDesc);
-    linkType = -1;
-destroyLog:
-    destroyLog ();
-exit:
-    if (!taskInterrupted ())
-        pushSharedStatus (SHARED_STATUS_EXIT);
-
-    return NULL;
-}
-
-/*
- * Ip packet parsing service.
- * Pull ip packet pushed from rawPktCaptureService, then do ip parsing and
- * dispatch defragment ip packet to specific tcpPktParsingService thread in
- * the end.
- */
-void *
-ipPktParsingService (void *args) {
-    int ret;
-    zframe_t *tmFrame = NULL;
-    zframe_t *pktFrame = NULL;
-    struct ip *newIphdr;
-    void *ipPktPullSock;
-
-    /* Init log context */
-    ret = initLog (getPropertiesLogLevel ());
-    if (ret < 0) {
-        LOGE ("Init log context error.\n");
-        goto exit;
-    }
-
-    /* Get zmqhub ipPktPullSock */
-    ipPktPullSock = getZmqHubIpPktPullSock ();    
-    
-    /* Init ip context */
-    ret = initIp ();
-    if (ret < 0) {
-        LOGE ("Init ip context error.\n");
-        goto destroyLog;
-    }
-
-    while (!taskInterrupted ()) {
-        /* Receive timestamp zframe */
-        if (tmFrame == NULL) {
-            tmFrame = zframe_recv (ipPktPullSock);
-            if (tmFrame == NULL) {
-                if (!taskInterrupted ()) {
-                    LOGE ("Receive timestamp zframe fatal error.\n");
-                }
-                break;
-            } else if (!zframe_more (tmFrame)) {
-                zframe_destroy (&tmFrame);
-                continue;
-            }
-        }
-
-        /* Receive ip packet zframe */
-        pktFrame = zframe_recv (ipPktPullSock);
-        if (pktFrame == NULL) {
-            if (!taskInterrupted ()) {
-                LOGE ("Receive ip packet zframe fatal error.\n");
-            }
-            zframe_destroy (&tmFrame);
-            break;
-        } else if (zframe_more (pktFrame)) {
-            zframe_destroy (&tmFrame);
-            tmFrame = pktFrame;
-            pktFrame = NULL;
-            continue;
-        }
-
-        ret = ipDefrag ((struct ip *) zframe_data (pktFrame), (timeValPtr) zframe_data (tmFrame), &newIphdr);
-        if (ret < 0)
-            LOGE ("Ip packet defragment error.\n");
-        else if (newIphdr) {
-            packetDispatch ((struct ip *) newIphdr, (timeValPtr) zframe_data (tmFrame));
-            /* New ip packet after defragment */
-            if (newIphdr != (struct ip *) zframe_data (pktFrame))
-                free (newIphdr);
-        }
-
-        /* Free zframe */
-        zframe_destroy (&tmFrame);
-        zframe_destroy (&pktFrame);
-    }
-
-    LOGD ("IpPktParsingService will exit...\n");
-    destroyIp ();
-destroyLog:
-    destroyLog ();
-exit:
-    if (!taskInterrupted ())
-        pushSharedStatus (SHARED_STATUS_EXIT);
-
-    return NULL;
-}
-
-/* Publish session breakdown callback */
-static void
-publishSessionBreakdown (const char *sessionBreakdown, void *args) {
-    void *pubSock = args;
-
-    zstr_send (pubSock, sessionBreakdown);
-    LOGD ("\nSession breakdown:\n%s\n", sessionBreakdown);
-}
-
-/*
- * Tcp packet parsing service.
- * Pull ip packet pushed from ipPktParsingService, then do tcp parsing and
- * push session breakdown to session breakdown sink service in the end.
- */
-static void *
-tcpPktParsingService (void *args) {
-    int ret;
-    zctx_t *ctxt;
-    timeValPtr tm;
-    struct ip *iphdr;
-    zframe_t *tmFrame = NULL;
-    zframe_t *pktFrame = NULL;
-    void *tcpPktPullSock;
-    void *sessionBreakdownPushSock;
-
-    /* Get tcpPktPullSock */
-    tcpPktPullSock = args;
-
-    /* Init log context */
-    ret = initLog (getPropertiesLogLevel ());
-    if (ret < 0) {
-        logToConsole ("Init log context error.\n");
-        goto exit;
-    }
-
-    ctxt = zctx_new ();
-    if (ctxt == NULL) {
-        LOGE ("Create zmq ctxt error.\n");
-        goto destroyLog;
-    }
-
-    sessionBreakdownPushSock = zsocket_new (ctxt, ZMQ_PUSH);
-    if (sessionBreakdownPushSock == NULL) {
-        LOGE ("Create sessionBreakdownPushSock error.\n");
-        goto destroyCtxt;
-    }
-    /* Set sessionBreakdownPushSock sndhwm to 50,000 */
-    zsocket_set_sndhwm (sessionBreakdownPushSock, 50000);
-    ret = zsocket_connect (sessionBreakdownPushSock, "tcp://%s:%u",
-                           getRuntimeContextPushIp (), getRuntimeContextPushPort ());
-    if (ret < 0) {
-        LOGE ("Connect to tcp://%s:%u error.\n", getRuntimeContextPushIp (), getRuntimeContextPushPort ());
-        goto destroyCtxt;
-    }
-
-    /* Init tcp context */
-    ret = initTcp (publishSessionBreakdown, sessionBreakdownPushSock);
-    if (ret < 0) {
-        LOGE ("Init tcp context error.\n");
-        goto destroyCtxt;
-    }
-
-    /* Init proto context */
-    ret = initProto ();
-    if (ret < 0) {
-        LOGE ("Init proto context error.\n");
-        goto destroyTcp;
-    }
-
-    while (!taskInterrupted ()) {
-        /* Receive timestamp zframe */
-        if (tmFrame == NULL) {
-            tmFrame = zframe_recv (tcpPktPullSock);
-            if (tmFrame == NULL) {
-                if (!taskInterrupted ()) {
-                    LOGE ("Receive timestamp zframe fatal error.\n");
-                }
-                break;
-            } else if (!zframe_more (tmFrame)) {
-                zframe_destroy (&tmFrame);
-                continue;
-            }
-        }
-
-        /* Receive ip packet zframe */
-        pktFrame = zframe_recv (tcpPktPullSock);
-        if (pktFrame == NULL) {
-            if (!taskInterrupted ()) {
-                LOGE ("Receive ip packet zframe fatal error.\n");
-            }
-            zframe_destroy (&tmFrame);
-            break;
-        } else if (zframe_more (pktFrame)) {
-            zframe_destroy (&tmFrame);
-            tmFrame = pktFrame;
-            pktFrame = NULL;
-            continue;
-        }
-
-        tm = (timeValPtr) zframe_data (tmFrame);
-        iphdr = (struct ip *) zframe_data (pktFrame);
-        switch (iphdr->ip_p) {
-            case IPPROTO_TCP:
-                tcpProcess (iphdr, tm);
-                break;
-
-            default:
-                break;
-        }
-
-        /* Free zframe */
-        zframe_destroy (&tmFrame);
-        zframe_destroy (&pktFrame);
-    }
-
-    LOGD ("TcpPktParsingService will exit...\n");
-    destroyProto ();
-destroyTcp:
-    destroyTcp ();
-destroyCtxt:
-    zctx_destroy (&ctxt);
-destroyLog:
-    destroyLog ();
-exit:
-    if (!taskInterrupted ())
-        pushSharedStatus (SHARED_STATUS_EXIT);
-
-    return NULL;
-}
 
 /*
  * Check agent id.
@@ -595,7 +36,7 @@ checkAgentId (json_t *profile) {
     if (tmp == NULL)
         return -1;
 
-    if (!strEqual (getRuntimeContextAgentId (), json_string_value (tmp)))
+    if (!strEqual (getAgentId (), json_string_value (tmp)))
         return -1;
 
     return 0;
@@ -613,42 +54,42 @@ addAgent (json_t *profile) {
     int ret;
     json_t *tmp;
 
-    if (getRuntimeContextAgentState () != AGENT_STATE_INIT) {
+    if (getAgentState () != AGENT_STATE_INIT) {
         LOGE ("Add agent error: agent already added.\n");
         return -1;
     }
 
     if ((json_object_get (profile, "agent_id") == NULL) ||
-        (json_object_get (profile, "push_ip") == NULL) ||
-        (json_object_get (profile, "push_port") == NULL)) {
+        (json_object_get (profile, "breakdown_sink_ip") == NULL) ||
+        (json_object_get (profile, "breakdown_sink_port") == NULL)) {
         LOGE ("Add agent profile parse error.\n");
         return -1;
     }
 
-    /* Update runtime context agent state */
-    setRuntimeContextAgentState (AGENT_STATE_STOPPED);
+    /* Update agent state */
+    setAgentState (AGENT_STATE_STOPPED);
 
-    /* Update runtime context agent id */
+    /* Update agent id */
     tmp = json_object_get (profile, "agent_id");
-    ret = setRuntimeContextAgentId (strdup (json_string_value (tmp)));
+    ret = setAgentId (strdup (json_string_value (tmp)));
     if (ret < 0) {
-        LOGE ("Update runtime context agent id error.\n");
+        LOGE ("Update agent id error.\n");
         resetRuntimeContext ();
         return -1;
     }
 
-    /* Update runtime context push ip */
-    tmp = json_object_get (profile, "push_ip");
-    ret = setRuntimeContextPushIp (strdup (json_string_value (tmp)));
+    /* Update breakdown sink ip */
+    tmp = json_object_get (profile, "breakdown_sink_ip");
+    ret = setBreakdownSinkIp (strdup (json_string_value (tmp)));
     if (ret < 0) {
-        LOGE ("Update runtime context push ip error.\n");
+        LOGE ("Update breakdown sink ip error.\n");
         resetRuntimeContext ();
         return -1;
     }
 
-    /* Update runtime context push port */
-    tmp = json_object_get (profile, "push_port");
-    setRuntimeContextPushPort (json_integer_value (tmp));
+    /* Update breakdown sink port */
+    tmp = json_object_get (profile, "breakdown_sink_port");
+    setBreakdownSinkPort (json_integer_value (tmp));
 
     /* Dump runtime context */
     dumpRuntimeContext ();
@@ -668,7 +109,7 @@ static int
 removeAgent (json_t *profile) {
     int ret;
 
-    if (getRuntimeContextAgentState () == AGENT_STATE_RUNNING) {
+    if (getAgentState () == AGENT_STATE_RUNNING) {
         LOGE ("Agent is running, please stop it before removing.\n");
         return -1;
     }
@@ -709,8 +150,8 @@ agentRun (void) {
         goto stopAllTask;
     }
 
-    for (i = 0; i < getDispatchCount (); i++) {
-        tid = newTask (tcpPktParsingService, getDispatchPullSock (i));
+    for (i = 0; i < getTcpPktParsingThreadsNum (); i++) {
+        tid = newTask (tcpPktParsingService, getTcpPktParsingThreadIDHolder (i));
         if (tid < 0) {
             LOGE ("Create tcpPktParsingService %u task error.\n", i);
             goto stopAllTask;
@@ -735,12 +176,12 @@ static int
 startAgent (json_t *profile) {
     int ret;
 
-    if (getRuntimeContextAgentState () == AGENT_STATE_INIT) {
+    if (getAgentState () == AGENT_STATE_INIT) {
         LOGE ("Agent is not ready now.\n");
         return -1;
     }
 
-    if (getRuntimeContextAgentState () == AGENT_STATE_RUNNING) {
+    if (getAgentState () == AGENT_STATE_RUNNING) {
         LOGW ("Agent is already running now.\n");
         return -1;
     }
@@ -757,8 +198,8 @@ startAgent (json_t *profile) {
         return -1;
     }
 
-    /* Update runtime context agent state */
-    setRuntimeContextAgentState (AGENT_STATE_RUNNING);
+    /* Update agent state */
+    setAgentState (AGENT_STATE_RUNNING);
     /* Dump runtime context */
     dumpRuntimeContext ();
     LOGD ("Start agent: [Success]\n");
@@ -777,7 +218,7 @@ static int
 stopAgent (json_t *profile) {
     int ret;
 
-    if (getRuntimeContextAgentState () != AGENT_STATE_RUNNING) {
+    if (getAgentState () != AGENT_STATE_RUNNING) {
         LOGE ("Agent is not running.\n");
         return -1;
     }
@@ -790,8 +231,8 @@ stopAgent (json_t *profile) {
 
     stopAllTask ();
 
-    /* Update runtime context agent state */
-    setRuntimeContextAgentState (AGENT_STATE_STOPPED);
+    /* Update agent state */
+    setAgentState (AGENT_STATE_STOPPED);
     /* Dump runtime context */
     dumpRuntimeContext ();
 
@@ -831,7 +272,7 @@ pushProfile (json_t *profile) {
     char *filter;
     json_t *appServices;
 
-    if (getRuntimeContextAgentState () == AGENT_STATE_INIT) {
+    if (getAgentState () == AGENT_STATE_INIT) {
         LOGE ("Agent has not been added.\n");
         return -1;
     }
@@ -848,22 +289,22 @@ pushProfile (json_t *profile) {
         return -1;
     }
 
-    /* Update runtime context application services*/
-    ret = setRuntimeContextAppServices (appServices);
+    /* Update application services*/
+    ret = setAppServices (appServices);
     if (ret < 0) {
-        LOGE ("Update application services for runtime context error.\n");
+        LOGE ("Update application services error.\n");
         return -1;
     }
 
     /* Update application service manager */
     ret = updateAppServiceManager ();
     if (ret < 0) {
-        LOGE ("Update application services error for application service manager.\n");
+        LOGE ("Update application service manager error.\n");
         return -1;
     }
 
     /* Update application services filter */
-    if (getRuntimeContextAgentState () == AGENT_STATE_RUNNING) {
+    if (getAgentState () == AGENT_STATE_RUNNING) {
         filter = getAppServicesFilter ();
         if (filter == NULL) {
             LOGE ("Get application services filter error.\n");
@@ -927,7 +368,7 @@ buildAgentManagementResponse (int code, int status) {
 }
 
 static int
-agentManagementMessageHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
+managementRequestHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
     int ret;
     char *msg;
     const char *cmd;
@@ -935,7 +376,7 @@ agentManagementMessageHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
     json_error_t error;
     json_t *root, *tmp, *body;
 
-    msg = zstr_recv_nowait (agentManagementRespSock);
+    msg = zstr_recv_nowait (getManagementRespSock ());
     if (msg == NULL)
         return 0;
 
@@ -972,17 +413,17 @@ agentManagementMessageHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
                                              AGENT_STATE_ERROR);
     else
         resp = buildAgentManagementResponse (AGENT_MANAGEMENT_RESPONSE_SUCCESS,
-                                             getRuntimeContextAgentState ());
+                                             getAgentState ());
 
     if (resp) {
-        zstr_send (agentManagementRespSock, resp);
+        zstr_send (getManagementRespSock (), resp);
         free (resp);
     } else {
         if (ret < 0)
-            zstr_send (agentManagementRespSock,
+            zstr_send (getManagementRespSock (),
                        AGENT_MANAGEMENT_RESPONSE_ERROR_MESSAGE);
         else
-            zstr_send (agentManagementRespSock,
+            zstr_send (getManagementRespSock (),
                        AGENT_MANAGEMENT_RESPONSE_SUCCESS_MESSAGE);
     }
 
@@ -992,15 +433,15 @@ agentManagementMessageHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
 }
 
 static int
-sharedStatusMessageHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
+taskStatusHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
     int ret;
     char *status;
 
-    status = readSharedStatusNonBlock ();
+    status = recvTaskStatusNonBlock ();
     if (status == NULL)
         return 0;
 
-    if (strEqual (status, SHARED_STATUS_EXIT)) {
+    if (strEqual (status, TASK_STATUS_EXIT)) {
         stopAllTask ();
         ret = -1;
     } else
@@ -1054,7 +495,6 @@ unlockPidFile (void) {
 static int
 agentService (void) {
     int ret;
-    zctx_t *ctxt;
     zloop_t *loop;
     zmq_pollitem_t pollItems [2];
 
@@ -1073,20 +513,20 @@ agentService (void) {
         goto unlockPidFile;
     }
 
+    /* Init runtime context */
+    ret = initRuntimeContext ();
+    if (ret < 0) {
+        LOGE ("Init agent runtime context error.\n");
+        ret = -1;
+        goto destroyLog;
+    }
+
     /* Init zmq hub */
     ret = initZmqHub ();
     if (ret < 0) {
         LOGE ("Init zmq hub error.\n");
         ret = -1;
-        goto destroyLog;
-    }
-
-    /* Init dispatch router */
-    ret = initDispatchRouter ();
-    if (ret < 0) {
-        LOGE ("Init dispatch router error.\n");
-        ret = -1;
-        goto destroyZmqHub;
+        goto destroyRuntimeContext;
     }
 
     /* Init task manager */
@@ -1094,15 +534,7 @@ agentService (void) {
     if (ret < 0) {
         LOGE ("Init task manager error.\n");
         ret = -1;
-        goto destroyDispatchRouter;
-    }
-
-    /* Init agent runtime context */
-    ret = initRuntimeContext ();
-    if (ret < 0) {
-        LOGE ("Init agent runtime context error.\n");
-        ret = -1;
-        goto destroyTaskManager;
+        goto destroyZmqHub;
     }
 
     /* Init application service manager */
@@ -1110,56 +542,7 @@ agentService (void) {
     if (ret < 0) {
         LOGE ("Init application service manager error.\n");
         ret = -1;
-        goto destroyRuntimeContext;
-    }
-
-    /* Init zmq context */
-    ctxt = zctx_new ();
-    if (ctxt == NULL) {
-        LOGE ("Init zmq context error.\n");
-        ret = -1;
-        goto destroyAppServiceManager;
-    }
-
-    /* Init agentManagementRespSock */
-    agentManagementRespSock = zsocket_new (ctxt, ZMQ_REP);
-    if (agentManagementRespSock == NULL) {
-        LOGE ("Create agentManagementRespSock error.\n");
-        ret = -1;
-        goto destroyCtxt;
-    }
-    ret = zsocket_bind (agentManagementRespSock, "tcp://*:%u", AGENT_MANAGEMENT_RESPONSE_PORT);
-    if (ret < 0) {
-        LOGE ("Bind to tcp://*:%u error.\n", AGENT_MANAGEMENT_RESPONSE_PORT);
-        ret = -1;
-        goto destroyCtxt;
-    }
-
-    /* Init sharedStatusPushSock */
-    sharedStatusPushSock = zsocket_new (ctxt, ZMQ_PUSH);
-    if (sharedStatusPushSock == NULL) {
-        LOGE ("Create sharedStatusPushSock error.\n");
-        ret = -1;
-        goto destroyCtxt;
-    }
-    ret = zsocket_bind (sharedStatusPushSock, SHARED_STATUS_PUSH_CHANNEL);
-    if (ret < 0) {
-        LOGE ("Bind to %s error.\n", SHARED_STATUS_PUSH_CHANNEL);
-        ret = -1;
-        goto destroyCtxt;
-    }
-
-    sharedStatusPullSock = zsocket_new (ctxt, ZMQ_PULL);
-    if (sharedStatusPullSock == NULL) {
-        LOGE ("Create sharedStatusPullSock error.\n");
-        ret = -1;
-        goto destroyCtxt;
-    }
-    ret = zsocket_connect (sharedStatusPullSock, SHARED_STATUS_PUSH_CHANNEL);
-    if (ret < 0) {
-        LOGE ("Connect to %s error.\n", SHARED_STATUS_PUSH_CHANNEL);
-        ret = -1;
-        goto destroyCtxt;
+        goto destroyTaskManager;
     }
 
     /* Create zloop reactor */
@@ -1167,21 +550,21 @@ agentService (void) {
     if (loop == NULL) {
         LOGE ("Create zloop error.\n");
         ret = -1;
-        goto destroyCtxt;
+        goto destroyAppServiceManager;
     }
 
     /* Init poll item 0*/
-    pollItems [0].socket = agentManagementRespSock;
+    pollItems [0].socket = getManagementRespSock ();
     pollItems [0].fd = 0;
     pollItems [0].events = ZMQ_POLLIN;
 
     /* Init poll item 1*/
-    pollItems [1].socket = sharedStatusPullSock;
+    pollItems [1].socket = getTaskStatusPullSock ();
     pollItems [1].fd = 0;
     pollItems [1].events = ZMQ_POLLIN;
 
     /* Register poll item 0 */
-    ret = zloop_poller (loop, &pollItems [0], agentManagementMessageHandler, NULL);
+    ret = zloop_poller (loop, &pollItems [0], managementRequestHandler, NULL);
     if (ret < 0) {
         LOGE ("Register poll items [0] error.\n");
         ret = -1;
@@ -1189,14 +572,14 @@ agentService (void) {
     }
 
     /* Register poll item 1 */
-    ret = zloop_poller (loop, &pollItems [1], sharedStatusMessageHandler, NULL);
+    ret = zloop_poller (loop, &pollItems [1], taskStatusHandler, NULL);
     if (ret < 0) {
         LOGE ("Register poll items [1] error.\n");
         ret = -1;
         goto destroyZloop;
     }
 
-    if (getRuntimeContextAgentState () == AGENT_STATE_RUNNING) {
+    if (getAgentState () == AGENT_STATE_RUNNING) {
         ret = agentRun ();
         if (ret < 0) {
             LOGE ("Restore agent to run error.\n");
@@ -1215,18 +598,14 @@ agentService (void) {
     stopAllTask ();
 destroyZloop:
     zloop_destroy (&loop);
-destroyCtxt:
-    zctx_destroy (&ctxt);
 destroyAppServiceManager:
     destroyAppServiceManager ();
-destroyRuntimeContext:
-    destroyRuntimeContext ();
 destroyTaskManager:
     destroyTaskManager ();
-destroyDispatchRouter:
-    destroyDispatchRouter ();
 destroyZmqHub:
     destroyZmqHub ();
+destroyRuntimeContext:
+    destroyRuntimeContext ();
 destroyLog:
     destroyLog ();
 unlockPidFile:

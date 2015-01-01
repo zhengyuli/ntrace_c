@@ -12,7 +12,6 @@
 /* Runtime context local instance */
 static runtimeContextPtr runtimeContextInstance = NULL;
 
-/* Create a new runtime context with default configuration */
 static runtimeContextPtr
 newRuntimeContext (void) {
     runtimeContextPtr tmp;
@@ -23,16 +22,15 @@ newRuntimeContext (void) {
 
     tmp->state = AGENT_STATE_INIT;
     tmp->agentId = NULL;
-    tmp->pushIp = NULL;
-    tmp->pushPort = 0;
+    tmp->breakdownSinkIp = NULL;
+    tmp->breakdownSinkPort = 0;
     tmp->appServices = NULL;
     tmp->appServicesCount = 0;
     return tmp;
 }
 
-/* Reset application services of application context */
 static void
-resetRuntimeContextAppServices (void) {
+resetAppServices (void) {
     int i;
 
     if (runtimeContextInstance->appServices) {
@@ -109,10 +107,10 @@ runtimeContext2Json (void) {
                          json_integer (runtimeContextInstance->state));
     json_object_set_new (root, RUNTIME_CONTEXT_CACHE_AGENT_ID,
                          json_string (runtimeContextInstance->agentId));
-    json_object_set_new (root, RUNTIME_CONTEXT_CACHE_PUSH_IP,
-                         json_string (runtimeContextInstance->pushIp));
-    json_object_set_new (root, RUNTIME_CONTEXT_CACHE_PUSH_PORT,
-                         json_integer (runtimeContextInstance->pushPort));
+    json_object_set_new (root, RUNTIME_CONTEXT_CACHE_BREAKDOWN_SINK_IP,
+                         json_string (runtimeContextInstance->breakdownSinkIp));
+    json_object_set_new (root, RUNTIME_CONTEXT_CACHE_BREAKDOWN_SINK_PORT,
+                         json_integer (runtimeContextInstance->breakdownSinkPort));
     if (runtimeContextInstance->appServices && runtimeContextInstance->appServicesCount) {
         appServiceArray = json_array ();
         if (appServiceArray == NULL) {
@@ -153,36 +151,36 @@ json2RuntimeContext (json_t *root) {
     /* Return default runtime context if runtime context cache is not valid */
     if ((json_object_get (root, RUNTIME_CONTEXT_CACHE_AGENT_STATE) == NULL) ||
         (json_object_get (root, RUNTIME_CONTEXT_CACHE_AGENT_ID) == NULL) ||
-        (json_object_get (root, RUNTIME_CONTEXT_CACHE_PUSH_IP) == NULL) ||
-        (json_object_get (root, RUNTIME_CONTEXT_CACHE_PUSH_PORT) == NULL))
+        (json_object_get (root, RUNTIME_CONTEXT_CACHE_BREAKDOWN_SINK_IP) == NULL) ||
+        (json_object_get (root, RUNTIME_CONTEXT_CACHE_BREAKDOWN_SINK_PORT) == NULL))
         return context;
 
-    /* Get context cach eagent state */
+    /* Get agent state */
     tmp = json_object_get (root, RUNTIME_CONTEXT_CACHE_AGENT_STATE);
     context->state = json_integer_value (tmp);
-    /* Get runtime context agentId */
+    /* Get agent id */
     tmp = json_object_get (root, RUNTIME_CONTEXT_CACHE_AGENT_ID);
     context->agentId = strdup (json_string_value (tmp));
-    /* Get runtime context push ip */
-    tmp = json_object_get (root, RUNTIME_CONTEXT_CACHE_PUSH_IP);
-    context->pushIp = strdup (json_string_value (tmp));
-    /* Get runtime context push port */
-    tmp = json_object_get (root, RUNTIME_CONTEXT_CACHE_PUSH_PORT);
-    context->pushPort = json_integer_value (tmp);
-    /* Get runtime context application services */
+    /* Get breakdown sink ip */
+    tmp = json_object_get (root, RUNTIME_CONTEXT_CACHE_BREAKDOWN_SINK_IP);
+    context->breakdownSinkIp = strdup (json_string_value (tmp));
+    /* Get breakdown sink port */
+    tmp = json_object_get (root, RUNTIME_CONTEXT_CACHE_BREAKDOWN_SINK_PORT);
+    context->breakdownSinkPort = json_integer_value (tmp);
+    /* Get application services */
     tmp = json_object_get (root, RUNTIME_CONTEXT_CACHE_APP_SERVICES);
     if (tmp)
         context->appServices = parseAppServicesFromJson (tmp, &context->appServicesCount);
 
     if ((context->state == AGENT_STATE_INIT) || (context->agentId == NULL) ||
-        (context->pushIp == NULL) || (context->pushPort == 0) ||
+        (context->breakdownSinkIp == NULL) || (context->breakdownSinkPort == 0) ||
         (tmp && (context->appServices == NULL))) {
         context->state = AGENT_STATE_INIT;
         free (context->agentId);
         context->agentId = NULL;
-        free (context->pushIp);
-        context->pushIp = NULL;
-        context->pushPort = 0;
+        free (context->breakdownSinkIp);
+        context->breakdownSinkIp = NULL;
+        context->breakdownSinkPort = 0;
         if (context->appServices) {
             for (i = 0; i < context->appServicesCount; i++)
                 freeAppService (context->appServices [i]);
@@ -196,23 +194,23 @@ json2RuntimeContext (json_t *root) {
 }
 
 agentState
-getRuntimeContextAgentState (void) {
+getAgentState (void) {
     return runtimeContextInstance->state;
 }
 
 int
-setRuntimeContextAgentState (agentState state) {
+setAgentState (agentState state) {
     runtimeContextInstance->state = state;
     return 0;
 }
 
 char *
-getRuntimeContextAgentId (void) {
+getAgentId (void) {
     return runtimeContextInstance->agentId;
 }
 
 int
-setRuntimeContextAgentId (char *agentId) {
+setAgentId (char *agentId) {
     if (agentId == NULL)
         return -1;
 
@@ -222,44 +220,44 @@ setRuntimeContextAgentId (char *agentId) {
 }
 
 char *
-getRuntimeContextPushIp (void) {
-    return runtimeContextInstance->pushIp;
+getBreakdownSinkIp (void) {
+    return runtimeContextInstance->breakdownSinkIp;
 }
 
 int
-setRuntimeContextPushIp (char *pushIp) {
-    if (pushIp == NULL)
+setBreakdownSinkIp (char *ip) {
+    if (ip == NULL)
         return -1;
 
-    free (runtimeContextInstance->pushIp);
-    runtimeContextInstance->pushIp = pushIp;
+    free (runtimeContextInstance->breakdownSinkIp);
+    runtimeContextInstance->breakdownSinkIp = ip;
     return 0;
 }
 
 u_short
-getRuntimeContextPushPort (void) {
-    return runtimeContextInstance->pushPort;
+getBreakdownSinkPort (void) {
+    return runtimeContextInstance->breakdownSinkPort;
 }
 
 int
-setRuntimeContextPushPort (u_short pushPort) {
-    runtimeContextInstance->pushPort = pushPort;
+setBreakdownSinkPort (u_short port) {
+    runtimeContextInstance->breakdownSinkPort = port;
     return 0;
 }
 
 appServicePtr *
-getRuntimeContextAppServices (void) {
+getAppServices (void) {
     return runtimeContextInstance->appServices;
 }
 
 int
-setRuntimeContextAppServices (json_t *root) {
+setAppServices (json_t *root) {
     u_int count;
     appServicePtr *tmp;
 
     tmp = parseAppServicesFromJson (root, &count);
     if (tmp) {
-        resetRuntimeContextAppServices ();
+        resetAppServices ();
         runtimeContextInstance->appServices = tmp;
         runtimeContextInstance->appServicesCount = count;
         return 0;
@@ -268,12 +266,12 @@ setRuntimeContextAppServices (json_t *root) {
 }
 
 u_int
-getRuntimeContextAppServicesCount (void) {
+getAppServicesCount (void) {
     return runtimeContextInstance->appServicesCount;
 }
 
 int
-setRuntimeContextAppServicesCount (u_int count) {
+setAppServicesCount (u_int count) {
     runtimeContextInstance->appServicesCount = count;
     return 0;
 }
@@ -284,10 +282,10 @@ resetRuntimeContext (void) {
     runtimeContextInstance->state = AGENT_STATE_INIT;
     free (runtimeContextInstance->agentId);
     runtimeContextInstance->agentId = NULL;
-    free (runtimeContextInstance->pushIp);
-    runtimeContextInstance->pushIp = NULL;
-    runtimeContextInstance->pushPort = 0;
-    resetRuntimeContextAppServices ();
+    free (runtimeContextInstance->breakdownSinkIp);
+    runtimeContextInstance->breakdownSinkIp = NULL;
+    runtimeContextInstance->breakdownSinkPort = 0;
+    resetAppServices ();
 }
 
 /* Dump runtime context to AGENT_RUNTIME_CONTEXT_CACHE */
@@ -379,7 +377,6 @@ initRuntimeContext (void) {
     return 0;
 }
 
-/* Destroy runtime context cache */
 void
 destroyRuntimeContext (void) {
     resetRuntimeContext ();

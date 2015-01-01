@@ -7,7 +7,6 @@
 typedef struct _properties properties;
 typedef properties *propertiesPtr;
 
-/* Agent config context */
 struct _properties {
     boolean daemonMode;                 /**< Daemon flag */
     char *mirrorInterface;              /**< Mirror interface */

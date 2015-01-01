@@ -6,10 +6,16 @@
 #include <signal.h>
 #include "logger.h"
 #include "hash.h"
+#include "zmq_hub.h"
 #include "task_manager.h"
 
+/* Task manager hash table */
 static hashTablePtr taskManagerHashTable = NULL;
+/* Thread local task interrupted flag */
 static __thread boolean taskInterruptedFlag = false;
+/* Mutext lock for task status push/pull sock */
+static pthread_mutex_t taskStatusPushSockLock = PTHREAD_MUTEX_INITIALIZER; 
+static pthread_mutex_t taskStatusPullSockLock = PTHREAD_MUTEX_INITIALIZER;
 
 static void
 taskSigHandler (int signo) {
@@ -41,8 +47,13 @@ newTaskItem (void) {
 }
 
 static void
-freeTaskItem (void *data) {
-    free (data);
+freeTaskItem (taskItemPtr item) {
+    free (item);
+}
+
+static void
+freeTaskItemForHash (void *data) {
+    freeTaskItem ((taskItemPtr) data);
 }
 
 boolean
@@ -76,7 +87,7 @@ newTask (taskFunc func, void *args) {
     tsk->func = func;
     tsk->args = args;
     snprintf (key, sizeof (key) - 1, "%lu", tid);
-    ret = hashInsert (taskManagerHashTable, key, tsk, freeTaskItem);
+    ret = hashInsert (taskManagerHashTable, key, tsk, freeTaskItemForHash);
     if (ret < 0) {
         pthread_kill (tid, SIGUSR1);
         return -1;
@@ -101,6 +112,27 @@ stopAllTask (void) {
     hashClean (taskManagerHashTable);
     /* Wait for all tasks exit completely */
     sleep (1);
+}
+
+void
+sendTaskStatus (const char *msg) {
+    pthread_mutex_lock (&taskStatusPushSockLock);
+    zstr_send (getTaskStatusPushSock (), msg);
+    pthread_mutex_unlock (&taskStatusPushSockLock);
+}
+
+char *
+recvTaskStatus (void) {
+    pthread_mutex_lock (&taskStatusPullSockLock);
+    return zstr_recv (getTaskStatusPullSock ());
+    pthread_mutex_unlock (&taskStatusPullSockLock);
+}
+
+char *
+recvTaskStatusNonBlock (void) {
+    pthread_mutex_lock (&taskStatusPullSockLock);
+    return zstr_recv_nowait (getTaskStatusPullSock ());
+    pthread_mutex_unlock (&taskStatusPullSockLock);
 }
 
 int

@@ -4,11 +4,10 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-#include <pthread.h>
 #include <arpa/inet.h>
-#include <netinet/in.h>
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
+#include <pthread.h>
 #include <jansson.h>
 #include "config.h"
 #include "util.h"
@@ -1179,6 +1178,9 @@ tcpProcess (struct ip *iph, timeValPtr tm) {
 
 static void
 initTcpSharedInstance (void) {
+    tcpStreamsAlloc = 0;
+    tcpStreamsFree = 0;
+    tcpBreakdownId = 0;
     pthread_spin_init (&tcpConnectionIdLock, PTHREAD_PROCESS_PRIVATE);
     pthread_spin_init (&tcpBreakdownIdLock, PTHREAD_PROCESS_PRIVATE);
     tcpDestroyOnceControl = PTHREAD_ONCE_INIT;
@@ -1186,8 +1188,6 @@ initTcpSharedInstance (void) {
 
 static void
 destroyTcpSharedInstance (void) {
-    tcpStreamsAlloc = 0;
-    tcpStreamsFree = 0;
     pthread_spin_destroy (&tcpConnectionIdLock);
     pthread_spin_destroy (&tcpBreakdownIdLock);
     tcpInitOnceControl = PTHREAD_ONCE_INIT;

@@ -1,8 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <sys/types.h>
-#include <sys/time.h>
 #include <errno.h>
 #include <arpa/inet.h>
 #include <netinet/ip.h>
@@ -30,7 +28,7 @@ static LIST_HEAD (ipQueueExpireTimeoutList);
 static hashTablePtr ipQueueHashTable = NULL;
 
 static void
-indentIphdr (const struct ip *iph) {
+displayIphdr (const struct ip *iph) {
     u_short offset, flags;
 
     offset = ntohs (iph->ip_off);
@@ -299,9 +297,9 @@ checkIpHeader (struct ip *iph) {
     return 0;
 }
 
-/* Check whether ip packet should be filter */
+/* Check whether ip packet should be dropped */
 static boolean
-pktShouldBeFilter (struct ip *iphdr) {
+pktShouldDrop (struct ip *iphdr) {
     struct tcphdr *tcph;
     char key1 [32] = {0};
     char key2 [32] = {0};
@@ -364,8 +362,8 @@ ipDefrag (struct ip *iph, timeValPtr tm, struct ip **newIph) {
     }
 
 #ifndef NDEBUG
-    /* Indent ip fragment header information */
-    indentIphdr (iph);
+    /* Display ip fragment header information */
+    displayIphdr (iph);
 #endif
 
     if (ipq == NULL) {
@@ -448,7 +446,7 @@ ipDefrag (struct ip *iph, timeValPtr tm, struct ip **newIph) {
             *newIph = NULL;
             return -1;
         } else {
-            if (pktShouldBeFilter (newIphdr)) {
+            if (pktShouldDrop (newIphdr)) {
                 free (newIphdr);
                 *newIph = NULL;
                 return -1;

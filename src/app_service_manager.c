@@ -5,8 +5,8 @@
 #include <jansson.h>
 #include <pthread.h>
 #include "util.h"
-#include "logger.h"
 #include "hash.h"
+#include "logger.h"
 #include "runtime_context.h"
 #include "app_service_manager.h"
 
@@ -139,7 +139,7 @@ updateAppServiceManager (void) {
 }
 
 void
-cleanAppServiceManager (void) {
+resetAppServiceManager (void) {
     hashClean (appServiceHashTableSlave);
     swapAppServiceMap ();
     hashClean (appServiceHashTableSlave);

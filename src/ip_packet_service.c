@@ -115,6 +115,9 @@ ipPktParsingService (void *args) {
     struct ip *newIphdr;
     void *ipPktPullSock;
 
+    /* Reset task interrupt flag */
+    resetTaskInterruptFlag ();
+
     /* Init log context */
     ret = initLog (getPropertiesLogLevel ());
     if (ret < 0) {
@@ -183,7 +186,7 @@ destroyLog:
     destroyLog ();
 exit:
     if (!taskInterrupted ())
-        sendTaskStatus (TASK_STATUS_EXIT);
+        sendTaskExit ();
 
     return NULL;
 }

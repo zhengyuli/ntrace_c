@@ -26,12 +26,32 @@ displayPropertiesDetail (void) {
     logToConsole ("{\n");
     logToConsole ("    daemonMode: %s\n", propertiesInstance->daemonMode ? "true" : "false");
     logToConsole ("    mirrorInterface: %s\n", propertiesInstance->mirrorInterface);
-    logToConsole ("    logLevel: propertiesInstance: %u\n", propertiesInstance->logLevel);
+    logToConsole ("    logLevel: ");
+    switch (propertiesInstance->logLevel) {
+        case LOG_ERR_LEVEL:
+            logToConsole ("ERR\n");
+            break;
+
+        case LOG_WARNING_LEVEL:
+            logToConsole ("WARNING\n");
+            break;
+            
+        case LOG_INFO_LEVEL:
+            logToConsole ("INFO\n");
+            break;
+
+        case LOG_DEBUG_LEVEL:
+            logToConsole ("DEBUG\n");
+            break;
+            
+        default:
+            logToConsole ("Unknown\n");
+    }
     logToConsole ("}\n");
 }
 
 static propertiesPtr
-loadProperties (void) {
+loadPropertiesFromConfigFile (void) {
     int ret, error;
     struct collection_item *iniConfig = NULL;
     struct collection_item *errorSet = NULL;
@@ -142,7 +162,7 @@ setPropertiesLogLevel (u_int logLevel) {
 
 int
 initPropertiesManager (void) {
-    propertiesInstance = loadProperties ();
+    propertiesInstance = loadPropertiesFromConfigFile ();
     if (propertiesInstance == NULL)
         return -1;
 

@@ -4,17 +4,19 @@
 #include <sys/types.h>
 #include <pthread.h>
 
-#define TASK_STATUS_READY "Ready"
-#define TASK_STATUS_EXIT "Exit"
-
 typedef pthread_t taskId;
 typedef void * (*taskFunc) (void *args);
+
+typedef enum {
+    TASK_STATUS_READY,
+    TASK_STATUS_EXIT
+} taskStatus;
 
 typedef struct _taskItem taskItem;
 typedef taskItem *taskItemPtr;
 
 struct _taskItem {
-    taskId id;
+    taskId tid;
     taskFunc func;
     void *args;
 };
@@ -26,14 +28,14 @@ void
 resetTaskInterruptFlag (void);
 taskId
 newTask (taskFunc func, void *args);
+taskId
+restartTask (taskId tid);
 void
 stopAllTask (void);
 void
-sendTaskStatus (const char *msg);
-char *
-recvTaskStatus (void);
-char *
-recvTaskStatusNonBlock (void);
+sendTaskExit (void);
+int
+taskStatusHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg);
 int
 initTaskManager (void);
 void

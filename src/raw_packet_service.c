@@ -131,6 +131,9 @@ rawPktCaptureService (void *args) {
     timeVal capTime;
     zframe_t *frame;
 
+    /* Reset task interrupt flag */
+    resetTaskInterruptFlag ();
+    
     /* Init log context */
     ret = initLog (getPropertiesLogLevel ());
     if (ret < 0) {
@@ -228,7 +231,7 @@ destroyLog:
     destroyLog ();
 exit:
     if (!taskInterrupted ())
-        sendTaskStatus (TASK_STATUS_EXIT);
+        sendTaskExit ();
 
     return NULL;
 }

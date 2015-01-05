@@ -13,7 +13,7 @@ getAppServicesFilter (void);
 int
 updateAppServiceManager (void);
 void
-cleanAppServiceManager (void);
+resetAppServiceManager (void);
 int
 initAppServiceManager (void);
 void

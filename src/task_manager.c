@@ -4,17 +4,20 @@
 #include <string.h>
 #include <pthread.h>
 #include <signal.h>
-#include "logger.h"
+#include "util.h"
 #include "hash.h"
+#include "logger.h"
 #include "zmq_hub.h"
 #include "task_manager.h"
+
+#define TASK_MAX_RETRIES 3
 
 /* Task manager hash table */
 static hashTablePtr taskManagerHashTable = NULL;
 /* Thread local task interrupted flag */
 static __thread boolean taskInterruptedFlag = false;
 /* Mutext lock for task status push/pull sock */
-static pthread_mutex_t taskStatusPushSockLock = PTHREAD_MUTEX_INITIALIZER; 
+static pthread_mutex_t taskStatusPushSockLock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t taskStatusPullSockLock = PTHREAD_MUTEX_INITIALIZER;
 
 static void
@@ -42,7 +45,7 @@ newTaskItem (void) {
     if (item == NULL)
         return NULL;
 
-    item->id = 0;
+    item->tid = 0;
     return item;
 }
 
@@ -76,14 +79,14 @@ newTask (taskFunc func, void *args) {
     tsk = newTaskItem ();
     if (tsk == NULL)
         return -1;
-    
+
     ret = pthread_create (&tid, NULL, func, args);
     if (ret < 0) {
         freeTaskItem (tsk);
         return -1;
     }
 
-    tsk->id = tid;
+    tsk->tid = tid;
     tsk->func = func;
     tsk->args = args;
     snprintf (key, sizeof (key) - 1, "%lu", tid);
@@ -96,12 +99,36 @@ newTask (taskFunc func, void *args) {
     return tid;
 }
 
+taskId
+restartTask (taskId tid) {
+    int ret;
+    taskId newTid;
+    char key [32];
+    taskItemPtr task;
+
+    snprintf (key, sizeof (key) - 1, "%lu", tid);
+    task = hashLookup (taskManagerHashTable, key);
+    if (task == NULL) {
+        LOGE ("Lookup task: %lu context error.\n", tid);
+        return -1;
+    }
+
+    ret = pthread_create (&newTid, NULL, task->func, task->args);
+    if (ret < 0) {
+        LOGE ("Create new thread error.\n");
+        return -1;
+    }
+    task->tid = newTid;
+
+    return newTid;
+}
+
 static int
 stopTaskForEachHashItem (void *data, void *args) {
     taskItemPtr tsk;
 
     tsk = (taskItemPtr) data;
-    pthread_kill (tsk->id, SIGUSR1);
+    pthread_kill (tsk->tid, SIGUSR1);
 
     return 0;
 }
@@ -115,24 +142,65 @@ stopAllTask (void) {
 }
 
 void
-sendTaskStatus (const char *msg) {
+sendTaskExit (void) {
+    char exitMsg [128];
+
+    snprintf (exitMsg, sizeof (exitMsg) - 1, "%u:%u", TASK_STATUS_EXIT, gettid ());
+    exitMsg [sizeof (exitMsg) - 1] = 0;
+
     pthread_mutex_lock (&taskStatusPushSockLock);
-    zstr_send (getTaskStatusPushSock (), msg);
+    zstr_send (getTaskStatusPushSock (), exitMsg);
     pthread_mutex_unlock (&taskStatusPushSockLock);
 }
 
-char *
-recvTaskStatus (void) {
-    pthread_mutex_lock (&taskStatusPullSockLock);
-    return zstr_recv (getTaskStatusPullSock ());
-    pthread_mutex_unlock (&taskStatusPullSockLock);
-}
-
-char *
+static char *
 recvTaskStatusNonBlock (void) {
     pthread_mutex_lock (&taskStatusPullSockLock);
     return zstr_recv_nowait (getTaskStatusPullSock ());
     pthread_mutex_unlock (&taskStatusPullSockLock);
+}
+
+int
+taskStatusHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
+    int retries, ret;
+    char *statusMsg;
+    u_int status;
+    taskId tid;
+
+    statusMsg = recvTaskStatusNonBlock ();
+    if (statusMsg == NULL)
+        return 0;
+
+    sscanf(statusMsg, "%u:%lu", &status, &tid);
+    switch (status) {
+        case TASK_STATUS_EXIT:
+            LOGD ("Task %lu exit abnormally.\n");
+            retries = TASK_MAX_RETRIES;
+            while (retries) {
+                ret = restartTask (tid);
+                if (ret < 0) {
+                    LOGE ("Try to restart task... .. .\n");
+                    retries--;
+                } else
+                    break;
+            }
+            if (ret < 0) {
+                LOGE ("Restart task failed.\n");
+                ret = -1;
+            } else {
+                LOGD ("Restart task successfully.\n");
+                ret = 0;
+            }
+            break;
+
+        default:
+            LOGE ("Unknown task status.\n");
+            ret = 0;
+            break;
+    }
+
+    free (statusMsg);
+    return ret;
 }
 
 int

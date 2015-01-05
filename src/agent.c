@@ -7,6 +7,7 @@
 #include <jansson.h>
 #include <locale.h>
 #include "config.h"
+#include "version.h"
 #include "util.h"
 #include "logger.h"
 #include "zmq_hub.h"
@@ -21,8 +22,6 @@
 
 /* Agent pid file fd */
 static int agentPidFd = -1;
-/* Agent management response socket */
-static void *agentManagementRespSock = NULL;
 
 /*
  * Check agent id.
@@ -120,8 +119,8 @@ removeAgent (json_t *profile) {
         return -1;
     }
 
-    /* Cleanup application service manager */
-    cleanAppServiceManager ();
+    /* Reset application service manager */
+    resetAppServiceManager ();
     /* Reset runtime context */
     resetRuntimeContext ();
     /* Dump runtime context */
@@ -134,9 +133,6 @@ static int
 agentRun (void) {
     u_int i;
     taskId tid;
-
-    /* Reset task interrupt flag */
-    resetTaskInterruptFlag ();
 
     tid = newTask (rawPktCaptureService, NULL);
     if (tid < 0) {
@@ -433,25 +429,6 @@ managementRequestHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
 }
 
 static int
-taskStatusHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
-    int ret;
-    char *status;
-
-    status = recvTaskStatusNonBlock ();
-    if (status == NULL)
-        return 0;
-
-    if (strEqual (status, TASK_STATUS_EXIT)) {
-        stopAllTask ();
-        ret = -1;
-    } else
-        ret = 0;
-
-    free (status);
-    return ret;
-}
-
-static int
 lockPidFile (void) {
     int ret;
     pid_t pid;
@@ -516,7 +493,7 @@ agentService (void) {
     /* Init runtime context */
     ret = initRuntimeContext ();
     if (ret < 0) {
-        LOGE ("Init agent runtime context error.\n");
+        LOGE ("Init runtime context error.\n");
         ret = -1;
         goto destroyLog;
     }
@@ -683,7 +660,7 @@ parseCmdline (int argc, char *argv []) {
 
     if (showVersion || showHelp) {
         if (showVersion)
-            logToConsole ("Current version: %d.%d\n", AGENT_VERSION_MAJOR, AGENT_VERSION_MINOR);
+            logToConsole ("Current version: %s\n", getVersionStr ());
         if (showHelp)
             showHelpInfo (argv [0]);
         exit (0);

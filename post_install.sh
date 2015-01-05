@@ -4,7 +4,7 @@
 # Name: post_install.sh
 # Purpose:
 #
-# Time-stamp: <2014-12-29 11:11:54 Monday by lzy>
+# Time-stamp: <2015-01-03 08:04:02 Saturday by lzy>
 #
 # Author: zhengyu li
 # Created: 2014-03-27
@@ -26,6 +26,6 @@ toUpper() {
 }
 
 sed -i "s/PROJECT_NAME_LOWER/$(toLower ${PROJECT_NAME})/g" /etc/init.d/wda_logd
-sed -i "s/PROJECT_NAME/${PROJECT_NAME}/g" /etc/init.d/wda_logd
+sed -i "s/PROJECT_NAME_UPPER/$(toUpper ${PROJECT_NAME})/g" /etc/init.d/wda_logd
 
 chkconfig --level 2345 wda_logd on

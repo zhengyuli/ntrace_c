@@ -47,10 +47,10 @@ getLogLevel (const char *msg, u_int *level) {
 void
 logToConsole (const char *msg, ...) {
     va_list va;
-    char tmp [MAX_LOG_LENGTH] = {0};
+    char tmp [MAX_LOG_LENGTH];
 
     va_start (va, msg);
-    vsnprintf (tmp, sizeof (tmp) - 1, msg, va);
+    vsnprintf (tmp, sizeof (tmp), msg, va);
     va_end (va);
     fprintf (stdout, "%s", tmp);
 }
@@ -73,11 +73,11 @@ doLog (char *filePath, u_int line, const char *func, const char *msg, ...) {
     const char *message;
     time_t seconds;
     struct tm *localTime;
-    char timeStr [32] = {0};
-    char logLevel [10] = {0};
+    char timeStr [32];
+    char logLevel [10];
     /* Thread local message buffer */
-    static __thread char tmp [MAX_LOG_LENGTH] = {0};
-    static __thread char buf [MAX_LOG_LENGTH] = {0};
+    static __thread char tmp [MAX_LOG_LENGTH];
+    static __thread char buf [MAX_LOG_LENGTH];
     zframe_t *frame;
 
     if (logCtxt == NULL) {
@@ -87,7 +87,7 @@ doLog (char *filePath, u_int line, const char *func, const char *msg, ...) {
 
     seconds = time (NULL);
     localTime = localtime (&seconds);
-    snprintf (timeStr, sizeof (timeStr) - 1, "%04d-%02d-%02d %02d:%02d:%02d",
+    snprintf (timeStr, sizeof (timeStr), "%04d-%02d-%02d %02d:%02d:%02d",
               (localTime->tm_year + 1900), localTime->tm_mon + 1, localTime->tm_mday,
               localTime->tm_hour, localTime->tm_min, localTime->tm_sec);
 
@@ -101,25 +101,24 @@ doLog (char *filePath, u_int line, const char *func, const char *msg, ...) {
         message = msg + 3;
 
     va_start (va, msg);
-    vsnprintf (tmp, sizeof (tmp) - 1, message, va);
-    tmp [sizeof (tmp) - 1] = 0;
+    vsnprintf (tmp, sizeof (tmp), message, va);
     va_end (va);
 
     switch (level) {
         case LOG_ERR_LEVEL:
-            snprintf (logLevel, sizeof (logLevel) - 1, "ERROR");
+            snprintf (logLevel, sizeof (logLevel), "ERROR");
             break;
 
         case LOG_WARNING_LEVEL:
-            snprintf (logLevel, sizeof (logLevel) - 1, "WARNING");
+            snprintf (logLevel, sizeof (logLevel), "WARNING");
             break;
 
         case LOG_INFO_LEVEL:
-            snprintf (logLevel, sizeof (logLevel) - 1, "INFO");
+            snprintf (logLevel, sizeof (logLevel), "INFO");
             break;
 
         case LOG_DEBUG_LEVEL:
-            snprintf (logLevel, sizeof (logLevel) - 1, "DEBUG");
+            snprintf (logLevel, sizeof (logLevel), "DEBUG");
             break;
 
         default:
@@ -133,7 +132,7 @@ doLog (char *filePath, u_int line, const char *func, const char *msg, ...) {
         flag = LOG_TO_NET_TAG;
 
     fileName = strrchr (filePath, '/') + 1;
-    snprintf (buf, sizeof (buf) - 1, "%u%s[thread:%u]%s%s [thread:%u] %s file=%s (line=%u, func=%s): %s",
+    snprintf (buf, sizeof (buf), "%u%s[thread:%u]%s%s [thread:%u] %s file=%s (line=%u, func=%s): %s",
               flag, LOG_MESSAGE_INDICATOR_1, gettid (), LOG_MESSAGE_INDICATOR_2, timeStr, gettid (),
               logLevel, fileName, line, func, tmp);
     buf [MAX_LOG_LENGTH - 1] = 0;

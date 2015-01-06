@@ -21,23 +21,23 @@ static pthread_rwlock_t appServiceHashTableMasterRWLock;
 static hashTablePtr appServiceHashTableMaster = NULL;
 static hashTablePtr appServiceHashTableSlave = NULL;
 
-protoType
-lookupAppServiceProtoType (const char *key) {
-    int proto;
+protoAnalyzerPtr
+getAppServiceProtoAnalyzer (const char *key) {
     appServicePtr svc;
+    protoAnalyzerPtr analyzer;
 
     if (key ==  NULL)
-        return PROTO_UNKNOWN;
+        return NULL;
 
     pthread_rwlock_rdlock (&appServiceHashTableMasterRWLock);
     svc = (appServicePtr) hashLookup (appServiceHashTableMaster, key);
     if (svc == NULL)
-        proto = PROTO_UNKNOWN;
+        analyzer = NULL;
     else
-        proto = svc->proto;
+        analyzer = svc->analyzer;
     pthread_rwlock_unlock (&appServiceHashTableMasterRWLock);
 
-    return proto;
+    return analyzer;
 }
 
 static int
@@ -67,7 +67,7 @@ getAppServicesFilter (void) {
         pthread_rwlock_unlock (&appServiceHashTableMasterRWLock);
         return NULL;
     }
-    memset(filter, 0, filterLen);
+    memset (filter, 0, filterLen);
 
     ret = hashForEachItemDo (appServiceHashTableMaster, generateFilterFromEachAppService, filter);
     if (ret < 0) {
@@ -96,9 +96,9 @@ swapAppServiceMap (void) {
 static int
 addAppService (appServicePtr svc) {
     int ret;
-    char key [32] = {0};
+    char key [32];
 
-    snprintf (key, sizeof (key) - 1, "%s:%d", svc->ip, svc->port);
+    snprintf (key, sizeof (key), "%s:%d", svc->ip, svc->port);
     ret = hashInsert (appServiceHashTableSlave, key, svc, freeAppServiceForHash);
     if (ret < 0) {
         LOGE ("Insert new appService: %u error\n", svc->id);

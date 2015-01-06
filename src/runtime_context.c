@@ -130,7 +130,7 @@ runtimeContext2Json (void) {
             json_array_append_new (appServiceArray, appService);
         }
 
-        json_object_set_new(root, RUNTIME_CONTEXT_CACHE_APP_SERVICES, appServiceArray);
+        json_object_set_new (root, RUNTIME_CONTEXT_CACHE_APP_SERVICES, appServiceArray);
     }
 
     return root;

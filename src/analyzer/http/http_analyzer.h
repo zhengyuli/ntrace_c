@@ -5,7 +5,7 @@
 #include "util.h"
 #include "list.h"
 #include "http_parser.h"
-#include "protocol.h"
+#include "proto_analyzer.h"
 
 #define HTTP_VERSION_LENGTH 16
 

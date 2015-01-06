@@ -6,7 +6,6 @@
 #include "runtime_context.h"
 #include "task_manager.h"
 #include "zmq_hub.h"
-#include "protocol.h"
 #include "tcp_packet.h"
 #include "tcp_packet_service.h"
 
@@ -78,13 +77,6 @@ tcpPktParsingService (void *args) {
         goto destroyLog;
     }
 
-    /* Init proto context */
-    ret = initProto ();
-    if (ret < 0) {
-        LOGE ("Init proto context error.\n");
-        goto destroyTcp;
-    }
-
     while (!taskInterrupted ()) {
         /* Receive timestamp zframe */
         if (tmFrame == NULL) {
@@ -132,8 +124,6 @@ tcpPktParsingService (void *args) {
     }
 
     LOGD ("TcpPktParsingService will exit...\n");
-    destroyProto ();
-destroyTcp:
     destroyTcp ();
 destroyZmqCtxt:
     zctx_destroy (&ctxt);

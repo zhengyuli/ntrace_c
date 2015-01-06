@@ -27,7 +27,7 @@ httpHeaderEqualWithLen (const char *hdr1, const char *hdr2, size_t hdr2Len) {
     if (strlen (hdr1) != hdr2Len)
         return false;
 
-    if (!strncmp(hdr1, hdr2, hdr2Len))
+    if (!strncmp (hdr1, hdr2, hdr2Len))
         return true;
     else
         return false;
@@ -162,7 +162,7 @@ onReqHeaderValue (http_parser *parser, const char* from, size_t length) {
 
 static int
 onReqHeadersComplete (http_parser *parser) {
-    char verStr [HTTP_VERSION_LENGTH] = {0};
+    char verStr [HTTP_VERSION_LENGTH];
     httpSessionDetailNodePtr currNode;
 
     listTailEntry (currNode, &currSessionDetail->head, node);
@@ -170,7 +170,7 @@ onReqHeadersComplete (http_parser *parser) {
         return 0;
 
     currNode->state = HTTP_REQUEST_HEADER_COMPLETE;
-    snprintf (verStr, sizeof (verStr) - 1, "HTTP/%d.%d", parser->http_major, parser->http_minor);
+    snprintf (verStr, sizeof (verStr), "HTTP/%d.%d", parser->http_major, parser->http_minor);
     currNode->reqVer = strdup (verStr);
     if (currNode->reqVer == NULL)
         LOGE ("Get request protocol version error.\n");
@@ -289,14 +289,14 @@ onRespHeaderValue (http_parser *parser, const char* from, size_t length) {
 
 static int
 onRespHeadersComplete (http_parser *parser) {
-    char verStr [HTTP_VERSION_LENGTH] = {0};
+    char verStr [HTTP_VERSION_LENGTH];
     httpSessionDetailNodePtr currNode;
 
     listTailEntry (currNode, &currSessionDetail->head, node);
     if (currNode == NULL)
         return 0;
 
-    snprintf (verStr, sizeof (verStr) - 1, "HTTP/%d.%d", parser->http_major, parser->http_minor);
+    snprintf (verStr, sizeof (verStr), "HTTP/%d.%d", parser->http_major, parser->http_minor);
     currNode->respVer = strdup (verStr);
     if (currNode->respVer == NULL)
         LOGE ("Get response protocol version error.\n");
@@ -338,12 +338,12 @@ onRespMessageComplete (http_parser *parser) {
 /* =====================================Http_parser callback===================================== */
 
 static int
-initHttpProto (void) {
+initHttpAnalyzer (void) {
     return 0;
 }
 
 static void
-destroyHttpProto (void) {
+destroyHttpAnalyzer (void) {
     return;
 }
 
@@ -868,7 +868,8 @@ httpSessionProcessUrgData (boolean fromClient, char urgData, void *sd, timeValPt
 }
 
 static u_int
-httpSessionProcessData (boolean fromClient, u_char *data, u_int dataLen, void *sd, timeValPtr tm, boolean *sessionDone) {
+httpSessionProcessData (boolean fromClient, u_char *data, u_int dataLen, void *sd,
+                        timeValPtr tm, boolean *sessionDone) {
     u_int parseCount;
 
     currTime = tm;
@@ -937,9 +938,10 @@ httpSessionProcessFin (boolean fromClient, void *sd, timeValPtr tm, boolean *ses
     }
 }
 
-protoParser httpParser = {
-    .initProto = initHttpProto,
-    .destroyProto = destroyHttpProto,
+protoAnalyzer analyzer = {
+    .proto = "HTTP",
+    .initProtoAnalyzer = initHttpAnalyzer,
+    .destroyProtoAnalyzer = destroyHttpAnalyzer,
     .newSessionDetail = newHttpSessionDetail,
     .freeSessionDetail = freeHttpSessionDetail,
     .newSessionBreakdown = newHttpSessionBreakdown,

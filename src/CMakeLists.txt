@@ -4,6 +4,7 @@ SET (AGENT_CONFIG_FILE  ${AGENT_CONFIG_DIR}/agent.conf)
 SET (AGENT_PID_FILE  /var/run/${ROOT_PROJECT_LOWER}_agent.pid)
 SET (AGENT_RUN_DIR /var/run/${ROOT_PROJECT_LOWER})
 SET (AGENT_RUNTIME_CONTEXT_CACHE ${AGENT_RUN_DIR}/runtime_context_cache.json)
+SET (AGENT_ANALYZER_DIR ${AGENT_DATA_DIR}/analyzers)
 
 # Configuration header file
 configure_file (
@@ -12,13 +13,10 @@ configure_file (
 
 INCLUDE_DIRECTORIES (
   ./
-  protocol/
-  protocol/default
-  protocol/http
-  protocol/mysql
   util
   logger
-  3rd_party/http_parser
+  protocol/
+  analyzer/
   ${PROJECT_BINARY_DIR})
 
 SET (AGENT_SOURCE_FILES
@@ -36,22 +34,20 @@ SET (AGENT_SOURCE_FILES
   raw_packet_service.c
   ip_packet_service.c
   tcp_packet_service.c
-  protocol/checksum.c
-  protocol/raw_packet.c
-  protocol/ip_options.c
-  protocol/ip_packet.c
-  protocol/tcp_options.c
-  protocol/tcp_packet.c
-  protocol/protocol.c
-  protocol/default/default_analyzer.c
-  protocol/http/http_analyzer.c
-  protocol/mysql/mysql_analyzer.c
-  3rd_party/http_parser/http_parser.c)
+  ./protocol/checksum.c
+  ./protocol/raw_packet.c
+  ./protocol/ip_options.c
+  ./protocol/ip_packet.c
+  ./protocol/tcp_options.c
+  ./protocol/tcp_packet.c
+  analyzer/proto_analyzer.c
+  analyzer/default/default_analyzer.c)
 
 ADD_EXECUTABLE (${ROOT_PROJECT_LOWER}_agent ${AGENT_SOURCE_FILES})
-TARGET_LINK_LIBRARIES (${ROOT_PROJECT_LOWER}_agent pcap czmq hiredis pthread ini_config z jansson)
+TARGET_LINK_LIBRARIES (${ROOT_PROJECT_LOWER}_agent pcap czmq hiredis pthread ini_config z jansson dl)
 INSTALL (
   TARGETS ${ROOT_PROJECT_LOWER}_agent
   DESTINATION ${AGENT_BIN_DIR})
 
 ADD_SUBDIRECTORY (logger)
+ADD_SUBDIRECTORY (analyzer)

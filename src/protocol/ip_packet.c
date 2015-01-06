@@ -127,9 +127,9 @@ updateIpQueueExpireTimeout (ipQueuePtr ipq, timeValPtr tm) {
 static int
 addIpQueueToHash (ipQueuePtr ipq, hashItemFreeCB fun) {
     int ret;
-    char key [64] = {0};
+    char key [64];
 
-    snprintf (key, sizeof (key) - 1, IPQUEUE_HASH_KEY_FORMAT,
+    snprintf (key, sizeof (key), IPQUEUE_HASH_KEY_FORMAT,
               inet_ntoa (ipq->sourcIp), inet_ntoa (ipq->destIp), ipq->id);
     ret = hashInsert (ipQueueHashTable, key, ipq, fun);
     if (ret < 0)
@@ -141,9 +141,9 @@ addIpQueueToHash (ipQueuePtr ipq, hashItemFreeCB fun) {
 static void
 delIpQueueFromHash (ipQueuePtr ipq) {
     int ret;
-    char key [64] = {0};
+    char key [64];
 
-    snprintf (key, sizeof (key) - 1, IPQUEUE_HASH_KEY_FORMAT,
+    snprintf (key, sizeof (key), IPQUEUE_HASH_KEY_FORMAT,
               inet_ntoa (ipq->sourcIp), inet_ntoa (ipq->destIp), ipq->id);
     ret = hashDel (ipQueueHashTable, key);
     if (ret < 0)
@@ -152,9 +152,9 @@ delIpQueueFromHash (ipQueuePtr ipq) {
 
 static ipQueuePtr
 findIpQueue (struct ip *iph) {
-    char key [64] = {0};
+    char key [64];
 
-    snprintf (key, sizeof (key) - 1, IPQUEUE_HASH_KEY_FORMAT,
+    snprintf (key, sizeof (key), IPQUEUE_HASH_KEY_FORMAT,
               inet_ntoa (iph->ip_src), inet_ntoa (iph->ip_dst), ntohs (iph->ip_id));
     return (ipQueuePtr) hashLookup (ipQueueHashTable, key);
 }
@@ -301,15 +301,15 @@ checkIpHeader (struct ip *iph) {
 static boolean
 pktShouldDrop (struct ip *iphdr) {
     struct tcphdr *tcph;
-    char key1 [32] = {0};
-    char key2 [32] = {0};
+    char key1 [32];
+    char key2 [32];
 
     if (iphdr->ip_p == IPPROTO_TCP) {
         tcph = (struct tcphdr *) ((u_char *) iphdr + (iphdr->ip_hl * 4));
 
-        snprintf (key1, sizeof (key1) - 1, "%s:%d", inet_ntoa (iphdr->ip_src), ntohs (tcph->source));
-        snprintf (key2, sizeof (key2) - 1, "%s:%d", inet_ntoa (iphdr->ip_dst), ntohs (tcph->dest));
-        if (lookupAppServiceProtoType (key1) != PROTO_UNKNOWN || lookupAppServiceProtoType (key2) != PROTO_UNKNOWN)
+        snprintf (key1, sizeof (key1), "%s:%d", inet_ntoa (iphdr->ip_src), ntohs (tcph->source));
+        snprintf (key2, sizeof (key2), "%s:%d", inet_ntoa (iphdr->ip_dst), ntohs (tcph->dest));
+        if (getAppServiceProtoAnalyzer (key1) || getAppServiceProtoAnalyzer (key2))
             return true;
         else
             return false;

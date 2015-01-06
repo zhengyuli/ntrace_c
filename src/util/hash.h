@@ -106,7 +106,7 @@ hlistAddAfter (hlistNodePtr node, hlistNodePtr pnode) {
     node->next = pnode->next;
     pnode->next = node;
     node->pprev = &pnode->next;
-    if(node->next)
+    if (node->next)
         node->next->pprev = &node->next;
 }
 

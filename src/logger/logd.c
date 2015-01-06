@@ -112,12 +112,12 @@ static int
 logFileRotate (const char *logFileName) {
     int ret;
     int index;
-    char fileNameBuf1 [LOG_FILE_PATH_MAX_LEN] = {0};
-    char fileNameBuf2 [LOG_FILE_PATH_MAX_LEN] = {0};
+    char fileNameBuf1 [LOG_FILE_PATH_MAX_LEN];
+    char fileNameBuf2 [LOG_FILE_PATH_MAX_LEN];
 
     for (index = (logFileRotationCount - 1); index > 0; index--) {
         if (index == (logFileRotationCount - 1)) {
-            snprintf (fileNameBuf2, sizeof (fileNameBuf2) - 1, "%s_%d", logFileName, index);
+            snprintf (fileNameBuf2, sizeof (fileNameBuf2), "%s_%d", logFileName, index);
             if (fileExists (fileNameBuf2)) {
                 ret = remove (fileNameBuf2);
                 if (ret < 0) {
@@ -126,8 +126,8 @@ logFileRotate (const char *logFileName) {
                 }
             }
         } else {
-            snprintf (fileNameBuf1, sizeof (fileNameBuf1) - 1, "%s_%d", logFileName, index);
-            snprintf (fileNameBuf2, sizeof (fileNameBuf2) - 1, "%s_%d", logFileName, index + 1);
+            snprintf (fileNameBuf1, sizeof (fileNameBuf1), "%s_%d", logFileName, index);
+            snprintf (fileNameBuf2, sizeof (fileNameBuf2), "%s_%d", logFileName, index + 1);
             if (fileExists (fileNameBuf1)) {
                 ret = rename (fileNameBuf1, fileNameBuf2);
                 if (ret < 0) {
@@ -145,7 +145,7 @@ logFileRotate (const char *logFileName) {
             return -1;
         }
     } else {
-        snprintf (fileNameBuf2, sizeof (fileNameBuf2) - 1, "%s_%d", logFileName, 1);
+        snprintf (fileNameBuf2, sizeof (fileNameBuf2), "%s_%d", logFileName, 1);
         ret = rename (logFileName, fileNameBuf2);
         if (ret < 0) {
             fprintf (stderr, "Log file rotate error.\n");
@@ -177,7 +177,7 @@ logFileUpdate (logDevPtr dev) {
 
 static int
 initLogFile (logDevPtr dev) {
-    char logFilePath [LOG_FILE_PATH_MAX_LEN] = {0};
+    char logFilePath [LOG_FILE_PATH_MAX_LEN];
     logFilePtr logfile;
 
     if (!fileExists (logFileDir) &&
@@ -188,7 +188,7 @@ initLogFile (logDevPtr dev) {
     if (logfile == NULL)
         return -1;
 
-    snprintf (logFilePath, sizeof (logFilePath) - 1, "%s/%s", logFileDir, logFileName);
+    snprintf (logFilePath, sizeof (logFilePath), "%s/%s", logFileDir, logFileName);
     logfile->filePath = strdup (logFilePath);
     if (logfile->filePath == NULL) {
         free (logfile);
@@ -388,21 +388,21 @@ static int
 tryLockPidFile (void) {
     pid_t pid;
     ssize_t n;
-    char buf [16] = {0};
+    char buf [16];
 
     pid = getpid ();
 
     logdPidFileFd = open (logdPidFilePath, O_CREAT | O_RDWR, 0666);
     if (logdPidFileFd < 0) {
-        fprintf(stderr, "Open pid file %s error: %s.\n", logdPidFilePath, strerror (errno));
+        fprintf (stderr, "Open pid file %s error: %s.\n", logdPidFilePath, strerror (errno));
         return -1;
     }
 
     if (flock (logdPidFileFd, LOCK_EX | LOCK_NB) == 0) {
-        snprintf (buf, sizeof (buf) - 1, "%d", pid);
+        snprintf (buf, sizeof (buf), "%d", pid);
         n = write (logdPidFileFd, buf, strlen (buf));
         if (n != strlen (buf)) {
-            fprintf(stderr, "Write pid to pid file error: %s.\n", strerror (errno));
+            fprintf (stderr, "Write pid to pid file error: %s.\n", strerror (errno));
             close (logdPidFileFd);
             remove (logdPidFilePath);
             return -1;
@@ -502,7 +502,7 @@ logdDaemon (void) {
     int stdinfd;
     int stdoutfd;
 
-    if (chdir("/") < 0)
+    if (chdir ("/") < 0)
         return -1;
 
     pid = fork ();
@@ -610,7 +610,7 @@ main (int argc, char *argv []) {
     }
 
     /* Set locale */
-    setlocale(LC_COLLATE,"");
+    setlocale (LC_COLLATE,"");
     while ((option = getopt_long (argc, argv, "d:f:Dm:p:r:h?", logdOptions, NULL)) != -1) {
         switch (option) {
             case 'd':

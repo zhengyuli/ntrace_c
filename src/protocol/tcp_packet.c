@@ -19,7 +19,7 @@
 #include "app_service_manager.h"
 #include "tcp_options.h"
 #include "tcp_packet.h"
-#include "protocol.h"
+#include "proto_analyzer.h"
 
 /* Default tcp stream closing timeout 30 seconds */
 #define DEFAULT_TCP_STREAM_CLOSING_TIMEOUT 30
@@ -158,9 +158,9 @@ delTcpStreamFromClosingTimeoutList (tcpStreamPtr stream) {
  */
 static tcpStreamPtr
 lookupTcpStreamFromHash (tuple4Ptr addr) {
-    char key [64] = {0};
+    char key [64];
 
-    snprintf(key, sizeof (key) - 1, TCP_STREAM_HASH_KEY_FORMAT,
+    snprintf (key, sizeof (key), TCP_STREAM_HASH_KEY_FORMAT,
              inet_ntoa (addr->saddr), addr->source,
              inet_ntoa (addr->daddr), addr->dest);
     return (tcpStreamPtr) hashLookup (tcpStreamHashTable, key);
@@ -178,10 +178,10 @@ static int
 addTcpStreamToHash (tcpStreamPtr stream, hashItemFreeCB freeFun) {
     int ret;
     tuple4Ptr addr;
-    char key [64] = {0};
+    char key [64];
 
     addr = &stream->addr;
-    snprintf(key, sizeof (key) - 1, TCP_STREAM_HASH_KEY_FORMAT,
+    snprintf (key, sizeof (key), TCP_STREAM_HASH_KEY_FORMAT,
              inet_ntoa (addr->saddr), addr->source,
              inet_ntoa (addr->daddr), addr->dest);
     ret = hashInsert (tcpStreamHashTable, key, stream, freeFun);
@@ -201,10 +201,10 @@ static void
 delTcpStreamFromHash (tcpStreamPtr stream) {
     int ret;
     tuple4Ptr addr;
-    char key [64] = {0};
+    char key [64];
 
     addr = &stream->addr;
-    snprintf(key, sizeof (key) - 1, TCP_STREAM_HASH_KEY_FORMAT,
+    snprintf (key, sizeof (key), TCP_STREAM_HASH_KEY_FORMAT,
              inet_ntoa (addr->saddr), addr->source,
              inet_ntoa (addr->daddr), addr->dest);
     ret = hashDel (tcpStreamHashTable, key);
@@ -257,19 +257,15 @@ findTcpStream (struct tcphdr *tcph, struct ip * iph, boolean *fromClient) {
 
 /* Create a new tcpStream and init */
 static tcpStreamPtr
-newTcpStream (protoType proto) {
+newTcpStream (protoAnalyzerPtr analyzer) {
     tcpStreamPtr stream;
 
     stream = (tcpStreamPtr) malloc (sizeof (tcpStream));
     if (stream == NULL)
         return NULL;
 
-    stream->proto = proto;
-    stream->parser = getProtoParser (proto);
-    if (stream->parser == NULL) {
-        free (stream);
-        return NULL;
-    }
+    stream->proto = analyzer->proto;
+    stream->analyzer = analyzer;
     /* Init 4-tuple address */
     stream->addr.saddr.s_addr = 0;
     stream->addr.source = 0;
@@ -340,8 +336,8 @@ newTcpStream (protoType proto) {
     stream->outOfOrderPkts = 0;
     stream->zeroWindows = 0;
     stream->dupAcks = 0;
-
-    stream->sessionDetail = (*stream->parser->newSessionDetail) ();
+    /* Init application service session detail */
+    stream->sessionDetail = (*stream->analyzer->newSessionDetail) ();
     if (stream->sessionDetail == NULL) {
         free (stream);
         return NULL;
@@ -383,7 +379,7 @@ freeTcpStream (void *data) {
     /* Free server halfStream end */
 
     /* Free session detail */
-    (*stream->parser->freeSessionDetail) (stream->sessionDetail);
+    (*stream->analyzer->freeSessionDetail) (stream->sessionDetail);
     free (data);
 }
 
@@ -399,23 +395,24 @@ freeTcpStream (void *data) {
 static tcpStreamPtr
 addNewTcpStream (struct tcphdr *tcph, struct ip *iph, timeValPtr tm) {
     int ret;
-    protoType proto;
-    char key [64] = {0};
+    char key [64];
+    protoAnalyzerPtr analyzer;
     tcpStreamPtr stream, tmp;
 
-    snprintf (key, sizeof (key) - 1, "%s:%d", inet_ntoa (iph->ip_dst), ntohs (tcph->dest));
-    proto = lookupAppServiceProtoType (key);
-    if (proto == PROTO_UNKNOWN) {
-        LOGD ("Service (%s:%d) has not been registered.\n",
+    snprintf (key, sizeof (key), "%s:%d", inet_ntoa (iph->ip_dst), ntohs (tcph->dest));
+    analyzer = getAppServiceProtoAnalyzer (key);
+    if (analyzer == NULL) {
+        LOGD ("Appliction service (%s:%d) has not been registered.\n",
               inet_ntoa (iph->ip_dst), ntohs (tcph->dest));
         return NULL;
     }
 
-    stream = newTcpStream (proto);
+    stream = newTcpStream (analyzer);
     if (stream == NULL) {
         LOGE ("Create new tcpStream error.\n");
         return NULL;
     }
+    
     /* Set stream 4-tuple address */
     stream->addr.saddr = iph->ip_src;
     stream->addr.source = ntohs (tcph->source);
@@ -464,14 +461,7 @@ addNewTcpStream (struct tcphdr *tcph, struct ip *iph, timeValPtr tm) {
 static char *
 tcpBreakdown2Json (tcpStreamPtr stream, tcpBreakdownPtr tbd) {
     char *out;
-    const char *protoName;
     json_t *root;
-
-    protoName = getProtoName (tbd->proto);
-    if (protoName == NULL) {
-        LOGE ("Unknown service proto type.\n");
-        return NULL;
-    }
 
     root = json_object ();
     if (root == NULL) {
@@ -483,7 +473,7 @@ tcpBreakdown2Json (tcpStreamPtr stream, tcpBreakdownPtr tbd) {
     /* Tcp breakdown timestamp */
     json_object_set_new (root, COMMON_SKBD_TIMESTAMP, json_integer (tbd->timestamp));
     /* Tcp application layer protocol */
-    json_object_set_new (root, COMMON_SKBD_PROTOCOL, json_string (protoName));
+    json_object_set_new (root, COMMON_SKBD_PROTOCOL, json_string (tbd->proto));
     /* Tcp source ip */
     json_object_set_new (root, COMMON_SKBD_SOURCE_IP, json_string (inet_ntoa (tbd->srcIp)));
     /* Tcp source port */
@@ -524,7 +514,7 @@ tcpBreakdown2Json (tcpStreamPtr stream, tcpBreakdownPtr tbd) {
     if ((tbd->state == TCP_BREAKDOWN_DATA_EXCHANGING) ||
         (tbd->state == TCP_BREAKDOWN_RESET_TYPE3) ||
         (tbd->state == TCP_BREAKDOWN_RESET_TYPE4))
-        (*stream->parser->sessionBreakdown2Json) (root, stream->sessionDetail, tbd->sessionBreakdown);
+        (*stream->analyzer->sessionBreakdown2Json) (root, stream->sessionDetail, tbd->sessionBreakdown);
 
     out = json_dumps (root, JSON_INDENT (4));
     json_object_clear (root);
@@ -538,7 +528,7 @@ publishSessionBreakdown (tcpStreamPtr stream, timeValPtr tm) {
     tcpBreakdown tbd;
     char *jsonStr = NULL;
 
-    tbd.sessionBreakdown = (*stream->parser->newSessionBreakdown) ();
+    tbd.sessionBreakdown = (*stream->analyzer->newSessionBreakdown) ();
     if (tbd.sessionBreakdown == NULL) {
         LOGE ("Create new sessionBreakdown error.\n");
         return;
@@ -585,7 +575,7 @@ publishSessionBreakdown (tcpStreamPtr stream, timeValPtr tm) {
             break;
 
         default:
-            (*stream->parser->freeSessionBreakdown) (tbd.sessionBreakdown);
+            (*stream->analyzer->freeSessionBreakdown) (tbd.sessionBreakdown);
             LOGE ("Unsupported stream state for breakdown.\n");
             return;
     }
@@ -621,10 +611,10 @@ publishSessionBreakdown (tcpStreamPtr stream, timeValPtr tm) {
     if ((tbd.state == TCP_BREAKDOWN_DATA_EXCHANGING) ||
         (tbd.state == TCP_BREAKDOWN_RESET_TYPE3) ||
         (tbd.state == TCP_BREAKDOWN_RESET_TYPE4)) {
-        ret = (*stream->parser->generateSessionBreakdown) (stream->sessionDetail, tbd.sessionBreakdown);
+        ret = (*stream->analyzer->generateSessionBreakdown) (stream->sessionDetail, tbd.sessionBreakdown);
         if (ret < 0) {
             LOGE ("GenerateSessionBreakdown error.\n");
-            (*stream->parser->freeSessionBreakdown) (tbd.sessionBreakdown);
+            (*stream->analyzer->freeSessionBreakdown) (tbd.sessionBreakdown);
             return;
         }
     }
@@ -632,16 +622,14 @@ publishSessionBreakdown (tcpStreamPtr stream, timeValPtr tm) {
     jsonStr = tcpBreakdown2Json (stream, &tbd);
     if (jsonStr == NULL) {
         LOGE ("SessionBreakdown2Json error.\n");
-        (*stream->parser->freeSessionBreakdown) (tbd.sessionBreakdown);
+        (*stream->analyzer->freeSessionBreakdown) (tbd.sessionBreakdown);
         return;
     }
-
-    /* Push session breakdown to redis server */
     publishSessionBreakdownFunc (jsonStr, publishSessionBreakdownArgs);
 
     /* Free json string and application layer session breakdown */
     free (jsonStr);
-    (*stream->parser->freeSessionBreakdown) (tbd.sessionBreakdown);
+    (*stream->analyzer->freeSessionBreakdown) (tbd.sessionBreakdown);
 
     /* Reset some statistic fields of tcp stream */
     stream->totalPkts = 0;
@@ -685,7 +673,7 @@ handleEstb (tcpStreamPtr stream, timeValPtr tm) {
     stream->estbTime = timeVal2MilliSecond (tm);
     stream->mss = MIN_NUM (stream->client.mss, stream->server.mss);
 
-    (*stream->parser->sessionProcessEstb) (stream->sessionDetail, tm);
+    (*stream->analyzer->sessionProcessEstb) (stream->sessionDetail, tm);
     /* Publish tcp connected breakdown */
     publishSessionBreakdown (stream, tm);
 }
@@ -700,7 +688,7 @@ handleUrgData (tcpStreamPtr stream, halfStreamPtr snd, u_char urgData, timeValPt
     else
         fromClient = false;
 
-    (*stream->parser->sessionProcessUrgData) (fromClient, urgData, stream->sessionDetail, tm);
+    (*stream->analyzer->sessionProcessUrgData) (fromClient, urgData, stream->sessionDetail, tm);
 }
 
 /* Tcp data handler callback */
@@ -715,7 +703,7 @@ handleData (tcpStreamPtr stream, halfStreamPtr snd, u_char *data, u_int dataLen,
     else
         fromClient = false;
 
-    parseCount = (*stream->parser->sessionProcessData) (fromClient, data, dataLen, stream->sessionDetail, tm, &sessionDone);
+    parseCount = (*stream->analyzer->sessionProcessData) (fromClient, data, dataLen, stream->sessionDetail, tm, &sessionDone);
     if (sessionDone)
         publishSessionBreakdown (stream, tm);
 
@@ -742,7 +730,7 @@ handleReset (tcpStreamPtr stream, halfStreamPtr snd, timeValPtr tm) {
             stream->state = STREAM_RESET_TYPE3;
         else
             stream->state = STREAM_RESET_TYPE4;
-        (*stream->parser->sessionProcessReset) (fromClient, stream->sessionDetail, tm);
+        (*stream->analyzer->sessionProcessReset) (fromClient, stream->sessionDetail, tm);
     }
 
     stream->closeTime = timeVal2MilliSecond (tm);
@@ -761,7 +749,7 @@ handleFin (tcpStreamPtr stream, halfStreamPtr snd, timeValPtr tm) {
     else
         fromClient = false;
 
-    (*stream->parser->sessionProcessFin) (fromClient, stream->sessionDetail, tm, &sessionDone);
+    (*stream->analyzer->sessionProcessFin) (fromClient, stream->sessionDetail, tm, &sessionDone);
     if (sessionDone)
         publishSessionBreakdown (stream, tm);
 

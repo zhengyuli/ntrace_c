@@ -66,7 +66,7 @@ initZmqHub (void) {
     int ret;
 
     /* Alloc zmqHubIntance */
-    zmqHubIntance = (zmqHubPtr) malloc (sizeof(zmqHub));
+    zmqHubIntance = (zmqHubPtr) malloc (sizeof (zmqHub));
     if (zmqHubIntance == NULL) {
         LOGE ("Alloc zmqHubIntance error.\n");
         return -1;

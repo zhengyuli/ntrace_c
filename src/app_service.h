@@ -3,17 +3,18 @@
 
 #include <stdlib.h>
 #include <jansson.h>
-#include "protocol.h"
+#include "proto_analyzer.h"
 
 typedef struct _appService appService;
 typedef appService *appServicePtr;
 
 /* Application service definition */
 struct _appService {
-    u_int id;                           /**< application service id */
-    protoType proto;                    /**< application service proto type */
-    char *ip;                           /**< application service ip */
-    u_short port;                       /**< application service port */
+    u_int id;                           /**< Application service id */
+    char *proto;                        /**< Application service proto name */
+    protoAnalyzerPtr analyzer;          /**< Application service proto analyzer */
+    char *ip;                           /**< Application service ip */
+    u_short port;                       /**< Application service port */
 };
 
 /* Application service json key definitions */

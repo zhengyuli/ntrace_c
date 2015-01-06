@@ -18,9 +18,9 @@ getRevisionVersion (void) {
 
 char *
 getVersionStr (void) {
-    static char verStr [128] = {0};
+    static char verStr [128];
 
-    snprintf (verStr, sizeof (verStr) - 1, "%d.%d.%d",
+    snprintf (verStr, sizeof (verStr), "%d.%d.%d",
               AGENT_VERSION_MAJOR,
               AGENT_VERSION_MINOR,
               AGENT_VERSION_REVISION);

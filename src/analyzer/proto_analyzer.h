@@ -4,19 +4,14 @@
 #include <jansson.h>
 #include "util.h"
 
-#define MAX_PROTO_NAME_LEN 32
-
-/* Protocol type */
 typedef enum {
-    PROTO_DEFAULT = 0,
-    PROTO_HTTP,
-    PROTO_MYSQL,
-    PROTO_UNKNOWN
-} protoType;
+    STREAM_FROM_CLIENT = 0,
+    STREAM_FROM_SERVER = 1
+} streamDirection;
 
-/* Protocol parser callback definition */
-typedef int (*initProtoCB) (void);
-typedef void (*destroyProtoCB) (void);
+/* Protocol analyzer callback definition */
+typedef int (*initProtoAnalyzerCB) (void);
+typedef void (*destroyProtoAnalyzerCB) (void);
 typedef void * (*newSessionDetailCB) (void);
 typedef void (*freeSessionDetailCB) (void *sd);
 typedef void * (*newSessionBreakdownCB) (void);
@@ -29,13 +24,14 @@ typedef u_int (*sessionProcessDataCB) (boolean fromClient, u_char *data, u_int d
 typedef void (*sessionProcessResetCB) (boolean fromClient, void *sd, timeValPtr tm);
 typedef void (*sessionProcessFinCB) (boolean fromClient, void *sd, timeValPtr tm, boolean *sessionDone);
 
-typedef struct _protoParser protoParser;
-typedef protoParser *protoParserPtr;
+typedef struct _protoAnalyzer protoAnalyzer;
+typedef protoAnalyzer *protoAnalyzerPtr;
 
-/* Protocol parser callback */
-struct _protoParser {
-    initProtoCB initProto;                               /**< Protocol init callback */
-    destroyProtoCB destroyProto;                         /**< Protocol destroy callback */
+/* Protocol analyzer callback */
+struct _protoAnalyzer {
+    char proto [32];                                     /**< Protocol type */
+    initProtoAnalyzerCB initProtoAnalyzer;               /**< Protocol init callback */
+    destroyProtoAnalyzerCB destroyProtoAnalyzer;         /**< Protocol destroy callback */
     newSessionDetailCB newSessionDetail;                 /**< Create new session detail callback */
     freeSessionDetailCB freeSessionDetail;               /**< Free session detail callback */
     newSessionBreakdownCB newSessionBreakdown;           /**< Create new session breakdown callback */
@@ -49,27 +45,13 @@ struct _protoParser {
     sessionProcessFinCB sessionProcessFin;               /**< Tcp fin processing callback */
 };
 
-typedef struct _protoInfo protoInfo;
-typedef protoInfo *protoInfoPtr;
-
-/* Protocol info */
-struct _protoInfo {
-    protoType proto;
-    char name [MAX_PROTO_NAME_LEN];
-    protoParserPtr parser;
-};
-
 /*========================Interfaces definition============================*/
-protoType
-getProtoType (const char *protoName);
-const char *
-getProtoName (protoType proto);
-protoParserPtr
-getProtoParser (protoType proto);
+protoAnalyzerPtr
+getProtoAnalyzer (const char *proto);
 int
-initProto (void);
+initProtoAnalyzer (void);
 void
-destroyProto (void);
+destroyProtoAnalyzer (void);
 /*=======================Interfaces definition end=========================*/
 
 #endif /* __AGENT_PROTOCOL_H__ */

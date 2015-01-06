@@ -89,7 +89,7 @@ newTask (taskFunc func, void *args) {
     tsk->tid = tid;
     tsk->func = func;
     tsk->args = args;
-    snprintf (key, sizeof (key) - 1, "%lu", tid);
+    snprintf (key, sizeof (key), "%lu", tid);
     ret = hashInsert (taskManagerHashTable, key, tsk, freeTaskItemForHash);
     if (ret < 0) {
         pthread_kill (tid, SIGUSR1);
@@ -106,7 +106,7 @@ restartTask (taskId tid) {
     char key [32];
     taskItemPtr task;
 
-    snprintf (key, sizeof (key) - 1, "%lu", tid);
+    snprintf (key, sizeof (key), "%lu", tid);
     task = hashLookup (taskManagerHashTable, key);
     if (task == NULL) {
         LOGE ("Lookup task: %lu context error.\n", tid);
@@ -145,8 +145,7 @@ void
 sendTaskExit (void) {
     char exitMsg [128];
 
-    snprintf (exitMsg, sizeof (exitMsg) - 1, "%u:%u", TASK_STATUS_EXIT, gettid ());
-    exitMsg [sizeof (exitMsg) - 1] = 0;
+    snprintf (exitMsg, sizeof (exitMsg), "%u:%u", TASK_STATUS_EXIT, gettid ());
 
     pthread_mutex_lock (&taskStatusPushSockLock);
     zstr_send (getTaskStatusPushSock (), exitMsg);
@@ -171,7 +170,7 @@ taskStatusHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
     if (statusMsg == NULL)
         return 0;
 
-    sscanf(statusMsg, "%u:%lu", &status, &tid);
+    sscanf (statusMsg, "%u:%lu", &status, &tid);
     switch (status) {
         case TASK_STATUS_EXIT:
             LOGD ("Task %lu exit abnormally.\n");

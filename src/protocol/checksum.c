@@ -186,7 +186,7 @@ tcpFastCheckSum (u_char *tcph, int tcpLen, u_int saddr, u_int daddr) {
     hdr.daddr = daddr;
     hdr.zero = 0;
     hdr.protocol = IPPROTO_TCP;
-    hdr.len = htons(tcpLen);
+    hdr.len = htons (tcpLen);
     for (i = 0; i < sizeof (hdr); i += 2)
         sum += *(u_short *)((u_char *) (&hdr) + i);
 

@@ -2,12 +2,12 @@
 #define __AGENT_APP_SERVICE_MANAGER_H__
 
 #include <stdlib.h>
-#include "protocol.h"
+#include "proto_analyzer.h"
 #include "app_service.h"
 
 /*========================Interfaces definition============================*/
-protoType
-lookupAppServiceProtoType (const char *key);
+protoAnalyzerPtr
+getAppServiceProtoAnalyzer (const char *key);
 char *
 getAppServicesFilter (void);
 int

@@ -53,8 +53,8 @@ packetDispatch (struct ip *iphdr, timeValPtr tm) {
     u_int ipPktLen;
     struct ip *iph = iphdr;
     struct tcphdr *tcph;
-    char key1 [32] = {0};
-    char key2 [32] = {0};
+    char key1 [32];
+    char key2 [32];
     zframe_t *frame;
     void *pushSock;
 
@@ -63,8 +63,8 @@ packetDispatch (struct ip *iphdr, timeValPtr tm) {
     switch (iph->ip_p) {
         case IPPROTO_TCP:
             tcph = (struct tcphdr *) ((u_char *) iph + (iph->ip_hl * 4));
-            snprintf (key1, sizeof (key1) - 1, "%s:%d", inet_ntoa (iph->ip_src), ntohs (tcph->source));
-            snprintf (key2, sizeof (key2) - 1, "%s:%d", inet_ntoa (iph->ip_dst), ntohs (tcph->dest));
+            snprintf (key1, sizeof (key1), "%s:%d", inet_ntoa (iph->ip_src), ntohs (tcph->source));
+            snprintf (key2, sizeof (key2), "%s:%d", inet_ntoa (iph->ip_dst), ntohs (tcph->dest));
             break;
 
         default:
@@ -73,7 +73,7 @@ packetDispatch (struct ip *iphdr, timeValPtr tm) {
 
     /* Get dispatch index */
     index = dispatchHash (key1, key2) % getTcpPktParsingThreadsNum ();
-    pushSock = getTcpPktPushSock(index);
+    pushSock = getTcpPktPushSock (index);
 
     /* Push timeVal */
     frame = zframe_new (tm, sizeof (timeVal));

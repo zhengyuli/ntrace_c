@@ -12,6 +12,7 @@
 #include "logger.h"
 #include "zmq_hub.h"
 #include "properties_manager.h"
+#include "proto_analyzer.h"
 #include "runtime_context.h"
 #include "task_manager.h"
 #include "app_service_manager.h"
@@ -433,7 +434,7 @@ lockPidFile (void) {
     int ret;
     pid_t pid;
     ssize_t n;
-    char buf [16] = {0};
+    char buf [16];
 
     pid = getpid ();
 
@@ -446,7 +447,7 @@ lockPidFile (void) {
         close (agentPidFd);
         return -1;
     } else {
-        snprintf (buf, sizeof (buf) - 1, "%d", pid);
+        snprintf (buf, sizeof (buf), "%d", pid);
         n = safeWrite (agentPidFd, buf, strlen (buf));
         if (n != strlen (buf)) {
             close (agentPidFd);
@@ -490,12 +491,19 @@ agentService (void) {
         goto unlockPidFile;
     }
 
+    /* Init proto analyzer */
+    ret = initProtoAnalyzer ();
+    if (ret < 0) {
+        LOGE ("Init proto context error.\n");
+        goto destroyLog;
+    }
+
     /* Init runtime context */
     ret = initRuntimeContext ();
     if (ret < 0) {
         LOGE ("Init runtime context error.\n");
         ret = -1;
-        goto destroyLog;
+        goto destroyProtoAnalyzer;
     }
 
     /* Init zmq hub */
@@ -583,6 +591,8 @@ destroyZmqHub:
     destroyZmqHub ();
 destroyRuntimeContext:
     destroyRuntimeContext ();
+destroyProtoAnalyzer:
+    destroyProtoAnalyzer ();
 destroyLog:
     destroyLog ();
 unlockPidFile:
@@ -675,7 +685,7 @@ agentDaemon (void) {
     int stdinfd;
     int stdoutfd;
 
-    if (chdir("/") < 0) {
+    if (chdir ("/") < 0) {
         fprintf (stderr, "Chdir error: %s.\n", strerror (errno));
         return -1;
     }

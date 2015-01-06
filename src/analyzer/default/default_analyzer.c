@@ -6,12 +6,12 @@
 #include "default_analyzer.h"
 
 static int
-initDefaultProto (void) {
+initDefaultAnalyzer (void) {
     return 0;
 }
 
 static void
-destroyDefaultProto (void) {
+destroyDefaultAnalyzer (void) {
     return;
 }
 
@@ -90,7 +90,8 @@ defaultSessionProcessUrgData (boolean fromClient, char urgData, void *sd, timeVa
 }
 
 static u_int
-defaultSessionProcessData (boolean fromClient, u_char *data, u_int dataLen, void *sd, timeValPtr tm, boolean *sessionDone) {
+defaultSessionProcessData (boolean fromClient, u_char *data, u_int dataLen, void *sd,
+                           timeValPtr tm, boolean *sessionDone) {
     defaultSessionDetailPtr dsd = (defaultSessionDetailPtr) sd;
 
     dsd->exchangeSize += dataLen;
@@ -116,9 +117,10 @@ defaultSessionProcessFin (boolean fromClient, void *sd, timeValPtr tm, boolean *
     }
 }
 
-protoParser defaultParser = {
-    .initProto = initDefaultProto,
-    .destroyProto = destroyDefaultProto,
+protoAnalyzer defaultAnalyzer = {
+    .proto = "DEFAULT",
+    .initProtoAnalyzer = initDefaultAnalyzer,
+    .destroyProtoAnalyzer = destroyDefaultAnalyzer,
     .newSessionDetail = newDefaultSessionDetail,
     .freeSessionDetail = freeDefaultSessionDetail,
     .newSessionBreakdown = newDefaultSessionBreakdown,

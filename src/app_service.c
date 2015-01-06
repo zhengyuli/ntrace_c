@@ -2,6 +2,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <errno.h>
+#include <string.h>
 #include <jansson.h>
 #include "logger.h"
 #include "app_service.h"
@@ -15,9 +16,10 @@ newAppService (void) {
         return NULL;
 
     svc->id = 0;
-    svc->proto = PROTO_UNKNOWN;
+    svc->proto = NULL;
     svc->ip = NULL;
     svc->port = 0;
+    svc->analyzer = NULL;
     return svc;
 }
 
@@ -32,12 +34,12 @@ copyAppService (appServicePtr appService) {
     tmp->id = appService->id;
     tmp->proto = appService->proto;
     tmp->ip = strdup (appService->ip);
-    tmp->port = appService->port;
-
     if (tmp->ip == NULL) {
         free (tmp);
         return NULL;
     }
+    tmp->port = appService->port;
+    tmp->analyzer = appService->analyzer;
 
     return tmp;
 }
@@ -67,8 +69,8 @@ appService2Json (appServicePtr svc) {
 
     /* Application service id */
     json_object_set_new (root, APP_SERVICE_ID, json_integer (svc->id));
-    /* Application service proto type */
-    json_object_set_new (root, APP_SERVICE_PROTO, json_string (getProtoName (svc->proto)));
+    /* Application service proto */
+    json_object_set_new (root, APP_SERVICE_PROTO, json_string (svc->proto));
     /* Application service ip */
     json_object_set_new (root, APP_SERVICE_IP, json_string (svc->ip));
     /* Application service port */
@@ -81,6 +83,7 @@ appServicePtr
 json2AppService (json_t *json) {
     json_t *tmp;
     appServicePtr svc;
+    protoAnalyzerPtr analyzer;
     struct in_addr sa;
 
     svc = newAppService ();
@@ -98,20 +101,22 @@ json2AppService (json_t *json) {
     }
     svc->id = json_integer_value (tmp);
 
-    /* Get application service proto type */
+    /* Get application service proto */
     tmp = json_object_get (json, APP_SERVICE_PROTO);
     if (tmp == NULL) {
         LOGE ("Has no %s item.\n", APP_SERVICE_PROTO);
         free (svc);
         return NULL;
     }
-    svc->proto = getProtoType (json_string_value (tmp));
-    if (svc->proto == PROTO_UNKNOWN) {
-        LOGE ("Unknown application service proto type: %s.\n", (json_string_value (tmp)));
+    analyzer = getProtoAnalyzer (json_string_value (tmp));
+    if (analyzer == NULL) {
+        LOGE ("Unsupported application service proto type: %s.\n", (json_string_value (tmp)));
         free (svc);
         return NULL;
     }
-
+    svc->proto = analyzer->proto;
+    svc->analyzer = analyzer;
+    
     /* Get application service ip */
     tmp = json_object_get (json, APP_SERVICE_IP);
     if (tmp == NULL) {

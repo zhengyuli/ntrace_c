@@ -61,7 +61,7 @@ copyPidTable (pid_t pidTableDst [], pid_t pidTableSrc [], u_int size) {
 static void
 subLog (void) {
     u_int index;
-    char filter [50] = {0};
+    char filter [50];
 
     if (subSock == NULL)
         return;
@@ -69,11 +69,11 @@ subLog (void) {
     if (procName) {
         if (pidTableCount) {
             for (index = 0; index < pidTableCount; index++) {
-                snprintf (filter, sizeof (filter) - 1, "[thread:%u", pidTable [index]);
+                snprintf (filter, sizeof (filter), "[thread:%u", pidTable [index]);
                 zsocket_set_subscribe (subSock, filter);
             }
         } else {
-            snprintf (filter, sizeof (filter) - 1, "magic");
+            snprintf (filter, sizeof (filter), "magic");
             zsocket_set_subscribe (subSock, filter);
         }
     } else {
@@ -85,7 +85,7 @@ subLog (void) {
 static void
 unsubLog (void) {
     u_int index;
-    char filter[50] = {0};
+    char filter[50];
 
     if (subSock == NULL)
         return;
@@ -93,11 +93,11 @@ unsubLog (void) {
     if (procName) {
         if (pidTableCount) {
             for (index = 0; index < pidTableCount; index++) {
-                snprintf (filter, sizeof (filter) - 1, "[pid:%u]", pidTable [index]);
+                snprintf (filter, sizeof (filter), "[pid:%u]", pidTable [index]);
                 zsocket_set_unsubscribe (subSock, filter);
             }
         } else {
-            snprintf (filter, sizeof (filter) - 1, "magic");
+            snprintf (filter, sizeof (filter), "magic");
             zsocket_set_unsubscribe (subSock, filter);
         }
     }
@@ -113,7 +113,7 @@ updateSubRules (void) {
 
     if (procName) {
         /* Get pids of procName */
-        snprintf (cmd, sizeof (cmd) - 1, "ps -fLC %s|tr -s ' '|cut -d' ' -f2", procName);
+        snprintf (cmd, sizeof (cmd), "ps -fLC %s|tr -s ' '|cut -d' ' -f2", procName);
         fp = popen (cmd, "r");
         if (fp == NULL)
             return;

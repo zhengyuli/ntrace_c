@@ -4,7 +4,7 @@
 #include <netinet/ip.h>
 #include "util.h"
 #include "list.h"
-#include "protocol.h"
+#include "proto_analyzer.h"
 
 #define TCP_FIN_SENT 15
 #define TCP_FIN_CONFIRMED 16
@@ -81,8 +81,8 @@ typedef tcpStream *tcpStreamPtr;
 
 /* Tcp stream */
 struct _tcpStream {
-    protoType proto;                    /**< Service protocol type */
-    protoParserPtr parser;              /**< Protocol parser */
+    char *proto;                        /**< Tcp application level proto type */
+    protoAnalyzerPtr analyzer;          /**< Tcp Appliction level proto analyzer */
     tuple4 addr;                        /**< Tcp stream 4-tuple address */
     u_long_long connId;                 /**< Global tcp connection id */
     tcpStreamState state;               /**< Tcp stream state */
@@ -135,7 +135,7 @@ typedef tcpBreakdown *tcpBreakdownPtr;
 struct _tcpBreakdown {
     u_long_long bkdId;                  /**< Global breakdown id */
     u_long_long timestamp;              /**< Timestamp in seconds */
-    protoType proto;                    /**< Tcp application level protocol type */
+    char *proto;                        /**< Tcp application level proto type */
     struct in_addr srcIp;               /**< Source ip */
     u_short srcPort;                    /**< Source port */
     struct in_addr svcIp;               /**< Service ip */

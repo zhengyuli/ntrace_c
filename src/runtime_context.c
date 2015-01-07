@@ -296,11 +296,6 @@ dumpRuntimeContext (void) {
     json_t *root;
     char *out;
 
-    if (!fileExists (AGENT_RUN_DIR) && (mkdir (AGENT_RUN_DIR, 0755) < 0)) {
-        LOGE ("Create directory %s error: %s.\n", AGENT_RUN_DIR, strerror (errno));
-        return;
-    }
-
     if (runtimeContextInstance->state == AGENT_STATE_INIT) {
         remove (AGENT_RUNTIME_CONTEXT_CACHE);
         return;

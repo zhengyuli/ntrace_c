@@ -19,20 +19,20 @@
 #define LOG_TO_FILE_MASK (1 << 0)
 #define LOG_TO_NET_MASK (1 << 1)
 
-#define DEFAULT_LOGD_PID_FILE "/var/run/logd.pid"
+#define DEFAULT_LOGGER_SERVICE_PID_FILE "/var/run/logger_service.pid"
 
-/* Logd service pid file path */
-static char *logdPidFilePath = NULL;
-/* Logd service pid file fd */
-static int logdPidFileFd = -1;
+/* Loggerservice pid file path */
+static char *loggerSvcPidFilePath = NULL;
+/* Logger service pid file fd */
+static int loggerSvcPidFileFd = -1;
 /* Log devices list */
 static listHead logDevices;
 
 typedef struct _logDev logDev;
 typedef logDev *logDevPtr;
 /*
- * Logd service backend dev, every dev has three interfaces,
- * you can add new log dev into logd service with log_dev_add
+ * Logger service backend dev, every dev has three interfaces,
+ * you can add new log dev into logger service with log_dev_add
  */
 struct _logDev {
     listHead node;                      /**< Log dev list node of global log devices */
@@ -54,9 +54,9 @@ flagOn (u_int flag, u_int bitMask) {
 /*===========================Log file dev=================================*/
 
 /* Defautl log file dir */
-#define DEFAULT_LOG_FILE_DIR "/var/log/logd/"
+#define DEFAULT_LOG_FILE_DIR "/var/log/logger_service/"
 /* Defautl log file name */
-#define DEFAULT_LOG_FILE_NAME "logd.log"
+#define DEFAULT_LOG_FILE_NAME "logger_service.log"
 /* Default max log file size */
 #define DEFAULT_LOG_FILE_MAX_SIZE (128 << 20)
 /* Default log file rotation count */
@@ -392,25 +392,25 @@ tryLockPidFile (void) {
 
     pid = getpid ();
 
-    logdPidFileFd = open (logdPidFilePath, O_CREAT | O_RDWR, 0666);
-    if (logdPidFileFd < 0) {
-        fprintf (stderr, "Open pid file %s error: %s.\n", logdPidFilePath, strerror (errno));
+    loggerSvcPidFileFd = open (loggerSvcPidFilePath, O_CREAT | O_RDWR, 0666);
+    if (loggerSvcPidFileFd < 0) {
+        fprintf (stderr, "Open pid file %s error: %s.\n", loggerSvcPidFilePath, strerror (errno));
         return -1;
     }
 
-    if (flock (logdPidFileFd, LOCK_EX | LOCK_NB) == 0) {
+    if (flock (loggerSvcPidFileFd, LOCK_EX | LOCK_NB) == 0) {
         snprintf (buf, sizeof (buf), "%d", pid);
-        n = write (logdPidFileFd, buf, strlen (buf));
+        n = write (loggerSvcPidFileFd, buf, strlen (buf));
         if (n != strlen (buf)) {
             fprintf (stderr, "Write pid to pid file error: %s.\n", strerror (errno));
-            close (logdPidFileFd);
-            remove (logdPidFilePath);
+            close (loggerSvcPidFileFd);
+            remove (loggerSvcPidFilePath);
             return -1;
         }
         sync ();
     } else {
-        fprintf (stderr, "Logd service is running.\n");
-        close (logdPidFileFd);
+        fprintf (stderr, "Logger service is running.\n");
+        close (loggerSvcPidFileFd);
         return -1;
     }
 
@@ -419,16 +419,16 @@ tryLockPidFile (void) {
 
 static void
 unlockPidFile (void) {
-    if (logdPidFileFd >= 0) {
-        flock (logdPidFileFd, LOCK_UN);
-        close (logdPidFileFd);
-        logdPidFileFd = -1;
+    if (loggerSvcPidFileFd >= 0) {
+        flock (loggerSvcPidFileFd, LOCK_UN);
+        close (loggerSvcPidFileFd);
+        loggerSvcPidFileFd = -1;
     }
-    remove (logdPidFilePath);
+    remove (loggerSvcPidFilePath);
 }
 
 static int
-logdRun (boolean lockPidFile) {
+loggerSvcRun (boolean lockPidFile) {
     int ret;
     char *msg;
     zctx_t *context;
@@ -497,7 +497,7 @@ logdRun (boolean lockPidFile) {
 }
 
 static int
-logdDaemon (void) {
+loggerSvcDaemon (void) {
     pid_t pid, next_pid;
     int stdinfd;
     int stdoutfd;
@@ -550,7 +550,7 @@ logdDaemon (void) {
             next_pid = fork ();
             switch (next_pid) {
                 case 0:
-                    return logdRun (true);
+                    return loggerSvcRun (true);
 
                 case -1:
                     return -1;
@@ -567,8 +567,8 @@ logdDaemon (void) {
     }
 }
 
-/* Logd options */
-static struct option logdOptions [] = {
+/* Logger service options */
+static struct option loggerSvcOptions [] = {
     {"dir", required_argument, NULL, 'd'},
     {"name", required_argument, NULL, 'f'},
     {"daemon", no_argument, NULL, 'D'},
@@ -611,7 +611,7 @@ main (int argc, char *argv []) {
 
     /* Set locale */
     setlocale (LC_COLLATE,"");
-    while ((option = getopt_long (argc, argv, "d:f:Dm:p:r:h?", logdOptions, NULL)) != -1) {
+    while ((option = getopt_long (argc, argv, "d:f:Dm:p:r:h?", loggerSvcOptions, NULL)) != -1) {
         switch (option) {
             case 'd':
                 logFileDir = strdup (optarg);
@@ -644,7 +644,7 @@ main (int argc, char *argv []) {
                 break;
 
             case 'p':
-                logdPidFilePath = strdup (optarg);
+                loggerSvcPidFilePath = strdup (optarg);
                 break;
 
             case 'h':
@@ -681,23 +681,23 @@ main (int argc, char *argv []) {
     }
 
     if (runDaemon) {
-        /* Use default logd pid file path */
-        if (logdPidFilePath == NULL) {
-            logdPidFilePath = strdup (DEFAULT_LOGD_PID_FILE);
-            if (logdPidFilePath == NULL) {
+        /* Use default logger service pid file path */
+        if (loggerSvcPidFilePath == NULL) {
+            loggerSvcPidFilePath = strdup (DEFAULT_LOGGER_SERVICE_PID_FILE);
+            if (loggerSvcPidFilePath == NULL) {
                 fprintf (stderr, "Strdup log pid file path error: %s.\n", strerror (errno));
                 ret = -1;
                 goto exit;
             }
         }
-        ret = logdDaemon ();
+        ret = loggerSvcDaemon ();
     }
     else
-        ret = logdRun (false);
+        ret = loggerSvcRun (false);
 
 exit:
     free (logFileDir);
     free (logFileName);
-    free (logdPidFilePath);
+    free (loggerSvcPidFilePath);
     return ret;
 }

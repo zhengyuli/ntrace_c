@@ -7,3 +7,4 @@ SET (TEMPLATE_ANALYZER_FILES
   template/template_analyzer.c)
 
 ADD_LIBRARY (template_analyzer SHARED ${TEMPLATE_ANALYZER_FILES})
+TARGET_LINK_LIBRARIES (template_analyzer jansson)

@@ -1,15 +1,19 @@
 CMAKE_MINIMUM_REQUIRED (VERSION 2.8.0)
 
-SET (AGENT_CONFIG_FILE  ${AGENT_CONFIG_DIR}/agent.conf)
+SET (AGENT_CONFIG_FILE  ${PROJECT_CONFIG_DIR}/agent.conf)
 SET (AGENT_PID_FILE  /var/run/${ROOT_PROJECT_LOWER}_agent.pid)
-SET (AGENT_RUN_DIR /var/run/${ROOT_PROJECT_LOWER})
-SET (AGENT_RUNTIME_CONTEXT_CACHE ${AGENT_RUN_DIR}/runtime_context_cache.json)
-SET (AGENT_ANALYZER_DIR ${AGENT_DATA_DIR}/analyzers)
+SET (AGENT_RUNTIME_CONTEXT_CACHE ${PROJECT_RUN_DIR}/agent_runtime_context_cache.json)
+SET (AGENT_ANALYZER_DIR ${PROJECT_DATA_DIR}/analyzers)
 
 # Configuration header file
 configure_file (
   ${PROJECT_SOURCE_DIR}/src/config.h.in
   ${PROJECT_BINARY_DIR}/config.h)
+
+# Version header file
+configure_file (
+  ${PROJECT_SOURCE_DIR}/src/version.h.in
+  ${PROJECT_BINARY_DIR}/version.h)
 
 INCLUDE_DIRECTORIES (
   ./
@@ -24,7 +28,6 @@ SET (AGENT_SOURCE_FILES
   util/util.c
   util/hash.c
   properties_manager.c
-  version.c
   logger/logger.c
   zmq_hub.c
   task_manager.c
@@ -44,10 +47,10 @@ SET (AGENT_SOURCE_FILES
   analyzer/default/default_analyzer.c)
 
 ADD_EXECUTABLE (${ROOT_PROJECT_LOWER}_agent ${AGENT_SOURCE_FILES})
-TARGET_LINK_LIBRARIES (${ROOT_PROJECT_LOWER}_agent pcap czmq hiredis pthread ini_config z jansson dl)
+TARGET_LINK_LIBRARIES (${ROOT_PROJECT_LOWER}_agent pcap czmq pthread ini_config z jansson dl)
 INSTALL (
   TARGETS ${ROOT_PROJECT_LOWER}_agent
-  DESTINATION ${AGENT_BIN_DIR})
+  DESTINATION ${PROJECT_BIN_DIR})
 
 ADD_SUBDIRECTORY (util)
 ADD_SUBDIRECTORY (logger)

@@ -670,7 +670,7 @@ parseCmdline (int argc, char *argv []) {
 
     if (showVersion || showHelp) {
         if (showVersion)
-            logToConsole ("Current version: %s\n", getVersionStr ());
+            logToConsole ("Current version: %s\n", VERSION_STRING);
         if (showHelp)
             showHelpInfo (argv [0]);
         exit (0);

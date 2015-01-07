@@ -9,8 +9,8 @@
 
 /* Current timestamp */
 static __thread timeValPtr currTime;
-/* Current session done indicator */
-static __thread boolean currSessionDone;
+/* Current session state indicator */
+static __thread sessionState currSessionState;
 /* Current http header type */
 static __thread httpHeaderType currHeaderType;
 /* Current http session detail */
@@ -331,7 +331,7 @@ onRespMessageComplete (http_parser *parser) {
 
     currNode->state = HTTP_RESPONSE_BODY_COMPLETE;
     currNode->respTimeEnd = timeVal2MilliSecond (currTime);
-    currSessionDone = true;
+    currSessionState = SESSION_DONE;
 
     return 0;
 }
@@ -863,33 +863,33 @@ httpSessionProcessEstb (void *sd, timeValPtr tm) {
 }
 
 static void
-httpSessionProcessUrgData (boolean fromClient, char urgData, void *sd, timeValPtr tm) {
+httpSessionProcessUrgData (streamDirection direction, char urgData, void *sd, timeValPtr tm) {
     return;
 }
 
 static u_int
-httpSessionProcessData (boolean fromClient, u_char *data, u_int dataLen, void *sd,
-                        timeValPtr tm, boolean *sessionDone) {
+httpSessionProcessData (streamDirection direction, u_char *data, u_int dataLen, void *sd,
+                        timeValPtr tm, sessionState *state) {
     u_int parseCount;
 
     currTime = tm;
-    currSessionDone = false;
+    currSessionState = SESSION_ACTIVE;
     currHeaderType = HTTP_HEADER_IGNORE;
     currSessionDetail = (httpSessionDetailPtr) sd;
 
-    if (fromClient)
+    if (direction == STREAM_FROM_CLIENT)
         parseCount = http_parser_execute (&currSessionDetail->reqParser, &currSessionDetail->reqParserSettings,
                                           (const char *) data, dataLen);
     else
         parseCount = http_parser_execute (&currSessionDetail->resParser, &currSessionDetail->resParserSettings,
                                           (const char *) data, dataLen);
 
-    *sessionDone = currSessionDone;
+    *state = currSessionState;
     return parseCount;
 }
 
 static void
-httpSessionProcessReset (boolean fromClient, void *sd, timeValPtr tm) {
+httpSessionProcessReset (streamDirection direction, void *sd, timeValPtr tm) {
     httpSessionDetailNodePtr currNode;
     httpSessionDetailPtr hsd = (httpSessionDetailPtr) sd;
 
@@ -921,11 +921,11 @@ httpSessionProcessReset (boolean fromClient, void *sd, timeValPtr tm) {
 }
 
 static void
-httpSessionProcessFin (boolean fromClient, void *sd, timeValPtr tm, boolean *sessionDone) {
+httpSessionProcessFin (streamDirection direction, void *sd, timeValPtr tm, sessionState *state) {
     httpSessionDetailNodePtr currNode;
     httpSessionDetailPtr hsd = (httpSessionDetailPtr) sd;
 
-    if (!fromClient) {
+    if (direction == STREAM_FROM_SERVER) {
         listFirstEntry (currNode, &hsd->head, node);
         if (currNode == NULL)
             return;
@@ -933,7 +933,7 @@ httpSessionProcessFin (boolean fromClient, void *sd, timeValPtr tm, boolean *ses
         if (currNode->state == HTTP_RESPONSE_BODY_BEGIN) {
             currNode->state = HTTP_RESPONSE_BODY_COMPLETE;
             currNode->respTimeEnd = timeVal2MilliSecond (tm);
-            *sessionDone = true;
+            *state = SESSION_DONE;
         }
     }
 }

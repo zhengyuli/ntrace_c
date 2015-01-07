@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <net/if.h>
 #include <netinet/ip.h>
+#include <pcap.h>
 #include <czmq.h>
 #include "util.h"
 #include "logger.h"

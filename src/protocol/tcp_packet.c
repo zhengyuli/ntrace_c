@@ -223,12 +223,12 @@ delTcpStreamFromHash (tcpStreamPtr stream) {
  *
  * @param tcph tcp header
  * @param iph ip header
- * @param fromClient return data flow direction
+ * @param direction return stream direction
  *
  * @return Tcp stream if success else NULL
  */
 static tcpStreamPtr
-findTcpStream (struct tcphdr *tcph, struct ip * iph, boolean *fromClient) {
+findTcpStream (struct tcphdr *tcph, struct ip * iph, streamDirection *direction) {
     tuple4 addr, reversed;
     tcpStreamPtr stream;
 
@@ -238,7 +238,7 @@ findTcpStream (struct tcphdr *tcph, struct ip * iph, boolean *fromClient) {
     addr.dest = ntohs (tcph->dest);
     stream = lookupTcpStreamFromHash (&addr);
     if (stream) {
-        *fromClient = true;
+        *direction = STREAM_FROM_CLIENT;
         return stream;
     }
 
@@ -248,7 +248,7 @@ findTcpStream (struct tcphdr *tcph, struct ip * iph, boolean *fromClient) {
     reversed.dest = ntohs (tcph->source);
     stream = lookupTcpStreamFromHash (&reversed);
     if (stream) {
-        *fromClient = false;
+        *direction = STREAM_FROM_SERVER;
         return stream;
     }
 
@@ -681,30 +681,30 @@ handleEstb (tcpStreamPtr stream, timeValPtr tm) {
 /* Tcp urgence data handler callback */
 static void
 handleUrgData (tcpStreamPtr stream, halfStreamPtr snd, u_char urgData, timeValPtr tm) {
-    boolean fromClient;
+    streamDirection direction;
 
     if (snd == &stream->client)
-        fromClient = true;
+        direction = STREAM_FROM_CLIENT;
     else
-        fromClient = false;
+        direction = STREAM_FROM_SERVER;
 
-    (*stream->analyzer->sessionProcessUrgData) (fromClient, urgData, stream->sessionDetail, tm);
+    (*stream->analyzer->sessionProcessUrgData) (direction, urgData, stream->sessionDetail, tm);
 }
 
 /* Tcp data handler callback */
 static u_int
 handleData (tcpStreamPtr stream, halfStreamPtr snd, u_char *data, u_int dataLen, timeValPtr tm) {
-    boolean fromClient;
+    streamDirection direction;
     u_int parseCount;
-    boolean sessionDone = false;
+    sessionState state = SESSION_ACTIVE;
 
     if (snd == &stream->client)
-        fromClient = true;
+        direction = STREAM_FROM_CLIENT;
     else
-        fromClient = false;
+        direction = STREAM_FROM_SERVER;
 
-    parseCount = (*stream->analyzer->sessionProcessData) (fromClient, data, dataLen, stream->sessionDetail, tm, &sessionDone);
-    if (sessionDone)
+    parseCount = (*stream->analyzer->sessionProcessData) (direction, data, dataLen, stream->sessionDetail, tm, &state);
+    if (state == SESSION_DONE)
         publishSessionBreakdown (stream, tm);
 
     return parseCount;
@@ -713,24 +713,24 @@ handleData (tcpStreamPtr stream, halfStreamPtr snd, u_char *data, u_int dataLen,
 /* Tcp reset handler callback */
 static void
 handleReset (tcpStreamPtr stream, halfStreamPtr snd, timeValPtr tm) {
-    boolean fromClient;
+    streamDirection direction;
 
     if (snd == &stream->client)
-        fromClient = true;
+        direction = STREAM_FROM_CLIENT;
     else
-        fromClient = false;
+        direction = STREAM_FROM_SERVER;
 
     if (stream->state == STREAM_INIT) {
-        if (fromClient)
+        if (direction == STREAM_FROM_CLIENT)
             stream->state = STREAM_RESET_TYPE1;
         else
             stream->state = STREAM_RESET_TYPE2;
     } else {
-        if (fromClient)
+        if (direction == STREAM_FROM_CLIENT)
             stream->state = STREAM_RESET_TYPE3;
         else
             stream->state = STREAM_RESET_TYPE4;
-        (*stream->analyzer->sessionProcessReset) (fromClient, stream->sessionDetail, tm);
+        (*stream->analyzer->sessionProcessReset) (direction, stream->sessionDetail, tm);
     }
 
     stream->closeTime = timeVal2MilliSecond (tm);
@@ -741,16 +741,16 @@ handleReset (tcpStreamPtr stream, halfStreamPtr snd, timeValPtr tm) {
 /* Tcp fin handler callback */
 static void
 handleFin (tcpStreamPtr stream, halfStreamPtr snd, timeValPtr tm) {
-    boolean fromClient;
-    boolean sessionDone = false;
+    streamDirection direction;
+    sessionState state = SESSION_ACTIVE;
 
     if (snd == &stream->client)
-        fromClient = true;
+        direction = STREAM_FROM_CLIENT;
     else
-        fromClient = false;
+        direction = STREAM_FROM_SERVER;
 
-    (*stream->analyzer->sessionProcessFin) (fromClient, stream->sessionDetail, tm, &sessionDone);
-    if (sessionDone)
+    (*stream->analyzer->sessionProcessFin) (direction, stream->sessionDetail, tm, &state);
+    if (state == SESSION_DONE)
         publishSessionBreakdown (stream, tm);
 
     snd->state = TCP_FIN_SENT;
@@ -984,7 +984,7 @@ tcpProcess (struct ip *iph, timeValPtr tm) {
     u_int tmOption;
     tcpStreamPtr stream;
     halfStreamPtr snd, rcv;
-    boolean fromClient;
+    streamDirection direction;
 
     ipLen = ntohs (iph->ip_len);
     tcph = (struct tcphdr *) ((char *) iph + iph->ip_hl * 4);
@@ -1023,7 +1023,7 @@ tcpProcess (struct ip *iph, timeValPtr tm) {
     }
 #endif
 
-    stream = findTcpStream (tcph, iph, &fromClient);
+    stream = findTcpStream (tcph, iph, &direction);
     if (stream == NULL) {
         /* The first packet of tcp three handshake */
         if (tcph->syn && !tcph->ack && !tcph->rst) {
@@ -1036,7 +1036,7 @@ tcpProcess (struct ip *iph, timeValPtr tm) {
         return;
     }
 
-    if (fromClient) {
+    if (direction == STREAM_FROM_CLIENT) {
         snd = &stream->client;
         rcv = &stream->server;
     } else {
@@ -1052,13 +1052,13 @@ tcpProcess (struct ip *iph, timeValPtr tm) {
         stream->zeroWindows++;
 
     if (tcph->syn) {
-        if (fromClient || (stream->client.state != TCP_SYN_SENT) ||
+        if ((direction == STREAM_FROM_CLIENT) || (stream->client.state != TCP_SYN_SENT) ||
             (stream->server.state != TCP_CLOSE) || !tcph->ack) {
             /* Tcp syn retries */
-            if (fromClient && (stream->client.state == TCP_SYN_SENT)) {
+            if ((direction == STREAM_FROM_CLIENT) && (stream->client.state == TCP_SYN_SENT)) {
                 stream->retries++;
                 stream->retriesTime = timeVal2MilliSecond (tm);
-            } else if (!fromClient && (stream->server.state == TCP_SYN_RECV)) {
+            } else if ((direction == STREAM_FROM_SERVER) && (stream->server.state == TCP_SYN_RECV)) {
                 /* Tcp syn/ack retries */
                 stream->dupSynAcks++;
                 stream->synAckTime = timeVal2MilliSecond (tm);
@@ -1129,7 +1129,7 @@ tcpProcess (struct ip *iph, timeValPtr tm) {
     }
 
     if (tcph->ack) {
-        if (fromClient) {
+        if (direction == STREAM_FROM_CLIENT) {
             /* The last packet of tcp three handshake */
             if (stream->client.state == TCP_SYN_SENT && stream->server.state == TCP_SYN_RECV) {
                 if (ntohl (tcph->ack_seq) == stream->server.seq) {

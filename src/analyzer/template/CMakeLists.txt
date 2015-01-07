@@ -1,0 +1,9 @@
+CMAKE_MINIMUM_REQUIRED (VERSION 2.8.0)
+
+INCLUDE_DIRECTORIES (
+  ./template)
+
+SET (TEMPLATE_ANALYZER_FILES
+  template/template_analyzer.c)
+
+ADD_LIBRARY (template_analyzer SHARED ${TEMPLATE_ANALYZER_FILES})

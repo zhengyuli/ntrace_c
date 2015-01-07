@@ -2,7 +2,6 @@
 #define __AGENT_RAW_PACKET_H__
 
 #include <stdlib.h>
-#include <pcap.h>
 
 /*========================Interfaces definition============================*/
 u_char *

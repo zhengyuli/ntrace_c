@@ -231,7 +231,8 @@ struct _mysqlParserState {
     mysqlEvent event;                   /**< Mysql session event */
 };
 
-typedef int (*mysqlHandler) (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen, boolean fromClient);
+typedef int (*mysqlHandler) (mysqlParserStatePtr parser, u_char *payload, u_int payloadLen,
+                             streamDirection direction);
 
 #define MYSQL_MAX_EVENTS_PER_STATE 32
 

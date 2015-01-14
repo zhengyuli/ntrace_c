@@ -4,7 +4,7 @@
 #include <czmq.h>
 #include <pthread.h>
 
-#define CONTROL_PORT 58001
+#define COMMAND_HANDLER_PORT 58001
 
 typedef struct _zmqHub zmqHub;
 typedef zmqHub *zmqHubPtr;
@@ -15,7 +15,7 @@ struct _zmqHub {
     void *taskStatusPushSock;           /**< Task status push sock */
     void *taskStatusPullSock;           /**< Task status pull sock */
 
-    void *controlSock;                  /**< Control sock */
+    void *commandHandlerSock;           /**< Command handler sock */
 
     void *ipPktPushSock;                /**< Ip packet push sock pair */
     void *ipPktPullSock;                /**< Ip packet pull sock pair */
@@ -33,7 +33,7 @@ getTaskStatusPushSock (void);
 void *
 getTaskStatusPullSock (void);
 void *
-getControlSock (void);
+getCommandHandlerSock (void);
 void *
 getIpPktPushSock (void);
 void *

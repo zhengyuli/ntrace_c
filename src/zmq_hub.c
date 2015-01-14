@@ -27,8 +27,8 @@ getTaskStatusPullSock (void) {
 }
 
 void *
-getControlSock (void) {
-    return zmqHubIntance->controlSock;
+getCommandHandlerSock (void) {
+    return zmqHubIntance->commandHandlerSock;
 }
 
 void *
@@ -109,15 +109,15 @@ initZmqHub (void) {
         goto destroyZmqCtxt;
     }
 
-    /* Create controlSock */
-    zmqHubIntance->controlSock = zsocket_new (zmqHubIntance->ctxt, ZMQ_REP);
-    if (zmqHubIntance->controlSock == NULL) {
-        LOGE ("Create controlSock error.\n");
+    /* Create commandHandlerSock */
+    zmqHubIntance->commandHandlerSock = zsocket_new (zmqHubIntance->ctxt, ZMQ_REP);
+    if (zmqHubIntance->commandHandlerSock == NULL) {
+        LOGE ("Create commandHandlerSock error.\n");
         goto destroyZmqCtxt;
     }
-    ret = zsocket_bind (zmqHubIntance->controlSock, "tcp://*:%u", CONTROL_PORT);
+    ret = zsocket_bind (zmqHubIntance->commandHandlerSock, "tcp://*:%u", COMMAND_HANDLER_PORT);
     if (ret < 0) {
-        LOGE ("Bind to tcp://*:%u error.\n", CONTROL_PORT);
+        LOGE ("Bind to tcp://*:%u error.\n", COMMAND_HANDLER_PORT);
         goto destroyZmqCtxt;
     }
 

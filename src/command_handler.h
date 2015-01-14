@@ -3,17 +3,19 @@
 
 #include <czmq.h>
 
-/* Agent command */
-#define AGENT_CMD_HEARTBEAT "heartbeat"
-#define AGENT_CMD_UPDATE_PROFILE "update_profile"
+/* Command definitions */
+#define COMMAND_RESUME "resume"
+#define COMMAND_PAUSE "pause"
+#define COMMAND_HEARTBEAT "heartbeat"
+#define COMMAND_UPDATE_PROFILE "update_profile"
 
-/* Agent management success response */
-#define AGENT_MANAGEMENT_RESPONSE_SUCCESS 0
-#define AGENT_MANAGEMENT_RESPONSE_SUCCESS_MESSAGE "{\"code\":0}"
+/* Command handle success response */
+#define COMMAND_HANDLE_SUCCESS 0
+#define COMMAND_HANDLE_SUCCESS_DEFAULT_MESSAGE "{\"code\":0, \"body\":{}}"
 
-/* Agent management error response */
-#define AGENT_MANAGEMENT_RESPONSE_ERROR 1
-#define AGENT_MANAGEMENT_RESPONSE_ERROR_MESSAGE "{\"code\":1}"
+/* Command handle error response */
+#define COMMAND_HANDLE_ERROR 1
+#define COMMAND_HANDLE_ERROR_DEFAULT_MESSAGE "{\"code\":1, \"body\":{}}"
 
 /*========================Interfaces definition============================*/
 int

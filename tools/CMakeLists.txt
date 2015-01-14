@@ -1,10 +1,8 @@
 CMAKE_MINIMUM_REQUIRED (VERSION 2.8.0)
 
 SET (AGENT_TOOLS
-  add_agent.py
-  remove_agent.py
-  start_agent.py
-  stop_agent.py
+  resume.py
+  pause.py
   heartbeat.py
   update_profile.py
   minig_engine.py)

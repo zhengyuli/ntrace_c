@@ -4,7 +4,7 @@
 # Name: update_profile.py
 # Purpose:
 #
-# Time-stamp: <2015-01-11 15:31:31 Sunday by lzy>
+# Time-stamp: <2015-01-14 23:29:30 Wednesday by lzy>
 #
 # Author: zhengyu li
 # Created: 24 May 2014
@@ -21,9 +21,9 @@ appService1 ['proto'] = 'HTTP'
 appService1 ['ip'] = '210.28.129.4'
 appService1 ['port'] = 80
 
-updateProfileBody = {}
-updateProfileBody ['agent_id'] = '12345'
 appServiceList = [appService1]
+
+updateProfileBody = {}
 updateProfileBody ['app_services'] = appServiceList
 
 updateProfileDict = {}
@@ -35,6 +35,6 @@ print updateProfileJson
 
 context = zmq.Context ()
 request = context.socket (zmq.REQ)
-request.connect ("tcp://127.0.0.1:59000")
+request.connect ("tcp://127.0.0.1:58001")
 request.send_json (updateProfileDict)
 print request.recv_json ()

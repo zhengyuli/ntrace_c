@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 
 #---------------------------------------------------------------------------------
-# Name: stop_agent.py
+# Name: resume.py
 # Purpose:
 #
-# Time-stamp: <2014-12-23 13:43:32 Tuesday by lzy>
+# Time-stamp: <2015-01-15 00:19:19 Thursday by lzy>
 #
 # Author: zhengyu li
 # Created: 24 May 2014
@@ -15,16 +15,16 @@
 import json
 import zmq
 
-stopAgentBody = {}
-stopAgentBody ['agent_id'] = '12345'
-stopAgentDict = {}
-stopAgentDict ['command'] = 'stop_agent'
-stopAgentDict ['body'] = stopAgentBody
-stopAgentJson = json.dumps (stopAgentDict)
-print stopAgentJson
+resumeBody = {}
+
+resumeDict = {}
+resumeDict ['command'] = 'resume'
+resumeDict ['body'] = resumeBody
+resumeJson = json.dumps (resumeDict)
+print resumeJson
 
 context = zmq.Context ()
 request = context.socket (zmq.REQ)
-request.connect ("tcp://127.0.0.1:59000")
-request.send_json (stopAgentDict)
+request.connect ("tcp://127.0.0.1:58001")
+request.send_json (resumeDict)
 print request.recv_json ()

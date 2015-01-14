@@ -4,7 +4,7 @@
 # Name: heartbeat.py
 # Purpose:
 #
-# Time-stamp: <2014-12-23 13:40:25 Tuesday by lzy>
+# Time-stamp: <2015-01-14 23:34:28 Wednesday by lzy>
 #
 # Author: zhengyu li
 # Created: 24 May 2014
@@ -16,7 +16,7 @@ import json
 import zmq
 
 heartbeatBody = {}
-heartbeatBody ['agent_id'] = '12345'
+
 heartbeatDict = {}
 heartbeatDict ['command'] = 'heartbeat'
 heartbeatDict ['body'] = heartbeatBody
@@ -25,6 +25,6 @@ print heartbeatJson
 
 context = zmq.Context ()
 request = context.socket (zmq.REQ)
-request.connect ("tcp://127.0.0.1:59000")
+request.connect ("tcp://127.0.0.1:58001")
 request.send_json (heartbeatDict)
 print request.recv_json ()

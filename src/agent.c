@@ -18,38 +18,9 @@
 #include "ip_packet_service.h"
 #include "tcp_packet_service.h"
 #include "command_handler.h"
-#include "agent.h"
 
 /* Agent pid file fd */
 static int agentPidFd = -1;
-
-int
-initAgentTasks (void) {
-    u_int i;
-    taskId tid;
-
-    tid = newTask (rawPktCaptureService, NULL);
-    if (tid < 0) {
-        LOGE ("Create rawPktCaptureService task error.\n");
-        return -1;
-    }
-
-    tid = newTask (ipPktParsingService, NULL);
-    if (tid < 0) {
-        LOGE ("Create ipPktParsingService task error.\n");
-        return -1;
-    }
-
-    for (i = 0; i < getTcpPktParsingThreadsNum (); i++) {
-        tid = newTask (tcpPktParsingService, getTcpPktParsingThreadIDHolder (i));
-        if (tid < 0) {
-            LOGE ("Create tcpPktParsingService %u task error.\n", i);
-            return -1;
-        }
-    }
-
-    return 0;
-}
 
 static int
 lockPidFile (void) {
@@ -90,6 +61,38 @@ unlockPidFile (void) {
         agentPidFd = -1;
     }
     remove (AGENT_PID_FILE);
+}
+
+int
+initAgentTasks (void) {
+    u_int i;
+    taskId tid;
+
+    tid = newTask (rawPktCaptureService, NULL);
+    if (tid < 0) {
+        LOGE ("Create rawPktCaptureService task error.\n");
+        goto stopAllTask;
+    }
+
+    tid = newTask (ipPktParsingService, NULL);
+    if (tid < 0) {
+        LOGE ("Create ipPktParsingService task error.\n");
+        goto stopAllTask;
+    }
+
+    for (i = 0; i < getTcpPktParsingThreadsNum (); i++) {
+        tid = newTask (tcpPktParsingService, getTcpPktParsingThreadIDHolder (i));
+        if (tid < 0) {
+            LOGE ("Create tcpPktParsingService %u task error.\n", i);
+            goto stopAllTask;
+        }
+    }
+    
+    return 0;
+
+stopAllTask:
+    stopAllTask ();
+    return -1;
 }
 
 static int
@@ -168,7 +171,7 @@ agentService (void) {
     }
 
     /* Init poll item 0*/
-    pollItems [0].socket = getControlSock ();
+    pollItems [0].socket = getCommandHandlerSock ();
     pollItems [0].fd = 0;
     pollItems [0].events = ZMQ_POLLIN;
 

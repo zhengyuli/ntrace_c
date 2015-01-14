@@ -53,7 +53,8 @@ generateFilterFromEachAppService (void *data, void *args) {
     char *filter = (char *) args;
 
     len = strlen (filter);
-    snprintf (filter + len, APP_SERVICE_BPF_FILTER_LENGTH, APP_SERVICE_BPF_FILTER, svc->ip, svc->port, BPF_IP_FRAGMENT_FILTER);
+    snprintf (filter + len, APP_SERVICE_BPF_FILTER_LENGTH, APP_SERVICE_BPF_FILTER,
+              svc->ip, svc->port, BPF_IP_FRAGMENT_FILTER);
     return 0;
 }
 
@@ -171,14 +172,13 @@ updateAppServicesFromJson (json_t *root) {
     json_t *tmp;
 
     tmp = json_object_get (root, "app_services");
-    if (tmp && json_is_array (tmp)) {
-        appServices = getAppServicesFromJson (tmp, &appServicesNum);
-        if (appServices == NULL) {
-            LOGE ("Load application services from cache error.\n");
-            return -1;
-        }
-    } else {
+    if ((tmp == NULL) || !json_is_array (tmp)) {
         LOGE ("Get app_services item error.\n");
+        return -1;
+    }
+    appServices = getAppServicesFromJson (tmp, &appServicesNum);
+    if (appServices == NULL) {
+        LOGE ("Load application services from cache error.\n");
         return -1;
     }
 
@@ -222,17 +222,16 @@ updateAppServicesFromCache (void) {
     } else {
         out = json_dumps (root, JSON_INDENT (4));
         if (out)
-            LOGD ("\nLoad appServices cache:\n%s\n success.", out);
+            LOGD ("\nLoad appServices cache success:\n%s\n", out);
         json_object_clear (root);
         return 0;
     }
 }
 
 static void
-syncAppServicesCache (json_t *root) {
+syncAppServicesCache (const char *cache) {
     int fd;
     int ret;
-    char *out;
 
     fd = open (APP_SERVICES_CACHE_FILE, O_WRONLY | O_TRUNC | O_CREAT, 0755);
     if (fd < 0) {
@@ -240,23 +239,10 @@ syncAppServicesCache (json_t *root) {
         return;
     }
 
-    out = json_dumps (root, JSON_INDENT (4));
-    if (out == NULL) {
-        LOGE ("Dump json error.\n");
-        close (fd);
-        return;
-    }
+    ret = safeWrite (fd, cache, strlen (cache));
+    if ((ret < 0) || (ret != strlen (cache)))
+        LOGE ("Sync appServices cache error: %s", strerror (errno));
 
-    ret = safeWrite (fd, out, strlen (out));
-    if ((ret < 0) || (ret != strlen (out))) {
-        LOGE ("Write appServices cache to %s error: %s", APP_SERVICES_CACHE_FILE, strerror (errno));
-        free (out);
-        close (fd);
-        return;
-    }
-
-    LOGD ("\nSyn appServices cache:\n%s\n success.", out);
-    free (out);
     close (fd);
     return;
 }
@@ -265,9 +251,14 @@ syncAppServicesCache (json_t *root) {
 int
 updateAppServiceManager (json_t *root) {
     int ret;
+    char *out;
+
     ret = updateAppServicesFromJson (root);
-    if (!ret)
-        syncAppServicesCache (root);
+    if (!ret && (out = json_dumps (root, JSON_INDENT (4)))) {
+        syncAppServicesCache (out);
+        free (out);
+        LOGD ("\nUpdate appService manager success:\n%s\n", out);
+    }
 
     return ret;
 }

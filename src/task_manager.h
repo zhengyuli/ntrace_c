@@ -3,6 +3,8 @@
 
 #include <sys/types.h>
 #include <pthread.h>
+#include <czmq.h>
+#include "util.h"
 
 typedef pthread_t taskId;
 typedef void * (*taskFunc) (void *args);

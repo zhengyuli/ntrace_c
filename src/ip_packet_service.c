@@ -4,7 +4,7 @@
 #include "util.h"
 #include "logger.h"
 #include "zmq_hub.h"
-#include "properties_manager.h"
+#include "properties.h"
 #include "task_manager.h"
 #include "ip_packet.h"
 #include "ip_packet_service.h"

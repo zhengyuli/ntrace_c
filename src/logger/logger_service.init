@@ -7,17 +7,17 @@
 # X-Start-Before:
 # Default-Start:    2 3 4 5
 # Default-Stop:
-# Short-Description: @ROOT_PROJECT@ logger service
+# Short-Description: WDA logger service
 # Description:
 ### END INIT INFO
 
-SERVICE_NAME=@ROOT_PROJECT_LOWER@_logger
-SERVICE_PATH=/usr/sbin/${SERVICE_NAME}
+source /etc/profile
 
+SERVICE_NAME=wda_logger
 PID_FILE=/var/run/${SERVICE_NAME}.pid
 
-LOG_FILE_DIR=/var/log/@ROOT_PROJECT_LOWER@/
-LOG_FILE_NAME=@SUB_PROJECT_LOWER@.log
+LOG_FILE_DIR=/var/log/wda/
+LOG_FILE_NAME=agent.log
 LOG_FILE_MAXIMUM_SIZE=512
 LOG_FILE_ROTATION_COUNT=15
 
@@ -27,7 +27,7 @@ start () {
         echo "${SERVICE_NAME} is running"
     else
         echo -n "Start ${SERVICE_NAME}: "
-        ${SERVICE_PATH} -D -d ${LOG_FILE_DIR} -f ${LOG_FILE_NAME}-m ${LOG_FILE_MAXIMUM_SIZE} -p ${PID_FILE} -r ${LOG_FILE_ROTATION_COUNT}
+        ${SERVICE_NAME} -D -d ${LOG_FILE_DIR} -f ${LOG_FILE_NAME}-m ${LOG_FILE_MAXIMUM_SIZE} -p ${PID_FILE} -r ${LOG_FILE_ROTATION_COUNT}
         loop=1
         while [ $loop -gt 0 ]
         do

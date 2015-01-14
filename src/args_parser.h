@@ -1,9 +1,9 @@
-#ifndef __AGENT_RAW_PACKET_SERVICE__
-#define __AGENT_RAW_PACKET_SERVICE__
+#ifndef __AGENT_ARGS_PARSER_H__
+#define __AGENT_ARGS_PARSER_H__
 
 /*========================Interfaces definition============================*/
-void *
-rawPktCaptureService (void *args);
+int
+parseArgs (int argc, char *argv []);
 /*=======================Interfaces definition end=========================*/
 
-#endif /* __AGENT_RAW_PACKET_SERVICE__ */
+#endif /* __AGENT_ARGS_PARSER_H__ */

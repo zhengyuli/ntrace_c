@@ -1,8 +1,7 @@
 CMAKE_MINIMUM_REQUIRED (VERSION 2.8.0)
 
 SET (AGENT_CONFIG_FILE  ${PROJECT_CONFIG_DIR}/agent.conf)
-SET (AGENT_PID_FILE  /var/run/${ROOT_PROJECT_LOWER}_agent.pid)
-SET (AGENT_RUNTIME_CONTEXT_CACHE ${PROJECT_RUN_DIR}/agent_runtime_context_cache.json)
+SET (AGENT_PID_FILE /var/run/${ROOT_PROJECT_LOWER}_agent.pid)
 SET (AGENT_ANALYZER_DIR ${PROJECT_DATA_DIR}/analyzers)
 
 # Configuration header file
@@ -27,13 +26,15 @@ SET (AGENT_SOURCE_FILES
   agent.c
   util/util.c
   util/hash.c
-  properties_manager.c
+  properties.c
+  args_parser.c
   logger/logger.c
+  netdev.c
   zmq_hub.c
   task_manager.c
-  runtime_context.c
   app_service.c
   app_service_manager.c
+  command_handler.c
   raw_packet_service.c
   ip_packet_service.c
   tcp_packet_service.c

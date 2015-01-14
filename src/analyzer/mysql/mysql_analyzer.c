@@ -796,7 +796,7 @@ mysqlParserExecute (mysqlParserStatePtr parser, u_char *data, u_int dataLen, str
     u_char *compPayload;
 
     if (parser->doSSL) {
-        LOGD ("Doesn't support mysql with ssl");
+        LOGD ("Doesn't support ssl for mysql analyzer.\n");
         return dataLen;
     }
 

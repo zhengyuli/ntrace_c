@@ -6,7 +6,7 @@ SET (AGENT_TOOLS
   start_agent.py
   stop_agent.py
   heartbeat.py
-  push_profile.py
+  update_profile.py
   minig_engine.py)
 
 INSTALL (

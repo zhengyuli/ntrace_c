@@ -11,13 +11,11 @@ getAppServiceProtoAnalyzer (const char *key);
 char *
 getAppServicesFilter (void);
 int
-updateAppServiceManager (void);
-void
-resetAppServiceManager (void);
+updateAppServiceManager (json_t *root);
 int
 initAppServiceManager (void);
 void
-destroyAppServiceManager (void);
+destroyAppServiceManager (boolean exitNormally);
 /*=======================Interfaces definition end=========================*/
 
 #endif /* __AGENT_APP_SERVICE_MANAGER_H__ */

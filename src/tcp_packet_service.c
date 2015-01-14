@@ -1,9 +1,7 @@
 #include <stdlib.h>
-#include <czmq.h>
 #include "util.h"
 #include "logger.h"
-#include "properties_manager.h"
-#include "runtime_context.h"
+#include "properties.h"
 #include "task_manager.h"
 #include "zmq_hub.h"
 #include "tcp_packet.h"
@@ -26,7 +24,6 @@ publishSessionBreakdown (const char *sessionBreakdown, void *args) {
 void *
 tcpPktParsingService (void *args) {
     int ret;
-    zctx_t *ctxt;
     u_int dispatchIndex;
     void *tcpPktPullSock;
     void *breakdownPushSock;
@@ -37,6 +34,7 @@ tcpPktParsingService (void *args) {
 
     dispatchIndex = *((u_int *) args);
     tcpPktPullSock = getTcpPktPullSock (dispatchIndex);
+    breakdownPushSock = getBreakdownPushSock (dispatchIndex);
 
     /* Reset task interrupt flag */
     resetTaskInterruptFlag ();
@@ -46,28 +44,6 @@ tcpPktParsingService (void *args) {
     if (ret < 0) {
         logToConsole ("Init log context error.\n");
         goto exit;
-    }
-
-    /* Create zmq context */
-    ctxt = zctx_new ();
-    if (ctxt == NULL) {
-        LOGE ("Create zmq context error.\n");
-        goto destroyLog;
-    }
-    zctx_set_linger (ctxt, 0);
-
-    /* Create breakdownPushSock */
-    breakdownPushSock = zsocket_new (ctxt, ZMQ_PUSH);
-    if (breakdownPushSock == NULL) {
-        LOGE ("Create breakdownPushSock error.\n");
-        goto destroyZmqCtxt;
-    }
-    zsocket_set_sndhwm (breakdownPushSock, 50000);
-    ret = zsocket_connect (breakdownPushSock, "tcp://%s:%u",
-                           getBreakdownSinkIp (), getBreakdownSinkPort ());
-    if (ret < 0) {
-        LOGE ("Connect tcp://%s:%u error.\n", getBreakdownSinkIp (), getBreakdownSinkPort ());
-        goto destroyZmqCtxt;
     }
 
     /* Init tcp context */
@@ -125,8 +101,7 @@ tcpPktParsingService (void *args) {
 
     LOGD ("TcpPktParsingService will exit...\n");
     destroyTcp ();
-destroyZmqCtxt:
-    zctx_destroy (&ctxt);
+
 destroyLog:
     destroyLog ();
 exit:

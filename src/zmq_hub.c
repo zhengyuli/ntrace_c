@@ -1,8 +1,8 @@
 #include <stdlib.h>
 #include <czmq.h>
 #include "util.h"
+#include "properties.h"
 #include "logger.h"
-#include "runtime_context.h"
 #include "zmq_hub.h"
 
 /* Max/Min tcp packet parsing threads number */
@@ -27,8 +27,8 @@ getTaskStatusPullSock (void) {
 }
 
 void *
-getManagementRespSock (void) {
-    return zmqHubIntance->managementRespSock;
+getControlSock (void) {
+    return zmqHubIntance->controlSock;
 }
 
 void *
@@ -53,6 +53,11 @@ getTcpPktPushSock (u_int index) {
 void *
 getTcpPktPullSock (u_int index) {
     return zmqHubIntance->tcpPktPullSocks [index];
+}
+
+void *
+getBreakdownPushSock (u_int index) {
+    return zmqHubIntance->breakdownPushSocks [index];
 }
 
 u_int *
@@ -104,15 +109,15 @@ initZmqHub (void) {
         goto destroyZmqCtxt;
     }
 
-    /* Create managementRespSock */
-    zmqHubIntance->managementRespSock = zsocket_new (zmqHubIntance->ctxt, ZMQ_REP);
-    if (zmqHubIntance->managementRespSock == NULL) {
-        LOGE ("Create managementRespSock error.\n");
+    /* Create controlSock */
+    zmqHubIntance->controlSock = zsocket_new (zmqHubIntance->ctxt, ZMQ_REP);
+    if (zmqHubIntance->controlSock == NULL) {
+        LOGE ("Create controlSock error.\n");
         goto destroyZmqCtxt;
     }
-    ret = zsocket_bind (zmqHubIntance->managementRespSock, "tcp://*:%u", MANAGEMENT_RESPONSE_PORT);
+    ret = zsocket_bind (zmqHubIntance->controlSock, "tcp://*:%u", CONTROL_PORT);
     if (ret < 0) {
-        LOGE ("Bind to tcp://*:%u error.\n", MANAGEMENT_RESPONSE_PORT);
+        LOGE ("Bind to tcp://*:%u error.\n", CONTROL_PORT);
         goto destroyZmqCtxt;
     }
 
@@ -204,8 +209,33 @@ initZmqHub (void) {
         }
     }
 
+    /* Alloc breakdownPushSocks */
+    zmqHubIntance->breakdownPushSocks = (void **) malloc (size);
+    if (zmqHubIntance->breakdownPushSocks == NULL) {
+        LOGE ("Alloc breakdownPushSocks error: %s\n", strerror (errno));
+        goto freeTcpPktPullSocks;
+    }
+    for (i = 0; i < zmqHubIntance->tcpPktParsingThreadsNum; i++) {
+        zmqHubIntance->breakdownPushSocks [i] = zsocket_new (zmqHubIntance->ctxt, ZMQ_PUSH);
+        if (zmqHubIntance->breakdownPushSocks [i] == NULL) {
+            LOGE ("Create breakdownPushSocks [%d] error.\n", i);
+            goto freeBreakdownPushSocks;
+        }
+        zsocket_set_sndhwm (zmqHubIntance->breakdownPushSocks [i], 500000);
+        ret = zsocket_connect (zmqHubIntance->breakdownPushSocks [i], "tcp://%s:%u",
+                               getPropertiesBreakdownSinkIp (), getPropertiesBreakdownSinkPort ());
+        if (ret < 0) {
+            LOGE ("Connect to tcp://%s:%u error.\n",
+                  getPropertiesBreakdownSinkIp (), getPropertiesBreakdownSinkPort ());
+            goto freeBreakdownPushSocks;
+        }
+    }
+
     return 0;
 
+freeBreakdownPushSocks:
+    free (zmqHubIntance->breakdownPushSocks);
+    zmqHubIntance->breakdownPushSocks = NULL;
 freeTcpPktPullSocks:
     free (zmqHubIntance->tcpPktPullSocks);
     zmqHubIntance->tcpPktPullSocks = NULL;
@@ -226,13 +256,14 @@ freeZmqHubInstance:
 
 void
 destroyZmqHub (void) {
-    free (zmqHubIntance->tcpPktPullSocks);
-    zmqHubIntance->tcpPktPullSocks = NULL;
-    free (zmqHubIntance->tcpPktPushSocks);
-    zmqHubIntance->tcpPktPushSocks = NULL;
     free (zmqHubIntance->tcpPktParsingThreadIDsHolder);
     zmqHubIntance->tcpPktParsingThreadIDsHolder = NULL;
-    zmqHubIntance->tcpPktParsingThreadsNum = 0;
+    free (zmqHubIntance->tcpPktPushSocks);
+    zmqHubIntance->tcpPktPushSocks = NULL;
+    free (zmqHubIntance->tcpPktPullSocks);
+    zmqHubIntance->tcpPktPullSocks = NULL;
+    free (zmqHubIntance->breakdownPushSocks);
+    zmqHubIntance->breakdownPushSocks = NULL;
     zctx_destroy (&zmqHubIntance->ctxt);
     free (zmqHubIntance);
     zmqHubIntance = NULL;

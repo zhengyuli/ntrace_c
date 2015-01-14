@@ -1,7 +1,7 @@
 #include <ini_config.h>
 #include "config.h"
 #include "logger.h"
-#include "properties_manager.h"
+#include "properties.h"
 
 /* Properties local instance */
 static propertiesPtr propertiesInstance = NULL;
@@ -16,8 +16,23 @@ newProperties (void) {
 
     tmp->daemonMode = 0;
     tmp->mirrorInterface = NULL;
-    tmp->logLevel = 0;
+    tmp->breakdownSinkIp = NULL;
+    tmp->breakdownSinkPort = 0;
+    tmp->logLevel = LOG_ERR_LEVEL;
     return tmp;
+}
+
+static void
+freeProperties (propertiesPtr instance) {
+    if (instance == NULL)
+        return;
+
+    free (instance->mirrorInterface);
+    instance->mirrorInterface = NULL;
+    free (instance->breakdownSinkIp);
+    instance->breakdownSinkIp = NULL;
+
+    free (instance);
 }
 
 static void
@@ -26,6 +41,8 @@ displayPropertiesDetail (void) {
     logToConsole ("{\n");
     logToConsole ("    daemonMode: %s\n", propertiesInstance->daemonMode ? "true" : "false");
     logToConsole ("    mirrorInterface: %s\n", propertiesInstance->mirrorInterface);
+    logToConsole ("    breakdownSinkIp: %s\n", propertiesInstance->breakdownSinkIp);
+    logToConsole ("    breakdownSinkPort: %u\n", propertiesInstance->breakdownSinkPort);
     logToConsole ("    logLevel: ");
     switch (propertiesInstance->logLevel) {
         case LOG_ERR_LEVEL:
@@ -35,7 +52,7 @@ displayPropertiesDetail (void) {
         case LOG_WARNING_LEVEL:
             logToConsole ("WARNING\n");
             break;
-            
+
         case LOG_INFO_LEVEL:
             logToConsole ("INFO\n");
             break;
@@ -43,7 +60,7 @@ displayPropertiesDetail (void) {
         case LOG_DEBUG_LEVEL:
             logToConsole ("DEBUG\n");
             break;
-            
+
         default:
             logToConsole ("Unknown\n");
     }
@@ -76,10 +93,10 @@ loadPropertiesFromConfigFile (void) {
     /* Get daemon mode */
     ret = get_config_item ("MAIN", "daemonMode", iniConfig, &item);
     if (ret) {
-        logToConsole ("Get_config_item \"daemonMode\" error\n");
+        logToConsole ("Get_config_item \"daemonMode\" error.\n");
         goto freeProperties;
     }
-    tmp->daemonMode = get_int_config_value (item, 1, -1, &error);
+    tmp->daemonMode = get_int_config_value (item, 1, 0, &error);
     if (error) {
         logToConsole ("Parse \"daemonMode\" error.\n");
         goto freeProperties;
@@ -88,19 +105,43 @@ loadPropertiesFromConfigFile (void) {
     /* Get mirror interface */
     ret = get_config_item ("MAIN", "mirrorInterface", iniConfig, &item);
     if (ret) {
-        logToConsole ("Get_config_item \"mirrorInterface\" error\n");
+        logToConsole ("Get_config_item \"mirrorInterface\" error.\n");
         goto freeProperties;
     }
     tmp->mirrorInterface = strdup (get_const_string_config_value (item, &error));
     if (tmp->mirrorInterface == NULL) {
-        logToConsole ("Get \"mirrorInterface\" error\n");
+        logToConsole ("Get \"mirrorInterface\" error.\n");
+        goto freeProperties;
+    }
+
+    /* Get breakdown sink ip */
+    ret = get_config_item ("MAIN", "breakdownSinkIp", iniConfig, &item);
+    if (ret) {
+        logToConsole ("Get_config_item \"breakdownSinkIp\" error.\n");
+        goto freeProperties;
+    }
+    tmp->breakdownSinkIp = strdup (get_const_string_config_value (item, &error));
+    if (tmp->breakdownSinkIp == NULL) {
+        logToConsole ("Get \"breakdownSinkIp\" error.\n");
+        goto freeProperties;
+    }
+
+    /* Get breakdown sink port */
+    ret = get_config_item ("MAIN", "breakdownSinkPort", iniConfig, &item);
+    if (ret) {
+        logToConsole ("Get_config_item \"breakdownSinkPort\" error.\n");
+        goto freeProperties;
+    }
+    tmp->breakdownSinkPort = get_int_config_value (item, 1, 0, &error);
+    if (error) {
+        logToConsole ("Get \"breakdownSinkPort\" error.\n");
         goto freeProperties;
     }
 
     /* Get log level */
-    ret = get_config_item ("LOG", "logLevel", iniConfig, &item);
+    ret = get_config_item ("MAIN", "logLevel", iniConfig, &item);
     if (ret) {
-        logToConsole ("Get_config_item \"logLevel\" error\n");
+        logToConsole ("Get_config_item \"logLevel\" error.\n");
         goto freeProperties;
     }
     tmp->logLevel = get_int_config_value (item, 1, -1, &error);
@@ -112,8 +153,7 @@ loadPropertiesFromConfigFile (void) {
     goto exit;
 
 freeProperties:
-    free (tmp->mirrorInterface);
-    free (tmp);
+    freeProperties (tmp);
     tmp = NULL;
 exit:
     if (iniConfig)
@@ -128,10 +168,9 @@ getPropertiesDaemonMode (void) {
     return propertiesInstance->daemonMode;
 }
 
-int
-setPropertiesDaemonMode (boolean daemonMode) {
+void
+updatePropertiesDaemonMode (boolean daemonMode) {
     propertiesInstance->daemonMode = daemonMode;
-    return 0;
 }
 
 char *
@@ -139,14 +178,31 @@ getPropertiesMirrorInterface (void) {
     return propertiesInstance->mirrorInterface;
 }
 
-int
-setPropertiesMirrorInterface (char *mirrorInterface) {
-    if (mirrorInterface == NULL)
-        return -1;
-
+void
+updatePropertiesMirrorInterface (char *mirrorInterface) {
     free (propertiesInstance->mirrorInterface);
     propertiesInstance->mirrorInterface = mirrorInterface;
-    return 0;
+}
+
+char *
+getPropertiesBreakdownSinkIp (void) {
+    return propertiesInstance->breakdownSinkIp;
+}
+
+void
+updatePropertiesBreakdownSinkIp (char *ip) {
+    free (propertiesInstance->breakdownSinkIp);
+    propertiesInstance->breakdownSinkIp = ip;
+}
+
+u_short
+getPropertiesBreakdownSinkPort (void) {
+    return propertiesInstance->breakdownSinkPort;
+}
+
+void
+updatePropertiesBreakdownSinkPort (u_short port) {
+    propertiesInstance->breakdownSinkPort = port;
 }
 
 u_int
@@ -154,14 +210,13 @@ getPropertiesLogLevel (void) {
     return propertiesInstance->logLevel;
 }
 
-int
-setPropertiesLogLevel (u_int logLevel) {
+void
+updatePropertiesLogLevel (u_int logLevel) {
     propertiesInstance->logLevel = logLevel;
-    return 0;
 }
 
 int
-initPropertiesManager (void) {
+initProperties (void) {
     propertiesInstance = loadPropertiesFromConfigFile ();
     if (propertiesInstance == NULL)
         return -1;
@@ -171,8 +226,7 @@ initPropertiesManager (void) {
 }
 
 void
-destroyPropertiesManager (void) {
-    free (propertiesInstance->mirrorInterface);
-    free (propertiesInstance);
+destroyProperties (void) {
+    freeProperties (propertiesInstance);
     propertiesInstance = NULL;
 }

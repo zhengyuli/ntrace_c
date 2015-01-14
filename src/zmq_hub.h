@@ -4,7 +4,7 @@
 #include <czmq.h>
 #include <pthread.h>
 
-#define MANAGEMENT_RESPONSE_PORT 59000
+#define CONTROL_PORT 58001
 
 typedef struct _zmqHub zmqHub;
 typedef zmqHub *zmqHubPtr;
@@ -15,7 +15,7 @@ struct _zmqHub {
     void *taskStatusPushSock;           /**< Task status push sock */
     void *taskStatusPullSock;           /**< Task status pull sock */
 
-    void *managementRespSock;           /**< Management response sock */
+    void *controlSock;                  /**< Control sock */
 
     void *ipPktPushSock;                /**< Ip packet push sock pair */
     void *ipPktPullSock;                /**< Ip packet pull sock pair */
@@ -24,6 +24,7 @@ struct _zmqHub {
     u_int *tcpPktParsingThreadIDsHolder; /**< Tcp packet parsing threads number holder */
     void **tcpPktPushSocks;             /**< Tcp packet dispatch push socks */
     void **tcpPktPullSocks;             /**< Tcp packet dispatch pull socks */
+    void **breakdownPushSocks;          /**< Breakdown push socks */
 };
 
 /*========================Interfaces definition============================*/
@@ -32,7 +33,7 @@ getTaskStatusPushSock (void);
 void *
 getTaskStatusPullSock (void);
 void *
-getManagementRespSock (void);
+getControlSock (void);
 void *
 getIpPktPushSock (void);
 void *
@@ -43,6 +44,8 @@ void *
 getTcpPktPushSock (u_int index);
 void *
 getTcpPktPullSock (u_int index);
+void *
+getBreakdownPushSock (u_int index);
 u_int *
 getTcpPktParsingThreadIDHolder (u_int index);
 int

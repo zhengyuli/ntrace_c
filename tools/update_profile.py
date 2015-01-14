@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 
 #---------------------------------------------------------------------------------
-# Name: push_profile.py
+# Name: update_profile.py
 # Purpose:
 #
-# Time-stamp: <2014-12-25 08:13:46 Thursday by lzy>
+# Time-stamp: <2015-01-11 15:31:31 Sunday by lzy>
 #
 # Author: zhengyu li
 # Created: 24 May 2014
@@ -21,20 +21,20 @@ appService1 ['proto'] = 'HTTP'
 appService1 ['ip'] = '210.28.129.4'
 appService1 ['port'] = 80
 
-pushProfileBody = {}
-pushProfileBody ['agent_id'] = '12345'
+updateProfileBody = {}
+updateProfileBody ['agent_id'] = '12345'
 appServiceList = [appService1]
-pushProfileBody ['app_services'] = appServiceList
+updateProfileBody ['app_services'] = appServiceList
 
-pushProfileDict = {}
-pushProfileDict ['command'] = 'push_profile'
-pushProfileDict ['body'] = pushProfileBody
+updateProfileDict = {}
+updateProfileDict ['command'] = 'update_profile'
+updateProfileDict ['body'] = updateProfileBody
 
-pushProfileJson = json.dumps (pushProfileDict)
-print pushProfileJson
+updateProfileJson = json.dumps (updateProfileDict)
+print updateProfileJson
 
 context = zmq.Context ()
 request = context.socket (zmq.REQ)
 request.connect ("tcp://127.0.0.1:59000")
-request.send_json (pushProfileDict)
+request.send_json (updateProfileDict)
 print request.recv_json ()

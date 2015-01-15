@@ -126,8 +126,8 @@ ipPktParsingService (void *args) {
     }
 
     /* Get ipPktPullSock */
-    ipPktPullSock = getIpPktPullSock ();    
-    
+    ipPktPullSock = getIpPktPullSock ();
+
     /* Init ip context */
     ret = initIp ();
     if (ret < 0) {
@@ -140,9 +140,8 @@ ipPktParsingService (void *args) {
         if (tmFrame == NULL) {
             tmFrame = zframe_recv (ipPktPullSock);
             if (tmFrame == NULL) {
-                if (!taskInterrupted ()) {
+                if (!taskInterrupted ())
                     LOGE ("Receive timestamp zframe fatal error.\n");
-                }
                 break;
             } else if (!zframe_more (tmFrame)) {
                 zframe_destroy (&tmFrame);
@@ -153,9 +152,8 @@ ipPktParsingService (void *args) {
         /* Receive ip packet zframe */
         pktFrame = zframe_recv (ipPktPullSock);
         if (pktFrame == NULL) {
-            if (!taskInterrupted ()) {
+            if (!taskInterrupted ())
                 LOGE ("Receive ip packet zframe fatal error.\n");
-            }
             zframe_destroy (&tmFrame);
             break;
         } else if (zframe_more (pktFrame)) {
@@ -190,4 +188,3 @@ exit:
 
     return NULL;
 }
-

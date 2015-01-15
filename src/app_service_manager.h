@@ -9,6 +9,8 @@
 protoAnalyzerPtr
 getAppServiceProtoAnalyzer (const char *key);
 char *
+getAppServicesPaddingFilter (void);
+char *
 getAppServicesFilter (void);
 int
 updateAppServiceManager (json_t *root);

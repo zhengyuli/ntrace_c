@@ -38,7 +38,7 @@ tcpPktParsingService (void *args) {
 
     /* Reset task interrupt flag */
     resetTaskInterruptFlag ();
-    
+
     /* Init log context */
     ret = initLog (getPropertiesLogLevel ());
     if (ret < 0) {
@@ -58,9 +58,8 @@ tcpPktParsingService (void *args) {
         if (tmFrame == NULL) {
             tmFrame = zframe_recv (tcpPktPullSock);
             if (tmFrame == NULL) {
-                if (!taskInterrupted ()) {
+                if (!taskInterrupted ())
                     LOGE ("Receive timestamp zframe fatal error.\n");
-                }
                 break;
             } else if (!zframe_more (tmFrame)) {
                 zframe_destroy (&tmFrame);
@@ -71,9 +70,8 @@ tcpPktParsingService (void *args) {
         /* Receive ip packet zframe */
         pktFrame = zframe_recv (tcpPktPullSock);
         if (pktFrame == NULL) {
-            if (!taskInterrupted ()) {
+            if (!taskInterrupted ())
                 LOGE ("Receive ip packet zframe fatal error.\n");
-            }
             zframe_destroy (&tmFrame);
             break;
         } else if (zframe_more (pktFrame)) {

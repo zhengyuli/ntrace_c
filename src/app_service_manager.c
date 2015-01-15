@@ -16,11 +16,13 @@
 
 #define APP_SERVICES_CACHE_FILE "/tmp/appServices.cache"
 
-/* Application service BPF ip fragment filter */
-#define BPF_IP_FRAGMENT_FILTER "(tcp and (ip[6] & 0x20 != 0 or (ip[6] & 0x20 = 0 and ip[6:2] & 0x1fff != 0)))"
-/* Application service BPF filter */
+/* Application service padding filter */
+#define APP_SERVICE_PADDING_BPF_FILTER "icmp"
+/* Application service ip fragment filter */
+#define APP_SERVICE_IP_FRAGMENT_BPF_FILTER "(tcp and (ip[6] & 0x20 != 0 or (ip[6] & 0x20 = 0 and ip[6:2] & 0x1fff != 0)))"
+/* Application service filter */
 #define APP_SERVICE_BPF_FILTER "(ip host %s and (tcp port %u or %s)) or "
-/* Application service BPF filter length */
+/* Application service filter length */
 #define APP_SERVICE_BPF_FILTER_LENGTH 256
 
 static pthread_rwlock_t appServiceHashTableMasterRWLock;
@@ -54,8 +56,19 @@ generateFilterFromEachAppService (void *data, void *args) {
 
     len = strlen (filter);
     snprintf (filter + len, APP_SERVICE_BPF_FILTER_LENGTH, APP_SERVICE_BPF_FILTER,
-              svc->ip, svc->port, BPF_IP_FRAGMENT_FILTER);
+              svc->ip, svc->port, APP_SERVICE_IP_FRAGMENT_BPF_FILTER);
     return 0;
+}
+
+char *
+getAppServicesPaddingFilter (void) {
+    char *filter;
+
+    filter = strdup (APP_SERVICE_PADDING_BPF_FILTER);
+    if (filter == NULL)
+        LOGE ("Strdup filter error: %s.\n", strerror (errno));
+
+    return filter;
 }
 
 char *
@@ -83,8 +96,8 @@ getAppServicesFilter (void) {
         pthread_rwlock_unlock (&appServiceHashTableMasterRWLock);
         return NULL;
     }
+    strcat (filter, APP_SERVICE_PADDING_BPF_FILTER);
 
-    strcat (filter, "icmp");
     pthread_rwlock_unlock (&appServiceHashTableMasterRWLock);
     return filter;
 }
@@ -169,16 +182,11 @@ updateAppServicesFromJson (json_t *root) {
     u_int i, n;
     appServicePtr *appServices;
     u_int appServicesNum;
-    json_t *tmp;
 
-    tmp = json_object_get (root, "app_services");
-    if ((tmp == NULL) || !json_is_array (tmp)) {
-        LOGE ("Get app_services item error.\n");
-        return -1;
-    }
-    appServices = getAppServicesFromJson (tmp, &appServicesNum);
+    /* Load appServices from json */
+    appServices = getAppServicesFromJson (root, &appServicesNum);
     if (appServices == NULL) {
-        LOGE ("Load application services from cache error.\n");
+        LOGE ("Load application services from json error.\n");
         return -1;
     }
 
@@ -222,7 +230,7 @@ updateAppServicesFromCache (void) {
     } else {
         out = json_dumps (root, JSON_INDENT (4));
         if (out)
-            LOGD ("\nLoad appServices cache success:\n%s\n", out);
+            LOGD ("Load appServices cache success:\n%s\n", out);
         json_object_clear (root);
         return 0;
     }
@@ -256,8 +264,8 @@ updateAppServiceManager (json_t *root) {
     ret = updateAppServicesFromJson (root);
     if (!ret && (out = json_dumps (root, JSON_INDENT (4)))) {
         syncAppServicesCache (out);
+        LOGD ("Update appService manager success:\n%s\n", out);
         free (out);
-        LOGD ("\nUpdate appService manager success:\n%s\n", out);
     }
 
     return ret;

@@ -17,7 +17,7 @@
 #include "raw_packet_service.h"
 #include "ip_packet_service.h"
 #include "tcp_packet_service.h"
-#include "command_handler.h"
+#include "management_service.h"
 
 /* Agent pid file fd */
 static int agentPidFd = -1;
@@ -68,6 +68,12 @@ initAgentTasks (void) {
     u_int i;
     taskId tid;
 
+    tid = newTask (managementService, NULL);
+    if (tid < 0) {
+        LOGE ("Create managementService task error.\n");
+        goto stopAllTask;
+    }
+    
     tid = newTask (rawPktCaptureService, NULL);
     if (tid < 0) {
         LOGE ("Create rawPktCaptureService task error.\n");
@@ -170,27 +176,15 @@ agentService (void) {
         goto stopAllTask;
     }
 
-    /* Init poll item 0*/
-    pollItems [0].socket = getCommandHandlerSock ();
+    /* Init poll item 1*/
+    pollItems [0].socket = getTaskStatusPullSock ();
     pollItems [0].fd = 0;
     pollItems [0].events = ZMQ_POLLIN;
 
-    /* Init poll item 1*/
-    pollItems [1].socket = getTaskStatusPullSock ();
-    pollItems [1].fd = 0;
-    pollItems [1].events = ZMQ_POLLIN;
-
     /* Register poll item 0 */
-    ret = zloop_poller (loop, &pollItems [0], commandHandler, NULL);
+    ret = zloop_poller (loop, &pollItems [0], taskStatusHandler, NULL);
     if (ret < 0) {
         LOGE ("Register poll items [0] error.\n");
-        ret = -1;
-        goto destroyZloop;
-    }
-    /* Register poll item 1 */
-    ret = zloop_poller (loop, &pollItems [1], taskStatusHandler, NULL);
-    if (ret < 0) {
-        LOGE ("Register poll items [1] error.\n");
         ret = -1;
         goto destroyZloop;
     }

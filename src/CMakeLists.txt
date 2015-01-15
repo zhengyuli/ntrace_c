@@ -29,12 +29,12 @@ SET (AGENT_SOURCE_FILES
   properties.c
   args_parser.c
   logger/logger.c
-  netdev.c
   zmq_hub.c
   task_manager.c
   app_service.c
   app_service_manager.c
-  command_handler.c
+  management_service.c
+  netdev.c
   raw_packet_service.c
   ip_packet_service.c
   tcp_packet_service.c

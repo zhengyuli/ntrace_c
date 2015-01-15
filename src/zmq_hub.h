@@ -15,7 +15,7 @@ struct _zmqHub {
     void *taskStatusPushSock;           /**< Task status push sock */
     void *taskStatusPullSock;           /**< Task status pull sock */
 
-    void *commandHandlerSock;           /**< Command handler sock */
+    void *managementReplySock;          /**< Management reply sock */
 
     void *ipPktPushSock;                /**< Ip packet push sock pair */
     void *ipPktPullSock;                /**< Ip packet pull sock pair */
@@ -33,7 +33,7 @@ getTaskStatusPushSock (void);
 void *
 getTaskStatusPullSock (void);
 void *
-getCommandHandlerSock (void);
+getManagementReplySock (void);
 void *
 getIpPktPushSock (void);
 void *

@@ -1,5 +1,5 @@
-#ifndef __AGENT_LOGGER_H__
-#define __AGENT_LOGGER_H__
+#ifndef __LOGGER_H__
+#define __LOGGER_H__
 
 #include <stdlib.h>
 
@@ -52,4 +52,4 @@ destroyLog (void);
 #endif
 /*=======================Interfaces definition end=========================*/
 
-#endif /* __AGENT_LOGGER_H__ */
+#endif /* __LOGGER_H__ */

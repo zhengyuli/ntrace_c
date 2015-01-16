@@ -106,6 +106,7 @@ strEqual (const char *str1, const char *str2) {
 ssize_t
 safeRead (int fd, void *buf, size_t count) {
     size_t nread = 0;
+
     while (count > 0) {
         ssize_t r = read (fd, buf, count);
         if ((r < 0) && (errno == EINTR))
@@ -125,9 +126,9 @@ safeRead (int fd, void *buf, size_t count) {
 ssize_t
 safeWrite (int fd, const void *buf, size_t count) {
     size_t nwritten = 0;
+    
     while (count > 0) {
         ssize_t r = write (fd, buf, count);
-
         if ((r < 0) && (errno == EINTR))
             continue;
         if (r < 0)
@@ -141,7 +142,7 @@ safeWrite (int fd, const void *buf, size_t count) {
     return nwritten;
 }
 
-/* Check whether file exists */
+/* Check file exists */
 boolean
 fileExists (const char *path) {
     if (access (path, F_OK))
@@ -150,7 +151,7 @@ fileExists (const char *path) {
         return true;
 }
 
-/* Check whether file is empty */
+/* Check file is empty */
 boolean
 fileIsEmpty (const char *path) {
     int ret;
@@ -203,7 +204,7 @@ getIpAddrOfInterface (const char *interface) {
 }
 
 /* Get cpu cores */
-inline u_int
-getCpuCores (void) {
+u_int
+getCpuCoresNum (void) {
     return sysconf (_SC_NPROCESSORS_CONF);
 }

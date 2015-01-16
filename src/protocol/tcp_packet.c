@@ -439,7 +439,7 @@ addNewTcpStream (struct tcphdr *tcph, struct ip *iph, timeValPtr tm) {
      * percent of tcpStreamHashTable limit size then remove the oldest tcp stream
      * from global tcp stream list.
      */
-    if (hashSize (tcpStreamHashTable) >= (hashCapacityLimit (tcpStreamHashTable) * 0.8)) {
+    if (hashSize (tcpStreamHashTable) >= (hashLimit (tcpStreamHashTable) * 0.8)) {
         listFirstEntry (tmp, &tcpStreamList, node);
         delTcpStreamFromHash (tmp);
     }

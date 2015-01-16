@@ -1,5 +1,5 @@
-#ifndef __AGENT_TCP_PACKET_H__
-#define __AGENT_TCP_PACKET_H__
+#ifndef __TCP_PACKET_H__
+#define __TCP_PACKET_H__
 
 #include <netinet/ip.h>
 #include "util.h"
@@ -192,4 +192,4 @@ void
 destroyTcp (void);
 /*=======================Interfaces definition end=========================*/
 
-#endif /* __AGENT_TCP_PACKET_H__ */
+#endif /* __TCP_PACKET_H__ */

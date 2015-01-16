@@ -1,5 +1,5 @@
-#ifndef __AGENT_IP_PACKET_H__
-#define __AGENT_IP_PACKET_H__
+#ifndef __IP_PACKET_H__
+#define __IP_PACKET_H__
 
 #include <netinet/ip.h>
 #include "util.h"
@@ -48,4 +48,4 @@ void
 destroyIp (void);
 /*=======================Interfaces definition end=========================*/
 
-#endif /* __AGENT_IP_PACKET_H__ */
+#endif /* __IP_PACKET_H__ */

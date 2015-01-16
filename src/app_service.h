@@ -1,5 +1,5 @@
-#ifndef __AGENT_APP_SERVICE_H__
-#define __AGENT_APP_SERVICE_H__
+#ifndef __APP_SERVICE_H__
+#define __APP_SERVICE_H__
 
 #include <stdlib.h>
 #include <jansson.h>
@@ -38,4 +38,4 @@ appServicePtr
 json2AppService (json_t *json);
 /*=======================Interfaces definition end=========================*/
 
-#endif /* __AGENT_APP_SERVICE_H__ */
+#endif /* __APP_SERVICE_H__ */

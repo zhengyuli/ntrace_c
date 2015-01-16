@@ -1,5 +1,5 @@
-#ifndef __AGENT_HASH_H__
-#define __AGENT_HASH_H__
+#ifndef __HASH_H__
+#define __HASH_H__
 
 #include <stdlib.h>
 #include "util.h"
@@ -20,16 +20,17 @@ struct _hlistHead {
     hlistNodePtr first;
 };
 
-/* Init hash list head */
-#define HLIST_HEAD(head)                        \
-    hlistHead head = {.first = NULL}
-#define INIT_HLIST_HEAD(head)                   \
-    ((head)->first =  NULL)
+#define HLIST_HEAD(head) hlistHead head = {.first = NULL}
 
 static inline void
-INIT_HLIST_NODE (hlistNodePtr node) {
-node->next = NULL;
-node->pprev = NULL;
+initHlistHead (hlistHeadPtr head) {
+    head->first = NULL;
+}
+
+static inline void
+initHlistNode (hlistNodePtr node) {
+    node->next = NULL;
+    node->pprev = NULL;
 }
 
 /* Callback function definitions */
@@ -40,7 +41,7 @@ typedef struct _hashItem hashItem;
 typedef hashItem *hashItemPtr;
 
 struct _hashItem {
-    char *key;                          /**< Key string used to compute hash value */
+    char *key;                          /**< Hash key */
     u_int index;                        /**< Index in hash table */
     void *data;                         /**< Opaque item value */
     hashItemFreeCB freeFun;             /**< Hash item free callback */
@@ -53,8 +54,8 @@ typedef hashTable *hashTablePtr;
 struct _hashTable {
     u_int size;                         /**< Size of hash table */
     u_int capacity;                     /**< Capacity of hash table */
-    u_int limit;                        /**< Capacity Limit of hash table */
-    hlistHeadPtr heads;                 /**< Array of hlist_head */
+    u_int limit;                        /**< Limit of hash table */
+    hlistHeadPtr heads;                 /**< Array of hlist head */
 };
 
 static inline boolean
@@ -65,7 +66,6 @@ hlistIsEmpty (const hlistHeadPtr head) {
         return false;
 }
 
-/* Delete hash node from hash list */
 static inline void
 hlistDel (hlistNodePtr node) {
     hlistNodePtr next = node->next;
@@ -80,10 +80,11 @@ hlistDel (hlistNodePtr node) {
     node->pprev = NULL;
 }
 
-/* Add hash node after head */
 static inline void
 hlistAdd (hlistNodePtr node, hlistHeadPtr head) {
-    hlistNodePtr first = head->first;
+    hlistNodePtr first;
+
+    first = head->first;
     node->next = first;
     head->first = node;
     node->pprev = &head->first;
@@ -91,7 +92,6 @@ hlistAdd (hlistNodePtr node, hlistHeadPtr head) {
         first->pprev = &node->next;
 }
 
-/* Add hash node before nnode */
 static inline void
 hlistAddBefore (hlistNodePtr node, hlistNodePtr nnode) {
     node->pprev = nnode->pprev;
@@ -100,7 +100,6 @@ hlistAddBefore (hlistNodePtr node, hlistNodePtr nnode) {
     nnode->pprev = &node->next;
 }
 
-/* Add hash node after pnode */
 static inline void
 hlistAddAfter (hlistNodePtr node, hlistNodePtr pnode) {
     node->next = pnode->next;
@@ -160,9 +159,9 @@ hashRename (hashTablePtr htbl, const char *old_key, const char *new_key);
 u_int
 hashSize (hashTablePtr htbl);
 u_int
-hashCapacityLimit (hashTablePtr htbl);
+hashLimit (hashTablePtr htbl);
 int
 hashForEachItemDo (hashTablePtr htbl, hashForEachItemDoCB fun, void *args);
 /*=======================Interfaces definition end=========================*/
 
-#endif /* __AGENT_HASH_H__ */
+#endif /* __HASH_H__ */

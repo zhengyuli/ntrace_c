@@ -1,5 +1,5 @@
-#ifndef __AGENT_UTIL_H__
-#define __AGENT_UTIL_H__
+#ifndef __UTIL_H__
+#define __UTIL_H__
 
 #include <string.h>
 #include <stdlib.h>
@@ -89,7 +89,7 @@ fileIsEmpty (const char *path);
 char *
 getIpAddrOfInterface (const char *interface);
 u_int
-getCpuCores (void);
+getCpuCoresNum (void);
 /*=======================Interfaces definition end=========================*/
 
-#endif /* __AGENT_UTIL_H__ */
+#endif /* __UTIL_H__ */

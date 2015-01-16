@@ -1,5 +1,5 @@
-#ifndef __AGENT_LIST_H__
-#define __AGENT_LIST_H__
+#ifndef __LIST_H__
+#define __LIST_H__
 
 #include <stddef.h>
 #include "util.h"
@@ -185,4 +185,4 @@ listIsEmpty (const listHeadPtr head) {
           &pos->member != (head);                                       \
           pos = tmp, tmp = listEntry (tmp->member.prev, typeof (*tmp), member))
 
-#endif /* __AGENT_LIST_H__ */
+#endif /* __LIST_H__ */

@@ -149,10 +149,10 @@ managementService (void *args) {
         goto exit;
     }
 
-    while (!taskInterrupted ()) {
+    while (!taskIsInterrupted ()) {
         msg = zstr_recv (managementReplySock);
         if (msg == NULL) {
-            if (!taskInterrupted ())
+            if (!taskIsInterrupted ())
                 LOGE ("Receive management request fatal error.\n");
             break;
         }
@@ -201,7 +201,7 @@ managementService (void *args) {
     LOGD ("ManagementService will exit...\n");
     destroyLog ();
 exit:
-    if (!taskInterrupted ())
+    if (!taskIsInterrupted ())
         sendTaskExit ();
 
     return NULL;

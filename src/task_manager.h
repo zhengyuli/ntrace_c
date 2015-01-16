@@ -1,5 +1,5 @@
-#ifndef __AGENT_TASK_MANAGER_H__
-#define __AGENT_TASK_MANAGER_H__
+#ifndef __TASK_MANAGER_H__
+#define __TASK_MANAGER_H__
 
 #include <sys/types.h>
 #include <pthread.h>
@@ -25,7 +25,7 @@ struct _taskItem {
 
 /*========================Interfaces definition============================*/
 boolean
-taskInterrupted (void);
+taskIsInterrupted (void);
 void
 resetTaskInterruptFlag (void);
 taskId
@@ -44,4 +44,4 @@ void
 destroyTaskManager (void);
 /*=======================Interfaces definition end=========================*/
 
-#endif /* __AGENT_TASK_MANAGER_H__ */
+#endif /* __TASK_MANAGER_H__ */

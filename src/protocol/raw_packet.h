@@ -1,5 +1,5 @@
-#ifndef __AGENT_RAW_PACKET_H__
-#define __AGENT_RAW_PACKET_H__
+#ifndef __RAW_PACKET_H__
+#define __RAW_PACKET_H__
 
 #include <stdlib.h>
 
@@ -8,4 +8,4 @@ u_char *
 getIpPacket (u_char *rawPkt, u_int linkType);
 /*=======================Interfaces definition end=========================*/
 
-#endif /* __AGENT_RAW_PACKET_H__ */
+#endif /* __RAW_PACKET_H__ */

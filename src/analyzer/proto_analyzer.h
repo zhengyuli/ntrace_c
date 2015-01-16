@@ -1,5 +1,5 @@
-#ifndef __AGENT_PROTOCOL_H__
-#define __AGENT_PROTOCOL_H__
+#ifndef __PROTOCOL_H__
+#define __PROTOCOL_H__
 
 #include <jansson.h>
 #include "util.h"
@@ -60,4 +60,4 @@ void
 destroyProtoAnalyzer (void);
 /*=======================Interfaces definition end=========================*/
 
-#endif /* __AGENT_PROTOCOL_H__ */
+#endif /* __PROTOCOL_H__ */

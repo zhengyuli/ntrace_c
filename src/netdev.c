@@ -92,7 +92,16 @@ newPcapDev (const char *interface) {
     return pcapDev;
 }
 
-/* Update BPF filter */
+pcap_t *
+getNetDev (void) {
+    return pcapDescInstance;
+}
+
+int
+getNetDevLinkType (void) {
+    return linkType;
+}
+
 int
 updateFilter (const char *filter) {
     int ret;
@@ -107,16 +116,6 @@ updateFilter (const char *filter) {
     ret = pcap_setfilter (pcapDescInstance, &pcapFilter);
     pcap_freecode (&pcapFilter);
     return ret;
-}
-
-pcap_t *
-getNetDev (void) {
-    return pcapDescInstance;
-}
-
-int
-getNetDevLinkType (void) {
-    return linkType;
 }
 
 /* Init net device */

@@ -1,5 +1,5 @@
-#ifndef __AGENT_MYSQL_ANALYZER_H__
-#define __AGENT_MYSQL_ANALYZER_H__
+#ifndef __MYSQL_ANALYZER_H__
+#define __MYSQL_ANALYZER_H__
 
 #include <stdlib.h>
 #include "util.h"
@@ -317,4 +317,4 @@ struct _mysqlSessionBreakdown {
 #define MYSQL_SBKD_RESPONSE_LATENCY    "mysql_response_latency"
 #define MYSQL_SBKD_DOWNLOAD_LATENCY    "mysql_download_latency"
 
-#endif /* __AGENT_MYSQL_ANALYZER_H__ */
+#endif /* __MYSQL_ANALYZER_H__ */

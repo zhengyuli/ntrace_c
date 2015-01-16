@@ -1,5 +1,5 @@
-#ifndef __AGENT_MANAGEMENT_SERVICE_H__
-#define __AGENT_MANAGEMENT_SERVICE_H__
+#ifndef __MANAGEMENT_SERVICE_H__
+#define __MANAGEMENT_SERVICE_H__
 
 #include <czmq.h>
 
@@ -24,4 +24,4 @@ void *
 managementService (void *args);
 /*=======================Interfaces definition end=========================*/
 
-#endif /* __AGENT_MANAGEMENT_SERVICE_H__ */
+#endif /* __MANAGEMENT_SERVICE_H__ */

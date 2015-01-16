@@ -12,6 +12,7 @@
 #include "hash.h"
 #include "logger.h"
 #include "netdev.h"
+#include "app_service.h"
 #include "app_service_manager.h"
 
 #define APP_SERVICES_CACHE_FILE "/tmp/appServices.cache"
@@ -255,7 +256,6 @@ syncAppServicesCache (const char *cache) {
     return;
 }
 
-/* Update application service manager */
 int
 updateAppServiceManager (json_t *root) {
     int ret;

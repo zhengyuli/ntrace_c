@@ -1,5 +1,5 @@
-#ifndef __AGENT_PROPERTIES_H__
-#define __AGENT_PROPERTIES_H__
+#ifndef __PROPERTIES_H__
+#define __PROPERTIES_H__
 
 #include <stdlib.h>
 #include "util.h"
@@ -42,5 +42,5 @@ void
 destroyProperties (void);
 /*=======================Interfaces definition end=========================*/
 
-#endif /* __AGENT_PROPERTIES_H__ */
+#endif /* __PROPERTIES_H__ */
 

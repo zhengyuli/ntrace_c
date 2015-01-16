@@ -1,10 +1,9 @@
-#ifndef __AGENT_ZMQ_HUB_H__
-#define __AGENT_ZMQ_HUB_H__
+#ifndef __ZMQ_HUB_H__
+#define __ZMQ_HUB_H__
 
 #include <czmq.h>
-#include <pthread.h>
 
-#define COMMAND_HANDLER_PORT 58001
+#define MANAGEMENT_REPLY_PORT 58001
 
 typedef struct _zmqHub zmqHub;
 typedef zmqHub *zmqHubPtr;
@@ -54,4 +53,4 @@ void
 destroyZmqHub (void);
 /*=======================Interfaces definition end=========================*/
 
-#endif /* __AGENT_ZMQ_HUB_H__ */
+#endif /* __ZMQ_HUB_H__ */

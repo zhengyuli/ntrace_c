@@ -1,5 +1,5 @@
-#ifndef __AGENT_DEFAULT_ANALYZER_H__
-#define __AGENT_DEFAULT_ANALYZER_H__
+#ifndef __DEFAULT_ANALYZER_H__
+#define __DEFAULT_ANALYZER_H__
 
 #include "proto_analyzer.h"
 
@@ -24,4 +24,4 @@ struct _defaultSessionBreakdown {
 #define DEFAULT_SBKD_EXCHANGE_SIZE     "default_exchange_size"
 #define DEFAULT_SBKD_SERVER_LATENCY    "default_server_latency"
 
-#endif /* __AGENT_DEFAULT_ANALYZER_H__ */
+#endif /* __DEFAULT_ANALYZER_H__ */

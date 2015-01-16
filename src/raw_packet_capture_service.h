@@ -1,9 +1,9 @@
-#ifndef __AGENT_RAW_PACKET_SERVICE__
-#define __AGENT_RAW_PACKET_SERVICE__
+#ifndef __RAW_PACKET_CAPTURE_SERVICE__
+#define __RAW_PACKET_CAPTURE_SERVICE__
 
 /*========================Interfaces definition============================*/
 void *
 rawPktCaptureService (void *args);
 /*=======================Interfaces definition end=========================*/
 
-#endif /* __AGENT_RAW_PACKET_SERVICE__ */
+#endif /* __RAW_PACKET_CAPTURE_SERVICE__ */

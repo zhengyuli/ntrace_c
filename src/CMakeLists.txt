@@ -35,9 +35,9 @@ SET (AGENT_SOURCE_FILES
   app_service_manager.c
   management_service.c
   netdev.c
-  raw_packet_service.c
-  ip_packet_service.c
-  tcp_packet_service.c
+  raw_packet_capture_service.c
+  ip_packet_process_service.c
+  tcp_packet_process_service.c
   ./protocol/checksum.c
   ./protocol/raw_packet.c
   ./protocol/ip_options.c

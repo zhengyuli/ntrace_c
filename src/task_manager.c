@@ -10,7 +10,7 @@
 #include "zmq_hub.h"
 #include "task_manager.h"
 
-#define TASK_MAX_RETRIES 3
+#define TASK_RESTART_MAX_RETRIES 3
 
 /* Task manager hash table */
 static hashTablePtr taskManagerHashTable = NULL;
@@ -60,7 +60,7 @@ freeTaskItemForHash (void *data) {
 }
 
 boolean
-taskInterrupted (void) {
+taskIsInterrupted (void) {
     return taskInterruptedFlag;
 }
 
@@ -174,7 +174,7 @@ taskStatusHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
     switch (status) {
         case TASK_STATUS_EXIT:
             LOGD ("Task %lu exit abnormally.\n");
-            retries = TASK_MAX_RETRIES;
+            retries = TASK_RESTART_MAX_RETRIES;
             while (retries) {
                 ret = restartTask (tid);
                 if (ret < 0) {

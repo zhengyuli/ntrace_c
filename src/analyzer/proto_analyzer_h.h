@@ -1,5 +1,5 @@
-#ifndef __AGENT_PROTOCOL_H__
-#define __AGENT_PROTOCOL_H__
+#ifndef __PROTOCOL_H__
+#define __PROTOCOL_H__
 
 #include <jansson.h>
 #include "util.h"
@@ -51,4 +51,4 @@ struct _protoAnalyzer {
     sessionProcessFinCB sessionProcessFin;               /**< Tcp fin processing callback */
 };
 
-#endif /* __AGENT_PROTOCOL_H__ */
+#endif /* __PROTOCOL_H__ */

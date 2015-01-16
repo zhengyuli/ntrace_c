@@ -5,7 +5,6 @@
 #include "util.h"
 #include "hash.h"
 
-/* Default hash table size */
 #define DEFAULT_HASH_TABLE_SIZE 331
 #define HASH_TABLE_RESIZE_FACTOR 2
 #define HASH_TABLE_LOAD_FACTOR 80
@@ -185,7 +184,7 @@ hashNew (u_int capacity) {
             return NULL;
         }
         for (i = 0; i < htbl->capacity; i++)
-            INIT_HLIST_HEAD (&htbl->heads [i]);
+            initHlistHead (&htbl->heads [i]);
         return htbl;
     } else
         return NULL;
@@ -257,7 +256,7 @@ hashInsert (hashTablePtr htbl, const char *key, void *data, hashItemFreeCB fun) 
         }
 
         for (index = 0; index < newCapacity; index++)
-            INIT_HLIST_HEAD (&newHeads [index]);
+            initHlistHead (&newHeads [index]);
 
         /* Backup hash table */
         oldCapacity = htbl->capacity;
@@ -421,27 +420,13 @@ hashRename (hashTablePtr htbl, const char *oldKey, const char *newKey) {
         return -1;
 }
 
-/*
- * @brief Get size of hash table
- *
- * @param htbl hash table
- *
- * @return size of hash table
- */
 inline u_int
 hashSize (hashTablePtr htbl) {
     return htbl->size;
 }
 
-/*
- * @brief Get hash table capacity limit size
- *
- * @param htbl hash table
- *
- * @return capacity limit size
- */
 inline u_int
-hashCapacityLimit (hashTablePtr htbl) {
+hashLimit (hashTablePtr htbl) {
     return htbl->limit;
 }
 

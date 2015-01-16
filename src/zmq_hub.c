@@ -115,9 +115,9 @@ initZmqHub (void) {
         LOGE ("Create managementReplySock error.\n");
         goto destroyZmqCtxt;
     }
-    ret = zsocket_bind (zmqHubIntance->managementReplySock, "tcp://*:%u", COMMAND_HANDLER_PORT);
+    ret = zsocket_bind (zmqHubIntance->managementReplySock, "tcp://*:%u", MANAGEMENT_REPLY_PORT);
     if (ret < 0) {
-        LOGE ("Bind to tcp://*:%u error.\n", COMMAND_HANDLER_PORT);
+        LOGE ("Bind to tcp://*:%u error.\n", MANAGEMENT_REPLY_PORT);
         goto destroyZmqCtxt;
     }
 
@@ -151,7 +151,7 @@ initZmqHub (void) {
     }
 
     /* Set tcp packet parsing threads number */
-    zmqHubIntance->tcpPktParsingThreadsNum = getCpuCores () * 4 + 1;
+    zmqHubIntance->tcpPktParsingThreadsNum = getCpuCoresNum () * 4 + 1;
     if (zmqHubIntance->tcpPktParsingThreadsNum < MIN_TCP_PACKET_PARSING_THREADS_NUM)
         zmqHubIntance->tcpPktParsingThreadsNum = MIN_TCP_PACKET_PARSING_THREADS_NUM;
     else if (zmqHubIntance->tcpPktParsingThreadsNum > MAX_TCP_PACKET_PARSING_THREADS_NUM)

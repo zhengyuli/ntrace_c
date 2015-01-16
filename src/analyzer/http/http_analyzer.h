@@ -1,5 +1,5 @@
-#ifndef __AGENT_HTTP_ANALYZER_H__
-#define __AGENT_HTTP_ANALYZER_H__
+#ifndef __HTTP_ANALYZER_H__
+#define __HTTP_ANALYZER_H__
 
 #include <stdlib.h>
 #include "util.h"
@@ -162,4 +162,4 @@ struct _httpSessionBreakdown {
 #define HTTP_SBKD_RESPONSE_LATENCY     "http_response_latency"
 #define HTTP_SBKD_DOWNLOAD_LATENCY     "http_download_latency"
 
-#endif /* __AGENT_HTTP_ANALYZER_H__ */
+#endif /* __HTTP_ANALYZER_H__ */

@@ -1,5 +1,5 @@
-#ifndef __AGENT_CHECKSUM_H__
-#define __AGENT_CHECKSUM_H__
+#ifndef __CHECKSUM_H__
+#define __CHECKSUM_H__
 
 #include <stdlib.h>
 
@@ -10,4 +10,4 @@ u_short
 tcpFastCheckSum (u_char *tcph, int tcpLen, u_int saddr, u_int daddr);
 /*=======================Interfaces definition end=========================*/
 
-#endif /* __AGENT_CHECKSUM_H__ */
+#endif /* __CHECKSUM_H__ */

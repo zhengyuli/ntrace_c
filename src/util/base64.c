@@ -1,8 +1,9 @@
 #include <string.h>
-
-static char base64String [] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+#include "base64.h"
 
 #define BAD_CHAR(c, p) (!(p = memchr (base64String, c, 64)))
+
+static char base64String [] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 /*
  * @brief Encode binary data to base64
@@ -14,16 +15,16 @@ static char base64String [] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvw
  * @return length of encoded data
  */
 u_int
-base64Encode (u_char *to, const u_char *from, u_int len) {
-    const u_char *fromp = from;
+base64Encode (u_char *to, u_char *from, u_int len) {
     u_char *top = to;
+    u_char *fromp = from;
     u_char cbyte;
     u_char obyte;
     u_char end [3];
 
     for (; len >= 3; len -= 3) {
         cbyte = *fromp++;
-        *top++ = base64String [(int)(cbyte >> 2)];
+        *top++ = base64String [(int) (cbyte >> 2)];
         obyte = (cbyte << 4) & 0x30;        /* 0011 0000 */
 
         cbyte = *fromp++;
@@ -76,9 +77,9 @@ base64Encode (u_char *to, const u_char *from, u_int len) {
  * @return length of decoded data if success else return 0
  */
 u_int
-base64Decode (u_char *to, const u_char *from, u_int len) {
-    u_char *fromp = from;
+base64Decode (u_char *to, u_char *from, u_int len) {
     u_char *top = to;
+    u_char *fromp = from;
     u_char *p;
     u_char cbyte;
     u_char obyte;

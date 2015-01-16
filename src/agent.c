@@ -14,9 +14,9 @@
 #include "proto_analyzer.h"
 #include "app_service_manager.h"
 #include "netdev.h"
-#include "raw_packet_service.h"
-#include "ip_packet_service.h"
-#include "tcp_packet_service.h"
+#include "raw_packet_capture_service.h"
+#include "ip_packet_process_service.h"
+#include "tcp_packet_process_service.h"
 #include "management_service.h"
 
 /* Agent pid file fd */
@@ -80,14 +80,14 @@ initAgentTasks (void) {
         goto stopAllTask;
     }
 
-    tid = newTask (ipPktParsingService, NULL);
+    tid = newTask (ipPktProcessService, NULL);
     if (tid < 0) {
         LOGE ("Create ipPktParsingService task error.\n");
         goto stopAllTask;
     }
 
     for (i = 0; i < getTcpPktParsingThreadsNum (); i++) {
-        tid = newTask (tcpPktParsingService, getTcpPktParsingThreadIDHolder (i));
+        tid = newTask (tcpPktProcessService, getTcpPktParsingThreadIDHolder (i));
         if (tid < 0) {
             LOGE ("Create tcpPktParsingService %u task error.\n", i);
             goto stopAllTask;

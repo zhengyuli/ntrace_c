@@ -5,7 +5,7 @@
 #include "task_manager.h"
 #include "zmq_hub.h"
 #include "tcp_packet.h"
-#include "tcp_packet_service.h"
+#include "tcp_packet_process_service.h"
 
 /* Publish session breakdown callback */
 static void
@@ -17,12 +17,12 @@ publishSessionBreakdown (const char *sessionBreakdown, void *args) {
 }
 
 /*
- * Tcp packet parsing service.
- * Pull ip packets pushed from ipPktParsingService, then do tcp parsing and
+ * Tcp packet process service.
+ * Pull ip packets pushed from ipPktParsingService, then do tcp process and
  * push session breakdown to session breakdown sink service.
  */
 void *
-tcpPktParsingService (void *args) {
+tcpPktProcessService (void *args) {
     int ret;
     u_int dispatchIndex;
     void *tcpPktPullSock;
@@ -53,12 +53,12 @@ tcpPktParsingService (void *args) {
         goto destroyLog;
     }
 
-    while (!taskInterrupted ()) {
+    while (!taskIsInterrupted ()) {
         /* Receive timestamp zframe */
         if (tmFrame == NULL) {
             tmFrame = zframe_recv (tcpPktPullSock);
             if (tmFrame == NULL) {
-                if (!taskInterrupted ())
+                if (!taskIsInterrupted ())
                     LOGE ("Receive timestamp zframe fatal error.\n");
                 break;
             } else if (!zframe_more (tmFrame)) {
@@ -70,7 +70,7 @@ tcpPktParsingService (void *args) {
         /* Receive ip packet zframe */
         pktFrame = zframe_recv (tcpPktPullSock);
         if (pktFrame == NULL) {
-            if (!taskInterrupted ())
+            if (!taskIsInterrupted ())
                 LOGE ("Receive ip packet zframe fatal error.\n");
             zframe_destroy (&tmFrame);
             break;
@@ -103,7 +103,7 @@ tcpPktParsingService (void *args) {
 destroyLog:
     destroyLog ();
 exit:
-    if (!taskInterrupted ())
+    if (!taskIsInterrupted ())
         sendTaskExit ();
 
     return NULL;

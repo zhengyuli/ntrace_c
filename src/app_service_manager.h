@@ -1,9 +1,8 @@
-#ifndef __AGENT_APP_SERVICE_MANAGER_H__
-#define __AGENT_APP_SERVICE_MANAGER_H__
+#ifndef __APP_SERVICE_MANAGER_H__
+#define __APP_SERVICE_MANAGER_H__
 
 #include <stdlib.h>
 #include "proto_analyzer.h"
-#include "app_service.h"
 
 /*========================Interfaces definition============================*/
 protoAnalyzerPtr
@@ -20,4 +19,4 @@ void
 destroyAppServiceManager (boolean exitNormally);
 /*=======================Interfaces definition end=========================*/
 
-#endif /* __AGENT_APP_SERVICE_MANAGER_H__ */
+#endif /* __APP_SERVICE_MANAGER_H__ */

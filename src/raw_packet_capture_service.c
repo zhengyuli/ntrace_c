@@ -10,7 +10,7 @@
 #include "task_manager.h"
 #include "netdev.h"
 #include "raw_packet.h"
-#include "raw_packet_service.h"
+#include "raw_packet_capture_service.h"
 
 /*
  * Raw packet capture service.
@@ -62,7 +62,7 @@ rawPktCaptureService (void *args) {
     LOGD ("Update application services filter: %s\n", filter);
     free (filter);
 
-    while (!taskInterrupted ())
+    while (!taskIsInterrupted ())
     {
         ret = pcap_next_ex (pcapDev, &capPkthdr, (const u_char **) &rawPkt);
         if (ret == 1) {
@@ -114,7 +114,7 @@ rawPktCaptureService (void *args) {
 destroyLog:
     destroyLog ();
 exit:
-    if (!taskInterrupted ())
+    if (!taskIsInterrupted ())
         sendTaskExit ();
 
     return NULL;

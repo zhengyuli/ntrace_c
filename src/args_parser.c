@@ -5,7 +5,6 @@
 #include "version.h"
 #include "args_parser.h"
 
-/* Args options */
 static struct option argsOptions [] = {
     {"daemonMode", no_argument, NULL, 'D'},
     {"mirrorInterface", required_argument, NULL, 'm'},

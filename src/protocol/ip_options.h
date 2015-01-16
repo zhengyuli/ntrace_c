@@ -1,5 +1,5 @@
-#ifndef __AGENT_IP_OPTIONS_H__
-#define __AGENT_IP_OPTIONS_H__
+#ifndef __IP_OPTIONS_H__
+#define __IP_OPTIONS_H__
 
 #include <stdlib.h>
 
@@ -30,4 +30,4 @@ int
 ipOptionsCompile (u_char *iph);
 /*=======================Interfaces definition end=========================*/
 
-#endif /* __AGENT_IP_OPTIONS_H__ */
+#endif /* __IP_OPTIONS_H__ */

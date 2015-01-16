@@ -7,7 +7,7 @@
 #include "properties.h"
 #include "task_manager.h"
 #include "ip_packet.h"
-#include "ip_packet_service.h"
+#include "ip_packet_process_service.h"
 
 /* Dispatch hash */
 static size_t
@@ -108,7 +108,7 @@ packetDispatch (struct ip *iphdr, timeValPtr tm) {
  * dispatch defragment ip packet to specific tcpPktParsingService thread.
  */
 void *
-ipPktParsingService (void *args) {
+ipPktProcessService (void *args) {
     int ret;
     zframe_t *tmFrame = NULL;
     zframe_t *pktFrame = NULL;
@@ -135,12 +135,12 @@ ipPktParsingService (void *args) {
         goto destroyLog;
     }
 
-    while (!taskInterrupted ()) {
+    while (!taskIsInterrupted ()) {
         /* Receive timestamp zframe */
         if (tmFrame == NULL) {
             tmFrame = zframe_recv (ipPktPullSock);
             if (tmFrame == NULL) {
-                if (!taskInterrupted ())
+                if (!taskIsInterrupted ())
                     LOGE ("Receive timestamp zframe fatal error.\n");
                 break;
             } else if (!zframe_more (tmFrame)) {
@@ -152,7 +152,7 @@ ipPktParsingService (void *args) {
         /* Receive ip packet zframe */
         pktFrame = zframe_recv (ipPktPullSock);
         if (pktFrame == NULL) {
-            if (!taskInterrupted ())
+            if (!taskIsInterrupted ())
                 LOGE ("Receive ip packet zframe fatal error.\n");
             zframe_destroy (&tmFrame);
             break;
@@ -183,7 +183,7 @@ ipPktParsingService (void *args) {
 destroyLog:
     destroyLog ();
 exit:
-    if (!taskInterrupted ())
+    if (!taskIsInterrupted ())
         sendTaskExit ();
 
     return NULL;

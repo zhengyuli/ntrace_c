@@ -1,10 +1,9 @@
-#include <stdlib.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <errno.h>
 #include <string.h>
 #include <jansson.h>
-#include "logger.h"
+#include "log.h"
 #include "app_service.h"
 
 appServicePtr

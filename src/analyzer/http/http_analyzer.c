@@ -1,10 +1,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
-#include <stdlib.h>
 #include <jansson.h>
 #include "util.h"
-#include "logger.h"
+#include "log.h"
 #include "http_analyzer.h"
 
 /* Current timestamp */

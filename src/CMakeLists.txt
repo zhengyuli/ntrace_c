@@ -17,7 +17,7 @@ configure_file (
 INCLUDE_DIRECTORIES (
   ./
   util
-  logger
+  log
   protocol/
   analyzer/
   ${PROJECT_BINARY_DIR})
@@ -28,13 +28,14 @@ SET (AGENT_SOURCE_FILES
   util/hash.c
   properties.c
   args_parser.c
-  logger/logger.c
+  log/log.c
   zmq_hub.c
   task_manager.c
   app_service.c
   app_service_manager.c
   management_service.c
   netdev.c
+  ./log/log_service.c
   raw_packet_capture_service.c
   ip_packet_process_service.c
   tcp_packet_process_service.c
@@ -53,6 +54,7 @@ INSTALL (
   TARGETS ${ROOT_PROJECT_LOWER}_agent
   DESTINATION ${PROJECT_BIN_DIR})
 
+ADD_SUBDIRECTORY (include)
 ADD_SUBDIRECTORY (util)
-ADD_SUBDIRECTORY (logger)
+ADD_SUBDIRECTORY (log)
 ADD_SUBDIRECTORY (analyzer)

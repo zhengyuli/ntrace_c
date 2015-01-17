@@ -1,8 +1,7 @@
-#include <stdlib.h>
 #include <net/if.h>
 #include <netinet/ip.h>
 #include "util.h"
-#include "logger.h"
+#include "log.h"
 #include "zmq_hub.h"
 #include "properties.h"
 #include "task_manager.h"
@@ -178,7 +177,6 @@ ipPktProcessService (void *args) {
         zframe_destroy (&pktFrame);
     }
 
-    LOGD ("IpPktParsingService will exit...\n");
     destroyIp ();
 destroyLog:
     destroyLog ();

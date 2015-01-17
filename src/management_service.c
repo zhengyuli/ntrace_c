@@ -1,6 +1,6 @@
 #include <jansson.h>
 #include "properties.h"
-#include "logger.h"
+#include "log.h"
 #include "zmq_hub.h"
 #include "task_manager.h"
 #include "app_service_manager.h"

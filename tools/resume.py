@@ -4,7 +4,7 @@
 # Name: resume.py
 # Purpose:
 #
-# Time-stamp: <2015-01-15 00:19:19 Thursday by lzy>
+# Time-stamp: <2015-01-17 18:24:56 Saturday by lzy>
 #
 # Author: zhengyu li
 # Created: 24 May 2014
@@ -25,6 +25,6 @@ print resumeJson
 
 context = zmq.Context ()
 request = context.socket (zmq.REQ)
-request.connect ("tcp://127.0.0.1:58001")
+request.connect ("tcp://127.0.0.1:58000")
 request.send_json (resumeDict)
 print request.recv_json ()

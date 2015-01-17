@@ -1,7 +1,6 @@
-#include <stdlib.h>
 #include <net/if.h>
 #include <pcap.h>
-#include "logger.h"
+#include "log.h"
 #include "properties.h"
 #include "netdev.h"
 

@@ -7,7 +7,7 @@
 #include "config.h"
 #include "util.h"
 #include "hash.h"
-#include "logger.h"
+#include "log.h"
 #include "proto_analyzer.h"
 
 typedef struct _protoAnalyzerContext protoAnalyzerContext;

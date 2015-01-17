@@ -1,6 +1,6 @@
 #include <ini_config.h>
 #include "config.h"
-#include "logger.h"
+#include "log.h"
 #include "properties.h"
 
 /* Properties local instance */
@@ -18,6 +18,8 @@ newProperties (void) {
     tmp->mirrorInterface = NULL;
     tmp->breakdownSinkIp = NULL;
     tmp->breakdownSinkPort = 0;
+    tmp->logDir = NULL;
+    tmp->logFileName = NULL;
     tmp->logLevel = LOG_ERR_LEVEL;
     return tmp;
 }
@@ -31,6 +33,10 @@ freeProperties (propertiesPtr instance) {
     instance->mirrorInterface = NULL;
     free (instance->breakdownSinkIp);
     instance->breakdownSinkIp = NULL;
+    free (instance->logDir);
+    instance->logDir = NULL;
+    free (instance->logFileName);
+    instance->logFileName = NULL;
 
     free (instance);
 }
@@ -43,6 +49,8 @@ displayPropertiesDetail (void) {
     logToConsole ("    mirrorInterface: %s\n", propertiesInstance->mirrorInterface);
     logToConsole ("    breakdownSinkIp: %s\n", propertiesInstance->breakdownSinkIp);
     logToConsole ("    breakdownSinkPort: %u\n", propertiesInstance->breakdownSinkPort);
+    logToConsole ("    logDir: %s\n", propertiesInstance->logDir);
+    logToConsole ("    logFileName: %s\n", propertiesInstance->logFileName);
     logToConsole ("    logLevel: ");
     switch (propertiesInstance->logLevel) {
         case LOG_ERR_LEVEL:
@@ -138,8 +146,32 @@ loadPropertiesFromConfigFile (void) {
         goto freeProperties;
     }
 
+    /* Get log dir */
+    ret = get_config_item ("LOG", "logDir", iniConfig, &item);
+    if (ret) {
+        logToConsole ("Get_config_item \"logDir\" error.\n");
+        goto freeProperties;
+    }
+    tmp->logDir = strdup (get_const_string_config_value (item, &error));
+    if (error) {
+        logToConsole ("Get \"logDir\" error.\n");
+        goto freeProperties;
+    }
+
+    /* Get log file name */
+    ret = get_config_item ("LOG", "logFileName", iniConfig, &item);
+    if (ret) {
+        logToConsole ("Get_config_item \"logFileName\" error.\n");
+        goto freeProperties;
+    }
+    tmp->logFileName = strdup (get_const_string_config_value (item, &error));
+    if (error) {
+        logToConsole ("Get \"logFileName\" error.\n");
+        goto freeProperties;
+    }
+
     /* Get log level */
-    ret = get_config_item ("MAIN", "logLevel", iniConfig, &item);
+    ret = get_config_item ("LOG", "logLevel", iniConfig, &item);
     if (ret) {
         logToConsole ("Get_config_item \"logLevel\" error.\n");
         goto freeProperties;
@@ -181,7 +213,7 @@ getPropertiesMirrorInterface (void) {
 void
 updatePropertiesMirrorInterface (char *mirrorInterface) {
     free (propertiesInstance->mirrorInterface);
-    propertiesInstance->mirrorInterface = mirrorInterface;
+    propertiesInstance->mirrorInterface = strdup (mirrorInterface);
 }
 
 char *
@@ -192,7 +224,7 @@ getPropertiesBreakdownSinkIp (void) {
 void
 updatePropertiesBreakdownSinkIp (char *ip) {
     free (propertiesInstance->breakdownSinkIp);
-    propertiesInstance->breakdownSinkIp = ip;
+    propertiesInstance->breakdownSinkIp = strdup (ip);
 }
 
 u_short
@@ -208,6 +240,28 @@ updatePropertiesBreakdownSinkPort (u_short port) {
 u_int
 getPropertiesLogLevel (void) {
     return propertiesInstance->logLevel;
+}
+
+char *
+getPropertiesLogDir (void) {
+    return propertiesInstance->logDir;
+}
+
+void
+updatePropertiesLogDir (char *path) {
+    free (propertiesInstance->logDir);
+    propertiesInstance->logDir = strdup (path);
+}
+
+char *
+getPropertiesLogFileName (void) {
+    return propertiesInstance->logFileName;
+}
+
+void
+updatePropertiesLogFileName (char *fileName) {
+    free (propertiesInstance->logFileName);
+    propertiesInstance->logFileName = strdup (fileName);
 }
 
 void

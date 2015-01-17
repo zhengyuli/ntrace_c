@@ -1,9 +1,8 @@
 #include <stdio.h>
 #include <string.h>
-#include <stdlib.h>
 #include <jansson.h>
 #include <wda/util.h>
-#include <wda/logger.h>
+#include <wda/log.h>
 #include <wda/proto_analyzer.h>
 #include "template_analyzer.h"
 

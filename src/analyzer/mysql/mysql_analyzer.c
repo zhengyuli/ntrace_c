@@ -1,12 +1,11 @@
 #include <stdio.h>
 #include <string.h>
-#include <stdlib.h>
 #include <errno.h>
 #include <zlib.h>
 #include <pthread.h>
 #include <jansson.h>
 #include "util.h"
-#include "logger.h"
+#include "log.h"
 #include "mysql_analyzer.h"
 
 #define PKT_WRONG_TYPE    0

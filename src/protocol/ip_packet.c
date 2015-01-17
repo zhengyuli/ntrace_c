@@ -1,4 +1,3 @@
-#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
@@ -8,7 +7,7 @@
 #include "util.h"
 #include "list.h"
 #include "hash.h"
-#include "logger.h"
+#include "log.h"
 #include "checksum.h"
 #include "app_service_manager.h"
 #include "ip_options.h"

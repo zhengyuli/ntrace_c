@@ -1,8 +1,6 @@
 #ifndef __IP_OPTIONS_H__
 #define __IP_OPTIONS_H__
 
-#include <stdlib.h>
-
 #define ipCheckAddr(x) 0
 
 struct ip_options {

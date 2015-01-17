@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -10,7 +9,7 @@
 #include <pthread.h>
 #include "util.h"
 #include "hash.h"
-#include "logger.h"
+#include "log.h"
 #include "netdev.h"
 #include "app_service.h"
 #include "app_service_manager.h"

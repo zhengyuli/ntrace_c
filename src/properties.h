@@ -1,7 +1,6 @@
 #ifndef __PROPERTIES_H__
 #define __PROPERTIES_H__
 
-#include <stdlib.h>
 #include "util.h"
 
 typedef struct _properties properties;
@@ -12,6 +11,8 @@ struct _properties {
     char *mirrorInterface;
     char *breakdownSinkIp;
     u_short breakdownSinkPort;
+    char *logDir;
+    char *logFileName;
     u_int logLevel;
 };
 
@@ -32,6 +33,14 @@ u_short
 getPropertiesBreakdownSinkPort (void);
 void
 updatePropertiesBreakdownSinkPort (u_short port);
+char *
+getPropertiesLogDir (void);
+void
+updatePropertiesLogDir (char *path);
+char *
+getPropertiesLogFileName (void);
+void
+updatePropertiesLogFileName (char *fileName);
 u_int
 getPropertiesLogLevel (void);
 void

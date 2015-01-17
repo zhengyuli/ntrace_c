@@ -1,9 +1,11 @@
-#ifndef __RAW_PACKET_H__
-#define __RAW_PACKET_H__
+#ifndef __LOG_SERVICE__
+#define __LOG_SERVICE__
+
+#include "log.h"
 
 /*========================Interfaces definition============================*/
-u_char *
-getIpPacket (u_char *rawPkt, u_int linkType);
+void *
+logService (void *args);
 /*=======================Interfaces definition end=========================*/
 
-#endif /* __RAW_PACKET_H__ */
+#endif /* __LOG_SERVICE__ */

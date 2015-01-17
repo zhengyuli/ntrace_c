@@ -1,7 +1,6 @@
 #ifndef __MYSQL_ANALYZER_H__
 #define __MYSQL_ANALYZER_H__
 
-#include <stdlib.h>
 #include "util.h"
 #include "proto_analyzer.h"
 

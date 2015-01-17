@@ -1,7 +1,6 @@
 #ifndef __APP_SERVICE_MANAGER_H__
 #define __APP_SERVICE_MANAGER_H__
 
-#include <stdlib.h>
 #include "proto_analyzer.h"
 
 /*========================Interfaces definition============================*/

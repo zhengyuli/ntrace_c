@@ -4,7 +4,7 @@
 # Name: update_profile.py
 # Purpose:
 #
-# Time-stamp: <2015-01-14 23:29:30 Wednesday by lzy>
+# Time-stamp: <2015-01-17 18:25:04 Saturday by lzy>
 #
 # Author: zhengyu li
 # Created: 24 May 2014
@@ -35,6 +35,6 @@ print updateProfileJson
 
 context = zmq.Context ()
 request = context.socket (zmq.REQ)
-request.connect ("tcp://127.0.0.1:58001")
+request.connect ("tcp://127.0.0.1:58000")
 request.send_json (updateProfileDict)
 print request.recv_json ()

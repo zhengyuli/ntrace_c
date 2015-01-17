@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <string.h>
-#include <stdlib.h>
 #include <jansson.h>
 #include "util.h"
 #include "default_analyzer.h"

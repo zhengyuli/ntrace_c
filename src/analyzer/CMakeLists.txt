@@ -5,7 +5,7 @@ INCLUDE_DIRECTORIES (
   ./http
   ./mysql
   util
-  logger
+  log
   ../3rd_party/http_parser)
 
 SET (HTTP_ANALYZER_FILES

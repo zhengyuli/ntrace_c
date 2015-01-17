@@ -1,7 +1,6 @@
-#include <stdlib.h>
 #include <getopt.h>
 #include "properties.h"
-#include "logger.h"
+#include "log.h"
 #include "version.h"
 #include "args_parser.h"
 
@@ -10,6 +9,8 @@ static struct option argsOptions [] = {
     {"mirrorInterface", required_argument, NULL, 'm'},
     {"breakdownSinkIp", required_argument, NULL, 'i'},
     {"breakdownSinkPort", required_argument, NULL, 'p'},
+    {"logDir", required_argument, NULL, 'd'},
+    {"logFileName", required_argument, NULL, 'f'},
     {"logLevel", required_argument, NULL, 'l'},
     {"version", no_argument, NULL, 'v'},
     {"help", no_argument, NULL, 'h'},
@@ -28,6 +29,8 @@ showHelpInfo (const char *cmd) {
                   "  -m|--mirrorInterface <eth*> interface to collect packets\n"
                   "  -i|--breakdownSinkIp <ip> breakdown sink ip"
                   "  -p|--breakdownSinkPort <port> breakdown sink port"
+                  "  -d|--logDir <path>, log file directory\n"
+                  "  -f|--logFileName <name>, log file name\n"
                   "  -l|--logLevel <level> log level\n"
                   "       Optional level: 0-ERR 1-WARNING 2-INFO 3-DEBUG\n"
                   "  -v|--version, version of %s\n"
@@ -49,7 +52,7 @@ parseArgs (int argc, char *argv []) {
                 break;
 
             case 'm':
-                updatePropertiesMirrorInterface (strdup (optarg));
+                updatePropertiesMirrorInterface (optarg);
                 if (getPropertiesMirrorInterface () == NULL) {
                     logToConsole ("Parse mirroring interface error!\n");
                     return -1;
@@ -57,7 +60,7 @@ parseArgs (int argc, char *argv []) {
                 break;
 
             case 'i':
-                updatePropertiesBreakdownSinkIp (strdup (optarg));
+                updatePropertiesBreakdownSinkIp (optarg);
                 if (getPropertiesBreakdownSinkIp () == NULL) {
                     logToConsole ("Parse breakdown sink ip error!\n");
                     return -1;
@@ -68,6 +71,22 @@ parseArgs (int argc, char *argv []) {
                 updatePropertiesBreakdownSinkPort (atoi (optarg));
                 break;
 
+            case 'd':
+                updatePropertiesLogDir (optarg);
+                if (getPropertiesLogDir () == NULL) {
+                    logToConsole ("Parse log dir error!\n");
+                    return -1;
+                }
+                break;
+
+            case 'f':
+                updatePropertiesLogFileName (optarg);
+                if (getPropertiesLogFileName () == NULL) {
+                    logToConsole ("Parse log file name error!\n");
+                    return -1;
+                }
+                break;
+                
             case 'l':
                 updatePropertiesLogLevel (atoi (optarg));
                 break;

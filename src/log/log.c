@@ -1,4 +1,3 @@
-#include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
 #include <string.h>
@@ -6,7 +5,13 @@
 #include <sys/types.h>
 #include <czmq.h>
 #include "util.h"
-#include "logger.h"
+#include "zmq_hub.h"
+#include "log.h"
+
+#define MINIMUM_LOGLEVEL 0
+#define MAXMUM_LOGLEVEL 3
+#define DEFAULT_LOGLEVEL 2
+#define MAX_LOG_LENGTH 4096
 
 typedef struct _logContext logContext;
 typedef logContext *logContextPtr;
@@ -19,25 +24,6 @@ struct _logContext {
 
 /* Thread local log context */
 static __thread logContextPtr logCtxt = NULL;
-
-/*
- * @brief Get log level from log message.
- *
- * @param msg log message
- * @param level pointer to return log level
- *
- * @return 0 if success else -1
- */
-static int
-getLogLevel (const char *msg, u_int *level) {
-    int ret;
-
-    ret = sscanf (msg, "<%u>", level);
-    if (ret == 1)
-        return 0;
-    else
-        return -1;
-}
 
 /*
  * @brief Write log message to console.
@@ -64,20 +50,18 @@ logToConsole (const char *msg, ...) {
  * @param msg Real log message
  */
 void
-doLog (char *filePath, u_int line, const char *func, const char *msg, ...) {
+doLog (u_char logLevel, char *filePath, u_int line, const char *func, const char *msg, ...) {
     int ret;
-    u_int level;
-    u_int flag;
+    char flag;
     va_list va;
     char *fileName;
-    const char *message;
     time_t seconds;
     struct tm *localTime;
     char timeStr [32];
-    char logLevel [10];
     /* Thread local message buffer */
     static __thread char tmp [MAX_LOG_LENGTH];
     static __thread char buf [MAX_LOG_LENGTH];
+    static __thread char logLevelMsg [16];
     zframe_t *frame;
 
     if (logCtxt == NULL) {
@@ -91,34 +75,25 @@ doLog (char *filePath, u_int line, const char *func, const char *msg, ...) {
               (localTime->tm_year + 1900), localTime->tm_mon + 1, localTime->tm_mday,
               localTime->tm_hour, localTime->tm_min, localTime->tm_sec);
 
-    ret = getLogLevel (msg, &level);
-    if (ret < 0) {
-        fprintf (stderr, "Get log level error.\n");
-        return;
-    }
-    else
-        /* Drop log level info and get real log message */
-        message = msg + 3;
-
     va_start (va, msg);
-    vsnprintf (tmp, sizeof (tmp), message, va);
+    vsnprintf (tmp, sizeof (tmp), msg, va);
     va_end (va);
 
-    switch (level) {
+    switch (logLevel) {
         case LOG_ERR_LEVEL:
-            snprintf (logLevel, sizeof (logLevel), "ERROR");
+            snprintf (logLevelMsg, sizeof (logLevelMsg), "ERROR");
             break;
 
         case LOG_WARNING_LEVEL:
-            snprintf (logLevel, sizeof (logLevel), "WARNING");
+            snprintf (logLevelMsg, sizeof (logLevelMsg), "WARNING");
             break;
 
         case LOG_INFO_LEVEL:
-            snprintf (logLevel, sizeof (logLevel), "INFO");
+            snprintf (logLevelMsg, sizeof (logLevelMsg), "INFO");
             break;
 
         case LOG_DEBUG_LEVEL:
-            snprintf (logLevel, sizeof (logLevel), "DEBUG");
+            snprintf (logLevelMsg, sizeof (logLevelMsg), "DEBUG");
             break;
 
         default:
@@ -126,15 +101,14 @@ doLog (char *filePath, u_int line, const char *func, const char *msg, ...) {
             return;
     }
 
-    if (level <= logCtxt->logLevel)
-        flag = LOG_TO_ALL_TAG;
+    if (logLevel <= logCtxt->logLevel)
+        flag = 'a';
     else
-        flag = LOG_TO_NET_TAG;
+        flag = 'n';
 
     fileName = strrchr (filePath, '/') + 1;
-    snprintf (buf, sizeof (buf), "%u%s[thread:%u]%s%s [thread:%u] %s file=%s (line=%u, func=%s): %s",
-              flag, LOG_MESSAGE_INDICATOR_1, gettid (), LOG_MESSAGE_INDICATOR_2, timeStr, gettid (),
-              logLevel, fileName, line, func, tmp);
+    snprintf (buf, sizeof (buf), "%c%s [thread:%u] %s file=%s (line=%u, func=%s): %s",
+              flag, timeStr, gettid (), logLevelMsg, fileName, line, func, tmp);
     buf [MAX_LOG_LENGTH - 1] = 0;
 
     frame = zframe_new ((void *) buf, strlen (buf));
@@ -151,7 +125,7 @@ doLog (char *filePath, u_int line, const char *func, const char *msg, ...) {
 }
 
 /*
- * @brief Init thread local log context.
+ * @brief Init log context.
  *        It will create a thread local log context, every thread want to
  *        use log function must init log context before do logging.
  * @param logLevel Log level used to do logging
@@ -181,22 +155,22 @@ initLog (u_int logLevel) {
         return -1;
     }
 
-    ret = zsocket_connect (logCtxt->logSock, "tcp://%s:%d", "127.0.0.1", LOG_SERVICE_SINK_PORT);
+    ret = zsocket_connect (logCtxt->logSock, "tcp://localhost:%u", LOG_SERVICE_PULL_PORT);
     if (ret < 0) {
         zctx_destroy (&logCtxt->ctxt);
         free (logCtxt);
         return -1;
     }
 
-    if (logLevel > MAXMUM_LOGLEVEL || logLevel < MINIMUM_LOGLEVEL)
-        logCtxt->logLevel = DEFAULT_LOGLEVEL;
+    if (logLevel > LOG_DEBUG_LEVEL || logLevel < LOG_ERR_LEVEL)
+        logCtxt->logLevel = LOG_DEBUG_LEVEL;
     else
         logCtxt->logLevel = logLevel;
 
     return 0;
 }
 
-/* Destroy thread local log context */
+/* Destroy log context */
 void
 destroyLog (void) {
     zctx_destroy (&logCtxt->ctxt);

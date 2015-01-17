@@ -1,14 +1,14 @@
-#include <stdlib.h>
 #include <czmq.h>
 #include "util.h"
 #include "properties.h"
-#include "logger.h"
+#include "log.h"
 #include "zmq_hub.h"
 
 /* Max/Min tcp packet parsing threads number */
 #define MIN_TCP_PACKET_PARSING_THREADS_NUM 5
 #define MAX_TCP_PACKET_PARSING_THREADS_NUM 1025
 
+#define MANAGEMENT_REPLY_PORT 58000
 #define IP_PACKET_EXCHANGE_CHANNEL "inproc://ipPacketExchangeChannel"
 #define TCP_PACKET_EXCHANGE_CHANNEL "inproc://tcpPacketExchangeChannel"
 #define TASK_STATUS_EXCHANGE_CHANNEL "inproc://taskStatusExchangeChannel"
@@ -29,6 +29,11 @@ getTaskStatusPullSock (void) {
 void *
 getManagementReplySock (void) {
     return zmqHubIntance->managementReplySock;
+}
+
+void *
+getLogServicePullSock (void) {
+    return zmqHubIntance->logServicePullSock;
 }
 
 void *
@@ -118,6 +123,18 @@ initZmqHub (void) {
     ret = zsocket_bind (zmqHubIntance->managementReplySock, "tcp://*:%u", MANAGEMENT_REPLY_PORT);
     if (ret < 0) {
         LOGE ("Bind to tcp://*:%u error.\n", MANAGEMENT_REPLY_PORT);
+        goto destroyZmqCtxt;
+    }
+
+    /* Create logServicePullSock */
+    zmqHubIntance->logServicePullSock = zsocket_new (zmqHubIntance->ctxt, ZMQ_PULL);
+    if (zmqHubIntance->logServicePullSock == NULL) {
+        LOGE ("Create logServicePullSock error.\n");
+        goto destroyZmqCtxt;
+    }
+    ret = zsocket_bind (zmqHubIntance->logServicePullSock, "tcp://*:%u", LOG_SERVICE_PULL_PORT);
+    if (ret < 0) {
+        LOGE ("Bind to \"tcp://*:%u\" error.\n", LOG_SERVICE_PULL_PORT);
         goto destroyZmqCtxt;
     }
 

@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <string.h>
@@ -13,7 +12,7 @@
 #include "util.h"
 #include "list.h"
 #include "hash.h"
-#include "logger.h"
+#include "log.h"
 #include "atomic.h"
 #include "checksum.h"
 #include "app_service_manager.h"

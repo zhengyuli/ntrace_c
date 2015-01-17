@@ -6,7 +6,7 @@
 #include <signal.h>
 #include "util.h"
 #include "hash.h"
-#include "logger.h"
+#include "log.h"
 #include "zmq_hub.h"
 #include "task_manager.h"
 

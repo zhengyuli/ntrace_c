@@ -3,8 +3,6 @@
 
 #include <czmq.h>
 
-#define MANAGEMENT_REPLY_PORT 58001
-
 typedef struct _zmqHub zmqHub;
 typedef zmqHub *zmqHubPtr;
 
@@ -16,8 +14,10 @@ struct _zmqHub {
 
     void *managementReplySock;          /**< Management reply sock */
 
-    void *ipPktPushSock;                /**< Ip packet push sock pair */
-    void *ipPktPullSock;                /**< Ip packet pull sock pair */
+    void *logServicePullSock;           /**< Log service pull sock */
+    
+    void *ipPktPushSock;                /**< Ip packet push sock */
+    void *ipPktPullSock;                /**< Ip packet pull sock */
 
     u_int tcpPktParsingThreadsNum;      /**< Tcp packet parsing threads number */
     u_int *tcpPktParsingThreadIDsHolder; /**< Tcp packet parsing threads number holder */
@@ -33,6 +33,8 @@ void *
 getTaskStatusPullSock (void);
 void *
 getManagementReplySock (void);
+void *
+getLogServicePullSock (void);
 void *
 getIpPktPushSock (void);
 void *

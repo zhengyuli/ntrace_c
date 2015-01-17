@@ -1,9 +1,8 @@
-#include <stdlib.h>
 #include <netinet/ip.h>
 #include <pcap.h>
 #include <czmq.h>
 #include "util.h"
-#include "logger.h"
+#include "log.h"
 #include "properties.h"
 #include "zmq_hub.h"
 #include "app_service_manager.h"
@@ -110,7 +109,6 @@ rawPktCaptureService (void *args) {
         }
     }
 
-    LOGD ("RawPktCaptureService will exit...\n");
 destroyLog:
     destroyLog ();
 exit:

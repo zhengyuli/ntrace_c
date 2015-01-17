@@ -1,6 +1,5 @@
-#include <stdlib.h>
 #include "util.h"
-#include "logger.h"
+#include "log.h"
 #include "properties.h"
 #include "task_manager.h"
 #include "zmq_hub.h"
@@ -97,9 +96,7 @@ tcpPktProcessService (void *args) {
         zframe_destroy (&pktFrame);
     }
 
-    LOGD ("TcpPktParsingService will exit...\n");
     destroyTcp ();
-
 destroyLog:
     destroyLog ();
 exit:

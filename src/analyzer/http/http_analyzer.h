@@ -1,7 +1,6 @@
 #ifndef __HTTP_ANALYZER_H__
 #define __HTTP_ANALYZER_H__
 
-#include <stdlib.h>
 #include "util.h"
 #include "list.h"
 #include "http_parser.h"

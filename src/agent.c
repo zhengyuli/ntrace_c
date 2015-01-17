@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
 #include <czmq.h>
@@ -8,12 +7,13 @@
 #include "util.h"
 #include "args_parser.h"
 #include "properties.h"
-#include "logger.h"
+#include "log.h"
 #include "zmq_hub.h"
 #include "task_manager.h"
 #include "proto_analyzer.h"
 #include "app_service_manager.h"
 #include "netdev.h"
+#include "log_service.h"
 #include "raw_packet_capture_service.h"
 #include "ip_packet_process_service.h"
 #include "tcp_packet_process_service.h"
@@ -68,6 +68,12 @@ initAgentTasks (void) {
     u_int i;
     taskId tid;
 
+    tid = newTask (logService, NULL);
+    if (tid < 0) {
+        LOGE ("Create logService task error.\n");
+        goto stopAllTask;
+    }
+    
     tid = newTask (managementService, NULL);
     if (tid < 0) {
         LOGE ("Create managementService task error.\n");

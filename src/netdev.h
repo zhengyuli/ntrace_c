@@ -1,7 +1,6 @@
 #ifndef __NETDEV_H__
 #define __NETDEV_H__
 
-#include <stdlib.h>
 #include <pcap.h>
 
 /*========================Interfaces definition============================*/

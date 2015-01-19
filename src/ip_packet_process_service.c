@@ -1,9 +1,10 @@
 #include <net/if.h>
 #include <netinet/ip.h>
 #include "util.h"
+#include "properties.h"
+#include "signals.h"
 #include "log.h"
 #include "zmq_hub.h"
-#include "properties.h"
 #include "task_manager.h"
 #include "ip_packet.h"
 #include "ip_packet_process_service.h"
@@ -112,20 +113,20 @@ ipPktProcessService (void *args) {
     zframe_t *tmFrame = NULL;
     zframe_t *pktFrame = NULL;
     struct ip *newIphdr;
-    void *ipPktPullSock;
+    void *ipPktRecvSock;
 
-    /* Reset task interrupt flag */
-    resetTaskInterruptFlag ();
+    /* Reset signals flag */
+    resetSignalsFlag ();
 
     /* Init log context */
-    ret = initLog (getPropertiesLogLevel ());
+    ret = initLogContext (getPropertiesLogLevel ());
     if (ret < 0) {
-        LOGE ("Init log context error.\n");
+        fprintf (stderr, "Init log context error.\n");
         goto exit;
     }
 
-    /* Get ipPktPullSock */
-    ipPktPullSock = getIpPktPullSock ();
+    /* Get ipPktRecvSock */
+    ipPktRecvSock = getIpPktRecvSock ();
 
     /* Init ip context */
     ret = initIp ();
@@ -134,12 +135,12 @@ ipPktProcessService (void *args) {
         goto destroyLog;
     }
 
-    while (!taskIsInterrupted ()) {
+    while (!sigusr1IsInterrupted ()) {
         /* Receive timestamp zframe */
         if (tmFrame == NULL) {
-            tmFrame = zframe_recv (ipPktPullSock);
+            tmFrame = zframe_recv (ipPktRecvSock);
             if (tmFrame == NULL) {
-                if (!taskIsInterrupted ())
+                if (!sigusr1IsInterrupted ())
                     LOGE ("Receive timestamp zframe fatal error.\n");
                 break;
             } else if (!zframe_more (tmFrame)) {
@@ -149,9 +150,9 @@ ipPktProcessService (void *args) {
         }
 
         /* Receive ip packet zframe */
-        pktFrame = zframe_recv (ipPktPullSock);
+        pktFrame = zframe_recv (ipPktRecvSock);
         if (pktFrame == NULL) {
-            if (!taskIsInterrupted ())
+            if (!sigusr1IsInterrupted ())
                 LOGE ("Receive ip packet zframe fatal error.\n");
             zframe_destroy (&tmFrame);
             break;
@@ -177,12 +178,13 @@ ipPktProcessService (void *args) {
         zframe_destroy (&pktFrame);
     }
 
+    LOGD ("IpPktProcessService will exit ... .. .\n");
     destroyIp ();
 destroyLog:
     destroyLog ();
 exit:
-    if (!taskIsInterrupted ())
-        sendTaskExit ();
+    if (!sigusr1IsInterrupted ())
+        sendTaskStatus (TASK_STATUS_EXIT);
 
     return NULL;
 }

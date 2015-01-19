@@ -35,6 +35,7 @@ initHlistNode (hlistNodePtr node) {
 /* Callback function definitions */
 typedef void (*hashItemFreeCB) (void *item);
 typedef int (*hashForEachItemDoCB) (void *item, void *args);
+typedef boolean (*hashForEachItemDelInCaseCB) (void *item, void *args);
 
 typedef struct _hashItem hashItem;
 typedef hashItem *hashItemPtr;
@@ -161,6 +162,8 @@ u_int
 hashLimit (hashTablePtr htbl);
 int
 hashForEachItemDo (hashTablePtr htbl, hashForEachItemDoCB fun, void *args);
+void
+hashForEachItemDelInCase (hashTablePtr htbl, hashForEachItemDelInCaseCB fun, void *args);
 /*=======================Interfaces definition end=========================*/
 
 #endif /* __HASH_H__ */

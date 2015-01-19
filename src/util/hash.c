@@ -460,3 +460,31 @@ hashForEachItemDo (hashTablePtr htbl, hashForEachItemDoCB fun, void *args) {
 
     return 0;
 }
+
+/*
+ * @brief Delete hash item in some case.
+ *        Search all items in hash table and delete item when
+ *        hashForEachItemDelInCaseCB return true.
+ *
+ * @param htbl hash table
+ * @param fun callback function
+ * @param args arguments for fun
+ */
+void
+hashForEachItemDelInCase (hashTablePtr htbl, hashForEachItemDelInCaseCB fun, void *args) {
+    u_int index;
+    hashItemPtr item;
+    hlistHeadPtr head;
+    hlistNodePtr hNode, tmp;
+
+    if (htbl == NULL)
+        return;
+
+    for (index = 0; index < htbl->capacity; index++) {
+        head = & htbl->heads [index];
+        hlistForEachEntrySafe (item, hNode, tmp, head, node) {
+            if (fun (item->data, args))
+                hlistDel (&item->node);
+        }
+    }
+}

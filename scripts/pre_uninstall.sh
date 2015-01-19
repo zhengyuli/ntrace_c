@@ -4,7 +4,7 @@
 # Name: post_install.sh
 # Purpose:
 #
-# Time-stamp: <2015-01-07 18:28:28 Wednesday by lzy>
+# Time-stamp: <2015-01-19 13:05:41 Monday by lzy>
 #
 # Author: zhengyu li
 # Created: 2014-03-27
@@ -24,5 +24,3 @@ toLower() {
 toUpper() {
     echo "$(echo ${1}|tr '[:lower:]' '[:upper:]')"
 }
-
-chkconfig --del $(toLower ${PROJECT_NAME})_logger

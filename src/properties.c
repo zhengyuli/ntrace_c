@@ -3,7 +3,7 @@
 #include "log.h"
 #include "properties.h"
 
-/* Properties local instance */
+/* Properties instance */
 static propertiesPtr propertiesInstance = NULL;
 
 static propertiesPtr
@@ -43,36 +43,36 @@ freeProperties (propertiesPtr instance) {
 
 static void
 displayPropertiesDetail (void) {
-    logToConsole ("Startup with properties:\n");
-    logToConsole ("{\n");
-    logToConsole ("    daemonMode: %s\n", propertiesInstance->daemonMode ? "true" : "false");
-    logToConsole ("    mirrorInterface: %s\n", propertiesInstance->mirrorInterface);
-    logToConsole ("    breakdownSinkIp: %s\n", propertiesInstance->breakdownSinkIp);
-    logToConsole ("    breakdownSinkPort: %u\n", propertiesInstance->breakdownSinkPort);
-    logToConsole ("    logDir: %s\n", propertiesInstance->logDir);
-    logToConsole ("    logFileName: %s\n", propertiesInstance->logFileName);
-    logToConsole ("    logLevel: ");
+    fprintf (stdout, "Startup with properties:\n");
+    fprintf (stdout, "{\n");
+    fprintf (stdout, "    daemonMode: %s\n", propertiesInstance->daemonMode ? "true" : "false");
+    fprintf (stdout, "    mirrorInterface: %s\n", propertiesInstance->mirrorInterface);
+    fprintf (stdout, "    breakdownSinkIp: %s\n", propertiesInstance->breakdownSinkIp);
+    fprintf (stdout, "    breakdownSinkPort: %u\n", propertiesInstance->breakdownSinkPort);
+    fprintf (stdout, "    logDir: %s\n", propertiesInstance->logDir);
+    fprintf (stdout, "    logFileName: %s\n", propertiesInstance->logFileName);
+    fprintf (stdout, "    logLevel: ");
     switch (propertiesInstance->logLevel) {
         case LOG_ERR_LEVEL:
-            logToConsole ("ERR\n");
+            fprintf (stdout, "ERR\n");
             break;
 
         case LOG_WARNING_LEVEL:
-            logToConsole ("WARNING\n");
+            fprintf (stdout, "WARNING\n");
             break;
 
         case LOG_INFO_LEVEL:
-            logToConsole ("INFO\n");
+            fprintf (stdout, "INFO\n");
             break;
 
         case LOG_DEBUG_LEVEL:
-            logToConsole ("DEBUG\n");
+            fprintf (stdout, "DEBUG\n");
             break;
 
         default:
-            logToConsole ("Unknown\n");
+            fprintf (stdout, "Unknown\n");
     }
-    logToConsole ("}\n");
+    fprintf (stdout, "}\n");
 }
 
 static propertiesPtr
@@ -86,7 +86,7 @@ loadPropertiesFromConfigFile (void) {
     /* Alloc new properties */
     tmp = newProperties ();
     if (tmp == NULL) {
-        LOGE ("Alloc new agent config error.\n");
+        fprintf (stderr, "Alloc new agent config error.\n");
         return NULL;
     }
 
@@ -94,91 +94,91 @@ loadPropertiesFromConfigFile (void) {
     ret = config_from_file ("Agent", AGENT_CONFIG_FILE,
                             &iniConfig, INI_STOP_ON_ANY, &errorSet);
     if (ret) {
-        logToConsole ("Parse config file: %s error.\n", AGENT_CONFIG_FILE);
+        fprintf (stderr, "Parse config file: %s error.\n", AGENT_CONFIG_FILE);
         goto freeProperties;
     }
 
     /* Get daemon mode */
     ret = get_config_item ("MAIN", "daemonMode", iniConfig, &item);
     if (ret) {
-        logToConsole ("Get_config_item \"daemonMode\" error.\n");
+        fprintf (stderr, "Get_config_item \"daemonMode\" error.\n");
         goto freeProperties;
     }
     tmp->daemonMode = get_int_config_value (item, 1, 0, &error);
     if (error) {
-        logToConsole ("Parse \"daemonMode\" error.\n");
+        fprintf (stderr, "Parse \"daemonMode\" error.\n");
         goto freeProperties;
     }
 
     /* Get mirror interface */
     ret = get_config_item ("MAIN", "mirrorInterface", iniConfig, &item);
     if (ret) {
-        logToConsole ("Get_config_item \"mirrorInterface\" error.\n");
+        fprintf (stderr, "Get_config_item \"mirrorInterface\" error.\n");
         goto freeProperties;
     }
     tmp->mirrorInterface = strdup (get_const_string_config_value (item, &error));
     if (tmp->mirrorInterface == NULL) {
-        logToConsole ("Get \"mirrorInterface\" error.\n");
+        fprintf (stderr, "Get \"mirrorInterface\" error.\n");
         goto freeProperties;
     }
 
     /* Get breakdown sink ip */
     ret = get_config_item ("MAIN", "breakdownSinkIp", iniConfig, &item);
     if (ret) {
-        logToConsole ("Get_config_item \"breakdownSinkIp\" error.\n");
+        fprintf (stderr, "Get_config_item \"breakdownSinkIp\" error.\n");
         goto freeProperties;
     }
     tmp->breakdownSinkIp = strdup (get_const_string_config_value (item, &error));
     if (tmp->breakdownSinkIp == NULL) {
-        logToConsole ("Get \"breakdownSinkIp\" error.\n");
+        fprintf (stderr, "Get \"breakdownSinkIp\" error.\n");
         goto freeProperties;
     }
 
     /* Get breakdown sink port */
     ret = get_config_item ("MAIN", "breakdownSinkPort", iniConfig, &item);
     if (ret) {
-        logToConsole ("Get_config_item \"breakdownSinkPort\" error.\n");
+        fprintf (stderr, "Get_config_item \"breakdownSinkPort\" error.\n");
         goto freeProperties;
     }
     tmp->breakdownSinkPort = get_int_config_value (item, 1, 0, &error);
     if (error) {
-        logToConsole ("Get \"breakdownSinkPort\" error.\n");
+        fprintf (stderr, "Get \"breakdownSinkPort\" error.\n");
         goto freeProperties;
     }
 
     /* Get log dir */
     ret = get_config_item ("LOG", "logDir", iniConfig, &item);
     if (ret) {
-        logToConsole ("Get_config_item \"logDir\" error.\n");
+        fprintf (stderr, "Get_config_item \"logDir\" error.\n");
         goto freeProperties;
     }
     tmp->logDir = strdup (get_const_string_config_value (item, &error));
     if (error) {
-        logToConsole ("Get \"logDir\" error.\n");
+        fprintf (stderr, "Get \"logDir\" error.\n");
         goto freeProperties;
     }
 
     /* Get log file name */
     ret = get_config_item ("LOG", "logFileName", iniConfig, &item);
     if (ret) {
-        logToConsole ("Get_config_item \"logFileName\" error.\n");
+        fprintf (stderr, "Get_config_item \"logFileName\" error.\n");
         goto freeProperties;
     }
     tmp->logFileName = strdup (get_const_string_config_value (item, &error));
     if (error) {
-        logToConsole ("Get \"logFileName\" error.\n");
+        fprintf (stderr, "Get \"logFileName\" error.\n");
         goto freeProperties;
     }
 
     /* Get log level */
     ret = get_config_item ("LOG", "logLevel", iniConfig, &item);
     if (ret) {
-        logToConsole ("Get_config_item \"logLevel\" error.\n");
+        fprintf (stderr, "Get_config_item \"logLevel\" error.\n");
         goto freeProperties;
     }
     tmp->logLevel = get_int_config_value (item, 1, -1, &error);
     if (error) {
-        logToConsole ("Parse \"logLevel\" error.\n");
+        fprintf (stderr, "Parse \"logLevel\" error.\n");
         goto freeProperties;
     }
     /* Return properties in the last */

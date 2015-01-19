@@ -52,4 +52,3 @@ destroyProperties (void);
 /*=======================Interfaces definition end=========================*/
 
 #endif /* __PROPERTIES_H__ */
-

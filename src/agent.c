@@ -5,19 +5,20 @@
 #include <locale.h>
 #include "config.h"
 #include "util.h"
-#include "args_parser.h"
 #include "properties.h"
+#include "args_parser.h"
+#include "signals.h"
+#include "log_service.h"
 #include "log.h"
 #include "zmq_hub.h"
 #include "task_manager.h"
 #include "proto_analyzer.h"
 #include "app_service_manager.h"
 #include "netdev.h"
-#include "log_service.h"
+#include "management_service.h"
 #include "raw_packet_capture_service.h"
 #include "ip_packet_process_service.h"
 #include "tcp_packet_process_service.h"
-#include "management_service.h"
 
 /* Agent pid file fd */
 static int agentPidFd = -1;
@@ -63,43 +64,37 @@ unlockPidFile (void) {
     remove (AGENT_PID_FILE);
 }
 
-int
-initAgentTasks (void) {
+static int
+startTasks (void) {
+    int ret;
     u_int i;
-    taskId tid;
 
-    tid = newTask (logService, NULL);
-    if (tid < 0) {
-        LOGE ("Create logService task error.\n");
-        goto stopAllTask;
-    }
-    
-    tid = newTask (managementService, NULL);
-    if (tid < 0) {
+    ret = newTask (managementService, NULL);
+    if (ret < 0) {
         LOGE ("Create managementService task error.\n");
         goto stopAllTask;
     }
-    
-    tid = newTask (rawPktCaptureService, NULL);
-    if (tid < 0) {
+
+    ret = newTask (rawPktCaptureService, NULL);
+    if (ret < 0) {
         LOGE ("Create rawPktCaptureService task error.\n");
         goto stopAllTask;
     }
 
-    tid = newTask (ipPktProcessService, NULL);
-    if (tid < 0) {
+    ret = newTask (ipPktProcessService, NULL);
+    if (ret < 0) {
         LOGE ("Create ipPktParsingService task error.\n");
         goto stopAllTask;
     }
 
     for (i = 0; i < getTcpPktParsingThreadsNum (); i++) {
-        tid = newTask (tcpPktProcessService, getTcpPktParsingThreadIDHolder (i));
-        if (tid < 0) {
+        ret = newTask (tcpPktProcessService, getTcpPktParsingThreadIDHolder (i));
+        if (ret < 0) {
             LOGE ("Create tcpPktParsingService %u task error.\n", i);
             goto stopAllTask;
         }
     }
-    
+
     return 0;
 
 stopAllTask:
@@ -117,16 +112,27 @@ agentService (void) {
     /* Lock agent pid file */
     ret = lockPidFile ();
     if (ret < 0) {
-        logToConsole ("Lock pid file error.\n");
+        fprintf (stderr, "Lock pid file error.\n");
         return -1;
     }
 
-    /* Init log context */
-    ret = initLog (getPropertiesLogLevel ());
+    /* Setup signal */
+    setupSignals ();
+
+    /* Init log service */
+    ret = initLogService ();
     if (ret < 0) {
-        logToConsole ("Init log context error.\n");
+        fprintf (stderr, "Init log service error.\n");
         ret = -1;
         goto unlockPidFile;
+    }
+
+    /* Init log context */
+    ret = initLogContext (getPropertiesLogLevel ());
+    if (ret < 0) {
+        fprintf (stderr, "Init log context error.\n");
+        ret = -1;
+        goto destroyLogService;
     }
 
     /* Init zmq hub */
@@ -167,13 +173,13 @@ agentService (void) {
         goto destroyAppServiceManager;
     }
 
-    ret = initAgentTasks ();
+    ret = startTasks ();
     if (ret < 0) {
-        LOGE ("Init agent tasks error.\n");
+        LOGE ("Start tasks error.\n");
         ret = -1;
         goto destroyNetDev;
     }
-    
+
     /* Create zloop reactor */
     loop = zloop_new ();
     if (loop == NULL) {
@@ -182,21 +188,32 @@ agentService (void) {
         goto stopAllTask;
     }
 
-    /* Init poll item 1*/
-    pollItems [0].socket = getTaskStatusPullSock ();
+    /* Init poll item 0*/
+    pollItems [0].socket = getLogServiceStatusRecvSock ();
     pollItems [0].fd = 0;
     pollItems [0].events = ZMQ_POLLIN;
-
     /* Register poll item 0 */
-    ret = zloop_poller (loop, &pollItems [0], taskStatusHandler, NULL);
+    ret = zloop_poller (loop, &pollItems [0], logServiceStatusHandler, NULL);
     if (ret < 0) {
         LOGE ("Register poll items [0] error.\n");
         ret = -1;
         goto destroyZloop;
     }
+
+    /* Init poll item 1*/
+    pollItems [1].socket = getTaskStatusRecvSock ();
+    pollItems [1].fd = 0;
+    pollItems [1].events = ZMQ_POLLIN;
+    /* Register poll item 1 */
+    ret = zloop_poller (loop, &pollItems [1], taskStatusHandler, NULL);
+    if (ret < 0) {
+        LOGE ("Register poll items [1] error.\n");
+        ret = -1;
+        goto destroyZloop;
+    }
+
     /* Start zloop */
     ret = zloop_start (loop);
-
     if (ret < 0) {
         exitNormally = false;
         LOGE ("Agent exit abnormally.\n");
@@ -221,6 +238,8 @@ destroyZmqHub:
     destroyZmqHub ();
 destroyLog:
     destroyLog ();
+destroyLogService:
+    destroyLogService ();
 unlockPidFile:
     unlockPidFile ();
     return ret;
@@ -314,14 +333,14 @@ main (int argc, char *argv []) {
     /* Init properties */
     ret = initProperties ();
     if (ret < 0) {
-        logToConsole ("Init properties error.\n");
+        fprintf (stderr, "Init properties error.\n");
         return -1;
     }
 
     /* Parse command line arguments */
     ret = parseArgs (argc, argv);
     if (ret < 0) {
-        logToConsole ("Parse command line arguments error.\n");
+        fprintf (stderr, "Parse command line arguments error.\n");
         ret = -1;
         goto destroyProperties;
     }

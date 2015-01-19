@@ -8,37 +8,33 @@ typedef zmqHub *zmqHubPtr;
 
 struct _zmqHub {
     zctx_t *ctxt;                       /**< Zmq context */
-    
-    void *taskStatusPushSock;           /**< Task status push sock */
-    void *taskStatusPullSock;           /**< Task status pull sock */
 
     void *managementReplySock;          /**< Management reply sock */
-
-    void *logServicePullSock;           /**< Log service pull sock */
     
-    void *ipPktPushSock;                /**< Ip packet push sock */
-    void *ipPktPullSock;                /**< Ip packet pull sock */
+    void *taskStatusSendSock;           /**< Task status send sock */
+    void *taskStatusRecvSock;           /**< Task status recv sock */
+        
+    void *ipPktSendSock;                /**< Ip packet send sock */
+    void *ipPktRecvSock;                /**< Ip packet recv sock */
 
     u_int tcpPktParsingThreadsNum;      /**< Tcp packet parsing threads number */
-    u_int *tcpPktParsingThreadIDsHolder; /**< Tcp packet parsing threads number holder */
-    void **tcpPktPushSocks;             /**< Tcp packet dispatch push socks */
-    void **tcpPktPullSocks;             /**< Tcp packet dispatch pull socks */
-    void **breakdownPushSocks;          /**< Breakdown push socks */
+    u_int *tcpPktParsingThreadIDsHolder; /**< Tcp packet parsing thread IDs holder */
+    void **tcpPktSendSocks;             /**< Tcp packet dispatch send socks */
+    void **tcpPktRecvSocks;             /**< Tcp packet dispatch recv socks */
+    void **breakdownSendSocks;          /**< Breakdown send socks */
 };
 
 /*========================Interfaces definition============================*/
 void *
-getTaskStatusPushSock (void);
-void *
-getTaskStatusPullSock (void);
-void *
 getManagementReplySock (void);
 void *
-getLogServicePullSock (void);
+getTaskStatusSendSock (void);
 void *
-getIpPktPushSock (void);
+getTaskStatusRecvSock (void);
 void *
-getIpPktPullSock (void);
+getIpPktSendSock (void);
+void *
+getIpPktRecvSock (void);
 u_int
 getTcpPktParsingThreadsNum (void);
 void *

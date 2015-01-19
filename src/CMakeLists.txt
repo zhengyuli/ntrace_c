@@ -28,6 +28,7 @@ SET (AGENT_SOURCE_FILES
   util/hash.c
   properties.c
   args_parser.c
+  signals.c
   log/log.c
   zmq_hub.c
   task_manager.c
@@ -54,7 +55,12 @@ INSTALL (
   TARGETS ${ROOT_PROJECT_LOWER}_agent
   DESTINATION ${PROJECT_BIN_DIR})
 
-ADD_SUBDIRECTORY (include)
+INSTALL (
+  FILES agent_service.init
+  RENAME ${ROOT_PROJECT_LOWER}_agent
+  DESTINATION /etc/init.d/
+  PERMISSIONS  OWNER_READ OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ)
+
 ADD_SUBDIRECTORY (util)
 ADD_SUBDIRECTORY (log)
 ADD_SUBDIRECTORY (analyzer)

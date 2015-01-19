@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <getopt.h>
 #include "properties.h"
 #include "log.h"
@@ -22,20 +23,21 @@ showHelpInfo (const char *cmd) {
     const char *cmdName;
 
     cmdName = strrchr (cmd, '/') ? (strrchr (cmd, '/') + 1) : cmd;
-    logToConsole ("Usage: %s -m <eth*> [options]\n"
-                  "       %s [-vh]\n"
-                  "Basic options: \n"
-                  "  -D|--daemonMode, run as daemon\n"
-                  "  -m|--mirrorInterface <eth*> interface to collect packets\n"
-                  "  -i|--breakdownSinkIp <ip> breakdown sink ip"
-                  "  -p|--breakdownSinkPort <port> breakdown sink port"
-                  "  -d|--logDir <path>, log file directory\n"
-                  "  -f|--logFileName <name>, log file name\n"
-                  "  -l|--logLevel <level> log level\n"
-                  "       Optional level: 0-ERR 1-WARNING 2-INFO 3-DEBUG\n"
-                  "  -v|--version, version of %s\n"
-                  "  -h|--help, help information\n",
-                  cmdName, cmdName, cmdName);
+    fprintf (stdout,
+             "Usage: %s -m <eth*> [options]\n"
+             "       %s [-vh]\n"
+             "Basic options: \n"
+             "  -D|--daemonMode, run as daemon\n"
+             "  -m|--mirrorInterface <eth*> interface to collect packets\n"
+             "  -i|--breakdownSinkIp <ip> breakdown sink ip"
+             "  -p|--breakdownSinkPort <port> breakdown sink port"
+             "  -d|--logDir <path>, log file directory\n"
+             "  -f|--logFileName <name>, log file name\n"
+             "  -l|--logLevel <level> log level\n"
+             "       Optional level: 0-ERR 1-WARNING 2-INFO 3-DEBUG\n"
+             "  -v|--version, version of %s\n"
+             "  -h|--help, help information\n",
+             cmdName, cmdName, cmdName);
 }
 
 /* Command line arguments parser */
@@ -54,7 +56,7 @@ parseArgs (int argc, char *argv []) {
             case 'm':
                 updatePropertiesMirrorInterface (optarg);
                 if (getPropertiesMirrorInterface () == NULL) {
-                    logToConsole ("Parse mirroring interface error!\n");
+                    fprintf (stderr, "Parse mirroring interface error!\n");
                     return -1;
                 }
                 break;
@@ -62,7 +64,7 @@ parseArgs (int argc, char *argv []) {
             case 'i':
                 updatePropertiesBreakdownSinkIp (optarg);
                 if (getPropertiesBreakdownSinkIp () == NULL) {
-                    logToConsole ("Parse breakdown sink ip error!\n");
+                    fprintf (stderr, "Parse breakdown sink ip error!\n");
                     return -1;
                 }
                 break;
@@ -74,7 +76,7 @@ parseArgs (int argc, char *argv []) {
             case 'd':
                 updatePropertiesLogDir (optarg);
                 if (getPropertiesLogDir () == NULL) {
-                    logToConsole ("Parse log dir error!\n");
+                    fprintf (stderr, "Parse log dir error!\n");
                     return -1;
                 }
                 break;
@@ -82,11 +84,11 @@ parseArgs (int argc, char *argv []) {
             case 'f':
                 updatePropertiesLogFileName (optarg);
                 if (getPropertiesLogFileName () == NULL) {
-                    logToConsole ("Parse log file name error!\n");
+                    fprintf (stderr, "Parse log file name error!\n");
                     return -1;
                 }
                 break;
-                
+
             case 'l':
                 updatePropertiesLogLevel (atoi (optarg));
                 break;
@@ -100,7 +102,7 @@ parseArgs (int argc, char *argv []) {
                 break;
 
             case '?':
-                logToConsole ("Unknown options.\n");
+                fprintf (stderr, "Unknown option.\n");
                 showHelpInfo (argv [0]);
                 return -1;
         }
@@ -108,7 +110,7 @@ parseArgs (int argc, char *argv []) {
 
     if (showVersion || showHelp) {
         if (showVersion)
-            logToConsole ("Current version: %s\n", VERSION_STRING);
+            fprintf (stdout, "Current version: %s\n", VERSION_STRING);
         if (showHelp)
             showHelpInfo (argv [0]);
         exit (0);

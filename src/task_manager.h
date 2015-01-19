@@ -6,7 +6,6 @@
 #include <czmq.h>
 #include "util.h"
 
-typedef pthread_t taskId;
 typedef void * (*taskFunc) (void *args);
 
 typedef enum {
@@ -18,24 +17,18 @@ typedef struct _taskItem taskItem;
 typedef taskItem *taskItemPtr;
 
 struct _taskItem {
-    taskId tid;
-    taskFunc func;
-    void *args;
+    pthread_t tid;                      /**< Task thread id */
+    taskFunc func;                      /**< Task function */
+    void *args;                         /**< Task function arguments */
 };
 
 /*========================Interfaces definition============================*/
-boolean
-taskIsInterrupted (void);
-void
-resetTaskInterruptFlag (void);
-taskId
+int
 newTask (taskFunc func, void *args);
-taskId
-restartTask (taskId tid);
 void
 stopAllTask (void);
 void
-sendTaskExit (void);
+sendTaskStatus (taskStatus status);
 int
 taskStatusHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg);
 int

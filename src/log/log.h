@@ -1,21 +1,18 @@
 #ifndef __LOG_H__
 #define __LOG_H__
 
+#include <stdlib.h>
+
 #define LOG_ERR_LEVEL 0
 #define LOG_WARNING_LEVEL 1
 #define LOG_INFO_LEVEL 2
 #define LOG_DEBUG_LEVEL 3
 
-#define LOG_SERVICE_PULL_PORT 59001
-#define LOG_SERVICE_PUBLISH_PORT 59002
-
 /*========================Interfaces definition============================*/
-void
-logToConsole (const char *msg, ...);
 void
 doLog (u_char logLevel, char *filePath, u_int line, const char *func, const char *msg, ...);
 int
-initLog (u_int logLevel);
+initLogContext (u_int logLevel);
 void
 destroyLog (void);
 

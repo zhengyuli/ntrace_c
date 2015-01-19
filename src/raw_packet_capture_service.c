@@ -2,11 +2,12 @@
 #include <pcap.h>
 #include <czmq.h>
 #include "util.h"
-#include "log.h"
 #include "properties.h"
+#include "signals.h"
+#include "log.h"
 #include "zmq_hub.h"
-#include "app_service_manager.h"
 #include "task_manager.h"
+#include "app_service_manager.h"
 #include "netdev.h"
 #include "raw_packet.h"
 #include "raw_packet_capture_service.h"
@@ -23,19 +24,19 @@ rawPktCaptureService (void *args) {
     int linkType;
     char *filter;
     struct pcap_pkthdr *capPkthdr;
-    void *ipPktPushSock;
+    void *ipPktSendSock;
     u_char *rawPkt;
     struct ip *ipPkt;
     timeVal capTime;
     zframe_t *frame;
 
-    /* Reset task interrupt flag */
-    resetTaskInterruptFlag ();
+    /* Reset signals flag */
+    resetSignalsFlag ();
 
     /* Init log context */
-    ret = initLog (getPropertiesLogLevel ());
+    ret = initLogContext (getPropertiesLogLevel ());
     if (ret < 0) {
-        logToConsole ("Init log context error.\n");
+        fprintf (stderr, "Init log context error.\n");
         goto exit;
     }
 
@@ -43,8 +44,8 @@ rawPktCaptureService (void *args) {
     pcapDev = getNetDev ();
     /* Get net device link type */
     linkType = getNetDevLinkType ();
-    /* Get ipPktPushSock */
-    ipPktPushSock = getIpPktPushSock ();
+    /* Get ipPktSendSock */
+    ipPktSendSock = getIpPktSendSock ();
 
     /* Update application services filter */
     filter = getAppServicesFilter ();
@@ -61,7 +62,7 @@ rawPktCaptureService (void *args) {
     LOGD ("Update application services filter: %s\n", filter);
     free (filter);
 
-    while (!taskIsInterrupted ())
+    while (!sigusr1IsInterrupted ())
     {
         ret = pcap_next_ex (pcapDev, &capPkthdr, (const u_char **) &rawPkt);
         if (ret == 1) {
@@ -84,7 +85,7 @@ rawPktCaptureService (void *args) {
                 LOGE ("Create packet timestamp zframe error.\n");
                 continue;
             }
-            ret = zframe_send (&frame, ipPktPushSock, ZFRAME_MORE);
+            ret = zframe_send (&frame, ipPktSendSock, ZFRAME_MORE);
             if (ret < 0) {
                 LOGE ("Push packet timestamp zframe error.\n");
                 zframe_destroy (&frame);
@@ -97,7 +98,7 @@ rawPktCaptureService (void *args) {
                 LOGE ("Create ip packet zframe error.\n");
                 continue;
             }
-            ret = zframe_send (&frame, ipPktPushSock, 0);
+            ret = zframe_send (&frame, ipPktSendSock, 0);
             if (ret < 0) {
                 LOGE ("Push ip packet zframe error.\n");
                 zframe_destroy (&frame);
@@ -109,11 +110,12 @@ rawPktCaptureService (void *args) {
         }
     }
 
+    LOGD ("RawPktCaptureService will exit ... .. .\n");
 destroyLog:
     destroyLog ();
 exit:
-    if (!taskIsInterrupted ())
-        sendTaskExit ();
+    if (!sigusr1IsInterrupted ())
+        sendTaskStatus (TASK_STATUS_EXIT);
 
     return NULL;
 }

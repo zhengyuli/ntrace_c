@@ -1,5 +1,6 @@
 #include <jansson.h>
 #include "properties.h"
+#include "signals.h"
 #include "log.h"
 #include "zmq_hub.h"
 #include "task_manager.h"
@@ -136,23 +137,23 @@ managementService (void *args) {
     json_error_t error;
     json_t *root, *cmd, *body;
 
-    /* Reset task interrupt flag */
-    resetTaskInterruptFlag ();
+    /* Reset signals flag */
+    resetSignalsFlag ();
 
     /* Get management receive sock */
     managementReplySock = getManagementReplySock ();
 
     /* Init log context */
-    ret = initLog (getPropertiesLogLevel ());
+    ret = initLogContext (getPropertiesLogLevel ());
     if (ret < 0) {
-        LOGE ("Init log context error.\n");
+        fprintf (stderr, "Init log context error.\n");
         goto exit;
     }
 
-    while (!taskIsInterrupted ()) {
+    while (!sigusr1IsInterrupted ()) {
         msg = zstr_recv (managementReplySock);
         if (msg == NULL) {
-            if (!taskIsInterrupted ())
+            if (!sigusr1IsInterrupted ())
                 LOGE ("Receive management request fatal error.\n");
             break;
         }
@@ -198,11 +199,11 @@ managementService (void *args) {
         free (msg);
     }
 
-    LOGD ("ManagementService will exit...\n");
+    LOGD ("ManagementService will exit ... .. .\n");
     destroyLog ();
 exit:
-    if (!taskIsInterrupted ())
-        sendTaskExit ();
+    if (!sigusr1IsInterrupted ())
+        sendTaskStatus (TASK_STATUS_EXIT);
 
     return NULL;
 }

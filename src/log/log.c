@@ -7,10 +7,8 @@
 #include "util.h"
 #include "zmq_hub.h"
 #include "log.h"
+#include "log_service.h"
 
-#define MINIMUM_LOGLEVEL 0
-#define MAXMUM_LOGLEVEL 3
-#define DEFAULT_LOGLEVEL 2
 #define MAX_LOG_LENGTH 4096
 
 typedef struct _logContext logContext;
@@ -24,22 +22,6 @@ struct _logContext {
 
 /* Thread local log context */
 static __thread logContextPtr logCtxt = NULL;
-
-/*
- * @brief Write log message to console.
- *
- * @param msg log message to write
- */
-void
-logToConsole (const char *msg, ...) {
-    va_list va;
-    char tmp [MAX_LOG_LENGTH];
-
-    va_start (va, msg);
-    vsnprintf (tmp, sizeof (tmp), msg, va);
-    va_end (va);
-    fprintf (stdout, "%s", tmp);
-}
 
 /*
  * @brief Format log message and push log message to log service.
@@ -97,7 +79,7 @@ doLog (u_char logLevel, char *filePath, u_int line, const char *func, const char
             break;
 
         default:
-            fprintf (stderr, "Unknow log level!\n");
+            fprintf (stderr, "Unknown log level!\n");
             return;
     }
 
@@ -133,7 +115,7 @@ doLog (u_char logLevel, char *filePath, u_int line, const char *func, const char
  * @return 0 if success else -1
  */
 int
-initLog (u_int logLevel) {
+initLogContext (u_int logLevel) {
     int ret;
 
     /* Init log context */
@@ -155,7 +137,7 @@ initLog (u_int logLevel) {
         return -1;
     }
 
-    ret = zsocket_connect (logCtxt->logSock, "tcp://localhost:%u", LOG_SERVICE_PULL_PORT);
+    ret = zsocket_connect (logCtxt->logSock, "tcp://localhost:%u", LOG_SERVICE_LOG_RECV_PORT);
     if (ret < 0) {
         zctx_destroy (&logCtxt->ctxt);
         free (logCtxt);

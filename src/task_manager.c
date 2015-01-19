@@ -3,7 +3,6 @@
 #include <sys/types.h>
 #include <string.h>
 #include <pthread.h>
-#include <signal.h>
 #include "util.h"
 #include "hash.h"
 #include "log.h"
@@ -14,28 +13,9 @@
 
 /* Task manager hash table */
 static hashTablePtr taskManagerHashTable = NULL;
-/* Thread local task interrupted flag */
-static __thread boolean taskInterruptedFlag = false;
 /* Mutext lock for task status push/pull sock */
-static pthread_mutex_t taskStatusPushSockLock = PTHREAD_MUTEX_INITIALIZER;
-static pthread_mutex_t taskStatusPullSockLock = PTHREAD_MUTEX_INITIALIZER;
-
-static void
-taskSigHandler (int signo) {
-    if (signo == SIGUSR1)
-        taskInterruptedFlag = true;
-}
-
-static void
-setupTaskSignal (void) {
-    struct sigaction action;
-
-    /* Setup task SIGUSR1 handler */
-    action.sa_handler = taskSigHandler;
-    action.sa_flags = 0;
-    sigemptyset (&action.sa_mask);
-    sigaction (SIGUSR1, &action, NULL);
-}
+static pthread_mutex_t taskStatusSendSockLock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t taskStatusRecvSockLock = PTHREAD_MUTEX_INITIALIZER;
 
 static taskItemPtr
 newTaskItem (void) {
@@ -59,21 +39,11 @@ freeTaskItemForHash (void *data) {
     freeTaskItem ((taskItemPtr) data);
 }
 
-boolean
-taskIsInterrupted (void) {
-    return taskInterruptedFlag;
-}
-
-void
-resetTaskInterruptFlag (void) {
-    taskInterruptedFlag = false;
-}
-
-taskId
+int
 newTask (taskFunc func, void *args) {
     int ret;
     taskItemPtr tsk;
-    taskId tid;
+    pthread_t tid;
     char key [32];
 
     tsk = newTaskItem ();
@@ -96,67 +66,62 @@ newTask (taskFunc func, void *args) {
         return -1;
     }
 
-    return tid;
-}
-
-taskId
-restartTask (taskId tid) {
-    int ret;
-    taskId newTid;
-    char key [32];
-    taskItemPtr task;
-
-    snprintf (key, sizeof (key), "%lu", tid);
-    task = hashLookup (taskManagerHashTable, key);
-    if (task == NULL) {
-        LOGE ("Lookup task: %lu context error.\n", tid);
-        return -1;
-    }
-
-    ret = pthread_create (&newTid, NULL, task->func, task->args);
-    if (ret < 0) {
-        LOGE ("Create new thread error.\n");
-        return -1;
-    }
-    task->tid = newTid;
-
-    return newTid;
+    return 0;
 }
 
 static int
+restartTask (pthread_t oldTid) {
+    int ret;
+    pthread_t newTid;
+    char oldKey [32], newKey [32];
+    taskItemPtr task;
+
+    snprintf (oldKey, sizeof (oldKey), "%lu", oldTid);
+    task = hashLookup (taskManagerHashTable, oldKey);
+    if (task == NULL)
+        return -1;
+
+    ret = pthread_create (&newTid, NULL, task->func, task->args);
+    if (ret < 0)
+        return -1;
+
+    task->tid = newTid;
+    snprintf (newKey, sizeof (newKey), "%lu", newTid);
+    ret = hashRename (taskManagerHashTable, oldKey, newKey);
+    if (ret < 0) {
+        pthread_kill (newTid, SIGUSR1);
+        return -1;
+    }
+
+    return 0;
+}
+
+static boolean
 stopTaskForEachHashItem (void *data, void *args) {
     taskItemPtr tsk;
 
     tsk = (taskItemPtr) data;
     pthread_kill (tsk->tid, SIGUSR1);
 
-    return 0;
+    return true;
 }
 
 void
 stopAllTask (void) {
-    hashForEachItemDo (taskManagerHashTable, stopTaskForEachHashItem, NULL);
-    hashClean (taskManagerHashTable);
+    hashForEachItemDelInCase (taskManagerHashTable, stopTaskForEachHashItem, NULL);
     /* Wait for all tasks exit completely */
     sleep (1);
 }
 
 void
-sendTaskExit (void) {
+sendTaskStatus (taskStatus status) {
     char exitMsg [128];
 
-    snprintf (exitMsg, sizeof (exitMsg), "%u:%u", TASK_STATUS_EXIT, gettid ());
+    snprintf (exitMsg, sizeof (exitMsg), "%u:%lu", status, pthread_self ());
 
-    pthread_mutex_lock (&taskStatusPushSockLock);
-    zstr_send (getTaskStatusPushSock (), exitMsg);
-    pthread_mutex_unlock (&taskStatusPushSockLock);
-}
-
-static char *
-recvTaskStatusNonBlock (void) {
-    pthread_mutex_lock (&taskStatusPullSockLock);
-    return zstr_recv_nowait (getTaskStatusPullSock ());
-    pthread_mutex_unlock (&taskStatusPullSockLock);
+    pthread_mutex_lock (&taskStatusSendSockLock);
+    zstr_send (getTaskStatusSendSock (), exitMsg);
+    pthread_mutex_unlock (&taskStatusSendSockLock);
 }
 
 int
@@ -164,9 +129,11 @@ taskStatusHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
     int retries, ret;
     char *statusMsg;
     u_int status;
-    taskId tid;
+    pthread_t tid;
 
-    statusMsg = recvTaskStatusNonBlock ();
+    pthread_mutex_lock (&taskStatusRecvSockLock);
+    statusMsg = zstr_recv_nowait (getTaskStatusRecvSock ());
+    pthread_mutex_unlock (&taskStatusRecvSockLock);
     if (statusMsg == NULL)
         return 0;
 
@@ -204,7 +171,6 @@ taskStatusHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
 
 int
 initTaskManager (void) {
-    setupTaskSignal ();
     taskManagerHashTable = hashNew (0);
     if (taskManagerHashTable == NULL) {
         LOGE ("Create taskManagerHashTable error.\n");

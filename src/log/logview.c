@@ -5,6 +5,7 @@
 #include <string.h>
 #include "util.h"
 #include "log.h"
+#include "log_service.h"
 
 /* Log server ip */
 static char *logServerIp = NULL;
@@ -119,7 +120,7 @@ main (int argc, char *argv []) {
         zctx_destroy (&zmqContext);
         return -1;
     }
-    ret = zsocket_connect (subSock, "tcp://%s:%d", logServerIp ? logServerIp : "localhost", LOG_SERVICE_PUBLISH_PORT);
+    ret = zsocket_connect (subSock, "tcp://%s:%d", logServerIp ? logServerIp : "localhost", LOG_SERVICE_LOG_PUBLISH_PORT);
     if (ret < 0) {
         zctx_destroy (&zmqContext);
         return -1;

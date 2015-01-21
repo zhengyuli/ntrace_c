@@ -43,8 +43,8 @@ struct _halfStream {
     u_char urgSeen;                     /**< Half stream has new urg data flag */
     u_short urgPtr;                     /**< Half stream urg data pointer */
     u_short window;                     /**< Half stream current window size */
-    boolean tsOn;                          /**< Half stream timestamp options on flag */
-    boolean wscaleOn;                      /**< Half stream window scale options on flag */
+    boolean tsOn;                       /**< Half stream timestamp options on flag */
+    boolean wscaleOn;                   /**< Half stream window scale options on flag */
     u_int currTs;                       /**< Half stream current timestamp */
     u_short wscale;                     /**< Half stream window scale size */
     u_short mss;                        /**< Half stream MSS (Maxium Segment Size) */
@@ -72,8 +72,8 @@ typedef enum {
     STREAM_CLOSED,
     STREAM_RESET_TYPE1,                 /**< Tcp connection reset type1 (from client and before connected) */
     STREAM_RESET_TYPE2,                 /**< Tcp connection reset type2 (from server and before connected) */
-    STREAM_RESET_TYPE3,                 /**< Tcp connection reset type3 (from client and after connected) */ 
-    STREAM_RESET_TYPE4,                 /**< Tcp connection reset type4 (from server and after connected) */ 
+    STREAM_RESET_TYPE3,                 /**< Tcp connection reset type3 (from client and after connected) */
+    STREAM_RESET_TYPE4,                 /**< Tcp connection reset type4 (from server and after connected) */
 } tcpStreamState;
 
 typedef struct _tcpStream tcpStream;

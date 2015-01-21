@@ -7,14 +7,15 @@
 #include "util.h"
 #include "list.h"
 #include "hash.h"
-#include "log.h"
 #include "checksum.h"
+#include "log.h"
 #include "app_service_manager.h"
 #include "ip_options.h"
 #include "ip_packet.h"
 
+/* Ip packet maximum size */
 #define MAX_IP_PACKET_SIZE 65535
-/* Default expire timeout of ipQueue is 30 seconds */
+/* Default expire timeout of ipQueue */
 #define DEFAULT_IPQUEUE_EXPIRE_TIMEOUT 30
 /* Default ipQueue hash table size */
 #define DEFAULT_IPQUEUE_HASH_TABLE_SIZE 65535
@@ -32,8 +33,7 @@ displayIphdr (const struct ip *iph) {
 
     offset = ntohs (iph->ip_off);
     flags = offset & ~IP_OFFMASK;
-    offset = offset & IP_OFFMASK;
-    offset <<= 3;
+    offset = (offset & IP_OFFMASK) << 3;
 
     if ((flags & IP_MF) || offset) {
         LOGD ("Ip fragment src: %s ------------>", inet_ntoa (iph->ip_src));
@@ -52,13 +52,13 @@ newIpFrag (struct ip *iph) {
     iphLen = iph->ip_hl * 4;
     ipLen = ntohs (iph->ip_len);
     offset = ntohs (iph->ip_off);
-    offset &= IP_OFFMASK;
-    offset <<= 3;
+    offset = (offset & IP_OFFMASK) << 3;
     end = offset + ipLen - iphLen;
 
     ipf = (ipFragPtr) malloc (sizeof (ipFrag));
     if (ipf == NULL)
         return NULL;
+
     ipf->offset = offset;
     ipf->end = end;
     ipf->dataLen = end - offset;
@@ -74,11 +74,8 @@ newIpFrag (struct ip *iph) {
     return ipf;
 }
 
-static void
+static inline void
 freeIpFrag (ipFragPtr ipf) {
-    if (ipf == NULL)
-        return;
-
     free (ipf->skbuf);
     free (ipf);
 }
@@ -195,7 +192,6 @@ freeIpQueue (void *data) {
     free (ipq);
 }
 
-/* Search ipQueue expire timeout list and remove expired ipQueue */
 static void
 checkIpQueueExpireTimeoutList (timeValPtr tm) {
     ipQueueTimeoutPtr pos, tmp;
@@ -208,7 +204,6 @@ checkIpQueueExpireTimeoutList (timeValPtr tm) {
     }
 }
 
-/* Check ipQueue done state */
 static boolean
 ipQueueDone (ipQueuePtr ipq) {
     ipFragPtr pos, tmp;
@@ -217,7 +212,6 @@ ipQueueDone (ipQueuePtr ipq) {
     if (!ipq->dataLen)
         return false;
 
-    /* Init offset */
     offset = 0;
     listForEachEntrySafe (pos, tmp, &ipq->fragments, node) {
         if (pos->offset != offset)
@@ -309,9 +303,9 @@ pktShouldDrop (struct ip *iphdr) {
         snprintf (key1, sizeof (key1), "%s:%d", inet_ntoa (iphdr->ip_src), ntohs (tcph->source));
         snprintf (key2, sizeof (key2), "%s:%d", inet_ntoa (iphdr->ip_dst), ntohs (tcph->dest));
         if (getAppServiceProtoAnalyzer (key1) || getAppServiceProtoAnalyzer (key2))
-            return true;
-        else
             return false;
+        else
+            return true;
     } else
         return true;
 }
@@ -345,8 +339,7 @@ ipDefrag (struct ip *iph, timeValPtr tm, struct ip **newIph) {
     ipLen = ntohs (iph->ip_len);
     offset = ntohs (iph->ip_off);
     flags = offset & ~IP_OFFMASK;
-    offset &= IP_OFFMASK;
-    offset <<= 3;
+    offset = (offset & IP_OFFMASK) << 3;
     end = offset + ipLen - iphLen;
 
     /* Get ipQueue */
@@ -361,7 +354,6 @@ ipDefrag (struct ip *iph, timeValPtr tm, struct ip **newIph) {
     }
 
 #ifndef NDEBUG
-    /* Display ip fragment header information */
     displayIphdr (iph);
 #endif
 

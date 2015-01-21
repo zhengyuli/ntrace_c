@@ -80,7 +80,7 @@ getIpPacket (u_char *rawPkt, u_int datalinkType) {
             break;
 
         default:
-            LOGE ("Unknown link type.\n");
+            LOGE ("Unknown datalink type.\n");
             return NULL;
     }
 

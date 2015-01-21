@@ -142,7 +142,10 @@ main (int argc, char *argv []) {
                 realLogMsg = logMsg;
             else
                 realLogMsg = strstr (logMsg, "): ") + strlen ("): ");
-            printf ("%s", realLogMsg);
+
+            if (realLogMsg)
+                printf ("%s", realLogMsg);
+
             free (logMsg);
         }
     }

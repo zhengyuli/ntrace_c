@@ -348,7 +348,7 @@ main (int argc, char *argv []) {
         goto destroyProperties;
     }
 
-    /* Run as daemon process */
+    /* Run as daemon service */
     if (getPropertiesDaemonMode ())
         ret = agentDaemon ();
     else

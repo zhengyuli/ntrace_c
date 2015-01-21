@@ -431,6 +431,7 @@ newHttpSessionDetail (void) {
     reqParserSettings->on_body = onReqBody;
     reqParserSettings->on_message_complete = onReqMessageComplete;
     http_parser_init (reqParser, HTTP_REQUEST);
+
     /* Init http response parser */
     resParser = &hsd->resParser;
     resParserSettings = &hsd->resParserSettings;

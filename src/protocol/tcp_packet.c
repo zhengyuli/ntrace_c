@@ -12,15 +12,15 @@
 #include "util.h"
 #include "list.h"
 #include "hash.h"
-#include "log.h"
 #include "atomic.h"
 #include "checksum.h"
+#include "log.h"
 #include "app_service_manager.h"
 #include "tcp_options.h"
 #include "tcp_packet.h"
 #include "proto_analyzer.h"
 
-/* Default tcp stream closing timeout 30 seconds */
+/* Default closing timeout of tcp stream */
 #define DEFAULT_TCP_STREAM_CLOSING_TIMEOUT 30
 /* Default tcp stream hash table size */
 #define DEFAULT_TCP_STREAM_HASH_TABLE_SIZE 65535
@@ -29,35 +29,37 @@
 /* Tcp stream hash key format string */
 #define TCP_STREAM_HASH_KEY_FORMAT "%s:%u:%s:%u"
 
-/* Global tcp connection id */
-static u_long_long tcpConnectionId = 0;
-/* Tcp connection id spin lock */
-static pthread_spinlock_t tcpConnectionIdLock;
-/* Global tcp breakdown id */
-static u_long_long tcpBreakdownId = 0;
-/* Tcp breakdown id lock */
-static pthread_spinlock_t tcpBreakdownIdLock;
-/* Tcp context init once control */
-static pthread_once_t tcpInitOnceControl = PTHREAD_ONCE_INIT;
-/* Tcp context destroy once control */
-static pthread_once_t tcpDestroyOnceControl = PTHREAD_ONCE_INIT;
-
 /* Debug statistic data */
 #ifndef NDEBUG
 static u_int tcpStreamsAlloc = 0;
 static u_int tcpStreamsFree = 0;
 #endif
 
+/* Global tcp connection id */
+static u_long_long tcpConnectionId = 0;
+/* Tcp connection id spin lock */
+static pthread_spinlock_t tcpConnectionIdLock;
+
+/* Global tcp breakdown id */
+static u_long_long tcpBreakdownId = 0;
+/* Tcp breakdown id lock */
+static pthread_spinlock_t tcpBreakdownIdLock;
+
+/* Tcp context init once control */
+static pthread_once_t tcpInitOnceControl = PTHREAD_ONCE_INIT;
+/* Tcp context destroy once control */
+static pthread_once_t tcpDestroyOnceControl = PTHREAD_ONCE_INIT;
+
 /* Tcp stream list */
 static __thread listHead tcpStreamList;
 /* Tcp stream timeout list */
 static __thread listHead tcpStreamTimoutList;
-/* Tcp stream hash table */
-static __thread hashTablePtr tcpStreamHashTable;
 /* Tcp breakdown publish callback */
 static __thread publishSessionBreakdownCB publishSessionBreakdownFunc;
 /* Tcp breakdown publish callback args */
 static __thread void *publishSessionBreakdownArgs;
+/* Tcp stream hash table */
+static __thread hashTablePtr tcpStreamHashTable;
 
 static inline boolean
 before (u_int seq1, u_int seq2) {
@@ -131,7 +133,6 @@ addTcpStreamToClosingTimeoutList (tcpStreamPtr stream, timeValPtr tm) {
     listAddTail (&tst->node, &tcpStreamTimoutList);
 }
 
-/* Delete tcp stream from global tcp stream timeout list */
 static void
 delTcpStreamFromClosingTimeoutList (tcpStreamPtr stream) {
     tcpStreamTimeoutPtr pos, tmp;
@@ -149,8 +150,8 @@ delTcpStreamFromClosingTimeoutList (tcpStreamPtr stream) {
 }
 
 /*
- * @brief Lookup tcp stream from global tcp stream hash
- *        table
+ * @brief Lookup tcp stream from global tcp stream hash table
+ *
  * @param addr tcp stream 4 tuple address
  *
  * @return Tcp stream if success else NULL
@@ -160,8 +161,8 @@ lookupTcpStreamFromHash (tuple4Ptr addr) {
     char key [64];
 
     snprintf (key, sizeof (key), TCP_STREAM_HASH_KEY_FORMAT,
-             inet_ntoa (addr->saddr), addr->source,
-             inet_ntoa (addr->daddr), addr->dest);
+              inet_ntoa (addr->saddr), addr->source,
+              inet_ntoa (addr->daddr), addr->dest);
     return (tcpStreamPtr) hashLookup (tcpStreamHashTable, key);
 }
 
@@ -181,8 +182,8 @@ addTcpStreamToHash (tcpStreamPtr stream, hashItemFreeCB freeFun) {
 
     addr = &stream->addr;
     snprintf (key, sizeof (key), TCP_STREAM_HASH_KEY_FORMAT,
-             inet_ntoa (addr->saddr), addr->source,
-             inet_ntoa (addr->daddr), addr->dest);
+              inet_ntoa (addr->saddr), addr->source,
+              inet_ntoa (addr->daddr), addr->dest);
     ret = hashInsert (tcpStreamHashTable, key, stream, freeFun);
     if (ret < 0) {
         LOGE ("Insert stream to hash table error.\n");
@@ -204,8 +205,8 @@ delTcpStreamFromHash (tcpStreamPtr stream) {
 
     addr = &stream->addr;
     snprintf (key, sizeof (key), TCP_STREAM_HASH_KEY_FORMAT,
-             inet_ntoa (addr->saddr), addr->source,
-             inet_ntoa (addr->daddr), addr->dest);
+              inet_ntoa (addr->saddr), addr->source,
+              inet_ntoa (addr->daddr), addr->dest);
     ret = hashDel (tcpStreamHashTable, key);
     if (ret < 0)
         LOGE ("Delete stream from hash table error.\n");
@@ -254,7 +255,6 @@ findTcpStream (struct tcphdr *tcph, struct ip * iph, streamDirection *direction)
     return NULL;
 }
 
-/* Create a new tcpStream and init */
 static tcpStreamPtr
 newTcpStream (protoAnalyzerPtr analyzer) {
     tcpStreamPtr stream;
@@ -265,6 +265,7 @@ newTcpStream (protoAnalyzerPtr analyzer) {
 
     stream->proto = analyzer->proto;
     stream->analyzer = analyzer;
+
     /* Init 4-tuple address */
     stream->addr.saddr.s_addr = 0;
     stream->addr.source = 0;
@@ -272,6 +273,7 @@ newTcpStream (protoAnalyzerPtr analyzer) {
     stream->addr.dest = 0;
     stream->connId = getTcpConnectionId ();
     stream->state = STREAM_INIT;
+
     /* Init client halfStream */
     stream->client.state = TCP_CLOSE;
     stream->client.rcvBuf = NULL;
@@ -296,6 +298,7 @@ newTcpStream (protoAnalyzerPtr analyzer) {
     initListHead (&stream->client.head);
     stream->client.rmemAlloc = 0;
     /* Init client halfStream end */
+
     /* Init server halfStream */
     stream->server.state = TCP_CLOSE;
     stream->server.rcvBuf = NULL;
@@ -320,6 +323,7 @@ newTcpStream (protoAnalyzerPtr analyzer) {
     initListHead (&stream->server.head);
     stream->server.rmemAlloc = 0;
     /* Init server halfStream end */
+
     /* Init tcp session detail */
     stream->synTime = 0;
     stream->retries = 0;
@@ -335,6 +339,7 @@ newTcpStream (protoAnalyzerPtr analyzer) {
     stream->outOfOrderPkts = 0;
     stream->zeroWindows = 0;
     stream->dupAcks = 0;
+
     /* Init application service session detail */
     stream->sessionDetail = (*stream->analyzer->newSessionDetail) ();
     if (stream->sessionDetail == NULL) {
@@ -348,11 +353,9 @@ newTcpStream (protoAnalyzerPtr analyzer) {
     return stream;
 }
 
-/* Tcp stream free function */
 static void
-freeTcpStream (void *data) {
+freeTcpStream (tcpStreamPtr stream) {
     skbuffPtr pos, tmp;
-    tcpStreamPtr stream = (tcpStreamPtr) data;
 
     /* Delete stream from global tcp stream list */
     listDel (&stream->node);
@@ -366,7 +369,6 @@ freeTcpStream (void *data) {
         free (pos);
     }
     free (stream->client.rcvBuf);
-    /* Free client halfStream end */
 
     /* Free server halfStream */
     listForEachEntrySafe (pos, tmp, &stream->server.head, node) {
@@ -375,21 +377,28 @@ freeTcpStream (void *data) {
         free (pos);
     }
     free (stream->server.rcvBuf);
-    /* Free server halfStream end */
 
     /* Free session detail */
     (*stream->analyzer->freeSessionDetail) (stream->sessionDetail);
-    free (data);
+
+    free (stream);
+}
+
+static void
+freeTcpStreamForHash (void *data) {
+    tcpStreamPtr stream = (tcpStreamPtr) data;
+
+    freeTcpStream (stream);
 }
 
 /*
- * @brief Alloc new tcp stream and add it to global hash table
+ * @brief Alloc new tcp stream.
  *
  * @param tcph tcp header for current packet
  * @param iph ip header for current packet
  * @param tm timestamp for current packet
  *
- * @return TcpStream if success else NULL
+ * @return Tcp stream if success else NULL
  */
 static tcpStreamPtr
 addNewTcpStream (struct tcphdr *tcph, struct ip *iph, timeValPtr tm) {
@@ -411,12 +420,13 @@ addNewTcpStream (struct tcphdr *tcph, struct ip *iph, timeValPtr tm) {
         LOGE ("Create new tcpStream error.\n");
         return NULL;
     }
-    
+
     /* Set stream 4-tuple address */
     stream->addr.saddr = iph->ip_src;
     stream->addr.source = ntohs (tcph->source);
     stream->addr.daddr = iph->ip_dst;
     stream->addr.dest = ntohs (tcph->dest);
+
     /* Set client halfStream */
     stream->client.state = TCP_SYN_SENT;
     stream->client.seq = ntohl (tcph->seq) + 1;
@@ -442,10 +452,12 @@ addNewTcpStream (struct tcphdr *tcph, struct ip *iph, timeValPtr tm) {
         listFirstEntry (tmp, &tcpStreamList, node);
         delTcpStreamFromHash (tmp);
     }
+
     /* Add to global tcp stream list */
     listAddTail (&stream->node, &tcpStreamList);
+
     /* Add to global tcp stream hash table */
-    ret = addTcpStreamToHash (stream, freeTcpStream);
+    ret = addTcpStreamToHash (stream, freeTcpStreamForHash);
     if (ret < 0) {
         LOGE ("Add tcp stream to stream hash table error.\n");
         return NULL;
@@ -491,7 +503,7 @@ tcpBreakdown2Json (tcpStreamPtr stream, tcpBreakdownPtr tbd) {
     json_object_set_new (root, COMMON_SKBD_TCP_RETRIES_LATENCY, json_integer (tbd->retriesLatency));
     /* Tcp duplicate syn/ack packets */
     json_object_set_new (root, COMMON_SKBD_TCP_DUPLICATE_SYNACKS, json_integer (tbd->dupSynAcks));
-    /* Tcpp mss */
+    /* Tcp MSS */
     json_object_set_new (root, COMMON_SKBD_TCP_MSS, json_integer (tbd->mss));
     /* Tcp connection latency */
     json_object_set_new (root, COMMON_SKBD_TCP_CONNECTION_LATENCY, json_integer (tbd->connLatency));
@@ -575,7 +587,7 @@ publishSessionBreakdown (tcpStreamPtr stream, timeValPtr tm) {
 
         default:
             (*stream->analyzer->freeSessionBreakdown) (tbd.sessionBreakdown);
-            LOGE ("Unsupported stream state for breakdown.\n");
+            LOGE ("Unknown stream state for breakdown.\n");
             return;
     }
 
@@ -653,12 +665,11 @@ checkTcpStreamClosingTimeoutList (timeValPtr tm) {
     listForEachEntrySafe (pos, tmp, &tcpStreamTimoutList, node) {
         if (pos->timeout > tm->tvSec)
             return;
-        else {
-            pos->stream->state = STREAM_TIME_OUT;
-            pos->stream->closeTime = timeVal2MilliSecond (tm);
-            publishSessionBreakdown (pos->stream, tm);
-            delTcpStreamFromHash (pos->stream);
-        }
+
+        pos->stream->state = STREAM_TIME_OUT;
+        pos->stream->closeTime = timeVal2MilliSecond (tm);
+        publishSessionBreakdown (pos->stream, tm);
+        delTcpStreamFromHash (pos->stream);
     }
 }
 
@@ -673,7 +684,7 @@ handleEstb (tcpStreamPtr stream, timeValPtr tm) {
     stream->mss = MIN_NUM (stream->client.mss, stream->server.mss);
 
     (*stream->analyzer->sessionProcessEstb) (stream->sessionDetail, tm);
-    /* Publish tcp connected breakdown */
+
     publishSessionBreakdown (stream, tm);
 }
 
@@ -792,9 +803,9 @@ add2buf (halfStreamPtr rcv, u_char *data, u_int dataLen) {
             rcv->bufSize = toAlloc;
         } else {
             if (dataLen < rcv->bufSize)
-                toAlloc = 2 * rcv->bufSize;
+                toAlloc = rcv->bufSize * 2;
             else
-                toAlloc = rcv->bufSize + 2 * dataLen;
+                toAlloc = rcv->bufSize + dataLen * 2;
             rcv->rcvBuf = (u_char *) realloc (rcv->rcvBuf, toAlloc);
             if (rcv->rcvBuf == NULL) {
                 LOGE ("Alloc memory for halfStream rcvBuf error: %s.\n", strerror (errno));
@@ -839,7 +850,8 @@ addFromSkb (tcpStreamPtr stream, halfStreamPtr snd, halfStreamPtr rcv, u_char *d
         rcv->urgSeen = 1;
     }
 
-    if (rcv->urgSeen && after (rcv->urgPtr + 1, curSeq + lost) &&
+    if (rcv->urgSeen &&
+        after (rcv->urgPtr + 1, curSeq + lost) &&
         before (rcv->urgPtr, curSeq + dataLen)) {
         toCopy1 = rcv->urgPtr - (curSeq + lost);
         if (toCopy1 > 0) {
@@ -1024,7 +1036,7 @@ tcpProcess (struct ip *iph, timeValPtr tm) {
 
     stream = findTcpStream (tcph, iph, &direction);
     if (stream == NULL) {
-        /* The first packet of tcp three handshake */
+        /* The first sync packet of tcp three handshakes */
         if (tcph->syn && !tcph->ack && !tcph->rst) {
             stream = addNewTcpStream (tcph, iph, tm);
             if (stream == NULL) {
@@ -1051,7 +1063,8 @@ tcpProcess (struct ip *iph, timeValPtr tm) {
         stream->zeroWindows++;
 
     if (tcph->syn) {
-        if ((direction == STREAM_FROM_CLIENT) || (stream->client.state != TCP_SYN_SENT) ||
+        if ((direction == STREAM_FROM_CLIENT) ||
+            (stream->client.state != TCP_SYN_SENT) ||
             (stream->server.state != TCP_CLOSE) || !tcph->ack) {
             /* Tcp syn retries */
             if ((direction == STREAM_FROM_CLIENT) && (stream->client.state == TCP_SYN_SENT)) {
@@ -1067,7 +1080,7 @@ tcpProcess (struct ip *iph, timeValPtr tm) {
             stream->retransmittedPkts++;
             return;
         } else {
-            /* The second packet of tcp three handshake */
+            /* The second packet of tcp three handshakes */
             if (stream->client.seq != ntohl (tcph->ack_seq)) {
                 LOGW ("Error ack sequence number of syn/ack packet.\n");
                 return;
@@ -1129,7 +1142,7 @@ tcpProcess (struct ip *iph, timeValPtr tm) {
 
     if (tcph->ack) {
         if (direction == STREAM_FROM_CLIENT) {
-            /* The last packet of tcp three handshake */
+            /* The last packet of tcp three handshakes */
             if (stream->client.state == TCP_SYN_SENT && stream->server.state == TCP_SYN_RECV) {
                 if (ntohl (tcph->ack_seq) == stream->server.seq) {
                     handleEstb (stream, tm);
@@ -1165,11 +1178,17 @@ tcpProcess (struct ip *iph, timeValPtr tm) {
 
 static void
 initTcpSharedInstance (void) {
+#ifndef NDEBUG
     tcpStreamsAlloc = 0;
     tcpStreamsFree = 0;
-    tcpBreakdownId = 0;
+#endif
+
+    tcpConnectionId = 0;
     pthread_spin_init (&tcpConnectionIdLock, PTHREAD_PROCESS_PRIVATE);
+
+    tcpBreakdownId = 0;
     pthread_spin_init (&tcpBreakdownIdLock, PTHREAD_PROCESS_PRIVATE);
+
     tcpDestroyOnceControl = PTHREAD_ONCE_INIT;
 }
 
@@ -1180,27 +1199,35 @@ destroyTcpSharedInstance (void) {
     tcpInitOnceControl = PTHREAD_ONCE_INIT;
 }
 
-/* Init tcp process context */
+/* Init tcp context */
 int
 initTcp (publishSessionBreakdownCB callback, void *args) {
+    if (callback == NULL) {
+        LOGE ("Publish session breakdown callback is null.\n");
+        return -1;
+    }
+
     pthread_once (&tcpInitOnceControl, initTcpSharedInstance);
+
     initListHead (&tcpStreamList);
     initListHead (&tcpStreamTimoutList);
+
     publishSessionBreakdownFunc = callback;
     publishSessionBreakdownArgs = args;
+
     tcpStreamHashTable = hashNew (DEFAULT_TCP_STREAM_HASH_TABLE_SIZE);
-    if (tcpStreamHashTable == NULL)
+    if (tcpStreamHashTable == NULL) {
+        pthread_once (&tcpDestroyOnceControl, destroyTcpSharedInstance);
         return -1;
-    else
-        return 0;
+    }
+
+    return 0;
 }
 
-/* Destroy tcp process context */
+/* Destroy tcp context */
 void
 destroyTcp (void) {
     pthread_once (&tcpDestroyOnceControl, destroyTcpSharedInstance);
-    publishSessionBreakdownFunc = NULL;
-    publishSessionBreakdownArgs = NULL;
     hashDestroy (tcpStreamHashTable);
     tcpStreamHashTable = NULL;
 }

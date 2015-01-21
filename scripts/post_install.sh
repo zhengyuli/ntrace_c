@@ -4,7 +4,7 @@
 # Name: post_install.sh
 # Purpose:
 #
-# Time-stamp: <2015-01-19 13:05:15 Monday by lzy>
+# Time-stamp: <2015-01-21 14:07:26 Wednesday by lzy>
 #
 # Author: zhengyu li
 # Created: 2014-03-27
@@ -26,3 +26,4 @@ toUpper() {
 }
 
 mkdir -p /var/run/$(toLower ${PROJECT_NAME})
+mkdir -p /var/log/$(toLower ${PROJECT_NAME})

@@ -75,19 +75,19 @@ ntohll (u_long_long src);
 u_long_long
 htonll (u_long_long src);
 boolean
-strEqualIgnoreCase (const char *str1, const char *str2);
+strEqualIgnoreCase (char *str1, char *str2);
 boolean
-strEqual (const char *str1, const char *str2);
+strEqual (char *str1, char *str2);
 ssize_t
 safeRead (int fd, void *buf, size_t count);
 ssize_t
-safeWrite (int fd, const void *buf, size_t count);
+safeWrite (int fd, void *buf, size_t count);
 boolean
-fileExists (const char *path);
+fileExists (char *path);
 boolean
-fileIsEmpty (const char *path);
+fileIsEmpty (char *path);
 char *
-getIpAddrOfInterface (const char *interface);
+getIpAddrOfInterface (char *interface);
 u_int
 getCpuCoresNum (void);
 /*=======================Interfaces definition end=========================*/

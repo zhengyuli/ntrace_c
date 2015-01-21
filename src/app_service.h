@@ -25,10 +25,10 @@ struct _appService {
 /*========================Interfaces definition============================*/
 appServicePtr
 newAppService (void);
-appServicePtr
-copyAppService (appServicePtr appService);
 void
 freeAppService (appServicePtr svc);
+appServicePtr
+copyAppService (appServicePtr appService);
 void
 freeAppServiceForHash (void *data);
 json_t *

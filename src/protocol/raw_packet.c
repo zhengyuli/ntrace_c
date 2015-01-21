@@ -5,15 +5,15 @@
  * @brief Extract ip packet from raw packet
  *
  * @param rawPkt raw packet captured by pcap
- * @param linkType datalink type
+ * @param dataLinkType datalink type
  *
  * @return Ip packet address if success else NULL
  */
 u_char *
-getIpPacket (u_char *rawPkt, u_int linkType) {
+getIpPacket (u_char *rawPkt, u_int datalinkType) {
     u_int offset;
 
-    switch (linkType) {
+    switch (datalinkType) {
         /* BSD loopback encapsulation */
         case DLT_NULL:
             offset = 4;

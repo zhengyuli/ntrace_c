@@ -29,6 +29,7 @@ SET (AGENT_SOURCE_FILES
   properties.c
   args_parser.c
   signals.c
+  log/log_service.c
   log/log.c
   zmq_hub.c
   task_manager.c
@@ -36,16 +37,15 @@ SET (AGENT_SOURCE_FILES
   app_service_manager.c
   management_service.c
   netdev.c
-  ./log/log_service.c
   raw_packet_capture_service.c
   ip_packet_process_service.c
   tcp_packet_process_service.c
-  ./protocol/checksum.c
-  ./protocol/raw_packet.c
-  ./protocol/ip_options.c
-  ./protocol/ip_packet.c
-  ./protocol/tcp_options.c
-  ./protocol/tcp_packet.c
+  protocol/checksum.c
+  protocol/raw_packet.c
+  protocol/ip_options.c
+  protocol/ip_packet.c
+  protocol/tcp_options.c
+  protocol/tcp_packet.c
   analyzer/proto_analyzer.c
   analyzer/default/default_analyzer.c)
 

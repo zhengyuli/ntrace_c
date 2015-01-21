@@ -14,20 +14,20 @@
 
 /*
  * Raw packet capture service.
- * Capture raw packet from mirror interface, then get ip packet
- * from raw packet and push it to ip packet parsing service.
+ * Capture raw packet from mirror interface, then extract ip packet
+ * from raw packet and send it to ip packet process service.
  */
 void *
 rawPktCaptureService (void *args) {
     int ret;
     pcap_t *pcapDev;
-    int linkType;
-    char *filter;
-    struct pcap_pkthdr *capPkthdr;
+    int datalinkType;
     void *ipPktSendSock;
+    char *filter;
+    struct pcap_pkthdr *capturePktHdr;
     u_char *rawPkt;
     struct ip *ipPkt;
-    timeVal capTime;
+    timeVal captureTime;
     zframe_t *frame;
 
     /* Reset signals flag */
@@ -42,15 +42,15 @@ rawPktCaptureService (void *args) {
 
     /* Get net device pcap descriptor */
     pcapDev = getNetDev ();
-    /* Get net device link type */
-    linkType = getNetDevLinkType ();
+    /* Get net device datalink type */
+    datalinkType = getNetDevDatalinkType ();
     /* Get ipPktSendSock */
     ipPktSendSock = getIpPktSendSock ();
 
     /* Update application services filter */
     filter = getAppServicesFilter ();
     if (filter == NULL) {
-        LOGE ("Get application service filter error.\n");
+        LOGE ("Get application services filter error.\n");
         goto destroyLog;
     }
     ret = updateFilter (filter);
@@ -59,40 +59,40 @@ rawPktCaptureService (void *args) {
         free (filter);
         goto destroyLog;
     }
-    LOGD ("Update application services filter: %s\n", filter);
+    LOGD ("Update BPF filter with: %s\n", filter);
     free (filter);
 
-    while (!sigusr1IsInterrupted ())
+    while (!SIGUSR1IsInterrupted ())
     {
-        ret = pcap_next_ex (pcapDev, &capPkthdr, (const u_char **) &rawPkt);
+        ret = pcap_next_ex (pcapDev, &capturePktHdr, (const u_char **) &rawPkt);
         if (ret == 1) {
-            /* Filter out incomplete packet */
-            if (capPkthdr->caplen != capPkthdr->len)
+            /* Filter out incomplete raw packet */
+            if (capturePktHdr->caplen != capturePktHdr->len)
                 continue;
 
             /* Get ip packet */
-            ipPkt = (struct ip *) getIpPacket (rawPkt, linkType);
+            ipPkt = (struct ip *) getIpPacket (rawPkt, datalinkType);
             if (ipPkt == NULL)
                 continue;
 
             /* Get packet capture timestamp */
-            capTime.tvSec = htonll (capPkthdr->ts.tv_sec);
-            capTime.tvUsec = htonll (capPkthdr->ts.tv_usec);
+            captureTime.tvSec = htonll (capturePktHdr->ts.tv_sec);
+            captureTime.tvUsec = htonll (capturePktHdr->ts.tv_usec);
 
-            /* Push capture timestamp zframe */
-            frame = zframe_new (&capTime, sizeof (timeVal));
+            /* Send capture timestamp zframe */
+            frame = zframe_new (&captureTime, sizeof (timeVal));
             if (frame == NULL) {
                 LOGE ("Create packet timestamp zframe error.\n");
                 continue;
             }
             ret = zframe_send (&frame, ipPktSendSock, ZFRAME_MORE);
             if (ret < 0) {
-                LOGE ("Push packet timestamp zframe error.\n");
+                LOGE ("Send packet timestamp zframe error.\n");
                 zframe_destroy (&frame);
                 continue;
             }
 
-            /* Push ip packet zframe */
+            /* Send ip packet zframe */
             frame = zframe_new (ipPkt, ntohs (ipPkt->ip_len));
             if (frame == NULL) {
                 LOGE ("Create ip packet zframe error.\n");
@@ -100,12 +100,12 @@ rawPktCaptureService (void *args) {
             }
             ret = zframe_send (&frame, ipPktSendSock, 0);
             if (ret < 0) {
-                LOGE ("Push ip packet zframe error.\n");
+                LOGE ("Send ip packet zframe error.\n");
                 zframe_destroy (&frame);
                 continue;
             }
         } else if (ret == -1) {
-            LOGE ("Capture packet fatal error, rawPktCaptureService will exit...\n");
+            LOGE ("Capture raw packet with fatal error.\n");
             break;
         }
     }
@@ -114,7 +114,7 @@ rawPktCaptureService (void *args) {
 destroyLog:
     destroyLog ();
 exit:
-    if (!sigusr1IsInterrupted ())
+    if (!SIGUSR1IsInterrupted ())
         sendTaskStatus (TASK_STATUS_EXIT);
 
     return NULL;

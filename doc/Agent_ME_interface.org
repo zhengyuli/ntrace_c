@@ -2,18 +2,12 @@
 #+AUTHOR: zhengyu li
 #+OPTIONS: ^:nil \n:t
 
-Http request url: http://host:port/post-command
-
-* Add agent
+* Resume
 ** request:
 #+BEGIN_SRC js
   {
-      "command":"add_agent"
-      "body":{
-          "agent_id":"1"
-          "push_ip":"192.168.1.100"
-          "push_port":"4499"
-      }
+      "command":"resume"
+      "body":{}
   }
 #+END_SRC
 
@@ -21,20 +15,16 @@ Http request url: http://host:port/post-command
 #+BEGIN_SRC js
   {
       "code":"0"
-      "body":{
-          "status":"ready"
-      }
+      "body":{}
   }
 #+END_SRC
 
-* Remove agent
+* Stop
 ** request:
 #+BEGIN_SRC js
   {
-      "command":"remove_agent"
-      "body":{
-          "agent_id":"1"
-      }
+      "command":"stop"
+      "body":{}
   }
 #+END_SRC
 
@@ -42,42 +32,7 @@ Http request url: http://host:port/post-command
 #+BEGIN_SRC js
   {
       "code":"0"
-  }
-#+END_SRC
-
-* Start agent
-** request:
-#+BEGIN_SRC js
-  {
-      "command":"start_agent"
-      "body":{
-          "agent_id":"1"
-      }
-  }
-#+END_SRC
-
-** response:
-#+BEGIN_SRC js
-  {
-      "code":"0"
-  }
-#+END_SRC
-
-* Stop agent
-** request:
-#+BEGIN_SRC js
-  {
-      "command":"stop_agent"
-      "body":{
-          "agent_id":"1"
-      }
-  }
-#+END_SRC
-
-** response:
-#+BEGIN_SRC js
-  {
-      "code":"0"
+      "body":{}
   }
 #+END_SRC
 
@@ -86,9 +41,7 @@ Http request url: http://host:port/post-command
 #+BEGIN_SRC js
   {
       "command":"heartbeat"
-      "body":{
-          "agent_id":"1"
-      }
+      "body":{}
   }
 #+END_SRC
 
@@ -96,19 +49,16 @@ Http request url: http://host:port/post-command
 #+BEGIN_SRC js
   {
       "code":"0"
-      "body":{
-          "status":"running"
-      }
+      "body":{}
   }
 #+END_SRC
 
-* Push profile
+* Update profile
 ** request:
 #+BEGIN_SRC js
   {
-      "command":"push_profile"
+      "command":"update_profile"
       "body":{
-          "agent_id":"1"
           "app_services":[{"service_id":"1" ...}, {"service_id":"2" ...}]
       }
   }
@@ -118,5 +68,6 @@ Http request url: http://host:port/post-command
 #+BEGIN_SRC js
   {
       "code":"0"
+      "body":{}
   }
 #+END_SRC

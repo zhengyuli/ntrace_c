@@ -5,7 +5,7 @@
 
 /*========================Interfaces definition============================*/
 boolean
-sigusr1IsInterrupted (void);
+SIGUSR1IsInterrupted (void);
 void
 resetSignalsFlag (void);
 void

@@ -14,8 +14,8 @@
 #include "list.h"
 #include "properties.h"
 #include "signals.h"
-#include "zmq_hub.h"
 #include "log.h"
+#include "zmq_hub.h"
 #include "log_service.h"
 
 #define LOG_TO_FILE_MASK (1 << 0)
@@ -25,11 +25,8 @@
 
 #define LOG_SERVICE_STATUS_EXCHANGE_CHANNEL "inproc://logServiceStatusExchangeChannel"
 
-static zctx_t *logServiceZmqCtxt = NULL;
-static void *logServiceStatusSendSock = NULL;
-static void *logServiceStatusRecvSock = NULL;
-static void *logServiceLogRecvSock = NULL;
-static pthread_t logServiceThreadId;
+/* Log service instance */
+static logServiceCtxtPtr logServiceCtxtInstance = NULL;
 
 /* Log devices list */
 static listHead logDevices;
@@ -37,15 +34,15 @@ static listHead logDevices;
 typedef struct _logDev logDev;
 typedef logDev *logDevPtr;
 /*
- * Log service backend dev, every dev has three interfaces,
+ * Log service append dev, every dev has three interfaces,
  * you can add new log dev into log service with log_dev_add
  */
 struct _logDev {
-    listHead node;                      /**< Log dev list node of global log devices */
     void *data;                         /**< Log dev private data */
     int (*init) (logDevPtr dev);        /**< Log dev init operation */
     void (*destroy) (logDevPtr dev);    /**< Log dev destroy operation */
-    void (*write) (const char *msg, logDevPtr dev, u_int flag); /**< Log dev write operation */
+    void (*write) (char *msg, logDevPtr dev, u_int flag); /**< Log dev write operation */
+    listHead node;                      /**< Log dev list node of global log devices */
 };
 
 /* Flag check */
@@ -73,15 +70,8 @@ struct _logFile {
     u_int checkCount;                   /**< Log file size check count */
 };
 
-/*
- * @brief Check whether log file is oversize
- *
- * @param filePath log file path to check
- *
- * @return true if oversize else FALE
- */
 static boolean
-logFileOversize (const char *filePath) {
+logFileOversize (char *filePath) {
     int ret;
     struct stat fileStat;
 
@@ -95,15 +85,8 @@ logFileOversize (const char *filePath) {
         return false;
 }
 
-/*
- * @brief Rotate log file.
- *
- * @param logFileName log file name to ratate
- *
- * @return 0 if success else -1
- */
 static int
-logFileRotate (const char *logFileName) {
+logFileRotate (char *logFileName) {
     int ret;
     int index;
     char fileNameBuf1 [LOG_FILE_PATH_MAX_LEN];
@@ -150,7 +133,6 @@ logFileRotate (const char *logFileName) {
     return 0;
 }
 
-/* Update log file when log file is oversize. */
 static int
 logFileUpdate (logDevPtr dev) {
     int ret;
@@ -189,18 +171,15 @@ initLogFile (logDevPtr dev) {
         free (logfile);
         return -1;
     }
-
     logfile->fd = open (logfile->filePath, O_WRONLY | O_APPEND | O_CREAT, 0755);
     if (logfile->fd < 0) {
         free (logfile->filePath);
         free (logfile);
         return -1;
     }
-
-    /* Update log file context */
     logfile->checkCount = 0;
-    dev->data = logfile;
 
+    dev->data = logfile;
     return 0;
 }
 
@@ -220,7 +199,7 @@ resetLogFile (logDevPtr dev) {
 }
 
 static void
-writeLogFile (const char *msg, logDevPtr dev, u_int flag) {
+writeLogFile (char *msg, logDevPtr dev, u_int flag) {
     int ret;
     logFilePtr logfile;
 
@@ -231,31 +210,29 @@ writeLogFile (const char *msg, logDevPtr dev, u_int flag) {
     ret = safeWrite (logfile->fd, msg, strlen (msg));
     if ((ret < 0) || (ret != strlen (msg))) {
         ret = resetLogFile (dev);
-        if (ret < 0) {
-            zctx_interrupted = 1;
+        if (ret < 0)
             fprintf (stderr, "Reset log file error.\n");
-        }
         return;
     }
+
     logfile->checkCount++;
-    /* Check whether log file is oversize after checkCount writing */
     if ((logfile->checkCount >= LOG_FILE_SIZE_CHECK_THRESHOLD) &&
         logFileOversize (logfile->filePath)) {
         ret = logFileUpdate (dev);
         if (ret < 0)
-            zctx_interrupted = 1;
-        fprintf (stderr, "Log file update error.\n");
+            fprintf (stderr, "Log file update error.\n");
     }
     sync ();
 }
+/*===========================Log file dev=================================*/
 
-/*===========================Log net dev=================================*/
+/*===========================Log net dev==================================*/
 
 typedef struct _logNet logNet;
 typedef logNet *logNetPtr;
 
 struct _logNet {
-    zctx_t *context;
+    zctx_t *zmqCtxt;
     void *sock;
 };
 
@@ -264,33 +241,36 @@ initLogNet (logDevPtr dev) {
     int ret;
     logNetPtr lognet;
 
-    if ((dev->data = malloc (sizeof (logNet))) == NULL)
+    lognet = (logNetPtr) malloc (sizeof (logNet));
+    if (lognet == NULL)
         return -1;
 
-    lognet = (logNetPtr) dev->data;
-    lognet->context = zctx_new ();
-    if (lognet->context == NULL) {
-        free (dev->data);
+    lognet->zmqCtxt = zctx_new ();
+    if (lognet->zmqCtxt == NULL) {
+        free (lognet);
         return -1;
     }
 
-    lognet->sock = zsocket_new (lognet->context, ZMQ_PUB);
+    lognet->sock = zsocket_new (lognet->zmqCtxt, ZMQ_PUB);
     if (lognet->sock == NULL) {
-        zctx_destroy (&lognet->context);
+        zctx_destroy (&lognet->zmqCtxt);
+        free (lognet);
         return -1;
     }
 
     ret = zsocket_bind (lognet->sock, "tcp://*:%u", LOG_SERVICE_LOG_PUBLISH_PORT);
     if (ret < 0) {
-        zctx_destroy (&lognet->context);
+        zctx_destroy (&lognet->zmqCtxt);
+        free (lognet);
         return -1;
     }
 
+    dev->data = lognet;
     return 0;
 }
 
 static void
-writeLogNet (const char *msg, logDevPtr dev, u_int flag) {
+writeLogNet (char *msg, logDevPtr dev, u_int flag) {
     int ret;
     logNetPtr lognet;
     zframe_t *frame = NULL;
@@ -315,11 +295,11 @@ static void
 destroyLogNet (logDevPtr dev) {
     logNetPtr lognet = (logNetPtr) dev->data;
 
-    zctx_destroy (&lognet->context);
+    zctx_destroy (&lognet->zmqCtxt);
     free (lognet);
 }
 
-/*============================log dev================================*/
+/*============================log dev=================================*/
 
 static int
 logDevAdd (logDevPtr dev) {
@@ -335,7 +315,7 @@ logDevAdd (logDevPtr dev) {
 }
 
 static void
-logDevWrite (listHeadPtr logDevices, const char *msg) {
+logDevWrite (listHeadPtr logDevices, char *msg) {
     u_int flag;
     logDevPtr dev;
 
@@ -370,51 +350,53 @@ logDevDestroy (void) {
 static void *
 logService (void *args) {
     int ret;
-    char *msg;
+    char *logMsg;
     char exitMsg [128];
 
     /* Reset signals flag */
     resetSignalsFlag ();
 
-    /* Init log file backend dev */
+    /* Init log file dev */
     logDev logFileDev = {
+        .data = NULL,
         .init = initLogFile,
         .destroy = destroyLogFile,
         .write = writeLogFile,
     };
 
-    /* Init log net backend dev */
+    /* Init log net dev */
     logDev logNetDev = {
+        .data = NULL,
         .init = initLogNet,
         .destroy = destroyLogNet,
         .write = writeLogNet,
     };
 
-    /* Init file log dev */
     initListHead (&logDevices);
+    /* Add file log dev */
     ret = logDevAdd (&logFileDev);
     if (ret < 0)
         goto exit;
 
-    /* Init net log dev */
+    /* Add net log dev */
     ret = logDevAdd (&logNetDev);
     if (ret < 0)
         goto destroyDev;
 
-    while (!sigusr1IsInterrupted ()) {
-        msg = zstr_recv (logServiceLogRecvSock);
-        if (msg == NULL)
+    while (!SIGUSR1IsInterrupted ()) {
+        logMsg = zstr_recv (logServiceCtxtInstance->logRecvSock);
+        if (logMsg == NULL)
             break;
-        logDevWrite (&logDevices, msg);
-        free (msg);
+        logDevWrite (&logDevices, logMsg);
+        free (logMsg);
     }
 
 destroyDev:
     logDevDestroy ();
 exit:
-    if (!sigusr1IsInterrupted ()) {
+    if (!SIGUSR1IsInterrupted ()) {
         snprintf (exitMsg, sizeof (exitMsg), "%u:%lu", LOG_SERVICE_STATUS_EXIT, pthread_self ());
-        zstr_send (logServiceStatusSendSock, exitMsg);
+        zstr_send (logServiceCtxtInstance->statusSendSock, exitMsg);
     }
 
     return NULL;
@@ -422,17 +404,18 @@ exit:
 
 void *
 getLogServiceStatusRecvSock (void) {
-    return logServiceStatusRecvSock;
+    return logServiceCtxtInstance->statusRecvSock;
 }
 
 int
 logServiceStatusHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
-    int ret, retries;
+    int ret;
+    u_int retries;
     char *statusMsg;
     u_int status;
     pthread_t tid;
 
-    statusMsg =  zstr_recv_nowait (logServiceStatusRecvSock);
+    statusMsg =  zstr_recv_nowait (logServiceCtxtInstance->statusRecvSock);
     if (statusMsg == NULL)
         return 0;
 
@@ -441,13 +424,14 @@ logServiceStatusHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
         case LOG_SERVICE_STATUS_EXIT:
             fprintf (stderr, "Task %lu exit abnormally.\n", tid);
             retries = LOG_SERVICE_RESTART_MAX_RETRIES;
-            while (retries) {
-                fprintf (stdout, "Try to restart logService... .. .\n");
-                ret = pthread_create (&logServiceThreadId, NULL, logService, NULL);
-                if (ret < 0)
-                    retries--;
-                else
+            retries = 0;
+            while (retries < LOG_SERVICE_RESTART_MAX_RETRIES) {
+                fprintf (stdout, "Try to restart logService %u.\n", retries);
+                ret = pthread_create (&logServiceCtxtInstance->tid, NULL, logService, NULL);
+                if (!ret)
                     break;
+
+                retries++;
             }
             if (ret < 0) {
                 fprintf (stderr, "Restart logService failed.\n");
@@ -468,68 +452,82 @@ logServiceStatusHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
     return ret;
 }
 
+/* Init log service */
 int
 initLogService (void) {
     int ret;
 
-    logServiceZmqCtxt = zctx_new ();
-    if (logServiceZmqCtxt == NULL) {
-        fprintf (stderr, "Create logServiceZmqCtxt error");
-        goto destroyLogServiceZmqCtxt;
+    logServiceCtxtInstance = (logServiceCtxtPtr) malloc (sizeof (logServiceCtxt));
+    if (logServiceCtxtInstance == NULL) {
+        fprintf (stderr, "Alloc logServiceCtxtInstance error.\n");
+        return -1;
     }
-    zctx_set_linger (logServiceZmqCtxt, 0);
+    
+    logServiceCtxtInstance->zmqCtxt = zctx_new ();
+    if (logServiceCtxtInstance->zmqCtxt == NULL) {
+        fprintf (stderr, "Create zmq context error");
+        goto freeLogServiceCtxtInstance;
+    }
+    zctx_set_linger (logServiceCtxtInstance->zmqCtxt, 0);
 
-    /* Create logServiceStatusSendSock */
-    logServiceStatusSendSock = zsocket_new (logServiceZmqCtxt, ZMQ_PUSH);
-    if (logServiceStatusSendSock == NULL) {
-        fprintf (stderr, "Create logServiceStatusSendSock error.\n");
-        goto destroyLogServiceZmqCtxt;
+    /* Create statusSendSock */
+    logServiceCtxtInstance->statusSendSock = zsocket_new (logServiceCtxtInstance->zmqCtxt, ZMQ_PUSH);
+    if (logServiceCtxtInstance->statusSendSock == NULL) {
+        fprintf (stderr, "Create statusSendSock error.\n");
+        goto destroyZmqCtxt;
     }
-    ret = zsocket_bind (logServiceStatusSendSock, LOG_SERVICE_STATUS_EXCHANGE_CHANNEL);
+    ret = zsocket_bind (logServiceCtxtInstance->statusSendSock, LOG_SERVICE_STATUS_EXCHANGE_CHANNEL);
     if (ret < 0) {
         fprintf (stderr, "Bind to %s error.\n", LOG_SERVICE_STATUS_EXCHANGE_CHANNEL);
-        goto destroyLogServiceZmqCtxt;
+        goto destroyZmqCtxt;
     }
 
-    /* Create logServiceStatusRecvSock */
-    logServiceStatusRecvSock = zsocket_new (logServiceZmqCtxt, ZMQ_PULL);
-    if (logServiceStatusRecvSock == NULL) {
-        fprintf (stderr, "Create logServiceStatusRecvSock error.\n");
-        goto destroyLogServiceZmqCtxt;
+    /* Create statusRecvSock */
+    logServiceCtxtInstance->statusRecvSock = zsocket_new (logServiceCtxtInstance->zmqCtxt, ZMQ_PULL);
+    if (logServiceCtxtInstance->statusRecvSock == NULL) {
+        fprintf (stderr, "Create statusRecvSock error.\n");
+        goto destroyZmqCtxt;
     }
-    ret = zsocket_connect (logServiceStatusRecvSock, LOG_SERVICE_STATUS_EXCHANGE_CHANNEL);
+    ret = zsocket_connect (logServiceCtxtInstance->statusRecvSock, LOG_SERVICE_STATUS_EXCHANGE_CHANNEL);
     if (ret < 0) {
         fprintf (stderr, "Connect to %s error.\n", LOG_SERVICE_STATUS_EXCHANGE_CHANNEL);
-        goto destroyLogServiceZmqCtxt;
+        goto destroyZmqCtxt;
     }
 
-    /* Create logServiceLogRecvSock */
-    logServiceLogRecvSock = zsocket_new (logServiceZmqCtxt, ZMQ_PULL);
-    if (logServiceLogRecvSock == NULL) {
-        fprintf (stderr, "Create logServiceLogRecvSock error.\n");
-        goto destroyLogServiceZmqCtxt;
+    /* Create logRecvSock */
+    logServiceCtxtInstance->logRecvSock = zsocket_new (logServiceCtxtInstance->zmqCtxt, ZMQ_PULL);
+    if (logServiceCtxtInstance->logRecvSock == NULL) {
+        fprintf (stderr, "Create logRecvSock error.\n");
+        goto destroyZmqCtxt;
     }
-    ret = zsocket_bind (logServiceLogRecvSock, "tcp://*:%u", LOG_SERVICE_LOG_RECV_PORT);
+    ret = zsocket_bind (logServiceCtxtInstance->logRecvSock, "tcp://*:%u", LOG_SERVICE_LOG_RECV_PORT);
     if (ret < 0) {
         fprintf (stderr, "Bind to \"tcp://*:%u\" error.\n", LOG_SERVICE_LOG_RECV_PORT);
-        goto destroyLogServiceZmqCtxt;
+        goto destroyZmqCtxt;
     }
 
-    ret = pthread_create (&logServiceThreadId, NULL, logService, NULL);
+    ret = pthread_create (&logServiceCtxtInstance->tid, NULL, logService, NULL);
     if (ret < 0) {
         fprintf (stderr, "Start logService error.\n");
-        goto destroyLogServiceZmqCtxt;
+        goto destroyZmqCtxt;
     }
 
     return 0;
 
-destroyLogServiceZmqCtxt:
-    zctx_destroy (&logServiceZmqCtxt);
+destroyZmqCtxt:
+    zctx_destroy (&logServiceCtxtInstance->zmqCtxt);
+freeLogServiceCtxtInstance:
+    free (logServiceCtxtInstance);
+    logServiceCtxtInstance = NULL;
     return -1;
 }
 
+/* Destroy log service */
 void
 destroyLogService (void) {
-    pthread_kill (logServiceThreadId, SIGUSR1);
-    zctx_destroy (&logServiceZmqCtxt);
+    pthread_kill (logServiceCtxtInstance->tid, SIGUSR1);
+    usleep (10000);
+    zctx_destroy (&logServiceCtxtInstance->zmqCtxt);
+    free (logServiceCtxtInstance);
+    logServiceCtxtInstance = NULL;
 }

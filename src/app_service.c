@@ -16,10 +16,20 @@ newAppService (void) {
 
     svc->id = 0;
     svc->proto = NULL;
+    svc->analyzer = NULL;
     svc->ip = NULL;
     svc->port = 0;
-    svc->analyzer = NULL;
+
     return svc;
+}
+
+void
+freeAppService (appServicePtr svc) {
+    if (svc == NULL)
+        return;
+
+    free (svc->ip);
+    free (svc);
 }
 
 appServicePtr
@@ -32,23 +42,15 @@ copyAppService (appServicePtr appService) {
 
     tmp->id = appService->id;
     tmp->proto = appService->proto;
+    tmp->analyzer = appService->analyzer;
     tmp->ip = strdup (appService->ip);
     if (tmp->ip == NULL) {
-        free (tmp);
+        freeAppService (tmp);
         return NULL;
     }
     tmp->port = appService->port;
-    tmp->analyzer = appService->analyzer;
 
     return tmp;
-}
-
-void
-freeAppService (appServicePtr svc) {
-    if (svc == NULL)
-        return;
-    free (svc->ip);
-    free (svc);
 }
 
 void
@@ -87,7 +89,7 @@ json2AppService (json_t *json) {
 
     svc = newAppService ();
     if (svc == NULL) {
-        LOGE ("Alloc appService error: %s.\n", strerror (errno));
+        LOGE ("Alloc appService error.\n");
         return NULL;
     }
 
@@ -95,27 +97,27 @@ json2AppService (json_t *json) {
     tmp = json_object_get (json, APP_SERVICE_ID);
     if (tmp == NULL) {
         LOGE ("Has no %s item.\n", APP_SERVICE_ID);
-        free (svc);
+        freeAppService (svc);
         return NULL;
     }
     svc->id = json_integer_value (tmp);
 
-    /* Get application service proto */
+    /* Get application service proto and analyzer */
     tmp = json_object_get (json, APP_SERVICE_PROTO);
     if (tmp == NULL) {
         LOGE ("Has no %s item.\n", APP_SERVICE_PROTO);
-        free (svc);
+        freeAppService (svc);
         return NULL;
     }
-    analyzer = getProtoAnalyzer (json_string_value (tmp));
+    analyzer = getProtoAnalyzer ((char *) json_string_value (tmp));
     if (analyzer == NULL) {
         LOGE ("Unsupported application service proto type: %s.\n", (json_string_value (tmp)));
-        free (svc);
+        freeAppService (svc);
         return NULL;
     }
     svc->proto = analyzer->proto;
     svc->analyzer = analyzer;
-    
+
     /* Get application service ip */
     tmp = json_object_get (json, APP_SERVICE_IP);
     if (tmp == NULL) {
@@ -125,13 +127,13 @@ json2AppService (json_t *json) {
     }
     if (!inet_aton (json_string_value (tmp), &sa)) {
         LOGE ("Wrong application service ip address: %s.\n", (json_string_value (tmp)));
-        free (svc);
+        freeAppService (svc);
         return NULL;
     }
     svc->ip = strdup (json_string_value (tmp));
     if (svc->ip == NULL) {
         LOGE ("Strdup application service ip error: %s.\n", strerror (errno));
-        free (svc);
+        freeAppService (svc);
         return NULL;
     }
 
@@ -139,8 +141,7 @@ json2AppService (json_t *json) {
     tmp = json_object_get (json, APP_SERVICE_PORT);
     if (tmp == NULL) {
         LOGE ("Has no %s item.\n", APP_SERVICE_PORT);
-        free (svc->ip);
-        free (svc);
+        freeAppService (svc);
         return NULL;
     }
     svc->port = (u_short) json_integer_value (tmp);

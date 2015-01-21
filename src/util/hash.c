@@ -8,8 +8,34 @@
 #define HASH_TABLE_RESIZE_FACTOR 2
 #define HASH_TABLE_LOAD_FACTOR 80
 
+static void
+hlistAdd (hlistNodePtr node, hlistHeadPtr head) {
+    hlistNodePtr first;
+
+    first = head->first;
+    node->next = first;
+    head->first = node;
+    node->pprev = &head->first;
+    if (first)
+        first->pprev = &node->next;
+}
+
+static void
+hlistDel (hlistNodePtr node) {
+    hlistNodePtr next = node->next;
+    hlistNodePtr *pprev = node->pprev;
+
+    if (pprev)
+        *pprev = next;
+    if (next)
+        next->pprev = pprev;
+
+    node->next = NULL;
+    node->pprev = NULL;
+}
+
 static u_int
-itemHash (const char *key) {
+itemHash (char *key) {
     u_int hash = 0;
     u_int seed = 16777619;
 
@@ -32,7 +58,7 @@ itemHash (const char *key) {
  * @return Return hash item if exists else reutrn NULL.
  */
 static hashItemPtr
-hashItemLookup (hashTablePtr htbl, const char *key, u_int *index) {
+hashItemLookup (hashTablePtr htbl, char *key, u_int *index) {
     hashItemPtr item;
     hlistHeadPtr head;
     hlistNodePtr hNode, tmp;
@@ -59,12 +85,11 @@ hashItemLookup (hashTablePtr htbl, const char *key, u_int *index) {
  * @return 0 if success else -1
  */
 static int
-hashItemInsert (hashTablePtr htbl, const char *key, void *data, hashItemFreeCB freeFun) {
+hashItemInsert (hashTablePtr htbl, char *key, void *data, hashItemFreeCB freeFun) {
     u_int index;
     hlistHeadPtr head;
     hashItemPtr item;
 
-    /* Check item with duplicate key */
     item = hashItemLookup (htbl, key, &index);
     if (item == NULL) {
         item = (hashItemPtr ) malloc (sizeof (hashItem));
@@ -72,6 +97,7 @@ hashItemInsert (hashTablePtr htbl, const char *key, void *data, hashItemFreeCB f
             freeFun (data);
             return -1;
         }
+
         item->data = data;
         item->key = strdup (key);
         if (item->key == NULL) {
@@ -81,6 +107,7 @@ hashItemInsert (hashTablePtr htbl, const char *key, void *data, hashItemFreeCB f
         }
         item->index = index;
         item->freeFun = freeFun;
+
         head = &htbl->heads [index];
         hlistAdd (&item->node, head);
         htbl->size++;
@@ -99,9 +126,6 @@ hashItemInsert (hashTablePtr htbl, const char *key, void *data, hashItemFreeCB f
  */
 static void
 hashItemDel (hashTablePtr htbl, hashItemPtr item) {
-    if (item == NULL)
-        return;
-
     hlistDel (&item->node);
     if (item->freeFun)
         (item->freeFun) (item->data);
@@ -124,9 +148,6 @@ hashItemAttach (hashTablePtr htbl, hashItemPtr item) {
     hlistHeadPtr head;
     hashItemPtr tmp;
 
-    if (item == NULL)
-        return -1;
-
     tmp = hashItemLookup (htbl, item->key, &index);
     if (tmp == NULL) {
         item->index = index;
@@ -147,73 +168,8 @@ hashItemAttach (hashTablePtr htbl, hashItemPtr item) {
  */
 static void
 hashItemDetach (hashTablePtr htbl, hashItemPtr item) {
-    if (item == NULL)
-        return;
-
     hlistDel (&item->node);
     htbl->size--;
-}
-
-/*
- * @brief Create a new hash table.
- *        If capacity is 0 then use default hash table size,
- *        else use capacity instead.
- *
- * @param capacity hash table capacity to create
- *
- * @return new hash table if success else NULL
- */
-hashTablePtr
-hashNew (u_int capacity) {
-    u_int i;
-    u_int memSize;
-
-    hashTablePtr htbl = (hashTablePtr ) malloc (sizeof (hashTable));
-    if (htbl) {
-        htbl->size = 0;
-        if (capacity)
-            htbl->capacity = capacity;
-        else
-            htbl->capacity = DEFAULT_HASH_TABLE_SIZE;
-        htbl->limit = (htbl->capacity * HASH_TABLE_LOAD_FACTOR) / 100;
-        memSize = htbl->capacity * sizeof (hlistHead);
-        htbl->heads = (hlistHeadPtr) malloc (memSize);
-        if (htbl->heads == NULL) {
-            free (htbl);
-            return NULL;
-        }
-        for (i = 0; i < htbl->capacity; i++)
-            initHlistHead (&htbl->heads [i]);
-        return htbl;
-    } else
-        return NULL;
-}
-
-/* Cleanup hash table */
-void
-hashClean (hashTablePtr htbl) {
-    u_int index;
-    hlistHeadPtr head;
-    hashItemPtr item;
-
-    if (htbl == NULL || !htbl->size)
-        return;
-
-    for (index = 0; index < htbl->capacity; index++) {
-        head = &htbl->heads [index];
-        while (head->first) {
-            item = hlistEntry (head->first, hashItem, node);
-            hashItemDel (htbl, item);
-        }
-    }
-}
-
-/* Destroy hash table */
-void
-hashDestroy (hashTablePtr htbl) {
-    hashClean (htbl);
-    free (htbl->heads);
-    free (htbl);
 }
 
 /*
@@ -229,7 +185,7 @@ hashDestroy (hashTablePtr htbl) {
  * @return 0 if success, else reutrn -1
  */
 int
-hashInsert (hashTablePtr htbl, const char *key, void *data, hashItemFreeCB fun) {
+hashInsert (hashTablePtr htbl, char *key, void *data, hashItemFreeCB fun) {
     int ret;
     u_int index;
     u_int newMemSize;
@@ -250,8 +206,8 @@ hashInsert (hashTablePtr htbl, const char *key, void *data, hashItemFreeCB fun) 
             ret = hashItemInsert (htbl, key, data, fun);
             if (ret < 0)
                 return -1;
-            else
-                return 0;
+
+            return 0;
         }
 
         for (index = 0; index < newCapacity; index++)
@@ -284,12 +240,36 @@ hashInsert (hashTablePtr htbl, const char *key, void *data, hashItemFreeCB fun) 
         /* Destroy old hash table heads */
         free (oldHeads);
     }
-    /* Do insert */
+
     ret = hashItemInsert (htbl, key, data, fun);
     if (ret < 0)
         return -1;
-    else
-        return 0;
+
+    return 0;
+}
+
+/*
+ * @brief Delete an item with specified key from hash table.
+ *
+ * @param htbl hash table
+ * @param key hash key of item to delete.
+ *
+ * @return 0 if success else -1
+ */
+int
+hashDel (hashTablePtr htbl, char *key) {
+    u_int index;
+    hashItemPtr item;
+
+    if (key == NULL)
+        return -1;
+
+    item = hashItemLookup (htbl, key, &index);
+    if (item == NULL)
+        return -1;
+
+    hashItemDel (htbl, item);
+    return 0;
 }
 
 /*
@@ -304,7 +284,7 @@ hashInsert (hashTablePtr htbl, const char *key, void *data, hashItemFreeCB fun) 
  * @return 0 if success else return -1
  */
 int
-hashUpdate (hashTablePtr htbl, const char *key, void *data, hashItemFreeCB fun) {
+hashUpdate (hashTablePtr htbl, char *key, void *data, hashItemFreeCB fun) {
     u_int index;
     hashItemPtr item;
 
@@ -312,39 +292,14 @@ hashUpdate (hashTablePtr htbl, const char *key, void *data, hashItemFreeCB fun) 
         return -1;
 
     item = hashItemLookup (htbl, key, &index);
-    if (item) {
-        if (item->freeFun)
-            (item->freeFun) (item->data);
-        item->data = data;
-        item->freeFun = fun;
-        return 0;
-    } else
+    if (item == NULL)
         return hashInsert (htbl, key, data, fun);
-}
 
-/*
- * @brief Delete an item with specified key from hash table, if this item
- *        is not exist, then call freeFun to free data.
- *
- * @param htbl hash table
- * @param key hash key of item to delete.
- *
- * @return 0 if success else -1
- */
-int
-hashDel (hashTablePtr htbl, const char *key) {
-    u_int index;
-    hashItemPtr item;
-
-    if (key == NULL)
-        return -1;
-
-    item = hashItemLookup (htbl, key, &index);
-    if (item) {
-        hashItemDel (htbl, item);
-        return 0;
-    } else
-        return -1;
+    if (item->freeFun)
+        (item->freeFun) (item->data);
+    item->data = data;
+    item->freeFun = fun;
+    return 0;
 }
 
 /*
@@ -357,7 +312,7 @@ hashDel (hashTablePtr htbl, const char *key) {
  * @return htbl->data if success, else return NULL;
  */
 void *
-hashLookup (hashTablePtr htbl, const char *key) {
+hashLookup (hashTablePtr htbl, char *key) {
     u_int index;
     hashItemPtr item;
 
@@ -383,7 +338,7 @@ hashLookup (hashTablePtr htbl, const char *key) {
  * @return 0 if success, else return -1
  */
 int
-hashRename (hashTablePtr htbl, const char *oldKey, const char *newKey) {
+hashRename (hashTablePtr htbl, char *oldKey, char *newKey) {
     int ret;
     u_int index;
     hashItemPtr item;
@@ -396,41 +351,32 @@ hashRename (hashTablePtr htbl, const char *oldKey, const char *newKey) {
         return -1;
 
     item = hashItemLookup (htbl, oldKey, &index);
-    if (item) {
-        hashItemDetach (htbl, item);
-        free (item->key);
-        item->key = strdup (newKey);
-        if (item->key == NULL) {
-            if (item->freeFun)
-                (item->freeFun) (item->data);
-            free (item);
-            return -1;
-        }
-        ret = hashItemAttach (htbl, item);
-        if (ret < 0) {
-            if (item->freeFun)
-                (item->freeFun) (item->data);
-            free (item->key);
-            free (item);
-            return -1;
-        } else
-            return 0;
-    } else
+    if (item == NULL)
         return -1;
-}
 
-inline u_int
-hashSize (hashTablePtr htbl) {
-    return htbl->size;
-}
+    hashItemDetach (htbl, item);
+    free (item->key);
+    item->key = strdup (newKey);
+    if (item->key == NULL) {
+        if (item->freeFun)
+            (item->freeFun) (item->data);
+        free (item);
+        return -1;
+    }
+    ret = hashItemAttach (htbl, item);
+    if (ret < 0) {
+        if (item->freeFun)
+            (item->freeFun) (item->data);
+        free (item->key);
+        free (item);
+        return -1;
+    }
 
-inline u_int
-hashLimit (hashTablePtr htbl) {
-    return htbl->limit;
+    return 0;
 }
 
 /*
- * @brief Search all items in hash table and call fun.
+ * @brief Iterate all items in hash table and call fun.
  *
  * @param htbl hash table
  * @param fun callback function
@@ -446,7 +392,7 @@ hashForEachItemDo (hashTablePtr htbl, hashForEachItemDoCB fun, void *args) {
     hlistHeadPtr head;
     hlistNodePtr hNode, tmp;
 
-    if (htbl == NULL)
+    if (fun == NULL)
         return -1;
 
     for (index = 0; index < htbl->capacity; index++) {
@@ -462,22 +408,21 @@ hashForEachItemDo (hashTablePtr htbl, hashForEachItemDoCB fun, void *args) {
 }
 
 /*
- * @brief Delete hash item in some case.
- *        Search all items in hash table and delete item when
- *        hashForEachItemDelInCaseCB return true.
+ * @brief Iterate all items in hash table and delete item when
+ *        hashForEachItemDelInSomeCaseCB return true.
  *
  * @param htbl hash table
  * @param fun callback function
  * @param args arguments for fun
  */
 void
-hashForEachItemDelInCase (hashTablePtr htbl, hashForEachItemDelInCaseCB fun, void *args) {
+hashForEachItemDelInSomeCase (hashTablePtr htbl, hashForEachItemDelInSomeCaseCB fun, void *args) {
     u_int index;
     hashItemPtr item;
     hlistHeadPtr head;
     hlistNodePtr hNode, tmp;
 
-    if (htbl == NULL)
+    if (fun == NULL)
         return;
 
     for (index = 0; index < htbl->capacity; index++) {
@@ -487,4 +432,75 @@ hashForEachItemDelInCase (hashTablePtr htbl, hashForEachItemDelInCaseCB fun, voi
                 hlistDel (&item->node);
         }
     }
+}
+
+u_int
+hashSize (hashTablePtr htbl) {
+    return htbl->size;
+}
+
+u_int
+hashLimit (hashTablePtr htbl) {
+    return htbl->limit;
+}
+
+/*
+ * @brief Create hash table.
+ *        If capacity is 0 then use default hash table size,
+ *        else use capacity instead.
+ *
+ * @param capacity hash table capacity
+ *
+ * @return hash table if success else NULL
+ */
+hashTablePtr
+hashNew (u_int capacity) {
+    u_int i;
+    u_int memSize;
+
+    hashTablePtr htbl = (hashTablePtr ) malloc (sizeof (hashTable));
+    if (htbl == NULL)
+        return NULL;
+
+    htbl->size = 0;
+    htbl->capacity = capacity ? capacity : DEFAULT_HASH_TABLE_SIZE;
+    htbl->limit = (htbl->capacity * HASH_TABLE_LOAD_FACTOR) / 100;
+
+    memSize = htbl->capacity * sizeof (hlistHead);
+    htbl->heads = (hlistHeadPtr) malloc (memSize);
+    if (htbl->heads == NULL) {
+        free (htbl);
+        return NULL;
+    }
+    for (i = 0; i < htbl->capacity; i++)
+        initHlistHead (&htbl->heads [i]);
+
+    return htbl;
+}
+
+/* Cleanup hash table */
+void
+hashClean (hashTablePtr htbl) {
+    u_int index;
+    hlistHeadPtr head;
+    hashItemPtr item;
+
+    if (!htbl->size)
+        return;
+
+    for (index = 0; index < htbl->capacity; index++) {
+        head = &htbl->heads [index];
+        while (head->first) {
+            item = hlistEntry (head->first, hashItem, node);
+            hashItemDel (htbl, item);
+        }
+    }
+}
+
+/* Destroy hash table */
+void
+hashDestroy (hashTablePtr htbl) {
+    hashClean (htbl);
+    free (htbl->heads);
+    free (htbl);
 }

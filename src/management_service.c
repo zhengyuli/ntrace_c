@@ -64,7 +64,7 @@ pauseHandler (json_t *body) {
     else
         LOGD ("Update application services filter: %s\n", filter);
     free (filter);
-    
+
     return ret;
 }
 
@@ -126,21 +126,21 @@ updateProfileHandler (json_t *body) {
 
 /*
  * Management service.
- * Handle all kinds management request.
+ * Handle all kinds of management request.
  */
 void *
 managementService (void *args) {
     int ret;
     void *managementReplySock;
-    char *msg;
-    const char *cmdStr, *resp;
+    char *requestMsg;
+    char *cmdStr, *resp;
     json_error_t error;
     json_t *root, *cmd, *body;
 
     /* Reset signals flag */
     resetSignalsFlag ();
 
-    /* Get management receive sock */
+    /* Get management reply sock */
     managementReplySock = getManagementReplySock ();
 
     /* Init log context */
@@ -150,33 +150,33 @@ managementService (void *args) {
         goto exit;
     }
 
-    while (!sigusr1IsInterrupted ()) {
-        msg = zstr_recv (managementReplySock);
-        if (msg == NULL) {
-            if (!sigusr1IsInterrupted ())
-                LOGE ("Receive management request fatal error.\n");
+    while (!SIGUSR1IsInterrupted ()) {
+        requestMsg = zstr_recv (managementReplySock);
+        if (requestMsg == NULL) {
+            if (!SIGUSR1IsInterrupted ())
+                LOGE ("Receive management request with fatal error.\n");
             break;
         }
 
-        root = json_loads (msg, JSON_DISABLE_EOF_CHECK, &error);
+        root = json_loads (requestMsg, JSON_DISABLE_EOF_CHECK, &error);
         if (root == NULL) {
             LOGE ("Management request parse error: %s\n", error.text);
             zstr_send (managementReplySock, MANAGEMENT_HANDLE_ERROR_RESPONSE);
-            free (msg);
+            free (requestMsg);
             continue;
         }
 
         cmd = json_object_get (root, MANAGEMENT_COMMAND_TAG);
         body = json_object_get (root, MANAGEMENT_BODY_TAG);
         if ((cmd == NULL) || (body == NULL)) {
-            LOGE ("Invalid management request: %s.\n", msg);
+            LOGE ("Invalid format of management request: %s.\n", requestMsg);
             zstr_send (managementReplySock, MANAGEMENT_HANDLE_ERROR_RESPONSE);
             json_object_clear (root);
-            free (msg);
+            free (requestMsg);
             continue;
         }
 
-        cmdStr = json_string_value (cmd);
+        cmdStr = (char *) json_string_value (cmd);
         if (strEqual (MANAGEMENT_COMMAND_RESUME, cmdStr))
             ret = resumeHandler (body);
         else if (strEqual (MANAGEMENT_COMMAND_PAUSE, cmdStr))
@@ -196,13 +196,13 @@ managementService (void *args) {
             resp = MANAGEMENT_HANDLE_SUCCESS_RESPONSE;
         zstr_send (managementReplySock, resp);
         json_object_clear (root);
-        free (msg);
+        free (requestMsg);
     }
 
     LOGD ("ManagementService will exit ... .. .\n");
     destroyLog ();
 exit:
-    if (!sigusr1IsInterrupted ())
+    if (!SIGUSR1IsInterrupted ())
         sendTaskStatus (TASK_STATUS_EXIT);
 
     return NULL;

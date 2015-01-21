@@ -1,12 +1,11 @@
 #ifndef __TASK_MANAGER_H__
 #define __TASK_MANAGER_H__
 
-#include <sys/types.h>
 #include <pthread.h>
 #include <czmq.h>
 #include "util.h"
 
-typedef void * (*taskFunc) (void *args);
+typedef void * (*taskRoutine) (void *args);
 
 typedef enum {
     TASK_STATUS_READY,
@@ -18,13 +17,13 @@ typedef taskItem *taskItemPtr;
 
 struct _taskItem {
     pthread_t tid;                      /**< Task thread id */
-    taskFunc func;                      /**< Task function */
-    void *args;                         /**< Task function arguments */
+    taskRoutine routine;                /**< Task routine */
+    void *args;                         /**< Task routine arguments */
 };
 
 /*========================Interfaces definition============================*/
 int
-newTask (taskFunc func, void *args);
+newTask (taskRoutine routine, void *args);
 void
 stopAllTask (void);
 void

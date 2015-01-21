@@ -13,14 +13,12 @@
 #include <sys/syscall.h>
 #include "util.h"
 
-pid_t
-gettid ()
-{
+inline pid_t
+gettid () {
     return syscall (SYS_gettid);
 }
 
-/* Translate timeVal to seconds */
-inline u_long_long
+u_long_long
 timeVal2Second (timeValPtr tm) {
     u_long_long second;
 
@@ -28,8 +26,7 @@ timeVal2Second (timeValPtr tm) {
     return second;
 }
 
-/* Translate timeVal to milliseconds */
-inline u_long_long
+u_long_long
 timeVal2MilliSecond (timeValPtr tm) {
     u_long_long milli;
 
@@ -37,8 +34,7 @@ timeVal2MilliSecond (timeValPtr tm) {
     return milli;
 }
 
-/* Translate timeVal to microseconds */
-inline u_long_long
+u_long_long
 timeVal2MicoSecond (timeValPtr tm) {
     u_long_long micro;
 
@@ -46,8 +42,7 @@ timeVal2MicoSecond (timeValPtr tm) {
     return micro;
 }
 
-/* Translate 64bit byte-order from net to host */
-inline u_long_long
+u_long_long
 ntohll (u_long_long src) {
 #if __BYTE_ORDER == __LITTLE_ENDIAN
     u_long_long dst;
@@ -68,31 +63,27 @@ ntohll (u_long_long src) {
 #endif
 }
 
-/* Translate 64bit byte-order from host to net */
-inline u_long_long
+u_long_long
 htonll (u_long_long src) {
     return ntohll (src);
 }
 
-/* Compare strings without case sensitive */
 boolean
-strEqualIgnoreCase (const char *str1, const char *str2) {
+strEqualIgnoreCase (char *str1, char *str2) {
     if (strlen (str1) != strlen (str2))
         return false;
-    else {
-        while (*str1) {
-            if (tolower (*str1) != tolower (*str2))
-                return false;
-            str1++;
-            str2++;
-        }
-        return true;
+
+    while (*str1) {
+        if (tolower (*str1) != tolower (*str2))
+            return false;
+        str1++;
+        str2++;
     }
+    return true;
 }
 
-/* Compare strings with case sensitive */
 boolean
-strEqual (const char *str1, const char *str2) {
+strEqual (char *str1, char *str2) {
     if (strlen (str1) != strlen (str2))
         return false;
 
@@ -102,7 +93,6 @@ strEqual (const char *str1, const char *str2) {
         return false;
 }
 
-/* Read safe version */
 ssize_t
 safeRead (int fd, void *buf, size_t count) {
     size_t nread = 0;
@@ -111,49 +101,54 @@ safeRead (int fd, void *buf, size_t count) {
         ssize_t r = read (fd, buf, count);
         if ((r < 0) && (errno == EINTR))
             continue;
+
         if (r < 0)
             return r;
+
         if (r == 0)
             return nread;
+
         buf = (char *) buf + r;
         count -= r;
         nread += r;
     }
+    
     return nread;
 }
 
-/* Write safe version */
 ssize_t
-safeWrite (int fd, const void *buf, size_t count) {
+safeWrite (int fd, void *buf, size_t count) {
     size_t nwritten = 0;
-    
+
     while (count > 0) {
         ssize_t r = write (fd, buf, count);
         if ((r < 0) && (errno == EINTR))
             continue;
+
         if (r < 0)
             return r;
+
         if (r == 0)
             return nwritten;
-        buf = (const char *) buf + r;
+
+        buf = (char *) buf + r;
         count -= r;
         nwritten += r;
     }
+    
     return nwritten;
 }
 
-/* Check file exists */
 boolean
-fileExists (const char *path) {
+fileExists (char *path) {
     if (access (path, F_OK))
         return false;
     else
         return true;
 }
 
-/* Check file is empty */
 boolean
-fileIsEmpty (const char *path) {
+fileIsEmpty (char *path) {
     int ret;
     struct stat st;
 
@@ -175,7 +170,7 @@ fileIsEmpty (const char *path) {
  * @return Ip address if exists else NULL
  */
 char *
-getIpAddrOfInterface (const char *interface) {
+getIpAddrOfInterface (char *interface) {
     int sockfd;
     size_t ifNameLen;
     struct ifreq ifr;
@@ -203,7 +198,6 @@ getIpAddrOfInterface (const char *interface) {
     return ipAddr;
 }
 
-/* Get cpu cores */
 u_int
 getCpuCoresNum (void) {
     return sysconf (_SC_NPROCESSORS_CONF);

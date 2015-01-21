@@ -7,13 +7,18 @@ typedef struct _properties properties;
 typedef properties *propertiesPtr;
 
 struct _properties {
-    boolean daemonMode;
-    char *mirrorInterface;
-    char *breakdownSinkIp;
-    u_short breakdownSinkPort;
-    char *logDir;
-    char *logFileName;
-    u_int logLevel;
+    boolean daemonMode;                 /**< Daemon mode */
+
+    char *mirrorInterface;              /**< Mirror interface */
+
+    u_short managementServicePort;      /**< Management service port */
+
+    char *breakdownSinkIp;              /**< Breakdown sink ip */
+    u_short breakdownSinkPort;          /**< Breakdown sink port */
+
+    char *logDir;                       /**< Log dir */
+    char *logFileName;                  /**< Log file name */
+    u_int logLevel;                     /**< Log level */
 };
 
 /*========================Interfaces definition============================*/
@@ -25,6 +30,10 @@ char *
 getPropertiesMirrorInterface (void);
 void
 updatePropertiesMirrorInterface (char *mirrorInterface);
+u_short
+getPropertiesManagementServicePort (void);
+void
+updatePropertiesManagementServicePort (u_short port);
 char *
 getPropertiesBreakdownSinkIp (void);
 void

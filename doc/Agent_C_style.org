@@ -9,10 +9,11 @@ word start with capital letter except the first world.
 
 *** example of function and normal variable naming style:
 #+BEGIN_SRC c
-  int addService2HashMap (struct service srv, struct hash hashMap) {
-      struct service localService;
-      struct service *localServicePtr;
-  }
+   int
+   addService2HashMap (struct service srv, struct hash hashMap) {
+       struct service localService;
+       struct service *localServicePtr;
+   }
 #+END_SRC
 
 *** example of constant variable and macro naming style

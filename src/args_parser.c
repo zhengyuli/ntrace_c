@@ -1,13 +1,13 @@
 #include <stdio.h>
 #include <getopt.h>
 #include "properties.h"
-#include "log.h"
 #include "version.h"
 #include "args_parser.h"
 
 static struct option argsOptions [] = {
     {"daemonMode", no_argument, NULL, 'D'},
     {"mirrorInterface", required_argument, NULL, 'm'},
+    {"managementServicePort", required_argument, NULL, 'P'},
     {"breakdownSinkIp", required_argument, NULL, 'i'},
     {"breakdownSinkPort", required_argument, NULL, 'p'},
     {"logDir", required_argument, NULL, 'd'},
@@ -29,8 +29,9 @@ showHelpInfo (const char *cmd) {
              "Basic options: \n"
              "  -D|--daemonMode, run as daemon\n"
              "  -m|--mirrorInterface <eth*> interface to collect packets\n"
-             "  -i|--breakdownSinkIp <ip> breakdown sink ip"
-             "  -p|--breakdownSinkPort <port> breakdown sink port"
+             "  -P|--managementServicePort <port> management service port\n"
+             "  -i|--breakdownSinkIp <ip> breakdown sink ip\n"
+             "  -p|--breakdownSinkPort <port> breakdown sink port\n"
              "  -d|--logDir <path>, log file directory\n"
              "  -f|--logFileName <name>, log file name\n"
              "  -l|--logLevel <level> log level\n"
@@ -59,6 +60,10 @@ parseArgs (int argc, char *argv []) {
                     fprintf (stderr, "Parse mirroring interface error!\n");
                     return -1;
                 }
+                break;
+
+            case 'P':
+                updatePropertiesManagementServicePort (atoi (optarg));
                 break;
 
             case 'i':

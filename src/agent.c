@@ -26,11 +26,11 @@ static int agentPidFd = -1;
 static int
 lockPidFile (void) {
     int ret;
-    pid_t pid;
     ssize_t n;
     char buf [16];
 
-    pid = getpid ();
+    if (!getPropertiesDaemonMode ())
+        return 0;
 
     agentPidFd = open (AGENT_PID_FILE, O_CREAT | O_RDWR, 0666);
     if (agentPidFd < 0)
@@ -40,22 +40,25 @@ lockPidFile (void) {
     if (ret < 0) {
         close (agentPidFd);
         return -1;
-    } else {
-        snprintf (buf, sizeof (buf), "%d", pid);
-        n = safeWrite (agentPidFd, buf, strlen (buf));
-        if (n != strlen (buf)) {
-            close (agentPidFd);
-            remove (AGENT_PID_FILE);
-            return -1;
-        }
-        sync ();
     }
+
+    snprintf (buf, sizeof (buf), "%d", getpid ());
+    n = safeWrite (agentPidFd, buf, strlen (buf));
+    if (n != strlen (buf)) {
+        close (agentPidFd);
+        remove (AGENT_PID_FILE);
+        return -1;
+    }
+    sync ();
 
     return 0;
 }
 
 static void
 unlockPidFile (void) {
+    if (!getPropertiesDaemonMode ())
+        return;
+
     if (agentPidFd >= 0) {
         flock (agentPidFd, LOCK_UN);
         close (agentPidFd);
@@ -83,14 +86,14 @@ startTasks (void) {
 
     ret = newTask (ipPktProcessService, NULL);
     if (ret < 0) {
-        LOGE ("Create ipPktParsingService task error.\n");
+        LOGE ("Create ipPktProcessService task error.\n");
         goto stopAllTask;
     }
 
-    for (i = 0; i < getTcpPktParsingThreadsNum (); i++) {
-        ret = newTask (tcpPktProcessService, getTcpPktParsingThreadIDHolder (i));
+    for (i = 0; i < getTcpPktProcessThreadsNum (); i++) {
+        ret = newTask (tcpPktProcessService, getTcpPktProcessThreadIDHolder (i));
         if (ret < 0) {
-            LOGE ("Create tcpPktParsingService %u task error.\n", i);
+            LOGE ("Create tcpPktProcessService %u task error.\n", i);
             goto stopAllTask;
         }
     }
@@ -105,11 +108,11 @@ stopAllTask:
 static int
 agentService (void) {
     int ret;
-    boolean exitNormally = false;
     zloop_t *loop;
     zmq_pollitem_t pollItems [2];
+    boolean exitNormally = false;
 
-    /* Lock agent pid file */
+    /* Lock pid file */
     ret = lockPidFile ();
     if (ret < 0) {
         fprintf (stderr, "Lock pid file error.\n");

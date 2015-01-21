@@ -5,7 +5,7 @@
 
 /*========================Interfaces definition============================*/
 protoAnalyzerPtr
-getAppServiceProtoAnalyzer (const char *key);
+getAppServiceProtoAnalyzer (char *key);
 char *
 getAppServicesPaddingFilter (void);
 char *

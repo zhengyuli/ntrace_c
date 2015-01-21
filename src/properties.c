@@ -16,6 +16,7 @@ newProperties (void) {
 
     tmp->daemonMode = 0;
     tmp->mirrorInterface = NULL;
+    tmp->managementServicePort = 0;
     tmp->breakdownSinkIp = NULL;
     tmp->breakdownSinkPort = 0;
     tmp->logDir = NULL;
@@ -47,6 +48,7 @@ displayPropertiesDetail (void) {
     fprintf (stdout, "{\n");
     fprintf (stdout, "    daemonMode: %s\n", propertiesInstance->daemonMode ? "true" : "false");
     fprintf (stdout, "    mirrorInterface: %s\n", propertiesInstance->mirrorInterface);
+    fprintf (stdout, "    managementServicePort: %u\n", propertiesInstance->managementServicePort);
     fprintf (stdout, "    breakdownSinkIp: %s\n", propertiesInstance->breakdownSinkIp);
     fprintf (stdout, "    breakdownSinkPort: %u\n", propertiesInstance->breakdownSinkPort);
     fprintf (stdout, "    logDir: %s\n", propertiesInstance->logDir);
@@ -83,14 +85,14 @@ loadPropertiesFromConfigFile (void) {
     struct collection_item *item;
     propertiesPtr tmp;
 
-    /* Alloc new properties */
+    /* Alloc properties */
     tmp = newProperties ();
     if (tmp == NULL) {
-        fprintf (stderr, "Alloc new agent config error.\n");
+        fprintf (stderr, "Alloc properties error.\n");
         return NULL;
     }
 
-    /* Load agent properties from AGENT_CONFIG_FILE */
+    /* Load properties from AGENT_CONFIG_FILE */
     ret = config_from_file ("Agent", AGENT_CONFIG_FILE,
                             &iniConfig, INI_STOP_ON_ANY, &errorSet);
     if (ret) {
@@ -104,11 +106,15 @@ loadPropertiesFromConfigFile (void) {
         fprintf (stderr, "Get_config_item \"daemonMode\" error.\n");
         goto freeProperties;
     }
-    tmp->daemonMode = get_int_config_value (item, 1, 0, &error);
+    ret = get_int_config_value (item, 1, 0, &error);
     if (error) {
         fprintf (stderr, "Parse \"daemonMode\" error.\n");
         goto freeProperties;
     }
+    if (ret)
+        tmp->daemonMode = true;
+    else
+        tmp->daemonMode = false;
 
     /* Get mirror interface */
     ret = get_config_item ("MAIN", "mirrorInterface", iniConfig, &item);
@@ -119,6 +125,18 @@ loadPropertiesFromConfigFile (void) {
     tmp->mirrorInterface = strdup (get_const_string_config_value (item, &error));
     if (tmp->mirrorInterface == NULL) {
         fprintf (stderr, "Get \"mirrorInterface\" error.\n");
+        goto freeProperties;
+    }
+
+    /* Get management service port */
+    ret = get_config_item ("MAIN", "managementServicePort", iniConfig, &item);
+    if (ret) {
+        fprintf (stderr, "Get_config_item \"managementServicePort\" error.\n");
+        goto freeProperties;
+    }
+    tmp->managementServicePort = get_int_config_value (item, 1, 0, &error);
+    if (error) {
+        fprintf (stderr, "Get \"managementServicePort\" error.\n");
         goto freeProperties;
     }
 
@@ -181,7 +199,7 @@ loadPropertiesFromConfigFile (void) {
         fprintf (stderr, "Parse \"logLevel\" error.\n");
         goto freeProperties;
     }
-    /* Return properties in the last */
+
     goto exit;
 
 freeProperties:
@@ -216,6 +234,16 @@ updatePropertiesMirrorInterface (char *mirrorInterface) {
     propertiesInstance->mirrorInterface = strdup (mirrorInterface);
 }
 
+u_short
+getPropertiesManagementServicePort (void) {
+    return propertiesInstance->managementServicePort;
+}
+
+void
+updatePropertiesManagementServicePort (u_short port) {
+    propertiesInstance->managementServicePort = port;
+}
+
 char *
 getPropertiesBreakdownSinkIp (void) {
     return propertiesInstance->breakdownSinkIp;
@@ -235,11 +263,6 @@ getPropertiesBreakdownSinkPort (void) {
 void
 updatePropertiesBreakdownSinkPort (u_short port) {
     propertiesInstance->breakdownSinkPort = port;
-}
-
-u_int
-getPropertiesLogLevel (void) {
-    return propertiesInstance->logLevel;
 }
 
 char *
@@ -264,6 +287,11 @@ updatePropertiesLogFileName (char *fileName) {
     propertiesInstance->logFileName = strdup (fileName);
 }
 
+u_int
+getPropertiesLogLevel (void) {
+    return propertiesInstance->logLevel;
+}
+
 void
 updatePropertiesLogLevel (u_int logLevel) {
     propertiesInstance->logLevel = logLevel;
@@ -272,8 +300,10 @@ updatePropertiesLogLevel (u_int logLevel) {
 int
 initProperties (void) {
     propertiesInstance = loadPropertiesFromConfigFile ();
-    if (propertiesInstance == NULL)
+    if (propertiesInstance == NULL) {
+        fprintf(stderr, "Load properties from config file error.\n");
         return -1;
+    }
 
     displayPropertiesDetail ();
     return 0;

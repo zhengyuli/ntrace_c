@@ -53,7 +53,7 @@ struct _protoAnalyzer {
 
 /*========================Interfaces definition============================*/
 protoAnalyzerPtr
-getProtoAnalyzer (const char *proto);
+getProtoAnalyzer (char *proto);
 int
 initProtoAnalyzer (void);
 void

@@ -137,11 +137,11 @@ listIsEmpty (const listHeadPtr head) {
          pos = tmp, tmp = listEntry (tmp->member.next, typeof (*tmp), member))
 
 #define listForEachEntrySafeKeepPrev(prev, pos, tmp, head, member)      \
-     for (prev = NULL,                                                  \
+    for (prev = NULL,                                               \
           pos = listEntry ((head)->next, typeof (*pos), member),        \
           tmp = listEntry (pos->member.next, typeof (*pos), member);    \
-          &pos->member != (head);                                       \
-          prev = pos, pos = tmp, tmp = listEntry (tmp->member.next, typeof (*tmp), member))
+         &pos->member != (head);                                        \
+         prev = pos, pos = tmp, tmp = listEntry (tmp->member.next, typeof (*tmp), member))
 
 #define listForEachEntryReverse(pos, head, member)                  \
     for (pos = listEntry ((head)->prev, typeof (*pos), member);     \
@@ -173,11 +173,11 @@ listIsEmpty (const listHeadPtr head) {
 
 #define listForEachEntryFromSafe(pos, tmp, head, member)                \
     for (tmp = listEntry (pos->member.next, typeof (*pos), member); \
-         &pos->member != (head);                                    \
+         &pos->member != (head);                                        \
          pos = tmp, tmp = listEntry (tmp->member.next, typeof (*tmp), member))
 
 #define listForEachEntryFromReverse(pos, head, member)                  \
-    for (; &pos->member != (head);                                      \
+    for (; &pos->member != (head);                                  \
          pos = listEntry (pos->member.prev, typeof (*pos), member))
 
 #define listForEachEntryFromReverseSafe(pos, tmp, head, member)         \

@@ -18,23 +18,23 @@ publishSessionBreakdown (const char *sessionBreakdown, void *args) {
 
 /*
  * Tcp packet process service.
- * Pull ip packets pushed from ipPktParsingService, then do tcp process and
- * push session breakdown to session breakdown sink service.
+ * Read ip packets send by ipPktProcessService, then do tcp process and
+ * send session breakdown to session breakdown sink service.
  */
 void *
 tcpPktProcessService (void *args) {
     int ret;
     u_int dispatchIndex;
-    void *tcpPktPullSock;
-    void *breakdownPushSock;
+    void *tcpPktRecvSock;
+    void *breakdownSendSock;
+    zframe_t *tmFrame = NULL;
+    zframe_t *ipPktFrame = NULL;
     timeValPtr tm;
     struct ip *iphdr;
-    zframe_t *tmFrame = NULL;
-    zframe_t *pktFrame = NULL;
 
     dispatchIndex = *((u_int *) args);
-    tcpPktPullSock = getTcpPktPullSock (dispatchIndex);
-    breakdownPushSock = getBreakdownPushSock (dispatchIndex);
+    tcpPktRecvSock = getTcpPktRecvSock (dispatchIndex);
+    breakdownSendSock = getBreakdownSendSock (dispatchIndex);
 
     /* Reset signals flag */
     resetSignalsFlag ();
@@ -47,18 +47,18 @@ tcpPktProcessService (void *args) {
     }
 
     /* Init tcp context */
-    ret = initTcp (publishSessionBreakdown, breakdownPushSock);
+    ret = initTcp (publishSessionBreakdown, breakdownSendSock);
     if (ret < 0) {
         LOGE ("Init tcp context error.\n");
         goto destroyLog;
     }
 
-    while (!sigusr1IsInterrupted ()) {
+    while (!SIGUSR1IsInterrupted ()) {
         /* Receive timestamp zframe */
         if (tmFrame == NULL) {
-            tmFrame = zframe_recv (tcpPktPullSock);
+            tmFrame = zframe_recv (tcpPktRecvSock);
             if (tmFrame == NULL) {
-                if (!sigusr1IsInterrupted ())
+                if (!SIGUSR1IsInterrupted ())
                     LOGE ("Receive timestamp zframe fatal error.\n");
                 break;
             } else if (!zframe_more (tmFrame)) {
@@ -68,21 +68,21 @@ tcpPktProcessService (void *args) {
         }
 
         /* Receive ip packet zframe */
-        pktFrame = zframe_recv (tcpPktPullSock);
-        if (pktFrame == NULL) {
-            if (!sigusr1IsInterrupted ())
+        ipPktFrame = zframe_recv (tcpPktRecvSock);
+        if (ipPktFrame == NULL) {
+            if (!SIGUSR1IsInterrupted ())
                 LOGE ("Receive ip packet zframe fatal error.\n");
             zframe_destroy (&tmFrame);
             break;
-        } else if (zframe_more (pktFrame)) {
+        } else if (zframe_more (ipPktFrame)) {
             zframe_destroy (&tmFrame);
-            tmFrame = pktFrame;
-            pktFrame = NULL;
+            tmFrame = ipPktFrame;
+            ipPktFrame = NULL;
             continue;
         }
 
         tm = (timeValPtr) zframe_data (tmFrame);
-        iphdr = (struct ip *) zframe_data (pktFrame);
+        iphdr = (struct ip *) zframe_data (ipPktFrame);
         switch (iphdr->ip_p) {
             case IPPROTO_TCP:
                 tcpProcess (iphdr, tm);
@@ -94,7 +94,7 @@ tcpPktProcessService (void *args) {
 
         /* Free zframe */
         zframe_destroy (&tmFrame);
-        zframe_destroy (&pktFrame);
+        zframe_destroy (&ipPktFrame);
     }
 
     LOGD ("TcpPktProcessService will exit ... .. .\n");
@@ -102,7 +102,7 @@ tcpPktProcessService (void *args) {
 destroyLog:
     destroyLog ();
 exit:
-    if (!sigusr1IsInterrupted ())
+    if (!SIGUSR1IsInterrupted ())
         sendTaskStatus (TASK_STATUS_EXIT);
 
     return NULL;

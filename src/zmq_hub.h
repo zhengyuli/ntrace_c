@@ -7,18 +7,18 @@ typedef struct _zmqHub zmqHub;
 typedef zmqHub *zmqHubPtr;
 
 struct _zmqHub {
-    zctx_t *ctxt;                       /**< Zmq context */
+    zctx_t *zmqCtxt;                    /**< Zmq context */
 
     void *managementReplySock;          /**< Management reply sock */
-    
+
     void *taskStatusSendSock;           /**< Task status send sock */
     void *taskStatusRecvSock;           /**< Task status recv sock */
-        
+
     void *ipPktSendSock;                /**< Ip packet send sock */
     void *ipPktRecvSock;                /**< Ip packet recv sock */
 
-    u_int tcpPktParsingThreadsNum;      /**< Tcp packet parsing threads number */
-    u_int *tcpPktParsingThreadIDsHolder; /**< Tcp packet parsing thread IDs holder */
+    u_int tcpPktProcessThreadsNum;      /**< Tcp packet process threads number */
+    u_int *tcpPktProcessThreadIDsHolder; /**< Tcp packet process thread IDs holder */
     void **tcpPktSendSocks;             /**< Tcp packet dispatch send socks */
     void **tcpPktRecvSocks;             /**< Tcp packet dispatch recv socks */
     void **breakdownSendSocks;          /**< Breakdown send socks */
@@ -36,15 +36,15 @@ getIpPktSendSock (void);
 void *
 getIpPktRecvSock (void);
 u_int
-getTcpPktParsingThreadsNum (void);
-void *
-getTcpPktPushSock (u_int index);
-void *
-getTcpPktPullSock (u_int index);
-void *
-getBreakdownPushSock (u_int index);
+getTcpPktProcessThreadsNum (void);
 u_int *
-getTcpPktParsingThreadIDHolder (u_int index);
+getTcpPktProcessThreadIDHolder (u_int index);
+void *
+getTcpPktSendSock (u_int index);
+void *
+getTcpPktRecvSock (u_int index);
+void *
+getBreakdownSendSock (u_int index);
 int
 initZmqHub (void);
 void

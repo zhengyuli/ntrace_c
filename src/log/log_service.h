@@ -11,6 +11,17 @@ typedef enum {
     LOG_SERVICE_STATUS_EXIT
 } logServiceStatus;
 
+typedef struct _logServiceCtxt logServiceCtxt;
+typedef logServiceCtxt *logServiceCtxtPtr;
+
+struct _logServiceCtxt {
+    zctx_t *zmqCtxt;                    /**< Log service zmq context */
+    void *statusSendSock;               /**< Log service status send sock */
+    void *statusRecvSock;               /**< Log service status receive sock */
+    void *logRecvSock;                  /**< Log service log receive sock */
+    pthread_t tid;                      /**< Log service thread id */
+};
+
 /*========================Interfaces definition============================*/
 void *
 getLogServiceStatusRecvSock (void);

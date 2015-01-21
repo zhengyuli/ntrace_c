@@ -7,19 +7,15 @@
 #include "log.h"
 #include "log_service.h"
 
-/* Log server ip */
 static char *logServerIp = NULL;
-/* Display log with detail info */
 static boolean showInDetail  = false;
-/* Log level to filter */
 static char *logLevel = NULL;
 
 static zctx_t *zmqContext = NULL;
 static void *subSock = NULL;
 
-/* Check log level is valid */
 static boolean
-checkLogLevel (const char *logLevel) {
+checkLogLevel (char *logLevel) {
     if (strEqual ("ERR", logLevel) ||
         strEqual ("WARNING", logLevel) ||
         strEqual ("INFO", logLevel) ||
@@ -29,7 +25,6 @@ checkLogLevel (const char *logLevel) {
         return false;
 }
 
-/* Logview options */
 static struct option logviewOptions [] = {
     {"server", required_argument, NULL, 's'},
     {"level", required_argument, NULL, 'l'},
@@ -39,8 +34,8 @@ static struct option logviewOptions [] = {
 };
 
 static void
-showHelp (const char *cmd) {
-    const char *cmdName, *tmp;
+showHelp (char *cmd) {
+    char *cmdName, *tmp;
 
     tmp = strrchr (cmd, '/');
     if (tmp)
@@ -58,7 +53,6 @@ showHelp (const char *cmd) {
             cmdName, cmdName);
 }
 
-/* Parse command line */
 static int
 parseCmdline (int argc, char *argv []) {
     int ret = 0;
@@ -99,6 +93,14 @@ parseCmdline (int argc, char *argv []) {
     return ret;
 }
 
+static void
+freeCmdlineArgs (void) {
+    free (logServerIp);
+    logServerIp = NULL;
+    free (logLevel);
+    logLevel = NULL;
+}
+
 int
 main (int argc, char *argv []) {
     int ret;
@@ -108,28 +110,32 @@ main (int argc, char *argv []) {
     ret = parseCmdline (argc, argv);
     if (ret < 0) {
         showHelp (argv [0]);
+        freeCmdlineArgs ();
         return -1;
     }
 
-    /* Init zmq context */
     zmqContext = zctx_new ();
-    if (zmqContext == NULL)
+    if (zmqContext == NULL) {
+        freeCmdlineArgs ();
         return -1;
+    }
     subSock = zsocket_new (zmqContext, ZMQ_SUB);
     if (subSock == NULL) {
         zctx_destroy (&zmqContext);
+        freeCmdlineArgs ();
         return -1;
     }
     ret = zsocket_connect (subSock, "tcp://%s:%d", logServerIp ? logServerIp : "localhost", LOG_SERVICE_LOG_PUBLISH_PORT);
     if (ret < 0) {
         zctx_destroy (&zmqContext);
+        freeCmdlineArgs ();
         return -1;
     }
     zsocket_set_subscribe (subSock, "");
 
     while (!zctx_interrupted) {
         logMsg = zstr_recv (subSock);
-        
+
         if (logMsg && ((logLevel == NULL) ||
                        (logLevel && strstr (logMsg, logLevel)))) {
             if (showInDetail)
@@ -142,5 +148,6 @@ main (int argc, char *argv []) {
     }
 
     zctx_destroy (&zmqContext);
+    freeCmdlineArgs ();
     return 0;
 }

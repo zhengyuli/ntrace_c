@@ -35,7 +35,7 @@ initHlistNode (hlistNodePtr node) {
 /* Callback function definitions */
 typedef void (*hashItemFreeCB) (void *item);
 typedef int (*hashForEachItemDoCB) (void *item, void *args);
-typedef boolean (*hashForEachItemDelInCaseCB) (void *item, void *args);
+typedef boolean (*hashForEachItemDelInSomeCaseCB) (void *item, void *args);
 
 typedef struct _hashItem hashItem;
 typedef hashItem *hashItemPtr;
@@ -57,57 +57,6 @@ struct _hashTable {
     u_int limit;                        /**< Limit of hash table */
     hlistHeadPtr heads;                 /**< Array of hlist head */
 };
-
-static inline boolean
-hlistIsEmpty (const hlistHeadPtr head) {
-    if (head->first == NULL)
-        return true;
-    else
-        return false;
-}
-
-static inline void
-hlistDel (hlistNodePtr node) {
-    hlistNodePtr next = node->next;
-    hlistNodePtr *pprev = node->pprev;
-
-    if (pprev)
-        *pprev = next;
-    if (next)
-        next->pprev = pprev;
-
-    node->next = NULL;
-    node->pprev = NULL;
-}
-
-static inline void
-hlistAdd (hlistNodePtr node, hlistHeadPtr head) {
-    hlistNodePtr first;
-
-    first = head->first;
-    node->next = first;
-    head->first = node;
-    node->pprev = &head->first;
-    if (first)
-        first->pprev = &node->next;
-}
-
-static inline void
-hlistAddBefore (hlistNodePtr node, hlistNodePtr nnode) {
-    node->pprev = nnode->pprev;
-    *node->pprev = node;
-    node->next = nnode;
-    nnode->pprev = &node->next;
-}
-
-static inline void
-hlistAddAfter (hlistNodePtr node, hlistNodePtr pnode) {
-    node->next = pnode->next;
-    pnode->next = node;
-    node->pprev = &pnode->next;
-    if (node->next)
-        node->next->pprev = &node->next;
-}
 
 /* Get container of hash list node */
 #define hlistEntry(ptr, type, member)           \
@@ -140,30 +89,30 @@ hlistAddAfter (hlistNodePtr node, hlistNodePtr pnode) {
          pos = tmp)
 
 /*========================Interfaces definition============================*/
+int
+hashInsert (hashTablePtr htbl, char *key, void *data, hashItemFreeCB fun);
+int
+hashDel (hashTablePtr htbl, char *key);
+int
+hashUpdate (hashTablePtr htbl, char *key, void *data, hashItemFreeCB fun);
+void *
+hashLookup (hashTablePtr htbl, char *key);
+int
+hashRename (hashTablePtr htbl, char *old_key, char *new_key);
+int
+hashForEachItemDo (hashTablePtr htbl, hashForEachItemDoCB fun, void *args);
+void
+hashForEachItemDelInSomeCase (hashTablePtr htbl, hashForEachItemDelInSomeCaseCB fun, void *args);
+u_int
+hashSize (hashTablePtr htbl);
+u_int
+hashLimit (hashTablePtr htbl);
 hashTablePtr
 hashNew (u_int hashSize);
 void
 hashClean (hashTablePtr htbl);
 void
 hashDestroy (hashTablePtr htbl);
-int
-hashInsert (hashTablePtr htbl, const char *key, void *data, hashItemFreeCB fun);
-int
-hashUpdate (hashTablePtr htbl, const char *key, void *data, hashItemFreeCB fun);
-int
-hashDel (hashTablePtr htbl, const char *key);
-void *
-hashLookup (hashTablePtr htbl, const char *key);
-int
-hashRename (hashTablePtr htbl, const char *old_key, const char *new_key);
-u_int
-hashSize (hashTablePtr htbl);
-u_int
-hashLimit (hashTablePtr htbl);
-int
-hashForEachItemDo (hashTablePtr htbl, hashForEachItemDoCB fun, void *args);
-void
-hashForEachItemDelInCase (hashTablePtr htbl, hashForEachItemDelInCaseCB fun, void *args);
 /*=======================Interfaces definition end=========================*/
 
 #endif /* __HASH_H__ */

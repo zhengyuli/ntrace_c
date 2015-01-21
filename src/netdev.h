@@ -7,9 +7,9 @@
 pcap_t *
 getNetDev (void);
 int
-getNetDevLinkType (void);
+getNetDevDatalinkType (void);
 int
-updateFilter (const char *filter);
+updateFilter (char *filter);
 int
 initNetDev (void);
 void

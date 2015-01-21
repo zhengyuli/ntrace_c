@@ -25,7 +25,7 @@ static protoAnalyzerContext protoAnalyzerContextTable [1024];
 static u_int registeredProtoNum = 0;
 
 protoAnalyzerPtr
-getProtoAnalyzer (const char *proto) {
+getProtoAnalyzer (char *proto) {
     int i;
     protoAnalyzerPtr analyzer;
 

@@ -4,7 +4,7 @@
 # Name: update_profile.py
 # Purpose:
 #
-# Time-stamp: <2015-01-17 18:25:04 Saturday by lzy>
+# Time-stamp: <2015-01-21 23:13:54 Wednesday by lzy>
 #
 # Author: zhengyu li
 # Created: 24 May 2014
@@ -21,7 +21,13 @@ appService1 ['proto'] = 'HTTP'
 appService1 ['ip'] = '210.28.129.4'
 appService1 ['port'] = 80
 
-appServiceList = [appService1]
+appService2 = {}
+appService2 ['id'] = 2
+appService2 ['proto'] = 'MYSQL'
+appService2 ['ip'] = '10.211.55.3'
+appService2 ['port'] = 3306
+
+appServiceList = [appService1, appService2]
 
 updateProfileBody = {}
 updateProfileBody ['app_services'] = appServiceList

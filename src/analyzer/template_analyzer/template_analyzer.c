@@ -83,20 +83,20 @@ templateSessionBreakdown2Json (json_t *root, void *sd, void *sbd) {
 }
 
 static void
-templateSessionProcessEstb (void *sd, timeValPtr tm) {
+templateSessionProcessEstb (timeValPtr tm, void *sd) {
     templateSessionDetailPtr dsd = (templateSessionDetailPtr) sd;
 
     dsd->serverTimeBegin = timeVal2MilliSecond (tm);
 }
 
 static void
-templateSessionProcessUrgData (streamDirection direction, char urgData, void *sd, timeValPtr tm) {
+templateSessionProcessUrgData (streamDirection direction, char urgData, timeValPtr tm, void *sd) {
     return;
 }
 
 static u_int
-templateSessionProcessData (streamDirection direction, u_char *data, u_int dataLen, void *sd,
-                           timeValPtr tm, sessionState *state) {
+templateSessionProcessData (streamDirection direction, u_char *data, u_int dataLen,
+                            timeValPtr tm, void *sd, sessionState *state) {
     templateSessionDetailPtr dsd = (templateSessionDetailPtr) sd;
 
     dsd->exchangeSize += dataLen;
@@ -104,14 +104,14 @@ templateSessionProcessData (streamDirection direction, u_char *data, u_int dataL
 }
 
 static void
-templateSessionProcessReset (streamDirection direction, void *sd, timeValPtr tm) {
+templateSessionProcessReset (streamDirection direction, timeValPtr tm, void *sd) {
     templateSessionDetailPtr dsd = (templateSessionDetailPtr) sd;
 
     dsd->serverTimeEnd = timeVal2MilliSecond (tm);
 }
 
 static void
-templateSessionProcessFin (streamDirection direction, void *sd, timeValPtr tm, sessionState *state) {
+templateSessionProcessFin (streamDirection direction, timeValPtr tm, void *sd, sessionState *state) {
     templateSessionDetailPtr dsd = (templateSessionDetailPtr) sd;
 
     if (dsd->serverTimeEnd == 0)

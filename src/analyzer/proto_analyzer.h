@@ -23,12 +23,12 @@ typedef void * (*newSessionBreakdownCB) (void);
 typedef void (*freeSessionBreakdownCB) (void *sbd);
 typedef int (*generateSessionBreakdownCB) (void *sd, void *sbd);
 typedef void (*sessionBreakdown2JsonCB) (json_t *root, void *sd, void *sbd);
-typedef void (*sessionProcessEstbCB) (void *sd, timeValPtr tm);
-typedef void (*sessionProcessUrgeDataCB) (streamDirection direction, char urgData, void *sd, timeValPtr tm);
-typedef u_int (*sessionProcessDataCB) (streamDirection direction, u_char *data, u_int dataLen, void *sd,
-                                       timeValPtr tm, sessionState *state);
-typedef void (*sessionProcessResetCB) (streamDirection direction, void *sd, timeValPtr tm);
-typedef void (*sessionProcessFinCB) (streamDirection direction, void *sd, timeValPtr tm, sessionState *state);
+typedef void (*sessionProcessEstbCB) (timeValPtr tm, void *sd);
+typedef void (*sessionProcessUrgeDataCB) (streamDirection direction, char urgData, timeValPtr tm, void *sd);
+typedef u_int (*sessionProcessDataCB) (streamDirection direction, u_char *data, u_int dataLen,
+                                       timeValPtr tm, void *sd, sessionState *state);
+typedef void (*sessionProcessResetCB) (streamDirection direction, timeValPtr tm, void *sd);
+typedef void (*sessionProcessFinCB) (streamDirection direction, timeValPtr tm, void *sd, sessionState *state);
 
 typedef struct _protoAnalyzer protoAnalyzer;
 typedef protoAnalyzer *protoAnalyzerPtr;

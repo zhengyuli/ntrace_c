@@ -77,20 +77,20 @@ defaultSessionBreakdown2Json (json_t *root, void *sd, void *sbd) {
 }
 
 static void
-defaultSessionProcessEstb (void *sd, timeValPtr tm) {
+defaultSessionProcessEstb (timeValPtr tm, void *sd) {
     defaultSessionDetailPtr dsd = (defaultSessionDetailPtr) sd;
 
     dsd->serverTimeBegin = timeVal2MilliSecond (tm);
 }
 
 static void
-defaultSessionProcessUrgData (streamDirection direction, char urgData, void *sd, timeValPtr tm) {
+defaultSessionProcessUrgData (streamDirection direction, char urgData, timeValPtr tm, void *sd) {
     return;
 }
 
 static u_int
-defaultSessionProcessData (streamDirection direction, u_char *data, u_int dataLen, void *sd,
-                           timeValPtr tm, sessionState *state) {
+defaultSessionProcessData (streamDirection direction, u_char *data, u_int dataLen,
+                           timeValPtr tm, void *sd, sessionState *state) {
     defaultSessionDetailPtr dsd = (defaultSessionDetailPtr) sd;
 
     dsd->exchangeSize += dataLen;
@@ -98,14 +98,14 @@ defaultSessionProcessData (streamDirection direction, u_char *data, u_int dataLe
 }
 
 static void
-defaultSessionProcessReset (streamDirection direction, void *sd, timeValPtr tm) {
+defaultSessionProcessReset (streamDirection direction, timeValPtr tm, void *sd) {
     defaultSessionDetailPtr dsd = (defaultSessionDetailPtr) sd;
 
     dsd->serverTimeEnd = timeVal2MilliSecond (tm);
 }
 
 static void
-defaultSessionProcessFin (streamDirection direction, void *sd, timeValPtr tm, sessionState *state) {
+defaultSessionProcessFin (streamDirection direction, timeValPtr tm, void *sd, sessionState *state) {
     defaultSessionDetailPtr dsd = (defaultSessionDetailPtr) sd;
 
     if (dsd->serverTimeEnd == 0)

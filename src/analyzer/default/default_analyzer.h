@@ -21,7 +21,7 @@ struct _defaultSessionBreakdown {
 };
 
 /* Default session breakdown json key definitions */
-#define DEFAULT_SBKD_EXCHANGE_SIZE     "default_exchange_size"
-#define DEFAULT_SBKD_SERVER_LATENCY    "default_server_latency"
+#define DEFAULT_SBKD_EXCHANGE_SIZE "default_exchange_size"
+#define DEFAULT_SBKD_SERVER_LATENCY "default_server_latency"
 
 #endif /* __DEFAULT_ANALYZER_H__ */

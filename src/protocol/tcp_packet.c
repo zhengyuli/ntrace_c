@@ -683,7 +683,7 @@ handleEstb (tcpStreamPtr stream, timeValPtr tm) {
     stream->estbTime = timeVal2MilliSecond (tm);
     stream->mss = MIN_NUM (stream->client.mss, stream->server.mss);
 
-    (*stream->analyzer->sessionProcessEstb) (stream->sessionDetail, tm);
+    (*stream->analyzer->sessionProcessEstb) (tm, stream->sessionDetail);
 
     publishSessionBreakdown (stream, tm);
 }
@@ -698,7 +698,7 @@ handleUrgData (tcpStreamPtr stream, halfStreamPtr snd, u_char urgData, timeValPt
     else
         direction = STREAM_FROM_SERVER;
 
-    (*stream->analyzer->sessionProcessUrgData) (direction, urgData, stream->sessionDetail, tm);
+    (*stream->analyzer->sessionProcessUrgData) (direction, urgData, tm, stream->sessionDetail);
 }
 
 /* Tcp data handler callback */
@@ -713,7 +713,7 @@ handleData (tcpStreamPtr stream, halfStreamPtr snd, u_char *data, u_int dataLen,
     else
         direction = STREAM_FROM_SERVER;
 
-    parseCount = (*stream->analyzer->sessionProcessData) (direction, data, dataLen, stream->sessionDetail, tm, &state);
+    parseCount = (*stream->analyzer->sessionProcessData) (direction, data, dataLen, tm, stream->sessionDetail, &state);
     if (state == SESSION_DONE)
         publishSessionBreakdown (stream, tm);
 
@@ -740,7 +740,7 @@ handleReset (tcpStreamPtr stream, halfStreamPtr snd, timeValPtr tm) {
             stream->state = STREAM_RESET_TYPE3;
         else
             stream->state = STREAM_RESET_TYPE4;
-        (*stream->analyzer->sessionProcessReset) (direction, stream->sessionDetail, tm);
+        (*stream->analyzer->sessionProcessReset) (direction, tm, stream->sessionDetail);
     }
 
     stream->closeTime = timeVal2MilliSecond (tm);
@@ -759,7 +759,7 @@ handleFin (tcpStreamPtr stream, halfStreamPtr snd, timeValPtr tm) {
     else
         direction = STREAM_FROM_SERVER;
 
-    (*stream->analyzer->sessionProcessFin) (direction, stream->sessionDetail, tm, &state);
+    (*stream->analyzer->sessionProcessFin) (direction, tm, stream->sessionDetail, &state);
     if (state == SESSION_DONE)
         publishSessionBreakdown (stream, tm);
 

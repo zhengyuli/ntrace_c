@@ -858,18 +858,18 @@ httpSessionBreakdown2Json (json_t *root, void *sd, void *sbd) {
 }
 
 static void
-httpSessionProcessEstb (void *sd, timeValPtr tm) {
+httpSessionProcessEstb (timeValPtr tm, void *sd) {
     return;
 }
 
 static void
-httpSessionProcessUrgData (streamDirection direction, char urgData, void *sd, timeValPtr tm) {
+httpSessionProcessUrgData (streamDirection direction, char urgData, timeValPtr tm, void *sd) {
     return;
 }
 
 static u_int
-httpSessionProcessData (streamDirection direction, u_char *data, u_int dataLen, void *sd,
-                        timeValPtr tm, sessionState *state) {
+httpSessionProcessData (streamDirection direction, u_char *data, u_int dataLen,
+                        timeValPtr tm, void *sd, sessionState *state) {
     u_int parseCount;
 
     currTime = tm;
@@ -889,7 +889,7 @@ httpSessionProcessData (streamDirection direction, u_char *data, u_int dataLen, 
 }
 
 static void
-httpSessionProcessReset (streamDirection direction, void *sd, timeValPtr tm) {
+httpSessionProcessReset (streamDirection direction, timeValPtr tm, void *sd) {
     httpSessionDetailNodePtr currNode;
     httpSessionDetailPtr hsd = (httpSessionDetailPtr) sd;
 
@@ -921,7 +921,7 @@ httpSessionProcessReset (streamDirection direction, void *sd, timeValPtr tm) {
 }
 
 static void
-httpSessionProcessFin (streamDirection direction, void *sd, timeValPtr tm, sessionState *state) {
+httpSessionProcessFin (streamDirection direction, timeValPtr tm, void *sd, sessionState *state) {
     httpSessionDetailNodePtr currNode;
     httpSessionDetailPtr hsd = (httpSessionDetailPtr) sd;
 

@@ -19,7 +19,7 @@ struct _templateSessionBreakdown {
 };
 
 /* Template session breakdown json key definitions */
-#define TEMPLATE_SBKD_EXCHANGE_SIZE     "template_exchange_size"
-#define TEMPLATE_SBKD_SERVER_LATENCY    "template_server_latency"
+#define TEMPLATE_SBKD_EXCHANGE_SIZE "template_exchange_size"
+#define TEMPLATE_SBKD_SERVER_LATENCY "template_server_latency"
 
 #endif /* __TEMPLATE_ANALYZER_H__ */

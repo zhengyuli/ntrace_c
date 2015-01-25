@@ -72,9 +72,9 @@ static const char *mysqlCommandName [] = {
 #define CLIENT_DEPRECATE_EOF (1 << 24)
 
 /* Mysql response packet identifier */
-#define MYSQL_RESPONSE_OK_PACKET 0x00
-#define MYSQL_RESPONSE_END_PACKET 0xFE
-#define MYSQL_RESPONSE_ERROR_PACKET 0xFF
+#define MYSQL_OK_PACKET_HEADER 0x00
+#define MYSQL_END_PACKET_HEADER 0xFE
+#define MYSQL_ERROR_PACKET_HEADER 0xFF
 
 /* Mysql server status */
 #define SERVER_STATUS_IN_TRANS (1 << 0)
@@ -120,7 +120,8 @@ typedef enum {
     EVENT_SERVER_HANDSHAKE = 33,
     EVENT_CLIENT_HANDSHAKE,
     EVENT_SECURE_AUTH,
-    EVENT_OK_OR_ERROR,
+    EVENT_OK,
+    EVENT_ERROR,
     EVENT_END,
     EVENT_NUM_FIELDS,
     EVENT_STATISTICS,
@@ -206,8 +207,13 @@ struct _mysqlSessionDetail {
     u_long_long respTimeEnd;            /**< Mysql response time end */
 };
 
-typedef int (*mysqlEventHandler) (mysqlEvent event, u_char *payload, u_int payloadLen,
-                                  streamDirection direction);
+typedef enum {
+    EVENT_HANDLE_OK = 0,
+    EVENT_HANDLE_ERROR = 1
+} mysqlEventHandleState;
+
+typedef mysqlEventHandleState (*mysqlEventHandler) (mysqlEvent event, u_char *payload, u_int payloadLen,
+                                                    streamDirection direction);
 
 typedef struct _mysqlEventHandleMap mysqlEventHandleMap;
 typedef mysqlEventHandleMap *mysqlEventHandleMapPtr;

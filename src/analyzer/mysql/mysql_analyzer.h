@@ -22,10 +22,10 @@ typedef enum {
     COM_BINLOG_DUMP_GTID, COM_RESET_CONNECTION,
     /* Must be last */
     COM_UNKNOWN
-} mysqlCommand;
+} mysqlCmd;
 
 /* Mysql command name */
-static const char *mysqlCommandName [] = {
+static const char *mysqlCmdName [] = {
     /* 0 */
     "COM_SLEEP", "COM_QUIT", "COM_INIT_DB", "COM_QUERY", "COM_FIELD_LIST",
     /* 5 */
@@ -71,12 +71,7 @@ static const char *mysqlCommandName [] = {
 #define CLIENT_SESSION_TRACK (1 << 23)
 #define CLIENT_DEPRECATE_EOF (1 << 24)
 
-/* Mysql response packet identifier */
-#define MYSQL_OK_PACKET_HEADER 0x00
-#define MYSQL_END_PACKET_HEADER 0xFE
-#define MYSQL_ERROR_PACKET_HEADER 0xFF
-
-/* Mysql server status */
+        /* Mysql server status */
 #define SERVER_STATUS_IN_TRANS (1 << 0)
 #define SERVER_STATUS_AUTOCOMMIT (1 << 1)
 #define SERVER_STATUS_MORE_RESULTS (1 << 2)
@@ -96,14 +91,14 @@ typedef enum {
     STATE_PONG = 4,
     STATE_OK_OR_ERROR = 5,
     STATE_END_OR_ERROR = 6,
-    STATE_STATISTICS = 7,
-    STATE_FIELD_LIST = 8,
-    STATE_FIELD = 9,
-    STATE_FIELD_BIN = 10,
-    STATE_TXT_RS = 11,
-    STATE_BIN_RS = 12,
-    STATE_END = 13,
-    STATE_TXT_ROW = 14,
+    STATE_END = 7,
+    STATE_STATISTICS = 8,
+    STATE_FIELD_LIST = 9,
+    STATE_TXT_RS = 10,
+    STATE_TXT_FIELD = 11,
+    STATE_TXT_ROW = 12,
+    STATE_BIN_RS = 13,
+    STATE_BIN_FIELD = 14,
     STATE_BIN_ROW = 15,
     STATE_STMT_META = 16,
     STATE_STMT_PARAM = 17,
@@ -114,7 +109,7 @@ typedef enum {
 
 /*
  * Mysql state machine events.
- * Events 0-32 are reserved for mysqlCommands
+ * Events 0-32 are reserved for mysqlCmds
  */
 typedef enum {
     EVENT_SERVER_HANDSHAKE = 33,
@@ -123,17 +118,17 @@ typedef enum {
     EVENT_OK,
     EVENT_ERROR,
     EVENT_END,
-    EVENT_NUM_FIELDS,
+    EVENT_END_WITH_MULTI_RESULT,
     EVENT_STATISTICS,
-    EVENT_ROW,
-    EVENT_FIELD,
-    EVENT_FL_FIELD,
-    EVENT_END_MULTI_RESULT,
+    EVENT_FIELD_LIST_FIELD,
+    EVENT_NUM_FIELDS,
+    EVENT_TXT_FIELD,
+    EVENT_TXT_ROW,
+    EVENT_BIN_FIELD,
+    EVENT_BIN_ROW,
     EVENT_STMT_META,
     EVENT_STMT_PARAM,
     EVENT_STMT_FETCH_RESULT,
-    EVENT_NUM_FIELDS_BIN,
-    EVENT_FIELD_BIN,
     EVENT_UNKNOWN
 } mysqlEvent;
 
@@ -175,6 +170,16 @@ struct _mysqlSharedInfo {
     char *userName;                     /**< Mysql user name to access */
 };
 
+typedef union _mysqlCmdCtxt mysqlCmdCtxt;
+typedef mysqlCmdCtxt *mysqlCmdCtxtPtr;
+
+union _mysqlCmdCtxt {
+    struct {
+        u_int fieldCount;
+        u_int fieldRecv;
+    } field;
+};
+
 typedef enum {
     MYSQL_INIT = 0,                     /**< Mysql init state */
     MYSQL_REQUEST_BEGIN,                /**< Mysql request begin */
@@ -193,6 +198,9 @@ typedef mysqlSessionDetail *mysqlSessionDetailPtr;
 
 struct _mysqlSessionDetail {
     mysqlSharedInfo sharedInfo;         /**< Mysql shared info */
+    mysqlCmd cmd;                       /**< Mysql command */
+    mysqlCmdCtxt cmdCtxt;               /**< Mysql command context */
+    boolean showS2CTag;                 /**< Show server to client tag */
     mysqlState mstate;                  /**< Mysql state */
     u_int seqId;                        /**< Mysql sequence id */
     char *reqStmt;                      /**< Mysql request statement */

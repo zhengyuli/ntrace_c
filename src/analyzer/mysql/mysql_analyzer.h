@@ -71,7 +71,7 @@ static const char *mysqlCmdName [] = {
 #define CLIENT_SESSION_TRACK (1 << 23)
 #define CLIENT_DEPRECATE_EOF (1 << 24)
 
-        /* Mysql server status */
+/* Mysql server status */
 #define SERVER_STATUS_IN_TRANS (1 << 0)
 #define SERVER_STATUS_AUTOCOMMIT (1 << 1)
 #define SERVER_STATUS_MORE_RESULTS (1 << 2)
@@ -105,7 +105,7 @@ typedef enum {
     STATE_STMT_FETCH_RS = 18
 } mysqlState;
 
-#define MYSQL_STATE_SIZE 19
+#define MYSQL_STATE_COUNT 19
 
 /*
  * Mysql state machine events.
@@ -131,6 +131,53 @@ typedef enum {
     EVENT_STMT_FETCH_RESULT,
     EVENT_UNKNOWN
 } mysqlEvent;
+
+/* Mysql field type */
+typedef enum {
+    FIELD_TYPE_DECIMAL = 0,
+    FIELD_TYPE_TINY = 1,
+    FIELD_TYPE_SHORT = 2,
+    FIELD_TYPE_LONG = 3,
+    FIELD_TYPE_FLOAT = 4,
+    FIELD_TYPE_DOUBLE = 5,
+    FIELD_TYPE_NULL = 6,
+    FIELD_TYPE_TIMESTAMP = 7,
+    FIELD_TYPE_LONGLONG = 8,
+    FIELD_TYPE_INT24 = 9,
+    FIELD_TYPE_DATE = 10,
+    FIELD_TYPE_TIME = 11,
+    FIELD_TYPE_DATETIME = 12,
+    FIELD_TYPE_YEAR = 13,
+    FIELD_TYPE_NEWDATE = 14,
+    FIELD_TYPE_VARCHAR = 15,
+    FIELD_TYPE_BIT = 16,
+    FIELD_TYPE_NEWDECIMAL = 246,
+    FIELD_TYPE_ENUM = 247,
+    FIELD_TYPE_SET = 248,
+    FIELD_TYPE_TINY_BLOB = 249,
+    FIELD_TYPE_MEDIUM_BLOB = 250,
+    FIELD_TYPE_LONG_BLOB = 251,
+    FIELD_TYPE_BLOB = 252,
+    FIELD_TYPE_VAR_STRING = 253,
+    FIELD_TYPE_STRING = 254,
+    FIELD_TYPE_GEOMETRY = 255
+} mysqlFieldType;
+
+/* Mysql field flag */
+#define NOT_NULL_FLAG (1 << 0)            /* Field can't be NULL */
+#define PRI_KEY_FLAG (1 << 1)             /* Field is part of a primary key */
+#define UNIQUE_KEY_FLAG (1 << 2)          /* Field is part of a unique key */
+#define MULTIPLE_KEY_FLAG (1 << 3)        /* Field is part of a key */
+#define BLOB_FLAG (1 << 4)                /* Field is a blob */
+#define UNSIGNED_FLAG (1 << 5)            /* Field is unsigned */
+#define ZEROFILL_FLAG (1 << 6)            /* Field is zerofill */
+#define BINARY_FLAG (1 << 7)              /* Field is binary   */
+#define ENUM_FLAG (1 << 8)                /* field is an enum */
+#define AUTO_INCREMENT_FLAG (1 << 9)      /* field is a autoincrement field */
+#define TIMESTAMP_FLAG (1 << 10)          /* Field is a timestamp */
+#define SET_FLAG (1 << 11)                /* field is a set */
+#define NO_DEFAULT_VALUE_FLAG (1 << 12)   /* Field doesn't have default value */
+#define NUM_FLAG (1 << 13)                /* Field is num (for clients) */
 
 typedef struct _mysqlHeader mysqlHeader;
 typedef mysqlHeader *mysqlHeaderPtr;
@@ -170,14 +217,13 @@ struct _mysqlSharedInfo {
     char *userName;                     /**< Mysql user name to access */
 };
 
-typedef union _mysqlCmdCtxt mysqlCmdCtxt;
+typedef struct _mysqlCmdCtxt mysqlCmdCtxt;
 typedef mysqlCmdCtxt *mysqlCmdCtxtPtr;
 
-union _mysqlCmdCtxt {
-    struct {
-        u_int fieldCount;
-        u_int fieldRecv;
-    } field;
+struct _mysqlCmdCtxt {
+    u_int fieldsCount;                  /**< Fields count */
+    u_int fieldsRecv;                   /**< Fields received */
+    mysqlFieldType fieldsType [512];    /**< Fields type */
 };
 
 typedef enum {

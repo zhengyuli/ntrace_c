@@ -938,7 +938,7 @@ httpSessionProcessFin (streamDirection direction, timeValPtr tm, void *sd, sessi
     }
 }
 
-protoAnalyzer analyzer = {
+protoAnalyzer httpAnalyzer = {
     .proto = "HTTP",
     .initProtoAnalyzer = initHttpAnalyzer,
     .destroyProtoAnalyzer = destroyHttpAnalyzer,

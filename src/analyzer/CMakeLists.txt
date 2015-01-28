@@ -2,29 +2,17 @@ CMAKE_MINIMUM_REQUIRED (VERSION 2.8.0)
 
 INCLUDE_DIRECTORIES (
   ../
-  ./http
-  ./mysql
+  ./template
   util
-  log
-  ../3rd_party/http_parser)
+  log)
 
-SET (HTTP_ANALYZER_FILES
-  http/http_analyzer.c
-  ../3rd_party/http_parser/http_parser.c)
+SET (TEMPLATE_ANALYZER_FILES
+  template/template_analyzer.c)
 
-ADD_LIBRARY (http_analyzer SHARED ${HTTP_ANALYZER_FILES})
-TARGET_LINK_LIBRARIES (http_analyzer jansson)
+ADD_LIBRARY (template_analyzer SHARED ${TEMPLATE_ANALYZER_FILES})
+TARGET_LINK_LIBRARIES (template_analyzer jansson)
 INSTALL (
-  TARGETS http_analyzer
-  DESTINATION ${AGENT_ANALYZER_DIR})
-
-SET (MYSQL_ANALYZER_FILES
-  mysql/mysql_analyzer.c)
-
-ADD_LIBRARY (mysql_analyzer SHARED ${MYSQL_ANALYZER_FILES})
-TARGET_LINK_LIBRARIES (mysql_analyzer jansson)
-INSTALL (
-  TARGETS mysql_analyzer
+  TARGETS template_analyzer
   DESTINATION ${AGENT_ANALYZER_DIR})
 
 INSTALL (
@@ -33,6 +21,6 @@ INSTALL (
   PERMISSIONS  OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
 
 INSTALL (
-  DIRECTORY template_analyzer
+  DIRECTORY template
   DESTINATION ${PROJECT_DATA_DIR})
 

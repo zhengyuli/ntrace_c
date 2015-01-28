@@ -20,6 +20,8 @@ struct _protoAnalyzerContext {
 
 /* Default builtin analyzer */
 extern protoAnalyzer defaultAnalyzer;
+extern protoAnalyzer httpAnalyzer;
+extern protoAnalyzer mysqlAnalyzer;
 
 static protoAnalyzerContext protoAnalyzerContextTable [1024];
 static u_int registeredProtoNum = 0;
@@ -51,6 +53,14 @@ loadAnalyzers (void) {
     protoAnalyzerContextTable [registeredProtoNum].analyzer = &defaultAnalyzer;
     registeredProtoNum++;
 
+    protoAnalyzerContextTable [registeredProtoNum].handle = NULL;
+    protoAnalyzerContextTable [registeredProtoNum].analyzer = &httpAnalyzer;
+    registeredProtoNum++;
+
+    protoAnalyzerContextTable [registeredProtoNum].handle = NULL;
+    protoAnalyzerContextTable [registeredProtoNum].analyzer = &mysqlAnalyzer;
+    registeredProtoNum++;
+    
     /* Load proto analyzers in AGENT_ANALYZER_DIR dynamically */
     dir = opendir (AGENT_ANALYZER_DIR);
     if (dir == NULL) {
@@ -77,8 +87,8 @@ loadAnalyzers (void) {
 
             protoAnalyzerContextTable [registeredProtoNum].handle = handle;
             protoAnalyzerContextTable [registeredProtoNum].analyzer = analyzer;
-            LOGD ("Load proto analyzer from %s successfully.\n", entry->d_name);
             registeredProtoNum++;
+            LOGD ("Load proto analyzer from %s successfully.\n", entry->d_name);
         }
     }
 

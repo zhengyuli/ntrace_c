@@ -2254,7 +2254,6 @@ destroyMysqlSharedinfo (mysqlSharedInfoPtr sharedInfo) {
 
 static void *
 newMysqlSessionDetail (void) {
-    int ret;
     mysqlSessionDetailPtr msd;
 
     msd = (mysqlSessionDetailPtr) malloc (sizeof (mysqlSessionDetail));

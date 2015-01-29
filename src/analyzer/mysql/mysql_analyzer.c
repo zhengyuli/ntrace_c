@@ -2242,8 +2242,6 @@ initMysqlSharedinfo (mysqlSharedInfoPtr sharedInfo) {
     sharedInfo->doCompress = false;
     sharedInfo->doSSL = false;
     sharedInfo->userName = NULL;
-
-    return 0;
 }
 
 static void

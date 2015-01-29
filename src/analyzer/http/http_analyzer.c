@@ -385,9 +385,6 @@ newHttpSessionDetailNode (void) {
 
 static void
 freeHttpSessionDetailNode (httpSessionDetailNodePtr hsdn) {
-    if (hsdn == NULL)
-        return;
-
     free (hsdn->reqVer);
     free (hsdn->method);
     free (hsdn->url);

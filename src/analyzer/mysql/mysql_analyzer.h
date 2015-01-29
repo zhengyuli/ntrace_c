@@ -4,6 +4,76 @@
 #include "util.h"
 #include "proto_analyzer.h"
 
+typedef struct _mysqlHeader mysqlHeader;
+typedef mysqlHeader *mysqlHeaderPtr;
+
+/* Normal mysql header */
+struct _mysqlHeader {
+    u_int payloadLen:24;
+    u_int pktId:8;
+};
+
+#define MYSQL_HEADER_SIZE 4
+
+typedef struct _mysqlCompHeader mysqlCompHeader;
+typedef mysqlCompHeader *mysqlCompHeaderPtr;
+
+/* Compressed mysql header */
+struct _mysqlCompHeader {
+    u_int compPayloadLen:24;
+    u_int compPktId:8;
+    u_int payloadLen:24;
+};
+
+#define MYSQL_COMPRESSED_HEADER_SIZE 7
+
+/* Mysql field type */
+typedef enum {
+    FIELD_TYPE_DECIMAL = 0,
+    FIELD_TYPE_TINY = 1,
+    FIELD_TYPE_SHORT = 2,
+    FIELD_TYPE_LONG = 3,
+    FIELD_TYPE_FLOAT = 4,
+    FIELD_TYPE_DOUBLE = 5,
+    FIELD_TYPE_NULL = 6,
+    FIELD_TYPE_TIMESTAMP = 7,
+    FIELD_TYPE_LONGLONG = 8,
+    FIELD_TYPE_INT24 = 9,
+    FIELD_TYPE_DATE = 10,
+    FIELD_TYPE_TIME = 11,
+    FIELD_TYPE_DATETIME = 12,
+    FIELD_TYPE_YEAR = 13,
+    FIELD_TYPE_NEWDATE = 14,
+    FIELD_TYPE_VARCHAR = 15,
+    FIELD_TYPE_BIT = 16,
+    FIELD_TYPE_NEWDECIMAL = 246,
+    FIELD_TYPE_ENUM = 247,
+    FIELD_TYPE_SET = 248,
+    FIELD_TYPE_TINY_BLOB = 249,
+    FIELD_TYPE_MEDIUM_BLOB = 250,
+    FIELD_TYPE_LONG_BLOB = 251,
+    FIELD_TYPE_BLOB = 252,
+    FIELD_TYPE_VAR_STRING = 253,
+    FIELD_TYPE_STRING = 254,
+    FIELD_TYPE_GEOMETRY = 255
+} mysqlFieldType;
+
+/* Mysql field flag */
+#define NOT_NULL_FLAG         (1 << 0)
+#define PRI_KEY_FLAG          (1 << 1)
+#define UNIQUE_KEY_FLAG       (1 << 2)
+#define MULTIPLE_KEY_FLAG     (1 << 3)
+#define BLOB_FLAG             (1 << 4)
+#define UNSIGNED_FLAG         (1 << 5)
+#define ZEROFILL_FLAG         (1 << 6)
+#define BINARY_FLAG           (1 << 7)
+#define ENUM_FLAG             (1 << 8)
+#define AUTO_INCREMENT_FLAG   (1 << 9)
+#define TIMESTAMP_FLAG        (1 << 10)
+#define SET_FLAG              (1 << 11)
+#define NO_DEFAULT_VALUE_FLAG (1 << 12)
+#define NUM_FLAG              (1 << 13)
+
 /* Mysql command */
 typedef enum {
     /* 0 */
@@ -44,43 +114,43 @@ static const char *mysqlCmdName [] = {
     "COM_UNKNOWN"
 };
 
-/* Mysql client capabilities flag */
-#define CLIENT_LONG_PASSWORD (1 << 0)
-#define CLIENT_FOUND_ROWS (1 << 1)
-#define CLIENT_LONG_FLAG (1 << 2)
-#define CLIENT_CONNECT_WITH_DB (1 << 3)
-#define CLIENT_NO_SCHEMA (1 << 4)
-#define CLIENT_COMPRESS (1 << 5)
-#define CLIENT_ODBC (1 << 6)
-#define CLIENT_LOCAL_FILES (1 << 7)
-#define CLIENT_IGNORE_SPACE (1 << 8)
-#define CLIENT_PROTOCOL_41 (1 << 9)
-#define CLIENT_INTERACTIVE (1 << 10)
-#define CLIENT_SSL (1 << 11)
-#define CLIENT_IGNORE_SIGPIPE (1 << 12)
-#define CLIENT_TRANSACTIONS (1 << 13)
-#define CLIENT_RESERVED (1 << 14)
-#define CLIENT_SECURE_CONNECTION (1 << 15)
-#define CLIENT_MULTI_STATEMENTS (1 << 16)
-#define CLIENT_MULTI_RESULTS (1 << 17)
-#define CLIENT_PS_MULTI_RESULTS (1 << 18)
-#define CLIENT_PLUGIN_AUTH (1 << 19)
-#define CLIENT_CONNECT_ATTRS (1 << 20)
+/* Mysql client capabilitie flags */
+#define CLIENT_LONG_PASSWORD                  (1 << 0)
+#define CLIENT_FOUND_ROWS                     (1 << 1)
+#define CLIENT_LONG_FLAG                      (1 << 2)
+#define CLIENT_CONNECT_WITH_DB                (1 << 3)
+#define CLIENT_NO_SCHEMA                      (1 << 4)
+#define CLIENT_COMPRESS                       (1 << 5)
+#define CLIENT_ODBC                           (1 << 6)
+#define CLIENT_LOCAL_FILES                    (1 << 7)
+#define CLIENT_IGNORE_SPACE                   (1 << 8)
+#define CLIENT_PROTOCOL_41                    (1 << 9)
+#define CLIENT_INTERACTIVE                    (1 << 10)
+#define CLIENT_SSL                            (1 << 11)
+#define CLIENT_IGNORE_SIGPIPE                 (1 << 12)
+#define CLIENT_TRANSACTIONS                   (1 << 13)
+#define CLIENT_RESERVED                       (1 << 14)
+#define CLIENT_SECURE_CONNECTION              (1 << 15)
+#define CLIENT_MULTI_STATEMENTS               (1 << 16)
+#define CLIENT_MULTI_RESULTS                  (1 << 17)
+#define CLIENT_PS_MULTI_RESULTS               (1 << 18)
+#define CLIENT_PLUGIN_AUTH                    (1 << 19)
+#define CLIENT_CONNECT_ATTRS                  (1 << 20)
 #define CLIENT_PLUGIN_AUTH_LENENC_CLIENT_DATA (1 << 21)
-#define CLIENT_CAN_HANDLE_EXPIRED_PASSWORDS (1 << 22)
-#define CLIENT_SESSION_TRACK (1 << 23)
-#define CLIENT_DEPRECATE_EOF (1 << 24)
+#define CLIENT_CAN_HANDLE_EXPIRED_PASSWORDS   (1 << 22)
+#define CLIENT_SESSION_TRACK                  (1 << 23)
+#define CLIENT_DEPRECATE_EOF                  (1 << 24)
 
 /* Mysql server status */
-#define SERVER_STATUS_IN_TRANS (1 << 0)
-#define SERVER_STATUS_AUTOCOMMIT (1 << 1)
-#define SERVER_STATUS_MORE_RESULTS (1 << 2)
-#define SERVER_MORE_RESULTS_EXISTS (1 << 3)
-#define SERVER_QUERY_NO_GOOD_INDEX_USED (1 << 4)
-#define SERVER_QUERY_NO_INDEX_USED (1 << 5)
-#define SERVER_STATUS_CURSOR_EXISTS (1 << 6)
-#define SERVER_STATUS_LAST_ROW_SENT (1 << 7)
-#define SERVER_STATUS_DB_DROPPED (1 << 8)
+#define SERVER_STATUS_IN_TRANS             (1 << 0)
+#define SERVER_STATUS_AUTOCOMMIT           (1 << 1)
+#define SERVER_STATUS_MORE_RESULTS         (1 << 2)
+#define SERVER_MORE_RESULTS_EXISTS         (1 << 3)
+#define SERVER_QUERY_NO_GOOD_INDEX_USED    (1 << 4)
+#define SERVER_QUERY_NO_INDEX_USED         (1 << 5)
+#define SERVER_STATUS_CURSOR_EXISTS        (1 << 6)
+#define SERVER_STATUS_LAST_ROW_SENT        (1 << 7)
+#define SERVER_STATUS_DB_DROPPED           (1 << 8)
 #define SERVER_STATUS_NO_BACKSLASH_ESCAPES (1 << 9)
 
 typedef enum {
@@ -102,13 +172,12 @@ typedef enum {
     STATE_BIN_ROW = 15,
     STATE_STMT_META = 16,
     STATE_STMT_PARAM = 17,
-    STATE_STMT_FETCH_RS = 18
+    STATE_STMT_FETCH_RS = 18,
+    MYSQL_STATE_COUNT = 19
 } mysqlState;
 
-#define MYSQL_STATE_COUNT 19
-
 /*
- * Mysql state machine events.
+ * Mysql events.
  * Events 0-32 are reserved for mysqlCmds
  */
 typedef enum {
@@ -132,75 +201,14 @@ typedef enum {
     EVENT_UNKNOWN
 } mysqlEvent;
 
-/* Mysql field type */
-typedef enum {
-    FIELD_TYPE_DECIMAL = 0,
-    FIELD_TYPE_TINY = 1,
-    FIELD_TYPE_SHORT = 2,
-    FIELD_TYPE_LONG = 3,
-    FIELD_TYPE_FLOAT = 4,
-    FIELD_TYPE_DOUBLE = 5,
-    FIELD_TYPE_NULL = 6,
-    FIELD_TYPE_TIMESTAMP = 7,
-    FIELD_TYPE_LONGLONG = 8,
-    FIELD_TYPE_INT24 = 9,
-    FIELD_TYPE_DATE = 10,
-    FIELD_TYPE_TIME = 11,
-    FIELD_TYPE_DATETIME = 12,
-    FIELD_TYPE_YEAR = 13,
-    FIELD_TYPE_NEWDATE = 14,
-    FIELD_TYPE_VARCHAR = 15,
-    FIELD_TYPE_BIT = 16,
-    FIELD_TYPE_NEWDECIMAL = 246,
-    FIELD_TYPE_ENUM = 247,
-    FIELD_TYPE_SET = 248,
-    FIELD_TYPE_TINY_BLOB = 249,
-    FIELD_TYPE_MEDIUM_BLOB = 250,
-    FIELD_TYPE_LONG_BLOB = 251,
-    FIELD_TYPE_BLOB = 252,
-    FIELD_TYPE_VAR_STRING = 253,
-    FIELD_TYPE_STRING = 254,
-    FIELD_TYPE_GEOMETRY = 255
-} mysqlFieldType;
+typedef struct _mysqlCmdCtxt mysqlCmdCtxt;
+typedef mysqlCmdCtxt *mysqlCmdCtxtPtr;
 
-/* Mysql field flag */
-#define NOT_NULL_FLAG (1 << 0)            /* Field can't be NULL */
-#define PRI_KEY_FLAG (1 << 1)             /* Field is part of a primary key */
-#define UNIQUE_KEY_FLAG (1 << 2)          /* Field is part of a unique key */
-#define MULTIPLE_KEY_FLAG (1 << 3)        /* Field is part of a key */
-#define BLOB_FLAG (1 << 4)                /* Field is a blob */
-#define UNSIGNED_FLAG (1 << 5)            /* Field is unsigned */
-#define ZEROFILL_FLAG (1 << 6)            /* Field is zerofill */
-#define BINARY_FLAG (1 << 7)              /* Field is binary   */
-#define ENUM_FLAG (1 << 8)                /* field is an enum */
-#define AUTO_INCREMENT_FLAG (1 << 9)      /* field is a autoincrement field */
-#define TIMESTAMP_FLAG (1 << 10)          /* Field is a timestamp */
-#define SET_FLAG (1 << 11)                /* field is a set */
-#define NO_DEFAULT_VALUE_FLAG (1 << 12)   /* Field doesn't have default value */
-#define NUM_FLAG (1 << 13)                /* Field is num (for clients) */
-
-typedef struct _mysqlHeader mysqlHeader;
-typedef mysqlHeader *mysqlHeaderPtr;
-
-/* Normal mysql header */
-struct _mysqlHeader {
-    u_int payloadLen:24;
-    u_int pktId:8;
+struct _mysqlCmdCtxt {
+    u_int fieldsCount;                  /**< Fields count */
+    u_int fieldsRecv;                   /**< Fields received */
+    mysqlFieldType fieldsType [512];    /**< Fields type */
 };
-
-#define MYSQL_HEADER_SIZE 4
-
-typedef struct _mysqlCompHeader mysqlCompHeader;
-typedef mysqlCompHeader *mysqlCompHeaderPtr;
-
-/* Compressed mysql header */
-struct _mysqlCompHeader {
-    u_int compPayloadLen:24;
-    u_int compPktId:8;
-    u_int payloadLen:24;
-};
-
-#define MYSQL_COMPRESSED_HEADER_SIZE 7
 
 typedef struct _mysqlSharedInfo mysqlSharedInfo;
 typedef mysqlSharedInfo *mysqlSharedInfoPtr;
@@ -215,15 +223,6 @@ struct _mysqlSharedInfo {
     boolean doCompress;                 /**< Mysql client compression flag */
     boolean doSSL;                      /**< Mysql client authentication with SSL flag */
     char *userName;                     /**< Mysql user name to access */
-};
-
-typedef struct _mysqlCmdCtxt mysqlCmdCtxt;
-typedef mysqlCmdCtxt *mysqlCmdCtxtPtr;
-
-struct _mysqlCmdCtxt {
-    u_int fieldsCount;                  /**< Fields count */
-    u_int fieldsRecv;                   /**< Fields received */
-    mysqlFieldType fieldsType [512];    /**< Fields type */
 };
 
 typedef enum {
@@ -243,9 +242,9 @@ typedef struct _mysqlSessionDetail mysqlSessionDetail;
 typedef mysqlSessionDetail *mysqlSessionDetailPtr;
 
 struct _mysqlSessionDetail {
-    mysqlSharedInfo sharedInfo;         /**< Mysql shared info */
     mysqlCmd cmd;                       /**< Mysql command */
     mysqlCmdCtxt cmdCtxt;               /**< Mysql command context */
+    mysqlSharedInfo sharedInfo;         /**< Mysql shared info */
     boolean showS2CTag;                 /**< Show server to client tag */
     mysqlState mstate;                  /**< Mysql state */
     u_int seqId;                        /**< Mysql sequence id */

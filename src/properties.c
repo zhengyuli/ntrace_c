@@ -301,7 +301,7 @@ int
 initProperties (void) {
     propertiesInstance = loadPropertiesFromConfigFile ();
     if (propertiesInstance == NULL) {
-        fprintf(stderr, "Load properties from config file error.\n");
+        fprintf (stderr, "Load properties from config file error.\n");
         return -1;
     }
 

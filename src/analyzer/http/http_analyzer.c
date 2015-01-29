@@ -386,21 +386,38 @@ newHttpSessionDetailNode (void) {
 static void
 freeHttpSessionDetailNode (httpSessionDetailNodePtr hsdn) {
     free (hsdn->reqVer);
+    hsdn->reqVer = NULL;
     free (hsdn->method);
+    hsdn->method = NULL;
     free (hsdn->url);
+    hsdn->url = NULL;
     free (hsdn->host);
+    hsdn->host = NULL;
     free (hsdn->userAgent);
+    hsdn->userAgent = NULL;
     free (hsdn->referer);
+    hsdn->referer = NULL;
     free (hsdn->accept);
+    hsdn->accept = NULL;
     free (hsdn->acceptLanguage);
+    hsdn->acceptLanguage = NULL;
     free (hsdn->acceptEncoding);
+    hsdn->acceptEncoding = NULL;
     free (hsdn->xForwardedFor);
+    hsdn->xForwardedFor = NULL;
     free (hsdn->reqConnection);
+    hsdn->reqConnection = NULL;
     free (hsdn->respVer);
+    hsdn->respVer = NULL;
     free (hsdn->contentType);
+    hsdn->contentType = NULL;
     free (hsdn->contentDisposition);
+    hsdn->contentDisposition = NULL;
     free (hsdn->transferEncoding);
+    hsdn->transferEncoding = NULL;
     free (hsdn->respConnection);
+    hsdn->respConnection = NULL;
+
     free (hsdn);
 }
 
@@ -504,21 +521,38 @@ freeHttpSessionBreakdown (void *sbd) {
         return;
 
     free (hsbd->reqVer);
+    hsbd->reqVer = NULL;
     free (hsbd->method);
+    hsbd->method = NULL;
     free (hsbd->url);
+    hsbd->url = NULL;
     free (hsbd->host);
+    hsbd->host = NULL;
     free (hsbd->userAgent);
+    hsbd->userAgent = NULL;
     free (hsbd->referer);
+    hsbd->referer = NULL;
     free (hsbd->accept);
+    hsbd->accept = NULL;
     free (hsbd->acceptLanguage);
+    hsbd->acceptLanguage = NULL;
     free (hsbd->acceptEncoding);
+    hsbd->acceptEncoding = NULL;
     free (hsbd->xForwardedFor);
+    hsbd->xForwardedFor = NULL;
     free (hsbd->reqConnection);
+    hsbd->reqConnection = NULL;
     free (hsbd->respVer);
+    hsbd->respVer = NULL;
     free (hsbd->contentType);
+    hsbd->contentType = NULL;
     free (hsbd->contentDisposition);
+    hsbd->contentDisposition = NULL;
     free (hsbd->transferEncoding);
+    hsbd->transferEncoding = NULL;
     free (hsbd->respConnection);
+    hsbd->respConnection = NULL;
+
     free (sbd);
 }
 

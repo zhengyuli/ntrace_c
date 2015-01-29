@@ -152,7 +152,7 @@ fileIsEmpty (char *path) {
     int ret;
     struct stat st;
 
-    ret = stat(path, &st);
+    ret = stat (path, &st);
     if (ret < 0)
         return true;
 

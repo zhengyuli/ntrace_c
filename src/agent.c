@@ -230,7 +230,7 @@ destroyZloop:
 stopAllTask:
     stopAllTask ();
 destroyNetDev:
-    destroyNetDev();
+    destroyNetDev ();
 destroyAppServiceManager:
     destroyAppServiceManager (exitNormally);
 destroyProtoAnalyzer:

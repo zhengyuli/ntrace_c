@@ -93,7 +93,7 @@ struct _tcpStream {
     u_long_long retriesTime;            /**< The last retry timestamp */
     u_int dupSynAcks;                   /**< Duplicate syn/acks of three handshake */
     u_long_long synAckTime;             /**< Syn/ack timestamp of three handshake */
-    u_long_long estbTime;               /**<  timestamp */
+    u_long_long estbTime;               /**< Tcp establish timestamp */
     u_int mss;                          /**< Tcp MSS */
     u_int totalPkts;                    /**< Tcp total packets */
     u_int tinyPkts;                     /**< Tcp tiny packets */
@@ -104,7 +104,7 @@ struct _tcpStream {
     u_int dupAcks;                      /**< Tcp duplicate acks */
     void *sessionDetail;                /**< Appliction session detail */
     boolean inClosingTimeout;           /**< In closing timeout list flag */
-    u_long_long closeTime;              /**< Tcp close time */
+    u_long_long closeTime;              /**< Tcp close timestamp */
     listHead node;                      /**< Tcp stream list node */
 };
 

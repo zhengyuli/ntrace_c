@@ -22,12 +22,17 @@
 
 /* Default closing timeout of tcp stream */
 #define DEFAULT_TCP_STREAM_CLOSING_TIMEOUT 30
+
 /* Default tcp stream hash table size */
 #define DEFAULT_TCP_STREAM_HASH_TABLE_SIZE 65535
-/* Tcp expect sequence */
-#define EXP_SEQ (snd->firstDataSeq + rcv->count + rcv->urgCount)
 /* Tcp stream hash key format string */
 #define TCP_STREAM_HASH_KEY_FORMAT "%s:%u:%s:%u"
+
+/* Tcp receive buffer maxium size = 16MB */
+#define TCP_RECEIVE_BUFFER_MAX_SIZE (1 << 24)
+
+/* Tcp expect sequence */
+#define EXP_SEQ (snd->firstDataSeq + rcv->count + rcv->urgCount)
 
 /* Debug statistic data */
 #ifndef NDEBUG
@@ -783,9 +788,12 @@ handleClose (tcpStreamPtr stream, timeValPtr tm) {
  * @param rcv halfStream to receive
  * @param data data to add
  * @param dataLen data length to add
+ *
+ * @return 0 if success else -1
  */
-static void
+static int
 add2buf (halfStreamPtr rcv, u_char *data, u_int dataLen) {
+    int ret = 0;
     u_int toAlloc;
 
     if ((rcv->count - rcv->offset + dataLen) > rcv->bufSize) {
@@ -794,30 +802,47 @@ add2buf (halfStreamPtr rcv, u_char *data, u_int dataLen) {
                 toAlloc = 4096;
             else
                 toAlloc = dataLen * 2;
+
             rcv->rcvBuf = (u_char *) malloc (toAlloc);
             if (rcv->rcvBuf == NULL) {
                 LOGE ("Alloc memory for halfStream rcvBuf error: %s.\n", strerror (errno));
-                rcv->bufSize = 0;
-                return;
+                ret = -1;
             }
-            rcv->bufSize = toAlloc;
         } else {
-            if (dataLen < rcv->bufSize)
-                toAlloc = rcv->bufSize * 2;
-            else
-                toAlloc = rcv->bufSize + dataLen * 2;
-            rcv->rcvBuf = (u_char *) realloc (rcv->rcvBuf, toAlloc);
-            if (rcv->rcvBuf == NULL) {
-                LOGE ("Alloc memory for halfStream rcvBuf error: %s.\n", strerror (errno));
-                rcv->bufSize = 0;
-                return;
+            /*
+             * If receive buffer size exceed TCP_RECEIVE_BUFFER_MAX_SIZE then
+             * free it in case exhausting too much memory.
+             */
+            if (rcv->bufSize >= TCP_RECEIVE_BUFFER_MAX_SIZE) {
+                LOGW ("Exceed maxium tcp stream receive buffer size.\n");
+                free (rcv->rcvBuf);
+                rcv->rcvBuf = NULL;
+                ret = -1;
+            } else {
+                if (dataLen < rcv->bufSize)
+                    toAlloc = rcv->bufSize * 2;
+                else
+                    toAlloc = rcv->bufSize + dataLen * 2;
+
+                rcv->rcvBuf = (u_char *) realloc (rcv->rcvBuf, toAlloc);
+                if (rcv->rcvBuf == NULL) {
+                    LOGE ("Alloc memory for halfStream rcvBuf error: %s.\n", strerror (errno));
+                    ret = -1;
+                }
             }
-            rcv->bufSize = toAlloc;
         }
+
+        if (ret < 0)
+            rcv->bufSize = 0;
+        else
+            rcv->bufSize = toAlloc;
     }
-    memcpy (rcv->rcvBuf + rcv->count - rcv->offset, data, dataLen);
-    rcv->countNew = dataLen;
+
+    if (!ret)
+        memcpy (rcv->rcvBuf + rcv->count - rcv->offset, data, dataLen);
     rcv->count += dataLen;
+    rcv->countNew = dataLen;
+    return ret;
 }
 
 /*
@@ -838,49 +863,72 @@ add2buf (halfStreamPtr rcv, u_char *data, u_int dataLen) {
  * @param tm current timestamp
  */
 static void
-addFromSkb (tcpStreamPtr stream, halfStreamPtr snd, halfStreamPtr rcv, u_char *data, u_int dataLen,
-            u_int curSeq, u_char fin, u_char urg, u_short urgPtr, u_char push, timeValPtr tm) {
+addFromSkb (tcpStreamPtr stream,
+            halfStreamPtr snd, halfStreamPtr rcv,
+            u_char *data, u_int dataLen, u_int curSeq,
+            u_char fin, u_char urg, u_short urgPtr, u_char push, timeValPtr tm) {
+    int ret;
     u_int parseCount;
     u_int toCopy1, toCopy2;
     u_int lost = EXP_SEQ - curSeq;
 
-    if (urg && after (urgPtr, EXP_SEQ - 1) &&
-        (!rcv->urgSeen || after (urgPtr, rcv->urgPtr))) {
+    if (urg && after (urgPtr, EXP_SEQ - 1) && (!rcv->urgSeen || after (urgPtr, rcv->urgPtr))) {
         rcv->urgPtr = urgPtr;
         rcv->urgSeen = 1;
     }
 
-    if (rcv->urgSeen &&
-        after (rcv->urgPtr + 1, curSeq + lost) &&
-        before (rcv->urgPtr, curSeq + dataLen)) {
-        toCopy1 = rcv->urgPtr - (curSeq + lost);
+    if (rcv->urgSeen && !before (rcv->urgPtr, EXP_SEQ) && before (rcv->urgPtr, curSeq + dataLen)) {
+        /* Hanlde data before urgData */
+        toCopy1 = rcv->urgPtr - EXP_SEQ;
         if (toCopy1 > 0) {
-            add2buf (rcv, data + lost, toCopy1);
-            parseCount = handleData (stream, snd, rcv->rcvBuf, rcv->count - rcv->offset, tm);
-            memmove (rcv->rcvBuf, rcv->rcvBuf + parseCount,  rcv->count - rcv->offset - parseCount);
-            rcv->offset += parseCount;
+            ret = add2buf (rcv, data + lost, toCopy1);
+            if (ret < 0) {
+                LOGE ("Add data to receive buffer error.\n");
+                rcv->offset = rcv->count;
+            } else {
+                parseCount = handleData (stream, snd, rcv->rcvBuf, rcv->count - rcv->offset, tm);
+                rcv->offset += parseCount;
+                if (parseCount)
+                    memmove (rcv->rcvBuf, rcv->rcvBuf + parseCount,  rcv->count - rcv->offset);
+            }
             rcv->countNew = 0;
         }
+
+        /* Handle urgData */
         rcv->urgData = data [rcv->urgPtr - curSeq];
         rcv->urgCountNew = 1;
         handleUrgData (stream, snd, rcv->urgData, tm);
         rcv->urgCountNew = 0;
         rcv->urgSeen = 0;
         rcv->urgCount++;
+
+        /* Handle data after urgData */
         toCopy2 = curSeq + dataLen - rcv->urgPtr - 1;
         if (toCopy2 > 0) {
-            add2buf (rcv, data + lost + toCopy1 + 1, toCopy2);
-            parseCount = handleData (stream, snd, rcv->rcvBuf, rcv->count - rcv->offset, tm);
-            memmove (rcv->rcvBuf, rcv->rcvBuf + parseCount,  rcv->count - rcv->offset - parseCount);
-            rcv->offset += parseCount;
+            ret = add2buf (rcv, data + lost + toCopy1 + 1, toCopy2);
+            if (ret < 0) {
+                LOGE ("Add data to receive buffer error.\n");
+                rcv->offset = rcv->count;
+            } else {
+                parseCount = handleData (stream, snd, rcv->rcvBuf, rcv->count - rcv->offset, tm);
+                rcv->offset += parseCount;
+                if (parseCount)
+                    memmove (rcv->rcvBuf, rcv->rcvBuf + parseCount,  rcv->count - rcv->offset);
+            }
             rcv->countNew = 0;
         }
     } else {
         if (dataLen - lost > 0) {
-            add2buf (rcv, data + lost, dataLen - lost);
-            parseCount = handleData (stream, snd, rcv->rcvBuf, rcv->count - rcv->offset, tm);
-            memmove (rcv->rcvBuf, rcv->rcvBuf + parseCount,  rcv->count - rcv->offset - parseCount);
-            rcv->offset += parseCount;
+            ret = add2buf (rcv, data + lost, dataLen - lost);
+            if (ret < 0) {
+                LOGE ("Add data to receive buffer error.\n");
+                rcv->offset = rcv->count;
+            } else {
+                parseCount = handleData (stream, snd, rcv->rcvBuf, rcv->count - rcv->offset, tm);
+                rcv->offset += parseCount;
+                if (parseCount)
+                    memmove (rcv->rcvBuf, rcv->rcvBuf + parseCount,  rcv->count - rcv->offset);
+            }
             rcv->countNew = 0;
         }
     }
@@ -903,8 +951,10 @@ addFromSkb (tcpStreamPtr stream, halfStreamPtr snd, halfStreamPtr rcv, u_char *d
  * @param tm current timestamp
  */
 static void
-tcpQueue (tcpStreamPtr stream, struct tcphdr *tcph, halfStreamPtr snd,
-          halfStreamPtr rcv, u_char *data, u_int dataLen, timeValPtr tm) {
+tcpQueue (tcpStreamPtr stream,
+          struct tcphdr *tcph,
+          halfStreamPtr snd, halfStreamPtr rcv,
+          u_char *data, u_int dataLen, timeValPtr tm) {
     u_int curSeq;
     skbuffPtr skbuf, prev, tmp;
 
@@ -917,16 +967,18 @@ tcpQueue (tcpStreamPtr stream, struct tcphdr *tcph, halfStreamPtr snd,
         if (after (curSeq + dataLen + tcph->fin, EXP_SEQ)) {
             /* The packet straddles our window end */
             getTimeStampOption (tcph, &snd->currTs);
-            addFromSkb (stream, snd, rcv, (u_char *) data, dataLen, curSeq, tcph->fin,
-                        tcph->urg, curSeq + ntohs (tcph->urg_ptr) - 1, tcph->psh, tm);
+            addFromSkb (stream, snd, rcv,
+                        (u_char *) data, dataLen, curSeq,
+                        tcph->fin, tcph->urg, curSeq + ntohs (tcph->urg_ptr) - 1, tcph->psh, tm);
 
             listForEachEntrySafe (skbuf, tmp, &rcv->head, node) {
                 if (after (skbuf->seq, EXP_SEQ))
                     break;
                 listDel (&skbuf->node);
                 if (after (skbuf->seq + skbuf->len + skbuf->fin, EXP_SEQ)) {
-                    addFromSkb (stream, snd, rcv, skbuf->data, skbuf->len, skbuf->seq, skbuf->fin,
-                                skbuf->urg, skbuf->seq + skbuf->urgPtr - 1, skbuf->psh, tm);
+                    addFromSkb (stream, snd, rcv,
+                                skbuf->data, skbuf->len, skbuf->seq,
+                                skbuf->fin, skbuf->urg, skbuf->seq + skbuf->urgPtr - 1, skbuf->psh, tm);
                 }
                 rcv->rmemAlloc -= skbuf->len;
                 free (skbuf->data);

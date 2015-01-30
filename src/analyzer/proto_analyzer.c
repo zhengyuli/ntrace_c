@@ -24,14 +24,14 @@ extern protoAnalyzer httpAnalyzer;
 extern protoAnalyzer mysqlAnalyzer;
 
 static protoAnalyzerContext protoAnalyzerContextTable [1024];
-static u_int registeredProtoNum = 0;
+static u_int registeredProtoSize = 0;
 
 protoAnalyzerPtr
 getProtoAnalyzer (char *proto) {
     int i;
     protoAnalyzerPtr analyzer;
 
-    for (i = 0; i < registeredProtoNum; i++) {
+    for (i = 0; i < registeredProtoSize; i++) {
         analyzer = protoAnalyzerContextTable [i].analyzer;
         if (strEqualIgnoreCase (analyzer->proto, proto))
             return analyzer;
@@ -49,17 +49,17 @@ loadAnalyzers (void) {
     protoAnalyzerPtr analyzer;
 
     /* Load default builtin proto analyzer */
-    protoAnalyzerContextTable [registeredProtoNum].handle = NULL;
-    protoAnalyzerContextTable [registeredProtoNum].analyzer = &defaultAnalyzer;
-    registeredProtoNum++;
+    protoAnalyzerContextTable [registeredProtoSize].handle = NULL;
+    protoAnalyzerContextTable [registeredProtoSize].analyzer = &defaultAnalyzer;
+    registeredProtoSize++;
 
-    protoAnalyzerContextTable [registeredProtoNum].handle = NULL;
-    protoAnalyzerContextTable [registeredProtoNum].analyzer = &httpAnalyzer;
-    registeredProtoNum++;
+    protoAnalyzerContextTable [registeredProtoSize].handle = NULL;
+    protoAnalyzerContextTable [registeredProtoSize].analyzer = &httpAnalyzer;
+    registeredProtoSize++;
 
-    protoAnalyzerContextTable [registeredProtoNum].handle = NULL;
-    protoAnalyzerContextTable [registeredProtoNum].analyzer = &mysqlAnalyzer;
-    registeredProtoNum++;
+    protoAnalyzerContextTable [registeredProtoSize].handle = NULL;
+    protoAnalyzerContextTable [registeredProtoSize].analyzer = &mysqlAnalyzer;
+    registeredProtoSize++;
     
     /* Load proto analyzers in AGENT_ANALYZER_DIR dynamically */
     dir = opendir (AGENT_ANALYZER_DIR);
@@ -85,9 +85,9 @@ loadAnalyzers (void) {
                 continue;
             }
 
-            protoAnalyzerContextTable [registeredProtoNum].handle = handle;
-            protoAnalyzerContextTable [registeredProtoNum].analyzer = analyzer;
-            registeredProtoNum++;
+            protoAnalyzerContextTable [registeredProtoSize].handle = handle;
+            protoAnalyzerContextTable [registeredProtoSize].analyzer = analyzer;
+            registeredProtoSize++;
             LOGD ("Load proto analyzer from %s successfully.\n", entry->d_name);
         }
     }
@@ -103,7 +103,7 @@ initProtoAnalyzer (void) {
 
     loadAnalyzers ();
     
-    for (i = 0; i < registeredProtoNum; i++) {
+    for (i = 0; i < registeredProtoSize; i++) {
         analyzer = protoAnalyzerContextTable [i].analyzer;
         if (analyzer->initProtoAnalyzer) {
             ret = (*analyzer->initProtoAnalyzer) ();
@@ -116,13 +116,13 @@ initProtoAnalyzer (void) {
                         (*analyzer->destroyProtoAnalyzer) ();
                 }
                 /* Destroy proto analyzer context table */
-                for (k = 0; k < registeredProtoNum; k++) {
+                for (k = 0; k < registeredProtoSize; k++) {
                     if (protoAnalyzerContextTable [k].handle)
                         dlclose (protoAnalyzerContextTable [k].handle);
                     protoAnalyzerContextTable [k].handle = NULL;
                     protoAnalyzerContextTable [k].analyzer = NULL;
                 }
-                registeredProtoNum = 0;
+                registeredProtoSize = 0;
                 return -1;
             }
         }
@@ -136,7 +136,7 @@ destroyProtoAnalyzer (void) {
     u_int i;
     protoAnalyzerPtr analyzer;
 
-    for (i = 0; i < registeredProtoNum; i++) {
+    for (i = 0; i < registeredProtoSize; i++) {
         analyzer = protoAnalyzerContextTable [i].analyzer;
         if (analyzer->destroyProtoAnalyzer)
             (*analyzer->destroyProtoAnalyzer) ();
@@ -145,5 +145,5 @@ destroyProtoAnalyzer (void) {
         protoAnalyzerContextTable [i].handle = NULL;
         protoAnalyzerContextTable [i].analyzer = NULL;
     }
-    registeredProtoNum = 0;
+    registeredProtoSize = 0;
 }

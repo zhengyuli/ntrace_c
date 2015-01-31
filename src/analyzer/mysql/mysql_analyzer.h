@@ -167,13 +167,14 @@ typedef enum {
     STATE_TXT_RS = 10,
     STATE_TXT_FIELD = 11,
     STATE_TXT_ROW = 12,
-    STATE_BIN_RS = 13,
-    STATE_BIN_FIELD = 14,
-    STATE_BIN_ROW = 15,
-    STATE_STMT_META = 16,
-    STATE_STMT_PARAM = 17,
-    STATE_STMT_FETCH_RS = 18,
-    MYSQL_STATE_COUNT = 19
+    STATE_LOCAL_INFILE_DATA = 13,
+    STATE_BIN_RS = 14,
+    STATE_BIN_FIELD = 15,
+    STATE_BIN_ROW = 16,
+    STATE_STMT_META = 17,
+    STATE_STMT_PARAM = 18,
+    STATE_STMT_FETCH_RS = 19,
+    MYSQL_STATE_COUNT = 20
 } mysqlState;
 
 /*
@@ -193,6 +194,8 @@ typedef enum {
     EVENT_NUM_FIELDS,
     EVENT_TXT_FIELD,
     EVENT_TXT_ROW,
+    EVENT_LOCAL_INFILE,
+    EVENT_LOCAL_INFILE_DATA,
     EVENT_BIN_FIELD,
     EVENT_BIN_ROW,
     EVENT_STMT_META,
@@ -245,6 +248,7 @@ struct _mysqlSessionDetail {
     mysqlCmd cmd;                       /**< Mysql command */
     mysqlCmdCtxt cmdCtxt;               /**< Mysql command context */
     mysqlSharedInfo sharedInfo;         /**< Mysql shared info */
+    boolean showC2STag;                 /**< Show client to server tag */
     boolean showS2CTag;                 /**< Show server to client tag */
     mysqlState mstate;                  /**< Mysql state */
     u_int seqId;                        /**< Mysql sequence id */

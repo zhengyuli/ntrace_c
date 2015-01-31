@@ -12,6 +12,7 @@
 
 /* Mysql response packet header */
 #define MYSQL_RESPONSE_OK_HEADER 0x00
+#define MYSQL_RESPONSE_LOCAL_INFILE_HEADER 0xFB
 #define MYSQL_RESPONSE_END_HEADER 0xFE
 #define MYSQL_RESPONSE_ERROR_HEADER 0xFF
 
@@ -1293,6 +1294,7 @@ pktNFields (mysqlEvent event, u_char *payload, u_int payloadLen, streamDirection
     u_char *pkt = payload;
 
     if ((direction != STREAM_FROM_SERVER) ||
+        MATCH (*pkt, MYSQL_RESPONSE_LOCAL_INFILE_HEADER) ||
         MATCH (*pkt, MYSQL_RESPONSE_OK_HEADER) ||
         MATCH (*pkt, MYSQL_RESPONSE_ERROR_HEADER))
         return EVENT_HANDLE_ERROR;
@@ -1308,6 +1310,36 @@ pktNFields (mysqlEvent event, u_char *payload, u_int payloadLen, streamDirection
     currSessionDetail->cmdCtxt.fieldsRecv = 0;
     pkt += encLen;
     LOGD ("%sField_count:%u\n", MYSQL_INFO_DISPLAY_INDENT1, (u_int) count);
+
+    return EVENT_HANDLE_OK;
+}
+
+static mysqlEventHandleState
+pktLocalINFile (mysqlEvent event, u_char *payload, u_int payloadLen, streamDirection direction) {
+    u_int realLen;
+    u_int toCopyLen;
+    char buf [512] = {0};
+    u_char *pkt = payload;
+
+    if ((direction != STREAM_FROM_SERVER) ||
+        MATCH (*pkt, MYSQL_RESPONSE_OK_HEADER) ||
+        MATCH (*pkt, MYSQL_RESPONSE_ERROR_HEADER) ||
+        !MATCH (*pkt, MYSQL_RESPONSE_LOCAL_INFILE_HEADER))
+        return EVENT_HANDLE_ERROR;
+
+    if (currSessionDetail->showS2CTag) {
+        LOGD ("Cli <<----------------<< Server packet seqId:%u\n", currSessionDetail->seqId);
+    }
+
+    LOGD ("%sLocal file request packet\n", MYSQL_INFO_DISPLAY_INDENT1);
+    pkt += 1;
+
+    realLen = payload + payloadLen - pkt;
+    toCopyLen = MIN_NUM (realLen, (sizeof (buf) - 1));
+    memcpy (buf, pkt, toCopyLen);
+    buf [toCopyLen] = 0;
+    pkt += realLen;
+    LOGD ("%sFile_name:%s\n", MYSQL_INFO_DISPLAY_INDENT1, buf);
 
     return EVENT_HANDLE_OK;
 }
@@ -1524,6 +1556,32 @@ pktTxtRow (mysqlEvent event, u_char *payload, u_int payloadLen, streamDirection 
 }
 
 static mysqlEventHandleState
+pktLocalINFileData (mysqlEvent event, u_char *payload, u_int payloadLen, streamDirection direction) {
+    u_int realLen;
+    u_int toCopyLen;
+    char buf [1024] = {0};
+    u_char *pkt = payload;
+
+    if (direction != STREAM_FROM_CLIENT)
+        return EVENT_HANDLE_ERROR;
+
+    if (currSessionDetail->showC2STag) {
+        currSessionDetail->showC2STag = false;
+        LOGD ("Cli >>---------------->> Server packet seqId:%u\n", currSessionDetail->seqId);
+        LOGD ("%sLocal infile data:\n", MYSQL_INFO_DISPLAY_INDENT1);
+    }
+
+    realLen = payloadLen;
+    toCopyLen = MIN_NUM (realLen, (sizeof (buf) - 1));
+    memcpy (buf, payload, toCopyLen);
+    buf [toCopyLen] = 0;
+    pkt += realLen;
+    LOGD ("%s%s\n", MYSQL_INFO_DISPLAY_INDENT1, buf);
+
+    return EVENT_HANDLE_OK;
+}
+
+static mysqlEventHandleState
 pktBinRow (mysqlEvent event, u_char *payload, u_int payloadLen, streamDirection direction) {
     u_int encLen;
     u_long_long realLen;
@@ -1532,8 +1590,11 @@ pktBinRow (mysqlEvent event, u_char *payload, u_int payloadLen, streamDirection 
     u_int nullBitmapByte, nullBitmapByteBit;
     u_char *nullBitmap;
     u_short nullBitmapSize;
-    u_long_long number;
-    u_int sign, year, month, day, hour, min, second;
+    u_long_long intNum;
+    float floatNum;
+    double doubleNum;
+    u_int years, months, days;
+    u_int sign, hours, mins, secs, microSecs;
     char buf [512] = {0};
     u_char *pkt = payload;
 
@@ -1568,79 +1629,111 @@ pktBinRow (mysqlEvent event, u_char *payload, u_int payloadLen, streamDirection 
         } else {
             switch (currSessionDetail->cmdCtxt.fieldsType [column]) {
                 case FIELD_TYPE_TINY:
-                    number = FLI1 (pkt);
+                    intNum = FLI1 (pkt);
                     pkt += 1;
-                    LOGD (" %llu |", number);
+                    LOGD (" %llu |", intNum);
                     break;
 
                 case FIELD_TYPE_SHORT:
-                    number = FLI2 (pkt);
+                case FIELD_TYPE_YEAR:
+                    intNum = FLI2 (pkt);
                     pkt += 2;
-                    LOGD (" %llu |", number);
+                    LOGD (" %llu |", intNum);
                     break;
 
                 case FIELD_TYPE_LONG:
-                    number = FLI4 (pkt);
+                case FIELD_TYPE_INT24:
+                    intNum = FLI4 (pkt);
                     pkt += 4;
-                    LOGD (" %llu |", number);
+                    LOGD (" %llu |", intNum);
+                    break;
+
+                case FIELD_TYPE_FLOAT:
+                    floatNum = *((float *) pkt);
+                    pkt += 4;
+                    LOGD (" %f |", floatNum);
+                    break;
+
+                case FIELD_TYPE_DOUBLE:
+                    doubleNum = *((double *) pkt);
+                    pkt += 8;
+                    LOGD (" %lf |", doubleNum);
                     break;
 
                 case FIELD_TYPE_LONGLONG:
-                    number = FLI8 (pkt);
+                    intNum = FLI8 (pkt);
                     pkt += 8;
-                    LOGD (" %llu |", number);
+                    LOGD (" %llu |", intNum);
                     break;
 
                 case FIELD_TYPE_DATE:
+                    years = months = days = 0;
                     realLen = FLI1 (pkt);
                     pkt += 1;
-                    year = FLI2 (pkt);
-                    pkt += 2;
-                    month = FLI1 (pkt);
-                    pkt += 1;
-                    day = FLI1 (pkt);
-                    pkt += 1;
+                    if (realLen) {
+                        years = FLI2 (pkt);
+                        pkt += 2;
+                        months = FLI1 (pkt);
+                        pkt += 1;
+                        days = FLI1 (pkt);
+                        pkt += 1;
+                    }
                     snprintf (buf, sizeof (buf), "%04u-%02u-%02u",
-                              year, month, day);
+                              years, months, days);
                     LOGD (" %s |", buf);
                     break;
 
                 case FIELD_TYPE_TIME:
+                    sign = days = hours = mins = secs = microSecs = 0;
                     realLen = FLI1 (pkt);
                     pkt += 1;
-                    sign = FLI1 (pkt);
-                    pkt += 1;
-                    day = FLI4 (pkt);
-                    pkt += 4;
-                    hour = FLI1 (pkt);
-                    hour += (day * 24);
-                    pkt += 1;
-                    min = FLI1 (pkt);
-                    pkt += 1;
-                    second = FLI1 (pkt);
-                    pkt += 1;
-                    snprintf (buf, sizeof (buf), "%s%02u:%02u:%02u",
-                              (sign ? "-" : ""), hour, min, second);
+                    if (realLen) {
+                        sign = FLI1 (pkt);
+                        pkt += 1;
+                        days = FLI4 (pkt);
+                        pkt += 4;
+                        hours = FLI1 (pkt);
+                        pkt += 1;
+                        mins = FLI1 (pkt);
+                        pkt += 1;
+                        secs = FLI1 (pkt);
+                        pkt += 1;
+                        if (realLen > 8) {
+                            microSecs = FLI4 (pkt);
+                            pkt += 4;
+                        }
+                    }
+                    snprintf (buf, sizeof (buf), "%s%06u-%02u:%02u:%02u.%06u",
+                              (sign ? "-" : ""), days, hours, mins, secs, microSecs);
                     LOGD (" %s |", buf);
                     break;
 
                 case FIELD_TYPE_DATETIME:
+                    years = months = days = hours = mins = secs = microSecs = 0;
                     realLen = FLI1 (pkt);
                     pkt += 1;
-                    year = FLI2 (pkt);
-                    pkt += 2;
-                    month = FLI1 (pkt);
-                    pkt += 1;
-                    day = FLI1 (pkt);
-                    pkt += 1;
-                    hour = FLI1 (pkt);
-                    pkt += 1;
-                    min = FLI1 (pkt);
-                    pkt += 1;
-                    second = FLI1 (pkt);
-                    pkt += 1;
-                    snprintf (buf, sizeof (buf), "%04u-%02u-%02u %02u:%02u:%02u",
-                              year, month, day, hour, min, second);
+                    if (realLen) {
+                        years = FLI2 (pkt);
+                        pkt += 2;
+                        months = FLI1 (pkt);
+                        pkt += 1;
+                        days = FLI1 (pkt);
+                        pkt += 1;
+                        if (realLen > 4) {
+                            hours = FLI1 (pkt);
+                            pkt += 1;
+                            mins = FLI1 (pkt);
+                            pkt += 1;
+                            secs = FLI1 (pkt);
+                            pkt += 1;
+                            if (realLen > 7) {
+                                microSecs = FLI4 (pkt);
+                                pkt += 4;
+                            }
+                        }
+                    }
+                    snprintf (buf, sizeof (buf), "%04u-%02u-%02u %02u:%02u:%02u.%06u",
+                              years, months, days, hours, mins, secs, microSecs);
                     LOGD (" %s |", buf);
                     break;
 
@@ -2091,18 +2184,22 @@ initMysqlSharedInstance (void) {
     mysqlStateEventMatrix [STATE_FIELD_LIST].handler [1] = &pktEnd;
 
     /* -------------------------------------------------------------- */
-    mysqlStateEventMatrix [STATE_TXT_RS].size = 3;
+    mysqlStateEventMatrix [STATE_TXT_RS].size = 4;
     mysqlStateEventMatrix [STATE_TXT_RS].event [0] = EVENT_NUM_FIELDS;
     mysqlStateEventMatrix [STATE_TXT_RS].nextState [0] = STATE_TXT_FIELD;
     mysqlStateEventMatrix [STATE_TXT_RS].handler [0] = &pktNFields;
 
-    mysqlStateEventMatrix [STATE_TXT_RS].event [1] = EVENT_OK;
-    mysqlStateEventMatrix [STATE_TXT_RS].nextState [1] = STATE_SLEEP;
-    mysqlStateEventMatrix [STATE_TXT_RS].handler [1] = &pktOk;
+    mysqlStateEventMatrix [STATE_TXT_RS].event [1] = EVENT_LOCAL_INFILE;
+    mysqlStateEventMatrix [STATE_TXT_RS].nextState [1] = STATE_LOCAL_INFILE_DATA;
+    mysqlStateEventMatrix [STATE_TXT_RS].handler [1] = &pktLocalINFile;
 
-    mysqlStateEventMatrix [STATE_TXT_RS].event [2] = EVENT_ERROR;
+    mysqlStateEventMatrix [STATE_TXT_RS].event [2] = EVENT_OK;
     mysqlStateEventMatrix [STATE_TXT_RS].nextState [2] = STATE_SLEEP;
-    mysqlStateEventMatrix [STATE_TXT_RS].handler [2] = &pktError;
+    mysqlStateEventMatrix [STATE_TXT_RS].handler [2] = &pktOk;
+
+    mysqlStateEventMatrix [STATE_TXT_RS].event [3] = EVENT_ERROR;
+    mysqlStateEventMatrix [STATE_TXT_RS].nextState [3] = STATE_SLEEP;
+    mysqlStateEventMatrix [STATE_TXT_RS].handler [3] = &pktError;
 
     /* -------------------------------------------------------------- */
     mysqlStateEventMatrix [STATE_TXT_FIELD].size = 3;
@@ -2139,6 +2236,20 @@ initMysqlSharedInstance (void) {
     mysqlStateEventMatrix [STATE_TXT_ROW].event [4] = EVENT_ERROR;
     mysqlStateEventMatrix [STATE_TXT_ROW].nextState [4] = STATE_SLEEP;
     mysqlStateEventMatrix [STATE_TXT_ROW].handler [4] = &pktError;
+
+    /* -------------------------------------------------------------- */
+    mysqlStateEventMatrix [STATE_LOCAL_INFILE_DATA].size = 3;
+    mysqlStateEventMatrix [STATE_LOCAL_INFILE_DATA].event [0] = EVENT_LOCAL_INFILE_DATA;
+    mysqlStateEventMatrix [STATE_LOCAL_INFILE_DATA].nextState [0] = STATE_LOCAL_INFILE_DATA;
+    mysqlStateEventMatrix [STATE_LOCAL_INFILE_DATA].handler [0] = &pktLocalINFileData;
+
+    mysqlStateEventMatrix [STATE_LOCAL_INFILE_DATA].event [1] = EVENT_OK;
+    mysqlStateEventMatrix [STATE_LOCAL_INFILE_DATA].nextState [1] = STATE_SLEEP;
+    mysqlStateEventMatrix [STATE_LOCAL_INFILE_DATA].handler [1] = &pktOk;
+
+    mysqlStateEventMatrix [STATE_LOCAL_INFILE_DATA].event [2] = EVENT_ERROR;
+    mysqlStateEventMatrix [STATE_LOCAL_INFILE_DATA].nextState [2] = STATE_SLEEP;
+    mysqlStateEventMatrix [STATE_LOCAL_INFILE_DATA].handler [2] = &pktError;
 
     /* -------------------------------------------------------------- */
     mysqlStateEventMatrix [STATE_BIN_RS].size = 3;
@@ -2264,6 +2375,7 @@ newMysqlSessionDetail (void) {
     msd->cmdCtxt.fieldsCount = 0;
     msd->cmdCtxt.fieldsRecv = 0;
     initMysqlSharedinfo (&msd->sharedInfo);
+    msd->showC2STag = true;
     msd->showS2CTag = true;
     msd->mstate = STATE_NOT_CONNECTED;
     msd->seqId = 0;
@@ -2286,6 +2398,7 @@ resetMysqlSessionDetail (mysqlSessionDetailPtr msd) {
     msd->cmd = COM_UNKNOWN;
     msd->cmdCtxt.fieldsCount = 0;
     msd->cmdCtxt.fieldsRecv = 0;
+    msd->showC2STag = true;
     msd->showS2CTag = true;
     free (msd->reqStmt);
     msd->reqStmt = NULL;

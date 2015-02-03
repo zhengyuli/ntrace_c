@@ -493,6 +493,8 @@ tcpBreakdown2Json (tcpStreamPtr stream, tcpBreakdownPtr tbd) {
     json_object_set_new (root, COMMON_SKBD_TCP_RETRIES_LATENCY, json_integer (tbd->retriesLatency));
     /* Tcp duplicate syn/ack packets */
     json_object_set_new (root, COMMON_SKBD_TCP_DUPLICATE_SYNACKS, json_integer (tbd->dupSynAcks));
+    /* Tcp RTT */
+    json_object_set_new (root, COMMON_SKBD_TCP_RTT, json_integer (tbd->rtt));
     /* Tcp MSS */
     json_object_set_new (root, COMMON_SKBD_TCP_MSS, json_integer (tbd->mss));
     /* Tcp connection latency */
@@ -586,7 +588,6 @@ publishSessionBreakdown (tcpStreamPtr stream, timeValPtr tm) {
             tbd.retries = stream->retries;
             tbd.retriesLatency = stream->retriesTime - stream->synTime;
             tbd.dupSynAcks = stream->dupSynAcks;
-            tbd.mss = stream->mss;
             tbd.connLatency = stream->estbTime - stream->retriesTime;
             break;
 
@@ -594,11 +595,12 @@ publishSessionBreakdown (tcpStreamPtr stream, timeValPtr tm) {
             tbd.retries = 0;
             tbd.retriesLatency = 0;
             tbd.dupSynAcks = 0;
-            tbd.mss = 0;
             tbd.connLatency = 0;
             break;
     }
 
+    tbd.rtt = stream->estbTime - stream->retriesTime;
+    tbd.mss = stream->mss;
     tbd.totalPkts = stream->totalPkts;
     tbd.tinyPkts = stream->tinyPkts;
     tbd.pawsPkts = stream->pawsPkts;

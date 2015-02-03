@@ -146,6 +146,7 @@ struct _tcpBreakdown {
     u_int retries;                      /**< Tcp retries */
     u_int retriesLatency;               /**< Tcp retries latency in milliseconds */
     u_int dupSynAcks;                   /**< Tcp duplicate syn/ack packages */
+    u_int rtt;                          /**< Tcp rtt */
     u_int mss;                          /**< Tcp mss (maxium segment size) */
     u_int connLatency;                  /**< Tcp connection latency in milliseconds */
     u_int totalPkts;                    /**< Tcp total packets */
@@ -171,6 +172,7 @@ struct _tcpBreakdown {
 #define COMMON_SKBD_TCP_RETRIES "tcp_retries"
 #define COMMON_SKBD_TCP_RETRIES_LATENCY "tcp_retries_latency"
 #define COMMON_SKBD_TCP_DUPLICATE_SYNACKS "tcp_duplicate_synacks"
+#define COMMON_SKBD_TCP_RTT "tcp_rtt"
 #define COMMON_SKBD_TCP_MSS "tcp_mss"
 #define COMMON_SKBD_TCP_CONNECTION_LATENCY "tcp_connection_latency"
 #define COMMON_SKBD_TCP_TOTAL_PACKETS "tcp_total_packets"

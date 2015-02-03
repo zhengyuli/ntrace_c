@@ -19,10 +19,10 @@ destroyLog (void);
 #define LOGE(...) doLog (LOG_ERR_LEVEL, __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__)
 #define LOGW(...) doLog (LOG_WARNING_LEVEL, __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__)
 #define LOGI(...) doLog (LOG_INFO_LEVEL, __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__)
-#ifdef NDEBUG
-#define LOGD(...)
-#else
+#ifdef DEBUG_BUILD
 #define LOGD(...) doLog (LOG_DEBUG_LEVEL, __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__)
+#else
+#define LOGD(...)
 #endif
 /*=======================Interfaces definition end=========================*/
 

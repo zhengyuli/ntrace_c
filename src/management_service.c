@@ -32,7 +32,7 @@ resumeHandler (json_t *body) {
     if (ret < 0)
         LOGE ("Update application services filter error.\n");
     else
-        LOGD ("Update application services filter: %s\n", filter);
+        LOGI ("Update application services filter: %s\n", filter);
     free (filter);
 
     return ret;
@@ -62,7 +62,7 @@ pauseHandler (json_t *body) {
     if (ret < 0)
         LOGE ("Update application services filter error.\n");
     else
-        LOGD ("Update application services filter: %s\n", filter);
+        LOGI ("Update application services filter: %s\n", filter);
     free (filter);
 
     return ret;
@@ -118,7 +118,7 @@ updateProfileHandler (json_t *body) {
     if (ret < 0)
         LOGE ("Update application services filter error.\n");
     else
-        LOGD ("Update application services filter: %s\n", filter);
+        LOGI ("Update application services filter: %s\n", filter);
     free (filter);
 
     return ret;
@@ -199,7 +199,7 @@ managementService (void *args) {
         free (requestMsg);
     }
 
-    LOGD ("ManagementService will exit ... .. .\n");
+    LOGI ("ManagementService will exit ... .. .\n");
     destroyLog ();
 exit:
     if (!SIGUSR1IsInterrupted ())

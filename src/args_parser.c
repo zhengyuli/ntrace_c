@@ -7,7 +7,7 @@
 static struct option argsOptions [] = {
     {"daemonMode", no_argument, NULL, 'D'},
     {"mirrorInterface", required_argument, NULL, 'm'},
-    {"pcapOfflineInput", required_argument, NULL, 'I'},
+    {"pcapOfflineInput", required_argument, NULL, 'r'},
     {"managementServicePort", required_argument, NULL, 'P'},
     {"breakdownSinkIp", required_argument, NULL, 'i'},
     {"breakdownSinkPort", required_argument, NULL, 'p'},
@@ -30,7 +30,7 @@ showHelpInfo (const char *cmd) {
              "Basic options: \n"
              "  -D|--daemonMode, run as daemon\n"
              "  -m|--mirrorInterface <eth*> interface to collect packets\n"
-             "  -I|--pcapOfflineInput <fname> pcap offline input file\n"
+             "  -r|--pcapOfflineInput <fname> pcap offline input file\n"
              "  -P|--managementServicePort <port> management service port\n"
              "  -i|--breakdownSinkIp <ip> breakdown sink ip\n"
              "  -p|--breakdownSinkPort <port> breakdown sink port\n"
@@ -50,7 +50,7 @@ parseArgs (int argc, char *argv []) {
     boolean showVersion = false;
     boolean showHelp = false;
 
-    while ((option = getopt_long (argc, argv, "Dm:i:p:l:vh?", argsOptions, NULL)) != -1) {
+    while ((option = getopt_long (argc, argv, "Dm:r:i:p:l:vh?", argsOptions, NULL)) != -1) {
         switch (option) {
             case 'D':
                 updatePropertiesDaemonMode (true);
@@ -64,7 +64,7 @@ parseArgs (int argc, char *argv []) {
                 }
                 break;
 
-            case 'I':
+            case 'r':
                 updatePropertiesPcapOfflineInput (optarg);
                 if (getPropertiesPcapOfflineInput () == NULL) {
                     fprintf (stderr, "Parse pcap offline input error!\n");

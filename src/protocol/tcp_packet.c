@@ -35,15 +35,10 @@
 #define EXP_SEQ (snd->firstDataSeq + rcv->count + rcv->urgCount)
 
 /* Debug statistic data */
-#ifndef NDEBUG
+#ifdef DEBUG_BUILD
 static u_int tcpStreamsAlloc = 0;
 static u_int tcpStreamsFree = 0;
 #endif
-
-/* Global tcp connection id */
-static u_long_long tcpConnectionId = 0;
-/* Tcp connection id spin lock */
-static pthread_spinlock_t tcpConnectionIdLock;
 
 /* Global tcp breakdown id */
 static u_long_long tcpBreakdownId = 0;
@@ -89,25 +84,13 @@ after (u_int seq1, u_int seq2) {
 }
 
 static inline u_long_long
-getTcpConnectionId (void) {
-    u_long_long connId;
-
-    pthread_spin_lock (&tcpConnectionIdLock);
-    connId = tcpConnectionId;
-    tcpConnectionId ++;
-    pthread_spin_unlock (&tcpConnectionIdLock);
-
-    return connId;
-}
-
-static inline u_long_long
 getTcpBreakdownId (void) {
     u_long_long bkdId;
 
-    pthread_spin_lock (&tcpConnectionIdLock);
+    pthread_spin_lock (&tcpBreakdownIdLock);
     bkdId = tcpBreakdownId;
     tcpBreakdownId ++;
-    pthread_spin_unlock (&tcpConnectionIdLock);
+    pthread_spin_unlock (&tcpBreakdownIdLock);
 
     return bkdId;
 }
@@ -216,7 +199,7 @@ delTcpStreamFromHash (tcpStreamPtr stream) {
     if (ret < 0)
         LOGE ("Delete stream from hash table error.\n");
     else {
-#ifndef NDEBUG
+#ifdef DEBUG_BUILD
         LOGD ("tcpStreamsAlloc: %u<------->tcpStreamsFree: %u\n",
               ATOMIC_ADD_AND_FETCH (&tcpStreamsAlloc, 0), ATOMIC_ADD_AND_FETCH (&tcpStreamsFree, 1));
 #endif
@@ -276,7 +259,7 @@ newTcpStream (protoAnalyzerPtr analyzer) {
     stream->addr.source = 0;
     stream->addr.daddr.s_addr = 0;
     stream->addr.dest = 0;
-    stream->connId = getTcpConnectionId ();
+    uuid_generate (stream->connId);
     stream->state = STREAM_INIT;
 
     /* Init client halfStream */
@@ -415,7 +398,7 @@ addNewTcpStream (struct tcphdr *tcph, struct ip *iph, timeValPtr tm) {
     snprintf (key, sizeof (key), "%s:%d", inet_ntoa (iph->ip_dst), ntohs (tcph->dest));
     analyzer = getAppServiceProtoAnalyzer (key);
     if (analyzer == NULL) {
-        LOGD ("Appliction service (%s:%d) has not been registered.\n",
+        LOGE ("Appliction service (%s:%d) has not been registered.\n",
               inet_ntoa (iph->ip_dst), ntohs (tcph->dest));
         return NULL;
     }
@@ -467,7 +450,7 @@ addNewTcpStream (struct tcphdr *tcph, struct ip *iph, timeValPtr tm) {
         LOGE ("Add tcp stream to stream hash table error.\n");
         return NULL;
     } else {
-#ifndef NDEBUG
+#ifdef DEBUG_BUILD
         ATOMIC_INC (&tcpStreamsAlloc);
 #endif
         return stream;
@@ -478,6 +461,7 @@ static char *
 tcpBreakdown2Json (tcpStreamPtr stream, tcpBreakdownPtr tbd) {
     char *out;
     json_t *root;
+    char buf [64];
 
     root = json_object ();
     if (root == NULL) {
@@ -499,7 +483,8 @@ tcpBreakdown2Json (tcpStreamPtr stream, tcpBreakdownPtr tbd) {
     /* Tcp service port */
     json_object_set_new (root, COMMON_SKBD_SERVICE_PORT, json_integer (tbd->svcPort));
     /* Tcp connection id */
-    json_object_set_new (root, COMMON_SKBD_TCP_CONNECTION_ID, json_integer (tbd->connId));
+    uuid_unparse (tbd->connId, buf);
+    json_object_set_new (root, COMMON_SKBD_TCP_CONNECTION_ID, json_string (buf));
     /* Tcp state */
     json_object_set_new (root, COMMON_SKBD_TCP_STATE, json_integer (tbd->state));
     /* Tcp retries */
@@ -557,7 +542,7 @@ publishSessionBreakdown (tcpStreamPtr stream, timeValPtr tm) {
     tbd.srcPort = stream->addr.source;
     tbd.svcIp = stream->addr.daddr;
     tbd.svcPort = stream->addr.dest;
-    tbd.connId = stream->connId;
+    uuid_copy (tbd.connId, stream->connId);
 
     switch (stream->state) {
         case STREAM_CONNECTED:
@@ -1039,9 +1024,7 @@ void
 tcpProcess (struct ip *iph, timeValPtr tm) {
     u_int ipLen;
     struct tcphdr *tcph;
-#if DO_STRICT_CHECK
     u_int tcpLen;
-#endif
     u_char *tcpData;
     u_int tcpDataLen;
     u_int tmOption;
@@ -1051,10 +1034,8 @@ tcpProcess (struct ip *iph, timeValPtr tm) {
 
     ipLen = ntohs (iph->ip_len);
     tcph = (struct tcphdr *) ((char *) iph + iph->ip_hl * 4);
-#if DO_STRICT_CHECK
     tcpLen = ipLen - iph->ip_hl * 4;
-#endif
-    tcpData = (u_char *) tcph + 4 * tcph->doff;
+    tcpData = (u_char *) tcph + tcph->doff * 4;
     tcpDataLen = ipLen - (iph->ip_hl * 4) - (tcph->doff * 4);
 
     tm->tvSec = ntohll (tm->tvSec);
@@ -1069,7 +1050,8 @@ tcpProcess (struct ip *iph, timeValPtr tm) {
     }
 
     if (tcpDataLen < 0) {
-        LOGE ("Invalid tcp data length.\n");
+        LOGE ("Invalid tcp data length, ipLen: %u, tcpLen: %u, tcpHeaderLen: %u, tcpDataLen: %u.\n",
+              ipLen, tcpLen, (tcph->doff * 4), tcpDataLen);
         return;
     }
 
@@ -1078,10 +1060,11 @@ tcpProcess (struct ip *iph, timeValPtr tm) {
         return;
     }
 
-#if DO_STRICT_CHECK
+#ifdef DO_STRICT_CHECK
     /* Tcp checksum validation */
-    if (tcpFastCheckSum ((u_char *) tcph, tcpLen, iph->ip_src.s_addr, iph->ip_dst.s_addr) != 0) {
-        LOGE ("Tcp fast checksum error.\n");
+    if (tcpFastCheckSum ((u_char *) tcph, tcpLen, iph->ip_src.s_addr, iph->ip_dst.s_addr)) {
+        LOGE ("Tcp fast checksum error, ipLen: %u, tcpLen: %u, tcpHeaderLen: %u, tcpDataLen: %u.\n",
+              ipLen, tcpLen, (tcph->doff * 4), tcpDataLen);
         return;
     }
 #endif
@@ -1230,13 +1213,10 @@ tcpProcess (struct ip *iph, timeValPtr tm) {
 
 static void
 initTcpSharedInstance (void) {
-#ifndef NDEBUG
+#ifdef DEBUG_BUILD        
     tcpStreamsAlloc = 0;
     tcpStreamsFree = 0;
 #endif
-
-    tcpConnectionId = 0;
-    pthread_spin_init (&tcpConnectionIdLock, PTHREAD_PROCESS_PRIVATE);
 
     tcpBreakdownId = 0;
     pthread_spin_init (&tcpBreakdownIdLock, PTHREAD_PROCESS_PRIVATE);
@@ -1246,7 +1226,6 @@ initTcpSharedInstance (void) {
 
 static void
 destroyTcpSharedInstance (void) {
-    pthread_spin_destroy (&tcpConnectionIdLock);
     pthread_spin_destroy (&tcpBreakdownIdLock);
     tcpInitOnceControl = PTHREAD_ONCE_INIT;
 }

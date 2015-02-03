@@ -1904,7 +1904,7 @@ mysqlParserExecute (u_char *data, u_int dataLen, streamDirection direction) {
     u_char *compPayload;
 
     if (currSharedInfo->doSSL) {
-        LOGD ("Doesn't support ssl for mysql analyzer.\n");
+        LOGW ("Doesn't support ssl for mysql analyzer.\n");
         return dataLen;
     }
 

@@ -95,7 +95,7 @@ checkSumPartial (u_char * buff, int len, u_int sum) {
         : "0" (sum), "1" (len), "2" (buff)
         : "di", "dx" , "cc");
 
-    return (sum);
+    return sum;
 }
 
 static inline u_int
@@ -158,7 +158,7 @@ ipCheckExt (register u_short *addr, register int len, int addon) {
     }
     /* Mop up an odd byte, if necessary */
     if (nleft == 1) {
-        *(u_char *)(&answer) = *(u_char *)w;
+        *(u_char *) (&answer) = *(u_char *) w;
         sum += answer;
     }
     /* Add back carry outs from top 16 bits to low 16 bits */

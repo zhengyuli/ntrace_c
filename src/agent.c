@@ -222,7 +222,7 @@ agentService (void) {
         LOGE ("Agent exit abnormally.\n");
     } else {
         exitNormally = true;
-        LOGD ("Agent exit normally.\n");
+        LOGI ("Agent exit normally.\n");
     }
 
 destroyZloop:

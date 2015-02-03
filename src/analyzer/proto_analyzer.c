@@ -88,7 +88,7 @@ loadAnalyzers (void) {
             protoAnalyzerContextTable [registeredProtoSize].handle = handle;
             protoAnalyzerContextTable [registeredProtoSize].analyzer = analyzer;
             registeredProtoSize++;
-            LOGD ("Load proto analyzer from %s successfully.\n", entry->d_name);
+            LOGI ("Load proto analyzer from %s successfully.\n", entry->d_name);
         }
     }
 

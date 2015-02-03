@@ -2,6 +2,7 @@
 #define __TCP_PACKET_H__
 
 #include <netinet/ip.h>
+#include <uuid/uuid.h>
 #include "util.h"
 #include "list.h"
 #include "proto_analyzer.h"
@@ -84,7 +85,7 @@ struct _tcpStream {
     char *proto;                        /**< Tcp application level proto type */
     protoAnalyzerPtr analyzer;          /**< Tcp Appliction level proto analyzer */
     tuple4 addr;                        /**< Tcp stream 4-tuple address */
-    u_long_long connId;                 /**< Global tcp connection id */
+    uuid_t connId;                      /**< Global tcp connection id */
     tcpStreamState state;               /**< Tcp stream state */
     halfStream client;                  /**< Tcp stream client halfStream */
     halfStream server;                  /**< Tcp stream server halfStream */
@@ -140,7 +141,7 @@ struct _tcpBreakdown {
     u_short srcPort;                    /**< Source port */
     struct in_addr svcIp;               /**< Service ip */
     u_short svcPort;                    /**< Service port */
-    u_long_long connId;                 /**< Global tcp connection id */
+    uuid_t connId;                      /**< Global tcp connection id */
     tcpBreakdownState state;            /**< Tcp state */
     u_int retries;                      /**< Tcp retries */
     u_int retriesLatency;               /**< Tcp retries latency in milliseconds */

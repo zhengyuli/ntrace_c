@@ -59,7 +59,7 @@ rawPktCaptureService (void *args) {
         free (filter);
         goto destroyLog;
     }
-    LOGD ("Update BPF filter with: %s\n", filter);
+    LOGI ("Update BPF filter with: %s\n", filter);
     free (filter);
 
     while (!SIGUSR1IsInterrupted ())
@@ -110,7 +110,7 @@ rawPktCaptureService (void *args) {
         }
     }
 
-    LOGD ("RawPktCaptureService will exit ... .. .\n");
+    LOGI ("RawPktCaptureService will exit ... .. .\n");
 destroyLog:
     destroyLog ();
 exit:

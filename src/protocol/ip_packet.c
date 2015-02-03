@@ -4,6 +4,7 @@
 #include <arpa/inet.h>
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
+#include "config.h"
 #include "util.h"
 #include "list.h"
 #include "hash.h"
@@ -275,15 +276,16 @@ checkIpHeader (struct ip *iph) {
         return -1;
     }
 
-#if DO_STRICT_CHECK
+#ifdef DO_STRICT_CHECK
     /* Normally don't do ip checksum, we trust kernel */
-    if (ipFastCheckSum ((const u_char *) iph, iph->ip_hl)) {
-        LOGD ("ipFastCheckSum error.\n");
+    if (ipFastCheckSum ((u_char *) iph, iph->ip_hl)) {
+        LOGE ("ipFastCheckSum error.\n");
         return -1;
     }
+
     /* Check ip options */
     if ((iphLen > sizeof (struct ip)) && ipOptionsCompile ((u_char *) iph)) {
-        LOGD ("IpOptionsCompile error.\n");
+        LOGE ("IpOptionsCompile error.\n");
         return -1;
     }
 #endif
@@ -353,7 +355,7 @@ ipDefrag (struct ip *iph, timeValPtr tm, struct ip **newIph) {
         return 0;
     }
 
-#ifndef NDEBUG
+#ifdef DEBUG_BUILD
     displayIphdr (iph);
 #endif
 

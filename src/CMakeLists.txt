@@ -1,8 +1,16 @@
 CMAKE_MINIMUM_REQUIRED (VERSION 2.8.0)
 
+# Macro definitions
+IF ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
+  ADD_DEFINITIONS (-DDEBUG_BUILD)
+ENDIF ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
+ADD_DEFINITIONS (-DDO_STRICT_CHECK)
+ADD_DEFINITIONS (-DHAVE_PF_RING)
+
 SET (AGENT_CONFIG_FILE  ${PROJECT_CONFIG_DIR}/agent.conf)
 SET (AGENT_PID_FILE /var/run/${ROOT_PROJECT_LOWER}_agent.pid)
 SET (AGENT_ANALYZER_DIR ${PROJECT_DATA_DIR}/analyzers)
+SET (AGENT_APP_SERVICES_CACHE ${PROJECT_RUN_DIR}/application_services.cache)
 
 # Configuration header file
 configure_file (
@@ -54,7 +62,7 @@ SET (AGENT_SOURCE_FILES
   analyzer/mysql/mysql_analyzer.c)
 
 ADD_EXECUTABLE (${ROOT_PROJECT_LOWER}_agent ${AGENT_SOURCE_FILES})
-TARGET_LINK_LIBRARIES (${ROOT_PROJECT_LOWER}_agent pcap czmq pthread ini_config z jansson dl)
+TARGET_LINK_LIBRARIES (${ROOT_PROJECT_LOWER}_agent pcap czmq pthread ini_config z jansson dl uuid)
 INSTALL (
   TARGETS ${ROOT_PROJECT_LOWER}_agent
   DESTINATION ${PROJECT_BIN_DIR})

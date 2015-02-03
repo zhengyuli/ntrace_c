@@ -97,7 +97,7 @@ tcpPktProcessService (void *args) {
         zframe_destroy (&ipPktFrame);
     }
 
-    LOGD ("TcpPktProcessService will exit ... .. .\n");
+    LOGI ("TcpPktProcessService will exit ... .. .\n");
     destroyTcp ();
 destroyLog:
     destroyLog ();

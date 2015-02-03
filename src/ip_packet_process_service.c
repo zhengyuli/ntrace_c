@@ -181,7 +181,7 @@ ipPktProcessService (void *args) {
         zframe_destroy (&pktFrame);
     }
 
-    LOGD ("IpPktProcessService will exit ... .. .\n");
+    LOGI ("IpPktProcessService will exit ... .. .\n");
     destroyIp ();
 destroyLog:
     destroyLog ();

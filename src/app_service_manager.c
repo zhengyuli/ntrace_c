@@ -7,14 +7,13 @@
 #include <errno.h>
 #include <jansson.h>
 #include <pthread.h>
+#include "config.h"
 #include "util.h"
 #include "hash.h"
 #include "log.h"
 #include "netdev.h"
 #include "app_service.h"
 #include "app_service_manager.h"
-
-#define APP_SERVICES_CACHE_FILE "/tmp/appServices.cache"
 
 /* Application service padding filter */
 #define APP_SERVICE_PADDING_BPF_FILTER "icmp"
@@ -215,7 +214,7 @@ updateAppServicesFromCache (void) {
     json_t *root;
     json_error_t error;
 
-    root = json_load_file (APP_SERVICES_CACHE_FILE, JSON_DISABLE_EOF_CHECK, &error);
+    root = json_load_file (AGENT_APP_SERVICES_CACHE, JSON_DISABLE_EOF_CHECK, &error);
     if (root == NULL)
         return 0;
 
@@ -227,7 +226,7 @@ updateAppServicesFromCache (void) {
 
     out = json_dumps (root, JSON_INDENT (4));
     if (out) {
-        LOGD ("Load appServices cache success:\n%s\n", out);
+        LOGI ("Load %s cache success:\n%s\n", AGENT_APP_SERVICES_CACHE, out);
         free (out);
     }
     json_object_clear (root);
@@ -239,9 +238,9 @@ syncAppServicesCache (char *appServicesCache) {
     int fd;
     int ret;
 
-    fd = open (APP_SERVICES_CACHE_FILE, O_WRONLY | O_TRUNC | O_CREAT, 0755);
+    fd = open (AGENT_APP_SERVICES_CACHE, O_WRONLY | O_TRUNC | O_CREAT, 0755);
     if (fd < 0) {
-        LOGE ("Open file %s error: %s\n", APP_SERVICES_CACHE_FILE, strerror (errno));
+        LOGE ("Open file %s error: %s\n", AGENT_APP_SERVICES_CACHE, strerror (errno));
         return;
     }
 
@@ -261,7 +260,7 @@ updateAppServiceManager (json_t *root) {
     ret = updateAppServicesFromJson (root);
     if (!ret && (out = json_dumps (root, JSON_INDENT (4)))) {
         syncAppServicesCache (out);
-        LOGD ("Update appService manager success:\n%s\n", out);
+        LOGI ("Update appService manager success:\n%s\n", out);
         free (out);
     }
 

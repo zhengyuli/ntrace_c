@@ -113,7 +113,7 @@ stopTaskForEachHashItem (void *data, void *args) {
 void
 stopAllTask (void) {
     hashForEachItemDelInSomeCase (taskManagerHashTable, stopTaskForEachHashItem, NULL);
-    usleep (10000);
+    usleep (100000);
 }
 
 void
@@ -145,10 +145,10 @@ taskStatusHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
     sscanf (taskStatusMsg, TASK_STATUS_MESSAGE_FORMAT_STRING, &taskStatus, &tid);
     switch (taskStatus) {
         case TASK_STATUS_EXIT:
-            LOGD ("Task %lu exit abnormally.\n");
+            LOGE ("Task %lu exit abnormally.\n");
             retries = 1;
             while (retries <= TASK_RESTART_MAX_RETRIES) {
-                LOGD ("Try to restart task %u\n", retries);
+                LOGI ("Try to restart task %u\n", retries);
                 ret = restartTask (tid);
                 if (!ret)
                     break;
@@ -160,7 +160,7 @@ taskStatusHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
                 LOGE ("Restart task failed.\n");
                 ret = -1;
             } else {
-                LOGD ("Restart task successfully.\n");
+                LOGI ("Restart task successfully.\n");
                 ret = 0;
             }
             break;

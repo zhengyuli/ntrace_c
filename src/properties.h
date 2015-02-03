@@ -11,6 +11,8 @@ struct _properties {
 
     char *mirrorInterface;              /**< Mirror interface */
 
+    char *pcapOfflineInput;             /**< Pcap offline input file */
+
     u_short managementServicePort;      /**< Management service port */
 
     char *breakdownSinkIp;              /**< Breakdown sink ip */
@@ -30,6 +32,10 @@ char *
 getPropertiesMirrorInterface (void);
 void
 updatePropertiesMirrorInterface (char *mirrorInterface);
+char *
+getPropertiesPcapOfflineInput (void);
+void
+updatePropertiesPcapOfflineInput (char *fname);
 u_short
 getPropertiesManagementServicePort (void);
 void

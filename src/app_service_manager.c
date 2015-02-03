@@ -318,6 +318,4 @@ destroyAppServiceManager (boolean exitNormally) {
     appServiceHashTableMaster = NULL;
     hashDestroy (appServiceHashTableSlave);
     appServiceHashTableSlave = NULL;
-    if (exitNormally)
-        remove (APP_SERVICES_CACHE_FILE);
 }

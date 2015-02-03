@@ -22,67 +22,79 @@ newPcapDesc (char *interface) {
     pcap_if_t *alldevs, *devptr;
     char errBuf [PCAP_ERRBUF_SIZE] = {0};
 
-    /* Check interface exists */
-    ret = pcap_findalldevs (&alldevs, errBuf);
-    if (ret < 0) {
-        LOGE ("No network devices found.\n");
-        return NULL;
-    }
+    if (getPropertiesPcapOfflineInput ()) {
+        pcapDesc = pcap_open_offline (getPropertiesPcapOfflineInput(), errBuf);
+        if (pcapDesc == NULL) {
+            LOGE ("Open pcap offline input error: %s.\n", errBuf);
+            return NULL;
+        }
+        
+        LOGD ("Use pcap offline input.\n");
+    } else {
+        /* Check interface exists */
+        ret = pcap_findalldevs (&alldevs, errBuf);
+        if (ret < 0) {
+            LOGE ("No network devices found: %s.\n", errBuf);
+            return NULL;
+        }
 
-    for (devptr = alldevs; devptr != NULL; devptr = devptr->next) {
-        if (strEqual (devptr->name, interface))
-            break;
-    }
-    if (devptr == NULL) {
-        LOGE ("Net interfaces not exists.\n");
-        return NULL;
-    }
+        for (devptr = alldevs; devptr != NULL; devptr = devptr->next) {
+            if (strEqual (devptr->name, interface))
+                break;
+        }
+        if (devptr == NULL) {
+            LOGE ("Net interfaces not exists.\n");
+            return NULL;
+        }
 
-    /* Create pcap descriptor */
-    pcapDesc = pcap_create (interface, errBuf);
-    if (pcapDesc == NULL) {
-        LOGE ("Create pcap descriptor error: %s.\n", errBuf);
-        return NULL;
-    }
+        /* Create pcap descriptor */
+        pcapDesc = pcap_create (interface, errBuf);
+        if (pcapDesc == NULL) {
+            LOGE ("Create pcap descriptor error: %s.\n", errBuf);
+            return NULL;
+        }
 
-    /* Set pcap max capture length */
-    ret = pcap_set_snaplen (pcapDesc, PCAP_MAX_CAPTURE_LENGTH);
-    if (ret < 0) {
-        LOGE ("Set pcap snaplen error\n");
-        pcap_close (pcapDesc);
-        return NULL;
-    }
+        /* Set pcap max capture length */
+        ret = pcap_set_snaplen (pcapDesc, PCAP_MAX_CAPTURE_LENGTH);
+        if (ret < 0) {
+            LOGE ("Set pcap snaplen error\n");
+            pcap_close (pcapDesc);
+            return NULL;
+        }
 
-    /* Set pcap timeout */
-    ret = pcap_set_timeout (pcapDesc, PCAP_CAPTURE_TIMEOUT);
-    if (ret < 0) {
-        LOGE ("Set capture timeout error.\n");
-        pcap_close (pcapDesc);
-        return NULL;
-    }
+        /* Set pcap promisc mode */
+        ret = pcap_set_promisc (pcapDesc, PCAP_CAPTURE_IN_PROMISC);
+        if (ret < 0) {
+            LOGE ("Set pcap promisc mode error.\n");
+            pcap_close (pcapDesc);
+            return NULL;
+        }
+    
+        /* Set pcap timeout */
+        ret = pcap_set_timeout (pcapDesc, PCAP_CAPTURE_TIMEOUT);
+        if (ret < 0) {
+            LOGE ("Set capture timeout error.\n");
+            pcap_close (pcapDesc);
+            return NULL;
+        }
 
-    /* Set pcap buffer size */
-    ret = pcap_set_buffer_size (pcapDesc, PCAP_CAPTURE_BUFFER_SIZE);
-    if (ret < 0) {
-        LOGE ("Set pcap capture buffer size error.\n");
-        pcap_close (pcapDesc);
-        return NULL;
-    }
+        /* Set pcap buffer size */
+        ret = pcap_set_buffer_size (pcapDesc, PCAP_CAPTURE_BUFFER_SIZE);
+        if (ret < 0) {
+            LOGE ("Set pcap capture buffer size error.\n");
+            pcap_close (pcapDesc);
+            return NULL;
+        }
 
-    /* Set pcap promisc mode */
-    ret = pcap_set_promisc (pcapDesc, PCAP_CAPTURE_IN_PROMISC);
-    if (ret < 0) {
-        LOGE ("Set pcap promisc mode error.\n");
-        pcap_close (pcapDesc);
-        return NULL;
-    }
+        /* Activate pcap descriptor */
+        ret = pcap_activate (pcapDesc);
+        if (ret < 0) {
+            LOGE ("Activate pcap descriptor error.\n");
+            pcap_close (pcapDesc);
+            return NULL;
+        }
 
-    /* Activate pcap descriptor */
-    ret = pcap_activate (pcapDesc);
-    if (ret < 0) {
-        LOGE ("Activate pcap descriptor error.\n");
-        pcap_close (pcapDesc);
-        return NULL;
+        LOGD ("Use live network device.\n");
     }
 
     return pcapDesc;
@@ -120,7 +132,7 @@ initNetDev (void) {
     /* Create pcap descriptor instance */
     pcapDescInstance = newPcapDesc (getPropertiesMirrorInterface ());
     if (pcapDescInstance == NULL) {
-        LOGE ("Create pcap descriptor for %s error.\n", getPropertiesMirrorInterface ());
+        LOGE ("Create pcap descriptor instance error.\n");
         return -1;
     }
 

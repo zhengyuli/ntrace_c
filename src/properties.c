@@ -16,6 +16,7 @@ newProperties (void) {
 
     tmp->daemonMode = 0;
     tmp->mirrorInterface = NULL;
+    tmp->pcapOfflineInput = NULL;
     tmp->managementServicePort = 0;
     tmp->breakdownSinkIp = NULL;
     tmp->breakdownSinkPort = 0;
@@ -32,6 +33,8 @@ freeProperties (propertiesPtr instance) {
 
     free (instance->mirrorInterface);
     instance->mirrorInterface = NULL;
+    free (instance->pcapOfflineInput);
+    instance->pcapOfflineInput = NULL;
     free (instance->breakdownSinkIp);
     instance->breakdownSinkIp = NULL;
     free (instance->logDir);
@@ -48,6 +51,7 @@ displayPropertiesDetail (void) {
     fprintf (stdout, "{\n");
     fprintf (stdout, "    daemonMode: %s\n", propertiesInstance->daemonMode ? "true" : "false");
     fprintf (stdout, "    mirrorInterface: %s\n", propertiesInstance->mirrorInterface);
+    fprintf (stdout, "    pcapOfflineInput: %s\n", propertiesInstance->pcapOfflineInput);
     fprintf (stdout, "    managementServicePort: %u\n", propertiesInstance->managementServicePort);
     fprintf (stdout, "    breakdownSinkIp: %s\n", propertiesInstance->breakdownSinkIp);
     fprintf (stdout, "    breakdownSinkPort: %u\n", propertiesInstance->breakdownSinkPort);
@@ -128,6 +132,16 @@ loadPropertiesFromConfigFile (void) {
         goto freeProperties;
     }
 
+    /* Get pcap offline input */
+    ret = get_config_item ("MAIN", "pcapOfflineInput", iniConfig, &item);
+    if (!ret) {
+        tmp->pcapOfflineInput = strdup (get_const_string_config_value (item, &error));
+        if (tmp->pcapOfflineInput == NULL) {
+            fprintf (stderr, "Get \"pcapOfflineInput\" error.\n");
+            goto freeProperties;
+        }
+    }
+    
     /* Get management service port */
     ret = get_config_item ("MAIN", "managementServicePort", iniConfig, &item);
     if (ret) {
@@ -232,6 +246,17 @@ void
 updatePropertiesMirrorInterface (char *mirrorInterface) {
     free (propertiesInstance->mirrorInterface);
     propertiesInstance->mirrorInterface = strdup (mirrorInterface);
+}
+
+char *
+getPropertiesPcapOfflineInput (void) {
+    return propertiesInstance->pcapOfflineInput;
+}
+
+void
+updatePropertiesPcapOfflineInput (char *fname) {
+    free (propertiesInstance->pcapOfflineInput);
+    propertiesInstance->pcapOfflineInput = strdup (fname);
 }
 
 u_short

@@ -526,7 +526,7 @@ freeLogServiceCtxtInstance:
 void
 destroyLogService (void) {
     pthread_kill (logServiceCtxtInstance->tid, SIGUSR1);
-    usleep (10000);
+    usleep (100000);
     zctx_destroy (&logServiceCtxtInstance->zmqCtxt);
     free (logServiceCtxtInstance);
     logServiceCtxtInstance = NULL;

@@ -155,6 +155,8 @@ initLogContext (u_int logLevel) {
 /* Destroy log context */
 void
 destroyLog (void) {
+    /* Wait for log send out completely */
+    usleep (100000);
     zctx_destroy (&logCtxtInstance->zmqCtxt);
     free (logCtxtInstance);
     logCtxtInstance = NULL;

@@ -1,4 +1,4 @@
-#include <netinet/ip.h>
+#include <stdlib.h>
 #include <pcap.h>
 #include <czmq.h>
 #include "util.h"
@@ -9,6 +9,7 @@
 #include "task_manager.h"
 #include "app_service_manager.h"
 #include "netdev.h"
+#include "ip.h"
 #include "raw_packet.h"
 #include "raw_packet_capture_service.h"
 
@@ -24,9 +25,9 @@ rawPktCaptureService (void *args) {
     int datalinkType;
     void *ipPktSendSock;
     char *filter;
-    struct pcap_pkthdr *capturePktHdr;
+    struct pcap_pkthdr *capPktHdr;
     u_char *rawPkt;
-    struct ip *ipPkt;
+    iphdrPtr iph;
     timeVal captureTime;
     zframe_t *frame;
 
@@ -64,20 +65,20 @@ rawPktCaptureService (void *args) {
 
     while (!SIGUSR1IsInterrupted ())
     {
-        ret = pcap_next_ex (pcapDev, &capturePktHdr, (const u_char **) &rawPkt);
+        ret = pcap_next_ex (pcapDev, &capPktHdr, (const u_char **) &rawPkt);
         if (ret == 1) {
             /* Filter out incomplete raw packet */
-            if (capturePktHdr->caplen != capturePktHdr->len)
+            if (capPktHdr->caplen != capPktHdr->len)
                 continue;
 
             /* Get ip packet */
-            ipPkt = (struct ip *) getIpPacket (rawPkt, datalinkType);
-            if (ipPkt == NULL)
+            iph = (iphdrPtr) getIpPacket (rawPkt, datalinkType);
+            if (iph == NULL)
                 continue;
 
             /* Get packet capture timestamp */
-            captureTime.tvSec = htonll (capturePktHdr->ts.tv_sec);
-            captureTime.tvUsec = htonll (capturePktHdr->ts.tv_usec);
+            captureTime.tvSec = htonll (capPktHdr->ts.tv_sec);
+            captureTime.tvUsec = htonll (capPktHdr->ts.tv_usec);
 
             /* Send capture timestamp zframe */
             frame = zframe_new (&captureTime, sizeof (timeVal));
@@ -93,7 +94,7 @@ rawPktCaptureService (void *args) {
             }
 
             /* Send ip packet zframe */
-            frame = zframe_new (ipPkt, ntohs (ipPkt->ip_len));
+            frame = zframe_new (iph, ntohs (iph->ipLen));
             if (frame == NULL) {
                 LOGE ("Create ip packet zframe error.\n");
                 continue;

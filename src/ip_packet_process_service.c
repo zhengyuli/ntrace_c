@@ -1,11 +1,12 @@
-#include <net/if.h>
-#include <netinet/ip.h>
+#include <stdlib.h>
 #include "util.h"
 #include "properties.h"
 #include "signals.h"
 #include "log.h"
 #include "zmq_hub.h"
 #include "task_manager.h"
+#include "ip.h"
+#include "tcp.h"
 #include "ip_packet.h"
 #include "ip_packet_process_service.h"
 
@@ -39,32 +40,30 @@ dispatchHash (const char *key1, const char *key2) {
 }
 
 /*
- * @brief Dispatch ip packet and timestamp to specific process
- *        thread.
+ * @brief Dispatch timestamp and ip packet to specific tcp
+ *        packet process service thread.
  *
- * @param iphdr ip packet to dispatch
+ * @param iph ip packet to dispatch
  * @param tm capture timestamp to dispatch
  */
 static void
-packetDispatch (struct ip *iphdr, timeValPtr tm) {
+packetDispatch (iphdrPtr iph, timeValPtr tm) {
     int ret;
     u_int index;
-    struct ip *iph;
     u_int ipPktLen;
-    struct tcphdr *tcph;
+    tcphdrPtr tcph;
     char key1 [32];
     char key2 [32];
     zframe_t *frame;
     void *tcpPktSendSock;
 
-    iph = iphdr;
-    ipPktLen = ntohs (iph->ip_len);
-
-    switch (iph->ip_p) {
+    ipPktLen = ntohs (iph->ipLen);
+    
+    switch (iph->ipProto) {
         case IPPROTO_TCP:
-            tcph = (struct tcphdr *) ((u_char *) iph + (iph->ip_hl * 4));
-            snprintf (key1, sizeof (key1), "%s:%d", inet_ntoa (iph->ip_src), ntohs (tcph->source));
-            snprintf (key2, sizeof (key2), "%s:%d", inet_ntoa (iph->ip_dst), ntohs (tcph->dest));
+            tcph = (tcphdrPtr) ((u_char *) iph + (iph->iphLen * 4));
+            snprintf (key1, sizeof (key1), "%s:%d", inet_ntoa (iph->ipSrc), ntohs (tcph->source));
+            snprintf (key2, sizeof (key2), "%s:%d", inet_ntoa (iph->ipDest), ntohs (tcph->dest));
             break;
 
         default:
@@ -88,9 +87,9 @@ packetDispatch (struct ip *iphdr, timeValPtr tm) {
         zframe_destroy (&frame);
         return;
     }
-
+    
     /* Send ip packet */
-    frame = zframe_new (iphdr, ipPktLen);
+    frame = zframe_new (iph, ipPktLen);
     if (frame == NULL) {
         LOGE ("Create ip packet zframe error.");
         return;
@@ -114,7 +113,7 @@ ipPktProcessService (void *args) {
     void *ipPktRecvSock;
     zframe_t *tmFrame = NULL;
     zframe_t *pktFrame = NULL;
-    struct ip *newIphdr;
+    iphdrPtr newIphdr;
 
     /* Reset signals flag */
     resetSignalsFlag ();
@@ -165,14 +164,14 @@ ipPktProcessService (void *args) {
         }
 
         /* Ip packet defragment process */
-        ret = ipDefrag ((struct ip *) zframe_data (pktFrame),
+        ret = ipDefrag ((iphdrPtr) zframe_data (pktFrame),
                         (timeValPtr) zframe_data (tmFrame), &newIphdr);
         if (ret < 0)
             LOGE ("Ip packet defragment error.\n");
         else if (newIphdr) {
-            packetDispatch ((struct ip *) newIphdr, (timeValPtr) zframe_data (tmFrame));
+            packetDispatch ((iphdrPtr) newIphdr, (timeValPtr) zframe_data (tmFrame));
             /* New ip packet after defragment */
-            if (newIphdr != (struct ip *) zframe_data (pktFrame))
+            if (newIphdr != (iphdrPtr) zframe_data (pktFrame))
                 free (newIphdr);
         }
 

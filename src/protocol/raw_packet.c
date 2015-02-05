@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <pcap.h>
 #include "log.h"
 
@@ -14,13 +15,11 @@ getIpPacket (u_char *rawPkt, u_int datalinkType) {
     u_int offset;
 
     switch (datalinkType) {
-        /* BSD loopback encapsulation */
-        case DLT_NULL:
+        case DLT_NULL:  /* BSD loopback protocol */
             offset = 4;
             break;
 
-            /* Ethernet (10Mb, 100Mb, 1000Mb or higher) */
-        case DLT_EN10MB:
+        case DLT_EN10MB:  /* Ethernet (10Mb, 100Mb, 1000Mb or higher) protocol */
             /* Regular ip frame */
             if ((rawPkt [12] == 0x08) && (rawPkt [13] == 0x00))
                 offset = 14;
@@ -44,38 +43,31 @@ getIpPacket (u_char *rawPkt, u_int datalinkType) {
             }
             break;
 
-            /* Token Ring Support */
-        case DLT_IEEE802:
+        case DLT_IEEE802:  /* IEEE802 protocol */
             offset = 22;
             break;
 
-            /* Serial line ip packet */
-        case DLT_SLIP:
+        case DLT_SLIP:  /* Serial line protocol */
             offset = 0;
             break;
 
-            /* Point-to-point Protocol */
-        case DLT_PPP:
+        case DLT_PPP:  /* Point-to-point protocol */
             offset = 4;
             break;
 
-            /* FDDI */
-        case DLT_FDDI:
+        case DLT_FDDI:  /* FDDI protocol */
             offset = 21;
             break;
 
-            /* Raw ip packet */
-        case DLT_RAW:
+        case DLT_RAW:  /* Raw ip protocol */
             offset = 0;
             break;
 
-            /* This is for Linux cooked sockets */
-        case DLT_LINUX_SLL:
+        case DLT_LINUX_SLL:  /* Linux cooked sockets protocol */
             offset = 16;
             break;
 
-            /* PPP over serial with HDLC encapsulation */
-        case DLT_PPP_SERIAL:
+        case DLT_PPP_SERIAL:  /* PPP over serial protocol */
             offset = 4;
             break;
 

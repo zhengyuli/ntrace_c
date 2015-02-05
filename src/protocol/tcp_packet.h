@@ -1,14 +1,22 @@
 #ifndef __TCP_PACKET_H__
 #define __TCP_PACKET_H__
 
-#include <netinet/ip.h>
+#include <stdlib.h>
 #include <uuid/uuid.h>
 #include "util.h"
 #include "list.h"
+#include "ip.h"
 #include "proto_analyzer.h"
 
-#define TCP_FIN_SENT 15
-#define TCP_FIN_CONFIRMED 16
+typedef enum {
+  TCP_SYN_PKT_SENT,
+  TCP_SYN_PKT_RECV,
+  TCP_CONN_ESTABLISHED,
+  TCP_FIN_PKT_SENT,
+  TCP_FIN_PKT_CONFIRMED,
+  TCP_CONN_CLOSING,
+  TCP_CONN_CLOSED
+} tcpState;
 
 typedef struct _skbuff skbuff;
 typedef skbuff *skbuffPtr;
@@ -29,41 +37,30 @@ typedef struct _halfStream halfStream;
 typedef halfStream *halfStreamPtr;
 
 struct _halfStream {
-    u_int state;                        /**< Half stream state */
-    u_char *rcvBuf;                     /**< Half stream receive buffer */
-    u_int bufSize;                      /**< Half stream receive buffer size */
-    u_int offset;                       /**< Half stream read offset */
-    u_int count;                        /**< Half stream total data received */
-    u_int countNew;                     /**< Half stream new data received */
-    u_int seq;                          /**< Half stream send sequence number */
-    u_int ackSeq;                       /**< Half stream ack sequence number */
-    u_int firstDataSeq;                 /**< Half stream first data send sequence number */
-    u_int urgCount;                     /**< Half stream urg data received */
-    u_int urgCountNew;                  /**< Half stream new urg data count received */
-    u_char urgData;                     /**< Half stream new urg data received */
-    u_char urgSeen;                     /**< Half stream has new urg data flag */
-    u_short urgPtr;                     /**< Half stream urg data pointer */
-    u_short window;                     /**< Half stream current window size */
-    boolean tsOn;                       /**< Half stream timestamp options on flag */
-    boolean wscaleOn;                   /**< Half stream window scale options on flag */
-    u_int currTs;                       /**< Half stream current timestamp */
-    u_short wscale;                     /**< Half stream window scale size */
-    u_short mss;                        /**< Half stream MSS (Maxium Segment Size) */
-    listHead head;                      /**< Half stream skbuff list head */
-    u_int rmemAlloc;                    /**< Half stream memory allocated for skbuff */
+    tcpState state;                     /**< Tcp half stream state */
+    u_char *rcvBuf;                     /**< Tcp half stream receive buffer */
+    u_int bufSize;                      /**< Tcp half stream receive buffer size */
+    u_int offset;                       /**< Tcp half stream read offset */
+    u_int count;                        /**< Tcp half stream total data received */
+    u_int countNew;                     /**< Tcp half stream new data received */
+    u_int seq;                          /**< Tcp half stream send sequence number */
+    u_int ackSeq;                       /**< Tcp half stream ack sequence number */
+    u_int firstDataSeq;                 /**< Tcp half stream first data send sequence number */
+    u_int urgCount;                     /**< Tcp half stream urg data received */
+    u_int urgCountNew;                  /**< Tcp half stream new urg data count received */
+    u_char urgData;                     /**< Tcp half stream new urg data received */
+    u_char urgSeen;                     /**< Tcp half stream has new urg data flag */
+    u_short urgPtr;                     /**< Tcp half stream urg data pointer */
+    u_short window;                     /**< Tcp half stream current window size */
+    boolean tsOn;                       /**< Tcp half stream timestamp options on flag */
+    boolean wscaleOn;                   /**< Tcp half stream window scale options on flag */
+    u_int currTs;                       /**< Tcp half stream current timestamp */
+    u_short wscale;                     /**< Tcp half stream window scale size */
+    u_short mss;                        /**< Tcp half stream MSS (Maxium Segment Size) */
+    listHead head;                      /**< Tcp half stream skbuff list head */
+    u_int rmemAlloc;                    /**< Tcp half stream memory allocated for skbuff */
 };
 
-typedef struct _tuple4 tuple4;
-typedef tuple4 *tuple4Ptr;
-
-struct _tuple4 {
-    struct in_addr saddr;               /**< Source ip */
-    u_short source;                     /**< Source tcp port */
-    struct in_addr daddr;               /**< Dest ip */
-    u_short dest;                       /**< Dest tcp port */
-};
-
-/* Tcp stream state */
 typedef enum {
     STREAM_INIT,
     STREAM_CONNECTED,
@@ -76,6 +73,16 @@ typedef enum {
     STREAM_RESET_TYPE3,                 /**< Tcp connection reset type3 (from client and after connected) */
     STREAM_RESET_TYPE4,                 /**< Tcp connection reset type4 (from server and after connected) */
 } tcpStreamState;
+
+typedef struct _tuple4 tuple4;
+typedef tuple4 *tuple4Ptr;
+
+struct _tuple4 {
+    struct in_addr saddr;               /**< Source ip */
+    u_short source;                     /**< Source tcp port */
+    struct in_addr daddr;               /**< Dest ip */
+    u_short dest;                       /**< Dest tcp port */
+};
 
 typedef struct _tcpStream tcpStream;
 typedef tcpStream *tcpStreamPtr;
@@ -121,7 +128,7 @@ struct _tcpStreamTimeout {
 
 /* Tcp state for tcp breakdown */
 typedef enum {
-    TCP_BREAKDOWN_CONNECTED = 0,        /**< Tcp connection connected */
+    TCP_BREAKDOWN_CONNECTED,            /**< Tcp connection connected */
     TCP_BREAKDOWN_DATA_EXCHANGING,      /**< Tcp connection data exchanging */
     TCP_BREAKDOWN_CLOSED,               /**< Tcp connection closed */
     TCP_BREAKDOWN_RESET_TYPE1,          /**< Tcp connection reset type1 (from client and before connected) */
@@ -137,8 +144,8 @@ struct _tcpBreakdown {
     u_long_long bkdId;                  /**< Global breakdown id */
     u_long_long timestamp;              /**< Timestamp in seconds */
     char *proto;                        /**< Tcp application level proto type */
-    struct in_addr srcIp;               /**< Source ip */
-    u_short srcPort;                    /**< Source port */
+    struct in_addr ipSrc;               /**< Source ip */
+    u_short source;                    /**< Source port */
     struct in_addr svcIp;               /**< Service ip */
     u_short svcPort;                    /**< Service port */
     uuid_t connId;                      /**< Global tcp connection id */
@@ -188,7 +195,7 @@ typedef void (*publishSessionBreakdownCB) (const char *sessionBreakdown, void *a
 
 /*========================Interfaces definition============================*/
 void
-tcpProcess (struct ip *iph, timeValPtr tm);
+tcpProcess (iphdrPtr iph, timeValPtr tm);
 int
 initTcp (publishSessionBreakdownCB callback, void *args);
 void

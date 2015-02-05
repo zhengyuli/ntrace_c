@@ -14,11 +14,12 @@
 | u_short           | srcPort           | u_short        | source_port               | Source port                                                 |
 | struct in_addr    | svcIp             | char *         | service_ip                | Service ip                                                  |
 | u_short           | svcPort           | u_short        | service_port              | Service port                                                |
-| u_long_long       | connId            | u_long_long    | tcp_connection_id         | Global tcp connection id                                    |
+| uuid_t            | connId            | char *         | tcp_connection_id         | Global tcp connection id                                    |
 | tcpBreakdownState | state             | u_int          | tcp_state                 | Tcp state                                                   |
 | u_int             | retries           | u_int          | tcp_retries               | Tcp retries                                                 |
 | u_int             | retriesLatency    | u_int          | tcp_retries_latency       | Tcp retries latency in milliseconds                         |
 | u_int             | dupSynAcks        | u_int          | tcp_duplicate_synacks     | Tcp duplicate syn/ack packages                              |
+| u_int             | rtt               | u_int          | tcp_rtt                   | Tcp RTT                                                     |
 | u_int             | mss               | u_int          | tcp_mss                   | Tcp mss (maxium segment size)                               |
 | u_int             | connLatency       | u_int          | tcp_connection_latency    | Tcp connection latency in milliseconds                      |
 | u_int             | totalPkts         | u_int          | tcp_total_packets         | Tcp total packages                                          |

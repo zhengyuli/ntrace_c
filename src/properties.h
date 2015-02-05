@@ -1,6 +1,7 @@
 #ifndef __PROPERTIES_H__
 #define __PROPERTIES_H__
 
+#include <stdlib.h>
 #include "util.h"
 
 typedef struct _properties properties;

@@ -1,9 +1,8 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <errno.h>
 #include <arpa/inet.h>
-#include <netinet/ip.h>
-#include <netinet/tcp.h>
 #include "config.h"
 #include "util.h"
 #include "list.h"
@@ -11,6 +10,8 @@
 #include "checksum.h"
 #include "log.h"
 #include "app_service_manager.h"
+#include "ip.h"
+#include "tcp.h"
 #include "ip_options.h"
 #include "ip_packet.h"
 
@@ -29,53 +30,52 @@ static LIST_HEAD (ipQueueExpireTimeoutList);
 static hashTablePtr ipQueueHashTable = NULL;
 
 static void
-displayIphdr (const struct ip *iph) {
+displayIphdr (iphdrPtr iph) {
     u_short offset, flags;
 
-    offset = ntohs (iph->ip_off);
+    offset = ntohs (iph->ipOff);
     flags = offset & ~IP_OFFMASK;
     offset = (offset & IP_OFFMASK) << 3;
 
     if ((flags & IP_MF) || offset) {
-        LOGD ("Ip fragment src: %s ------------>", inet_ntoa (iph->ip_src));
-        LOGD (" dst: %s\n", inet_ntoa (iph->ip_dst));
+        LOGD ("Ip fragment src: %s ------------>", inet_ntoa (iph->ipSrc));
+        LOGD (" dst: %s\n", inet_ntoa (iph->ipDest));
         LOGD ("Ip header len: %d , ip packet len: %u, offset: %u, IP_MF: %u.\n",
-              (iph->ip_hl * 4), ntohs (iph->ip_len), offset, ((flags & IP_MF) ? 1 : 0));
+              (iph->iphLen * 4), ntohs (iph->ipLen), offset, ((flags & IP_MF) ? 1 : 0));
     }
 }
 
 static ipFragPtr
-newIpFrag (struct ip *iph) {
+newIpFrag (iphdrPtr iph) {
     u_short iphLen, ipLen, offset, end;
     u_char *skbuf;
-    ipFragPtr ipf;
+    ipFragPtr ipFragment;
 
-    iphLen = iph->ip_hl * 4;
-    ipLen = ntohs (iph->ip_len);
-    offset = ntohs (iph->ip_off);
-    offset = (offset & IP_OFFMASK) << 3;
+    iphLen = iph->iphLen * 4;
+    ipLen = ntohs (iph->ipLen);
+    offset = (ntohs (iph->ipOff) & IP_OFFMASK) << 3;
     end = offset + ipLen - iphLen;
 
-    ipf = (ipFragPtr) malloc (sizeof (ipFrag));
-    if (ipf == NULL)
+    ipFragment = (ipFragPtr) malloc (sizeof (ipFrag));
+    if (ipFragment == NULL)
         return NULL;
 
-    ipf->offset = offset;
-    ipf->end = end;
-    ipf->dataLen = end - offset;
+    ipFragment->offset = offset;
+    ipFragment->end = end;
+    ipFragment->dataLen = end - offset;
     skbuf = (u_char *) malloc (ipLen);
     if (skbuf == NULL) {
-        free (ipf);
+        free (ipFragment);
         return NULL;
     }
     memcpy (skbuf, iph, ipLen);
-    ipf->dataPtr = skbuf + iphLen;
-    ipf->skbuf = skbuf;
-    initListHead (&ipf->node);
-    return ipf;
+    ipFragment->dataPtr = skbuf + iphLen;
+    ipFragment->skbuf = skbuf;
+    initListHead (&ipFragment->node);
+    return ipFragment;
 }
 
-static inline void
+static void
 freeIpFrag (ipFragPtr ipf) {
     free (ipf->skbuf);
     free (ipf);
@@ -104,6 +104,7 @@ delIpQueueFromExpireTimeoutList (ipQueuePtr ipq) {
         if (pos->queue == ipq) {
             listDel (&pos->node);
             free (pos);
+            return;
         }
     }
 }
@@ -117,6 +118,7 @@ updateIpQueueExpireTimeout (ipQueuePtr ipq, timeValPtr tm) {
             listDel (&pos->node);
             pos->timeout = tm->tvSec + DEFAULT_IPQUEUE_EXPIRE_TIMEOUT;
             listAddTail (&pos->node, &ipQueueExpireTimeoutList);
+            return;
         }
     }
 }
@@ -127,7 +129,7 @@ addIpQueueToHash (ipQueuePtr ipq, hashItemFreeCB fun) {
     char key [64];
 
     snprintf (key, sizeof (key), IPQUEUE_HASH_KEY_FORMAT,
-              inet_ntoa (ipq->sourcIp), inet_ntoa (ipq->destIp), ipq->id);
+              inet_ntoa (ipq->ipSrc), inet_ntoa (ipq->ipDest), ipq->id);
     ret = hashInsert (ipQueueHashTable, key, ipq, fun);
     if (ret < 0)
         return -1;
@@ -141,34 +143,34 @@ delIpQueueFromHash (ipQueuePtr ipq) {
     char key [64];
 
     snprintf (key, sizeof (key), IPQUEUE_HASH_KEY_FORMAT,
-              inet_ntoa (ipq->sourcIp), inet_ntoa (ipq->destIp), ipq->id);
+              inet_ntoa (ipq->ipSrc), inet_ntoa (ipq->ipDest), ipq->id);
     ret = hashDel (ipQueueHashTable, key);
     if (ret < 0)
         LOGE ("Delete ipQueue from hash table error.\n");
 }
 
 static ipQueuePtr
-findIpQueue (struct ip *iph) {
+findIpQueue (iphdrPtr iph) {
     char key [64];
 
     snprintf (key, sizeof (key), IPQUEUE_HASH_KEY_FORMAT,
-              inet_ntoa (iph->ip_src), inet_ntoa (iph->ip_dst), ntohs (iph->ip_id));
+              inet_ntoa (iph->ipSrc), inet_ntoa (iph->ipDest), ntohs (iph->ipId));
     return (ipQueuePtr) hashLookup (ipQueueHashTable, key);
 }
 
 static ipQueuePtr
-newIpQueue (struct ip * iph) {
+newIpQueue (iphdrPtr iph) {
     ipQueuePtr ipq;
 
     ipq = (ipQueuePtr) malloc (sizeof (ipQueue));
     if (ipq == NULL)
         return NULL;
 
-    ipq->sourcIp = iph->ip_src;
-    ipq->destIp = iph->ip_dst;
-    ipq->id = ntohs (iph->ip_id);
+    ipq->ipSrc = iph->ipSrc;
+    ipq->ipDest = iph->ipDest;
+    ipq->id = ntohs (iph->ipId);
     /* Allocate memory for the IP header (plus 8 octets for ICMP). */
-    ipq->iph = (struct ip *) malloc (64 + 8);
+    ipq->iph = (iphdrPtr) malloc (64 + 8);
     if (ipq->iph == NULL) {
         free (ipq);
         return NULL;
@@ -230,16 +232,16 @@ ipQueueDone (ipQueuePtr ipq) {
  *
  * @return new ip packet if success else NULL
  */
-static struct ip *
-ipQueueGlue (ipQueuePtr ipq) {
+static iphdrPtr
+glueIpQueue (ipQueuePtr ipq) {
     u_int ipLen;
     u_char *buf;
-    struct ip *iph;
+    iphdrPtr iph;
     ipFragPtr pos, tmp;
 
     ipLen = ipq->iphLen + ipq->dataLen;
     if (ipLen > MAX_IP_PACKET_SIZE) {
-        LOGE ("Oversized ip packet from %s.\n", inet_ntoa (ipq->sourcIp));
+        LOGE ("Oversized ip packet from %s.\n", inet_ntoa (ipq->ipSrc));
         delIpQueueFromHash (ipq);
         return NULL;
     }
@@ -254,56 +256,58 @@ ipQueueGlue (ipQueuePtr ipq) {
     /* Glue data of all fragments to new ip packet buffer . */
     memcpy (buf, ((u_char *) ipq->iph), ipq->iphLen);
     buf += ipq->iphLen;
-    listForEachEntrySafe (pos, tmp, &ipq->fragments, node)
-            memcpy (buf + pos->offset, pos->dataPtr, pos->dataLen);
+    listForEachEntrySafe (pos, tmp, &ipq->fragments, node) {
+        memcpy (buf + pos->offset, pos->dataPtr, pos->dataLen);
+    }
 
-    iph = (struct ip *) buf;
-    iph->ip_off = 0;
-    iph->ip_len = htons (ipLen);
+    iph = (iphdrPtr) buf;
+    iph->ipOff = 0;
+    iph->ipLen = htons (ipLen);
     delIpQueueFromHash (ipq);
 
     return iph;
 }
 
 static int
-checkIpHeader (struct ip *iph) {
-    u_char ipVer = iph->ip_v;
-    u_short iphLen = iph->ip_hl * 4;
-    u_short ipLen = ntohs (iph->ip_len);
+checkIpHeader (iphdrPtr iph) {
+    u_char ipVer = iph->ipVer;
+    u_short iphLen = iph->iphLen * 4;
+    u_short ipLen = ntohs (iph->ipLen);
 
-    if ((ipVer != 4) || (iphLen < sizeof (struct ip)) || (ipLen < iphLen)) {
+    if ((ipVer != 4) || (iphLen < sizeof (iphdr)) || (ipLen < iphLen)) {
         LOGE ("IpVer: %d, iphLen: %d, ipLen: %d.\n", ipVer, iphLen, ipLen);
         return -1;
     }
 
 #ifdef DO_STRICT_CHECK
     /* Normally don't do ip checksum, we trust kernel */
-    if (ipFastCheckSum ((u_char *) iph, iph->ip_hl)) {
+    if (ipFastCheckSum ((u_char *) iph, iph->iphl)) {
         LOGE ("ipFastCheckSum error.\n");
         return -1;
     }
 
     /* Check ip options */
-    if ((iphLen > sizeof (struct ip)) && ipOptionsCompile ((u_char *) iph)) {
+    if ((iphLen > sizeof (iphdr)) && ipOptionsCompile ((u_char *) iph)) {
         LOGE ("IpOptionsCompile error.\n");
         return -1;
     }
 #endif
+
     return 0;
 }
 
 /* Check whether ip packet should be dropped */
 static boolean
-pktShouldDrop (struct ip *iphdr) {
-    struct tcphdr *tcph;
+ipPktShouldDrop (iphdrPtr iph) {
+    tcphdrPtr tcph;
     char key1 [32];
     char key2 [32];
 
-    if (iphdr->ip_p == IPPROTO_TCP) {
-        tcph = (struct tcphdr *) ((u_char *) iphdr + (iphdr->ip_hl * 4));
+    if (iph->ipProto == IPPROTO_TCP) {
+        tcph = (tcphdrPtr) ((u_char *) iph + (iph->iphLen * 4));
 
-        snprintf (key1, sizeof (key1), "%s:%d", inet_ntoa (iphdr->ip_src), ntohs (tcph->source));
-        snprintf (key2, sizeof (key2), "%s:%d", inet_ntoa (iphdr->ip_dst), ntohs (tcph->dest));
+        snprintf (key1, sizeof (key1), "%s:%d", inet_ntoa (iph->ipSrc), ntohs (tcph->source));
+        snprintf (key2, sizeof (key2), "%s:%d", inet_ntoa (iph->ipDest), ntohs (tcph->dest));
         if (getAppServiceProtoAnalyzer (key1) || getAppServiceProtoAnalyzer (key2))
             return false;
         else
@@ -322,12 +326,12 @@ pktShouldDrop (struct ip *iphdr) {
  * @return 0 if success else -1
  */
 int
-ipDefrag (struct ip *iph, timeValPtr tm, struct ip **newIph) {
+ipDefrag (iphdrPtr iph, timeValPtr tm, iphdrPtr *newIph) {
     int ret;
     u_short iphLen, ipLen, offset, end, flags, gap;
     ipFragPtr ipf, prev, pos, tmp;
     ipQueuePtr ipq;
-    struct ip *newIphdr;
+    iphdrPtr tmpIph;
 
     /* Check ipQueue expire timeout list */
     checkIpQueueExpireTimeoutList (tm);
@@ -337,9 +341,9 @@ ipDefrag (struct ip *iph, timeValPtr tm, struct ip **newIph) {
         return -1;
     }
 
-    iphLen = iph->ip_hl * 4;
-    ipLen = ntohs (iph->ip_len);
-    offset = ntohs (iph->ip_off);
+    iphLen = iph->iphLen * 4;
+    ipLen = ntohs (iph->ipLen);
+    offset = ntohs (iph->ipOff);
     flags = offset & ~IP_OFFMASK;
     offset = (offset & IP_OFFMASK) << 3;
     end = offset + ipLen - iphLen;
@@ -355,9 +359,7 @@ ipDefrag (struct ip *iph, timeValPtr tm, struct ip **newIph) {
         return 0;
     }
 
-#ifdef DEBUG_BUILD
     displayIphdr (iph);
-#endif
 
     if (ipq == NULL) {
         ipq = newIpQueue (iph);
@@ -367,18 +369,20 @@ ipDefrag (struct ip *iph, timeValPtr tm, struct ip **newIph) {
             return -1;
         }
 
+        /* Add ipQueue to hash */
         ret = addIpQueueToHash (ipq, freeIpQueue);
         if (ret < 0) {
             LOGE ("Add ipQueue to hash table error.\n");
             *newIph = NULL;
             return -1;
         }
+
         /* Add ipQueue to expire timeout list */
         addIpQueueToExpireTimeoutList (ipq, tm);
+    } else {
+        /* Update ipQueue expire timeout */
+        updateIpQueueExpireTimeout (ipq, tm);
     }
-
-    /* Update ipQueue expire timeout */
-    updateIpQueueExpireTimeout (ipq, tm);
 
     /* Alloc new ipFrag */
     ipf = newIpFrag (iph);
@@ -403,6 +407,7 @@ ipDefrag (struct ip *iph, timeValPtr tm, struct ip **newIph) {
         if (ipf->offset <= pos->offset)
             break;
     }
+
     /* Check for overlap with preceding fragment */
     if ((prev != NULL) && (ipf->offset < prev->end)) {
         gap = prev->end - ipf->offset;
@@ -410,6 +415,7 @@ ipDefrag (struct ip *iph, timeValPtr tm, struct ip **newIph) {
         ipf->dataLen -= gap;
         ipf->dataPtr += gap;
     }
+
     /* Check for overlap with succeeding fragments */
     listForEachEntryFromSafe (pos, tmp, &ipq->fragments, node) {
         if (ipf->end <= pos->offset)
@@ -426,6 +432,7 @@ ipDefrag (struct ip *iph, timeValPtr tm, struct ip **newIph) {
             pos->dataPtr += gap;
         }
     }
+
     /* The proper position to insert ip fragment */
     if (prev == NULL)
         listAdd (&ipf->node, &ipq->fragments);
@@ -433,18 +440,18 @@ ipDefrag (struct ip *iph, timeValPtr tm, struct ip **newIph) {
         listAdd (&ipf->node, &prev->node);
 
     if (ipQueueDone (ipq)) {
-        newIphdr = (struct ip *) ipQueueGlue (ipq);
-        if (newIphdr == NULL) {
-            LOGE ("IpQueueGlue error.\n");
+        tmpIph = (iphdrPtr) glueIpQueue (ipq);
+        if (tmpIph == NULL) {
+            LOGE ("glueIpQueue error.\n");
             *newIph = NULL;
             return -1;
         } else {
-            if (pktShouldDrop (newIphdr)) {
-                free (newIphdr);
+            if (ipPktShouldDrop (tmpIph)) {
+                free (tmpIph);
                 *newIph = NULL;
                 return -1;
             } else {
-                *newIph = newIphdr;
+                *newIph = tmpIph;
                 return 0;
             }
         }

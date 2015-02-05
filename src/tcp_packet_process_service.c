@@ -1,9 +1,11 @@
+#include <stdlib.h>
 #include "util.h"
 #include "properties.h"
 #include "signals.h"
 #include "log.h"
 #include "zmq_hub.h"
 #include "task_manager.h"
+#include "ip.h"
 #include "tcp_packet.h"
 #include "tcp_packet_process_service.h"
 
@@ -30,7 +32,7 @@ tcpPktProcessService (void *args) {
     zframe_t *tmFrame = NULL;
     zframe_t *ipPktFrame = NULL;
     timeValPtr tm;
-    struct ip *iphdr;
+    iphdrPtr iph;
 
     dispatchIndex = *((u_int *) args);
     tcpPktRecvSock = getTcpPktRecvSock (dispatchIndex);
@@ -82,10 +84,10 @@ tcpPktProcessService (void *args) {
         }
 
         tm = (timeValPtr) zframe_data (tmFrame);
-        iphdr = (struct ip *) zframe_data (ipPktFrame);
-        switch (iphdr->ip_p) {
+        iph = (iphdrPtr) zframe_data (ipPktFrame);
+        switch (iph->ipProto) {
             case IPPROTO_TCP:
-                tcpProcess (iphdr, tm);
+                tcpProcess (iph, tm);
                 break;
 
             default:

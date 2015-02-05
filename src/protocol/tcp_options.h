@@ -1,15 +1,16 @@
 #ifndef __TCP_OPTIONS_H__
 #define __TCP_OPTIONS_H__
 
-#include <netinet/tcp.h>
+#include <stdlib.h>
+#include "tcp.h"
 
 /*========================Interfaces definition============================*/
 boolean
-getTimeStampOption (struct tcphdr *tcph, u_int *ts);
+getTimeStampOption (tcphdrPtr tcph, u_int *ts);
 boolean
-getTcpWindowScaleOption (struct tcphdr *tcph, u_short *ws);
+getTcpWindowScaleOption (tcphdrPtr tcph, u_short *ws);
 boolean
-getTcpMssOption (struct tcphdr *tcph, u_short *mss);
+getTcpMssOption (tcphdrPtr tcph, u_short *mss);
 /*=======================Interfaces definition end=========================*/
 
 #endif /* __TCP_OPTIONS_H__ */

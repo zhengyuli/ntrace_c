@@ -1,7 +1,8 @@
+#include <stdlib.h>
 #include <string.h>
 #include <arpa/inet.h>
-#include <netinet/tcp.h>
 #include "util.h"
+#include "tcp.h"
 #include "tcp_options.h"
 
 /*
@@ -13,7 +14,7 @@
  * @return true if time stamp option on else false
  */
 boolean
-getTimeStampOption (struct tcphdr *tcph, u_int *ts) {
+getTimeStampOption (tcphdrPtr tcph, u_int *ts) {
     u_int len;
     u_int timeStamp;
     u_char *options;
@@ -22,22 +23,22 @@ getTimeStampOption (struct tcphdr *tcph, u_int *ts) {
     len = tcph->doff * 4;
     options = (u_char *) (tcph + 1);
 
-    while (index <=  len - sizeof (struct tcphdr) - 10 ) {
+    while (index <= (len - sizeof (tcphdr) - 10)) {
         switch (options [index]) {
-            case 0: /* TCPOPT_EOL */
+            case 0:  /* TCPOPT_EOL */
                 return false;
 
-            case 1: /* TCPOPT_NOP */
+            case 1:  /* TCPOPT_NOP */
                 index++;
                 continue;
 
-            case 8: /* TCPOPT_TIMESTAMP */
+            case 8:  /* TCPOPT_TIMESTAMP */
                 memcpy ((char *) &timeStamp, options + index + 2, 4);
                 *ts = ntohl (timeStamp);
                 return true;
 
-            default:
-                if (options [index + 1] < 2 ) /* "silly option" */
+            default:  /* Other options */
+                if (options [index + 1] < 2)
                     return false;
                 index += options [index + 1];
         }
@@ -55,7 +56,7 @@ getTimeStampOption (struct tcphdr *tcph, u_int *ts) {
  * @return true if window scale option on else false
  */
 boolean
-getTcpWindowScaleOption (struct tcphdr *tcph, u_short *ws) {
+getTcpWindowScaleOption (tcphdrPtr tcph, u_short *ws) {
     u_int len;
     u_char wscale;
     u_char *options;
@@ -65,24 +66,24 @@ getTcpWindowScaleOption (struct tcphdr *tcph, u_short *ws) {
     len = 4 * tcph->doff;
     options = (u_char *) (tcph + 1);
 
-    while (index <=  len - sizeof (struct tcphdr) - 3) {
+    while (index <= (len - sizeof (tcphdr) - 3)) {
         switch (options [index]) {
-            case 0: /* TCPOPT_EOL */
+            case 0:  /* TCPOPT_EOL */
                 return false;
 
-            case 1: /* TCPOPT_NOP */
+            case 1:  /* TCPOPT_NOP */
                 index++;
                 continue;
 
-            case 3: /* TCPOPT_WSCALE */
+            case 3:  /* TCPOPT_WSCALE */
                 memcpy ((char *) &wscale, options + index + 2, 1);
                 if (wscale > 14)
                     wscale = 14;
                 *ws = (1 << wscale);
                 return true;
 
-            default:
-                if (options [index + 1] < 2 ) /* "silly option" */
+            default:  /* Other options */
+                if (options [index + 1] < 2)
                     return false;
                 index += options [index + 1];
         }
@@ -100,7 +101,7 @@ getTcpWindowScaleOption (struct tcphdr *tcph, u_short *ws) {
  * @return true if MSS option on else false
  */
 boolean
-getTcpMssOption (struct tcphdr *tcph, u_short *mss) {
+getTcpMssOption (tcphdrPtr tcph, u_short *mss) {
     u_int len;
     u_short maxiumSegSize;
     u_char *options;
@@ -109,22 +110,22 @@ getTcpMssOption (struct tcphdr *tcph, u_short *mss) {
     len = 4 * tcph->doff;
     options = (u_char *) (tcph + 1);
 
-    while (index <=  len - sizeof (struct tcphdr) - 4 ) {
+    while (index <= (len - sizeof (tcphdr) - 4)) {
         switch (options [index]) {
-            case 0: /* TCPOPT_EOL */
+            case 0:  /* TCPOPT_EOL */
                 return false;
 
-            case 1: /* TCPOPT_NOP */
+            case 1:  /* TCPOPT_NOP */
                 index++;
                 continue;
 
-            case 2: /* TCPOPT_MSS */
+            case 2:  /* TCPOPT_MSS */
                 memcpy ((char *) &maxiumSegSize, options + index + 2, 2);
                 *mss = ntohs (maxiumSegSize);
                 return true;
 
-            default:
-                if (options [index + 1] < 2 ) /* "silly option" */
+            default:  /* Other options */
+                if (options [index + 1] < 2)
                     return false;
                 index += options [index + 1];
         }

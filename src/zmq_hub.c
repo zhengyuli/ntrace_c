@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <czmq.h>
 #include "util.h"
 #include "properties.h"

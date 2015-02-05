@@ -1,0 +1,26 @@
+#
+# Authors: zhengyu li <zhengyu_li@gmail.com>
+#
+
+MESSAGE (STATUS "Using bundled find uuid")
+
+FIND_PATH (
+  LIBUUID_INCLUDE_DIR
+  NAMES uuid.h
+  PATHS /usr/include/uuid /usr/local/include/uuid)
+
+FIND_LIBRARY (
+  LIBUUID_LIBRARY
+  NAMES uuid
+  PATHS /usr/lib/ /usr/local/lib/ /usr/lib64/ /usr/lcocal/lib64/)
+
+IF (LIBUUID_INCLUDE_DIR AND LIBUUID_LIBRARY)
+  SET (UUID_FOUND 1)
+  INCLUDE_DIRECTORIES (${LIBUUID_INCLUDE_DIR})
+ELSE (LIBUUID_INCLUDE_DIR AND LIBUUID_LIBRARY)
+  SET (UUID_FOUND 0)
+ENDIF (LIBUUID_INCLUDE_DIR AND LIBUUID_LIBRARY)
+
+MARK_AS_ADVANCED (
+  LIBUUID_INCLUDE_DIR
+  LIBUUID_LIBRARY)

@@ -1,11 +1,10 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
 #include <arpa/inet.h>
-#include <netinet/ip.h>
-#include <netinet/tcp.h>
 #include <pthread.h>
 #include <jansson.h>
 #include "config.h"
@@ -16,6 +15,8 @@
 #include "checksum.h"
 #include "log.h"
 #include "app_service_manager.h"
+#include "ip.h"
+#include "tcp.h"
 #include "tcp_options.h"
 #include "tcp_packet.h"
 #include "proto_analyzer.h"
@@ -54,12 +55,16 @@ static pthread_once_t tcpDestroyOnceControl = PTHREAD_ONCE_INIT;
 static __thread listHead tcpStreamList;
 /* Tcp stream timeout list */
 static __thread listHead tcpStreamTimoutList;
+/* Tcp stream hash table */
+static __thread hashTablePtr tcpStreamHashTable;
+
 /* Tcp breakdown publish callback */
 static __thread publishSessionBreakdownCB publishSessionBreakdownFunc;
 /* Tcp breakdown publish callback args */
 static __thread void *publishSessionBreakdownArgs;
-/* Tcp stream hash table */
-static __thread hashTablePtr tcpStreamHashTable;
+
+/* Tcp stream hash */
+static __thread tcpStreamPtr streamCache = NULL;
 
 static inline boolean
 before (u_int seq1, u_int seq2) {
@@ -95,6 +100,17 @@ getTcpBreakdownId (void) {
     return bkdId;
 }
 
+static inline boolean
+tuple4IsEqual (tuple4Ptr addr1, tuple4Ptr addr2) {
+    if ((addr1->saddr.s_addr == addr2->saddr.s_addr) &&
+        (addr1->source == addr2->source) &&
+        (addr1->daddr.s_addr == addr2->daddr.s_addr) &&
+        (addr1->dest == addr2->dest))
+        return true;
+
+    return false;
+}
+
 /*
  * @brief Add tcp stream to global tcp stream timeout list
  *
@@ -121,6 +137,11 @@ addTcpStreamToClosingTimeoutList (tcpStreamPtr stream, timeValPtr tm) {
     listAddTail (&tst->node, &tcpStreamTimoutList);
 }
 
+/*
+ * @brief Delete tcp stream from closing timeout list
+ * 
+ * @param stream tcp stream to Delete
+ */
 static void
 delTcpStreamFromClosingTimeoutList (tcpStreamPtr stream) {
     tcpStreamTimeoutPtr pos, tmp;
@@ -204,6 +225,10 @@ delTcpStreamFromHash (tcpStreamPtr stream) {
               ATOMIC_ADD_AND_FETCH (&tcpStreamsAlloc, 0), ATOMIC_ADD_AND_FETCH (&tcpStreamsFree, 1));
 #endif
     }
+
+    /* If streamCache will be deleted, reset streamCache */
+    if (streamCache == stream)
+        streamCache = NULL;
 }
 
 /*
@@ -216,26 +241,42 @@ delTcpStreamFromHash (tcpStreamPtr stream) {
  * @return Tcp stream if success else NULL
  */
 static tcpStreamPtr
-findTcpStream (struct tcphdr *tcph, struct ip * iph, streamDirection *direction) {
-    tuple4 addr, reversed;
+findTcpStream (tcphdrPtr tcph, iphdrPtr iph, streamDirection *direction) {
+    tuple4 addr, revAddr;
     tcpStreamPtr stream;
 
-    addr.saddr = iph->ip_src;
+    addr.saddr = iph->ipSrc;
     addr.source = ntohs (tcph->source);
-    addr.daddr = iph->ip_dst;
+    addr.daddr = iph->ipDest;
     addr.dest = ntohs (tcph->dest);
+
+    revAddr.saddr = iph->ipDest;
+    revAddr.source = ntohs (tcph->dest);
+    revAddr.daddr = iph->ipSrc;
+    revAddr.dest = ntohs (tcph->source);
+
+    if (streamCache) {
+        if (tuple4IsEqual (&streamCache->addr, &addr)) {
+            *direction = STREAM_FROM_CLIENT;
+            return streamCache;
+        }
+
+        if (tuple4IsEqual (&streamCache->addr, &revAddr)) {
+            *direction = STREAM_FROM_SERVER;
+            return streamCache;
+        }
+    }
+    
     stream = lookupTcpStreamFromHash (&addr);
     if (stream) {
+        streamCache = stream;
         *direction = STREAM_FROM_CLIENT;
         return stream;
     }
 
-    reversed.saddr = iph->ip_dst;
-    reversed.source = ntohs (tcph->dest);
-    reversed.daddr = iph->ip_src;
-    reversed.dest = ntohs (tcph->source);
-    stream = lookupTcpStreamFromHash (&reversed);
+    stream = lookupTcpStreamFromHash (&revAddr);
     if (stream) {
+        streamCache = stream;
         *direction = STREAM_FROM_SERVER;
         return stream;
     }
@@ -263,7 +304,7 @@ newTcpStream (protoAnalyzerPtr analyzer) {
     stream->state = STREAM_INIT;
 
     /* Init client halfStream */
-    stream->client.state = TCP_CLOSE;
+    stream->client.state = TCP_CONN_CLOSED;
     stream->client.rcvBuf = NULL;
     stream->client.bufSize = 0;
     stream->client.offset = 0;
@@ -288,7 +329,7 @@ newTcpStream (protoAnalyzerPtr analyzer) {
     /* Init client halfStream end */
 
     /* Init server halfStream */
-    stream->server.state = TCP_CLOSE;
+    stream->server.state = TCP_CONN_CLOSED;
     stream->server.rcvBuf = NULL;
     stream->server.bufSize = 0;
     stream->server.offset = 0;
@@ -380,7 +421,7 @@ freeTcpStreamForHash (void *data) {
 }
 
 /*
- * @brief Alloc new tcp stream.
+ * @brief Alloc new tcp stream and add it to tcp stream hash table
  *
  * @param tcph tcp header for current packet
  * @param iph ip header for current packet
@@ -389,17 +430,17 @@ freeTcpStreamForHash (void *data) {
  * @return Tcp stream if success else NULL
  */
 static tcpStreamPtr
-addNewTcpStream (struct tcphdr *tcph, struct ip *iph, timeValPtr tm) {
+addNewTcpStream (tcphdrPtr tcph, iphdrPtr iph, timeValPtr tm) {
     int ret;
     char key [64];
     protoAnalyzerPtr analyzer;
     tcpStreamPtr stream, tmp;
 
-    snprintf (key, sizeof (key), "%s:%d", inet_ntoa (iph->ip_dst), ntohs (tcph->dest));
+    snprintf (key, sizeof (key), "%s:%d", inet_ntoa (iph->ipDest), ntohs (tcph->dest));
     analyzer = getAppServiceProtoAnalyzer (key);
     if (analyzer == NULL) {
         LOGE ("Appliction service (%s:%d) has not been registered.\n",
-              inet_ntoa (iph->ip_dst), ntohs (tcph->dest));
+              inet_ntoa (iph->ipDest), ntohs (tcph->dest));
         return NULL;
     }
 
@@ -410,13 +451,13 @@ addNewTcpStream (struct tcphdr *tcph, struct ip *iph, timeValPtr tm) {
     }
 
     /* Set stream 4-tuple address */
-    stream->addr.saddr = iph->ip_src;
+    stream->addr.saddr = iph->ipSrc;
     stream->addr.source = ntohs (tcph->source);
-    stream->addr.daddr = iph->ip_dst;
+    stream->addr.daddr = iph->ipDest;
     stream->addr.dest = ntohs (tcph->dest);
 
     /* Set client halfStream */
-    stream->client.state = TCP_SYN_SENT;
+    stream->client.state = TCP_SYN_PKT_SENT;
     stream->client.seq = ntohl (tcph->seq) + 1;
     stream->client.firstDataSeq = stream->client.seq;
     stream->client.window = ntohs (tcph->window);
@@ -475,9 +516,9 @@ tcpBreakdown2Json (tcpStreamPtr stream, tcpBreakdownPtr tbd) {
     /* Tcp application layer protocol */
     json_object_set_new (root, COMMON_SKBD_PROTOCOL, json_string (tbd->proto));
     /* Tcp source ip */
-    json_object_set_new (root, COMMON_SKBD_SOURCE_IP, json_string (inet_ntoa (tbd->srcIp)));
+    json_object_set_new (root, COMMON_SKBD_SOURCE_IP, json_string (inet_ntoa (tbd->ipSrc)));
     /* Tcp source port */
-    json_object_set_new (root, COMMON_SKBD_SOURCE_PORT, json_integer (tbd->srcPort));
+    json_object_set_new (root, COMMON_SKBD_SOURCE_PORT, json_integer (tbd->source));
     /* Tcp service ip */
     json_object_set_new (root, COMMON_SKBD_SERVICE_IP, json_string (inet_ntoa (tbd->svcIp)));
     /* Tcp service port */
@@ -540,8 +581,8 @@ publishSessionBreakdown (tcpStreamPtr stream, timeValPtr tm) {
     tbd.bkdId = getTcpBreakdownId ();
     tbd.timestamp = tm->tvSec;
     tbd.proto = stream->proto;
-    tbd.srcIp = stream->addr.saddr;
-    tbd.srcPort = stream->addr.source;
+    tbd.ipSrc = stream->addr.saddr;
+    tbd.source = stream->addr.source;
     tbd.svcIp = stream->addr.daddr;
     tbd.svcPort = stream->addr.dest;
     uuid_copy (tbd.connId, stream->connId);
@@ -669,8 +710,8 @@ checkTcpStreamClosingTimeoutList (timeValPtr tm) {
 static void
 handleEstb (tcpStreamPtr stream, timeValPtr tm) {
     /* Set tcp state */
-    stream->client.state = TCP_ESTABLISHED;
-    stream->server.state = TCP_ESTABLISHED;
+    stream->client.state = TCP_CONN_ESTABLISHED;
+    stream->server.state = TCP_CONN_ESTABLISHED;
     stream->state = STREAM_CONNECTED;
     stream->estbTime = timeVal2MilliSecond (tm);
     stream->mss = MIN_NUM (stream->client.mss, stream->server.mss);
@@ -755,7 +796,7 @@ handleFin (tcpStreamPtr stream, halfStreamPtr snd, timeValPtr tm) {
     if (state == SESSION_DONE)
         publishSessionBreakdown (stream, tm);
 
-    snd->state = TCP_FIN_SENT;
+    snd->state = TCP_FIN_PKT_SENT;
     stream->state = STREAM_CLOSING;
     addTcpStreamToClosingTimeoutList (stream, tm);
 }
@@ -939,7 +980,7 @@ addFromSkb (tcpStreamPtr stream,
  */
 static void
 tcpQueue (tcpStreamPtr stream,
-          struct tcphdr *tcph,
+          tcphdrPtr tcph,
           halfStreamPtr snd, halfStreamPtr rcv,
           u_char *data, u_int dataLen, timeValPtr tm) {
     u_int curSeq;
@@ -956,7 +997,7 @@ tcpQueue (tcpStreamPtr stream,
             getTimeStampOption (tcph, &snd->currTs);
             addFromSkb (stream, snd, rcv,
                         (u_char *) data, dataLen, curSeq,
-                        tcph->fin, tcph->urg, curSeq + ntohs (tcph->urg_ptr) - 1, tcph->psh, tm);
+                        tcph->fin, tcph->urg, curSeq + ntohs (tcph->urgPtr) - 1, tcph->psh, tm);
 
             listForEachEntrySafe (skbuf, tmp, &rcv->head, node) {
                 if (after (skbuf->seq, EXP_SEQ))
@@ -995,11 +1036,11 @@ tcpQueue (tcpStreamPtr stream,
         skbuf->fin = tcph->fin;
         skbuf->seq = curSeq;
         skbuf->urg = tcph->urg;
-        skbuf->urgPtr = ntohs (tcph->urg_ptr);
+        skbuf->urgPtr = ntohs (tcph->urgPtr);
         skbuf->psh = tcph->psh;
 
         if (skbuf->fin) {
-            snd->state = TCP_CLOSING;
+            snd->state = TCP_CONN_CLOSING;
             addTcpStreamToClosingTimeoutList (stream, tm);
         }
         rcv->rmemAlloc += skbuf->len;
@@ -1023,9 +1064,9 @@ tcpQueue (tcpStreamPtr stream,
  * @param tm current timestamp
  */
 void
-tcpProcess (struct ip *iph, timeValPtr tm) {
+tcpProcess (iphdrPtr iph, timeValPtr tm) {
     u_int ipLen;
-    struct tcphdr *tcph;
+    tcphdrPtr tcph;
     u_int tcpLen;
     u_char *tcpData;
     u_int tcpDataLen;
@@ -1034,11 +1075,11 @@ tcpProcess (struct ip *iph, timeValPtr tm) {
     halfStreamPtr snd, rcv;
     streamDirection direction;
 
-    ipLen = ntohs (iph->ip_len);
-    tcph = (struct tcphdr *) ((char *) iph + iph->ip_hl * 4);
-    tcpLen = ipLen - iph->ip_hl * 4;
+    ipLen = ntohs (iph->ipLen);
+    tcph = (tcphdrPtr) ((char *) iph + iph->iphLen * 4);
+    tcpLen = ipLen - iph->iphLen * 4;
     tcpData = (u_char *) tcph + tcph->doff * 4;
-    tcpDataLen = ipLen - (iph->ip_hl * 4) - (tcph->doff * 4);
+    tcpDataLen = ipLen - (iph->iphLen * 4) - (tcph->doff * 4);
 
     tm->tvSec = ntohll (tm->tvSec);
     tm->tvUsec = ntohll (tm->tvUsec);
@@ -1046,7 +1087,7 @@ tcpProcess (struct ip *iph, timeValPtr tm) {
     /* Tcp stream closing timout check */
     checkTcpStreamClosingTimeoutList (tm);
 
-    if (ipLen < (iph->ip_hl * 4 + sizeof (struct tcphdr))) {
+    if (ipLen < (iph->iphLen * 4 + sizeof (tcphdr))) {
         LOGE ("Invalid tcp packet.\n");
         return;
     }
@@ -1057,14 +1098,14 @@ tcpProcess (struct ip *iph, timeValPtr tm) {
         return;
     }
 
-    if (iph->ip_src.s_addr == 0 || iph->ip_dst.s_addr == 0) {
+    if (iph->ipSrc.s_addr == 0 || iph->ipDest.s_addr == 0) {
         LOGE ("Invalid ip address.\n");
         return;
     }
 
 #ifdef DO_STRICT_CHECK
     /* Tcp checksum validation */
-    if (tcpFastCheckSum ((u_char *) tcph, tcpLen, iph->ip_src.s_addr, iph->ip_dst.s_addr)) {
+    if (tcpFastCheckSum ((u_char *) tcph, tcpLen, iph->ipSrc.s_addr, iph->ipDest.s_addr)) {
         LOGE ("Tcp fast checksum error, ipLen: %u, tcpLen: %u, tcpHeaderLen: %u, tcpDataLen: %u.\n",
               ipLen, tcpLen, (tcph->doff * 4), tcpDataLen);
         return;
@@ -1101,13 +1142,13 @@ tcpProcess (struct ip *iph, timeValPtr tm) {
 
     if (tcph->syn) {
         if ((direction == STREAM_FROM_CLIENT) ||
-            (stream->client.state != TCP_SYN_SENT) ||
-            (stream->server.state != TCP_CLOSE) || !tcph->ack) {
+            (stream->client.state != TCP_SYN_PKT_SENT) ||
+            (stream->server.state != TCP_CONN_CLOSED) || !tcph->ack) {
             /* Tcp syn retries */
-            if ((direction == STREAM_FROM_CLIENT) && (stream->client.state == TCP_SYN_SENT)) {
+            if ((direction == STREAM_FROM_CLIENT) && (stream->client.state == TCP_SYN_PKT_SENT)) {
                 stream->retries++;
                 stream->retriesTime = timeVal2MilliSecond (tm);
-            } else if ((direction == STREAM_FROM_SERVER) && (stream->server.state == TCP_SYN_RECV)) {
+            } else if ((direction == STREAM_FROM_SERVER) && (stream->server.state == TCP_SYN_PKT_RECV)) {
                 /* Tcp syn/ack retries */
                 stream->dupSynAcks++;
                 stream->synAckTime = timeVal2MilliSecond (tm);
@@ -1118,15 +1159,15 @@ tcpProcess (struct ip *iph, timeValPtr tm) {
             return;
         } else {
             /* The second packet of tcp three handshakes */
-            if (stream->client.seq != ntohl (tcph->ack_seq)) {
+            if (stream->client.seq != ntohl (tcph->ackSeq)) {
                 LOGW ("Error ack sequence number of syn/ack packet.\n");
                 return;
             }
 
-            stream->server.state = TCP_SYN_RECV;
+            stream->server.state = TCP_SYN_PKT_RECV;
             stream->server.seq = ntohl (tcph->seq) + 1;
             stream->server.firstDataSeq = stream->server.seq;
-            stream->server.ackSeq = ntohl (tcph->ack_seq);
+            stream->server.ackSeq = ntohl (tcph->ackSeq);
 
             if (stream->client.tsOn) {
                 stream->server.tsOn = getTimeStampOption (tcph, &stream->server.currTs);
@@ -1180,8 +1221,8 @@ tcpProcess (struct ip *iph, timeValPtr tm) {
     if (tcph->ack) {
         if (direction == STREAM_FROM_CLIENT) {
             /* The last packet of tcp three handshakes */
-            if (stream->client.state == TCP_SYN_SENT && stream->server.state == TCP_SYN_RECV) {
-                if (ntohl (tcph->ack_seq) == stream->server.seq) {
+            if (stream->client.state == TCP_SYN_PKT_SENT && stream->server.state == TCP_SYN_PKT_RECV) {
+                if (ntohl (tcph->ackSeq) == stream->server.seq) {
                     handleEstb (stream, tm);
                     stream->state = STREAM_DATA_EXCHANGING;
                 } else
@@ -1189,8 +1230,8 @@ tcpProcess (struct ip *iph, timeValPtr tm) {
             }
         }
 
-        if (ntohl (tcph->ack_seq) > snd->ackSeq)
-            snd->ackSeq = ntohl (tcph->ack_seq);
+        if (ntohl (tcph->ackSeq) > snd->ackSeq)
+            snd->ackSeq = ntohl (tcph->ackSeq);
         else if (!tcpDataLen) {
             /* For out of order packets, if receiver doesn't receive all packets, it
              * will send a single ack packet to ackownledge the last received successive
@@ -1198,9 +1239,9 @@ tcpProcess (struct ip *iph, timeValPtr tm) {
             stream->dupAcks++;
         }
 
-        if (rcv->state == TCP_FIN_SENT)
-            rcv->state = TCP_FIN_CONFIRMED;
-        if (rcv->state == TCP_FIN_CONFIRMED && snd->state == TCP_FIN_CONFIRMED) {
+        if (rcv->state == TCP_FIN_PKT_SENT)
+            rcv->state = TCP_FIN_PKT_CONFIRMED;
+        if (rcv->state == TCP_FIN_PKT_CONFIRMED && snd->state == TCP_FIN_PKT_CONFIRMED) {
             handleClose (stream, tm);
             return;
         }

@@ -1,6 +1,7 @@
 #ifndef __ZMQ_HUB_H__
 #define __ZMQ_HUB_H__
 
+#include <stdlib.h>
 #include <czmq.h>
 
 typedef struct _zmqHub zmqHub;

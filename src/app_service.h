@@ -1,6 +1,7 @@
 #ifndef __APP_SERVICE_H__
 #define __APP_SERVICE_H__
 
+#include <stdlib.h>
 #include <jansson.h>
 #include "proto_analyzer.h"
 

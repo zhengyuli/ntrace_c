@@ -1,4 +1,5 @@
-#include <netinet/ip.h>
+#include <stdlib.h>
+#include <netinet/in.h>
 #include "checksum.h"
 
 #if ( __i386__ || __i386 )
@@ -130,8 +131,10 @@ tcpFastCheckSum (u_char *tcph, int tcpLen, u_int saddr, u_int daddr) {
 
 #else  /* !i386 */
 
-struct psuedoHdr
-{
+typedef struct _psuedoHeader psuedoHeader;
+typedef psuedoHeader *psuedoHeaderPtr;
+
+struct _psuedoHeader {
     u_int saddr;
     u_int daddr;
     u_char zero;
@@ -140,9 +143,9 @@ struct psuedoHdr
 };
 
 static u_short
-ipCheckExt (register u_short *addr, register int len, int addon) {
-    register int nleft = len;
-    register u_short *w = addr;
+ipCheckExt (register u_short *addr, register u_int len, int addon) {
+    register u_int nleft = len;
+    register u_short *tmp = addr;
     register int sum = addon;
     u_short answer = 0;
 
@@ -153,14 +156,16 @@ ipCheckExt (register u_short *addr, register int len, int addon) {
      *  16 bits.
      */
     while (nleft > 1) {
-        sum += *w++;
+        sum += *tmp++;
         nleft -= 2;
     }
+
     /* Mop up an odd byte, if necessary */
     if (nleft == 1) {
-        *(u_char *) (&answer) = *(u_char *) w;
+        *(u_char *) (&answer) = *(u_char *) tmp;
         sum += answer;
     }
+
     /* Add back carry outs from top 16 bits to low 16 bits */
     /* add hi 16 to low 16 */
     sum = (sum >> 16) + (sum & 0xffff);
@@ -168,6 +173,7 @@ ipCheckExt (register u_short *addr, register int len, int addon) {
     sum += (sum >> 16);
     /* Truncate to 16 bits */
     answer = ~sum;
+
     return answer;
 }
 
@@ -179,16 +185,17 @@ ipFastCheckSum (u_char *iph, u_int iphLen) {
 u_short
 tcpFastCheckSum (u_char *tcph, int tcpLen, u_int saddr, u_int daddr) {
     u_int i;
+    psuedoHeader phdr;
     int sum = 0;
-    struct psuedoHdr hdr;
 
-    hdr.saddr = saddr;
-    hdr.daddr = daddr;
-    hdr.zero = 0;
-    hdr.protocol = IPPROTO_TCP;
-    hdr.len = htons (tcpLen);
-    for (i = 0; i < sizeof (hdr); i += 2)
-        sum += *(u_short *)((u_char *) (&hdr) + i);
+    phdr.saddr = saddr;
+    phdr.daddr = daddr;
+    phdr.zero = 0;
+    phdr.protocol = IPPROTO_TCP;
+    phdr.len = htons (tcpLen);
+    for (i = 0; i < sizeof (psuedoHeader); i += 2) {
+        sum += *(u_short *) ((u_char *) (&phdr) + i);
+    }
 
     return ipCheckExt ((u_short *) tcph, tcpLen, sum);
 }

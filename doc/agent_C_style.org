@@ -1,0 +1,78 @@
+#+TITLE: Agent C style
+#+AUTHOR: zhengyu li
+#+OPTIONS: ^:nil \n:t
+
+* Agent C style
+** Naming rule
+For Agent C naming style, all variables and functions are consisted by letters and numbers and every
+word start with capital letter except the first world.
+
+*** example of function and normal variable naming style:
+#+BEGIN_SRC c
+   int
+   addService2HashMap (struct service srv, struct hash hashMap) {
+       struct service localService;
+       struct service *localServicePtr;
+   }
+#+END_SRC
+
+*** example of constant variable and macro naming style
+#+BEGIN_SRC c
+  /*
+   * naming rule of constants and macro definition
+   */
+  #define FILTER_UPDATE 1
+  #define ATOMIC_SET(v, i) ((v) = (i))
+#+END_SRC
+
+** Indent
+Disable tab indent mode and replace basic indent width with 4 characters.
+example:
+#+BEGIN_EXAMPLE
+  if (int i = 0; i < 10; i++) {
+  ----int a = 1;
+  ----for (i = 0; i < N; i++) {
+  --------int b = 2;
+  --------int c = 3;
+  ----}
+  }
+#+END_EXAMPLE
+
+** comment
+For comment we use the gnu c comment style.
++ single line comment example:
+  #+BEGIN_SRC c
+    /* single line comment */
+    int singleLineComment
+  #+END_SRC
+
++ multi-lines comment example:
+  #+BEGIN_SRC c
+    /*
+     * this comment style is used to multi-lines comment
+     * just for example
+     */
+    int multiLineComment
+  #+END_SRC
+
++ function comment example:
+  #+BEGIN_SRC c
+    /*
+     * brief description of this function
+     * detailed description of this function
+     *
+     * @param a paramter a
+     * @param b paramter b
+     * 
+     * @return 0 if success else -1
+     */
+    int functionComment(int a, int b)
+  #+END_SRC
+
++ comments of structure member
+  #+BEGIN_SRC c
+    struct he {
+        int a;                      /**< comment for a */
+        int b;                      /**< comment for b */
+    }
+  #+END_SRC

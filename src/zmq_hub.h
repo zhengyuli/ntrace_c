@@ -18,11 +18,15 @@ struct _zmqHub {
     void *ipPktSendSock;                /**< Ip packet send sock */
     void *ipPktRecvSock;                /**< Ip packet recv sock */
 
-    u_int tcpPktProcessThreadsNum;      /**< Tcp packet process threads number */
-    u_int *tcpPktProcessThreadIDsHolder; /**< Tcp packet process thread IDs holder */
+    void *icmpPktSendSock;              /**< Icmp packet send sock */
+    void *icmpPktRecvSock;              /**< Icmp packet recv sock */
+    void *icmpBreakdownSendSock;        /**< Icmp breakdown send sock */
+
+    u_int tcpProcessThreadsNum;         /**< Tcp process threads number */
+    u_int *tcpProcessThreadIDsHolder;   /**< Tcp process thread IDs holder */
     void **tcpPktSendSocks;             /**< Tcp packet dispatch send socks */
     void **tcpPktRecvSocks;             /**< Tcp packet dispatch recv socks */
-    void **breakdownSendSocks;          /**< Breakdown send socks */
+    void **tcpBreakdownSendSocks;       /**< Tcp breakdown send socks */
 };
 
 /*========================Interfaces definition============================*/
@@ -36,16 +40,22 @@ void *
 getIpPktSendSock (void);
 void *
 getIpPktRecvSock (void);
+void *
+getIcmpPktSendSock (void);
+void *
+getIcmpPktRecvSock (void);
+void *
+getIcmpBreakdownSendSock (void);
 u_int
-getTcpPktProcessThreadsNum (void);
+getTcpProcessThreadsNum (void);
 u_int *
-getTcpPktProcessThreadIDHolder (u_int index);
+getTcpProcessThreadIDHolder (u_int index);
 void *
 getTcpPktSendSock (u_int index);
 void *
 getTcpPktRecvSock (u_int index);
 void *
-getBreakdownSendSock (u_int index);
+getTcpBreakdownSendSock (u_int index);
 int
 initZmqHub (void);
 void

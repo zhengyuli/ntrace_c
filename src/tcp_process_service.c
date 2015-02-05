@@ -7,16 +7,8 @@
 #include "task_manager.h"
 #include "ip.h"
 #include "tcp_packet.h"
-#include "tcp_packet_process_service.h"
-
-/* Publish session breakdown callback */
-static void
-publishSessionBreakdown (const char *sessionBreakdown, void *args) {
-    void *pubSock = args;
-
-    zstr_send (pubSock, sessionBreakdown);
-    LOGD ("\nSession breakdown:\n%s\n", sessionBreakdown);
-}
+#include "publish_session_breakdown.h"
+#include "tcp_process_service.h"
 
 /*
  * Tcp packet process service.
@@ -24,11 +16,11 @@ publishSessionBreakdown (const char *sessionBreakdown, void *args) {
  * send session breakdown to session breakdown sink service.
  */
 void *
-tcpPktProcessService (void *args) {
+tcpProcessService (void *args) {
     int ret;
     u_int dispatchIndex;
     void *tcpPktRecvSock;
-    void *breakdownSendSock;
+    void *tcpBreakdownSendSock;
     zframe_t *tmFrame = NULL;
     zframe_t *ipPktFrame = NULL;
     timeValPtr tm;
@@ -36,7 +28,7 @@ tcpPktProcessService (void *args) {
 
     dispatchIndex = *((u_int *) args);
     tcpPktRecvSock = getTcpPktRecvSock (dispatchIndex);
-    breakdownSendSock = getBreakdownSendSock (dispatchIndex);
+    tcpBreakdownSendSock = getTcpBreakdownSendSock (dispatchIndex);
 
     /* Reset signals flag */
     resetSignalsFlag ();
@@ -49,7 +41,7 @@ tcpPktProcessService (void *args) {
     }
 
     /* Init tcp context */
-    ret = initTcp (publishSessionBreakdown, breakdownSendSock);
+    ret = initTcp (publishSessionBreakdown, tcpBreakdownSendSock);
     if (ret < 0) {
         LOGE ("Init tcp context error.\n");
         goto destroyLog;
@@ -85,14 +77,9 @@ tcpPktProcessService (void *args) {
 
         tm = (timeValPtr) zframe_data (tmFrame);
         iph = (iphdrPtr) zframe_data (ipPktFrame);
-        switch (iph->ipProto) {
-            case IPPROTO_TCP:
-                tcpProcess (iph, tm);
-                break;
 
-            default:
-                break;
-        }
+        /* Do tcp process */
+        tcpProcess (iph, tm);
 
         /* Free zframe */
         zframe_destroy (&tmFrame);

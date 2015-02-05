@@ -5,12 +5,13 @@
 #include "log.h"
 #include "zmq_hub.h"
 
-/* Max/Min tcp packet process threads number */
-#define MIN_TCP_PACKET_PROCESS_THREADS_NUM 5
-#define MAX_TCP_PACKET_PROCESS_THREADS_NUM 1025
+/* Max/Min tcp process threads number */
+#define MIN_TCP_PROCESS_THREADS_NUM 5
+#define MAX_TCP_PROCESS_THREADS_NUM 1025
 
 #define TASK_STATUS_EXCHANGE_CHANNEL "inproc://taskStatusExchangeChannel"
 #define IP_PACKET_EXCHANGE_CHANNEL "inproc://ipPacketExchangeChannel"
+#define ICMP_PACKET_EXCHANGE_CHANNEL "inproc://icmpPacketExchangeChannel"
 #define TCP_PACKET_EXCHANGE_CHANNEL "inproc://tcpPacketExchangeChannel"
 
 /* Zmq hub instance */
@@ -41,14 +42,29 @@ getIpPktRecvSock (void) {
     return zmqHubIntance->ipPktRecvSock;
 }
 
+void *
+getIcmpPktSendSock (void) {
+    return zmqHubIntance->icmpPktSendSock;
+}
+
+void *
+getIcmpPktRecvSock (void) {
+    return zmqHubIntance->icmpPktRecvSock;
+}
+
+void *
+getIcmpBreakdownSendSock (void) {
+    return zmqHubIntance->icmpBreakdownSendSock;
+}
+
 u_int
-getTcpPktProcessThreadsNum (void) {
-    return zmqHubIntance->tcpPktProcessThreadsNum;
+getTcpProcessThreadsNum (void) {
+    return zmqHubIntance->tcpProcessThreadsNum;
 }
 
 u_int *
-getTcpPktProcessThreadIDHolder (u_int index) {
-    return &zmqHubIntance->tcpPktProcessThreadIDsHolder [index];
+getTcpProcessThreadIDHolder (u_int index) {
+    return &zmqHubIntance->tcpProcessThreadIDsHolder [index];
 }
 
 void *
@@ -61,8 +77,8 @@ getTcpPktRecvSock (u_int index) {
 }
 
 void *
-getBreakdownSendSock (u_int index) {
-    return zmqHubIntance->breakdownSendSocks [index];
+getTcpBreakdownSendSock (u_int index) {
+    return zmqHubIntance->tcpBreakdownSendSocks [index];
 }
 
 int
@@ -151,32 +167,75 @@ initZmqHub (void) {
         goto destroyZmqCtxt;
     }
 
-    /* Set tcp packet process threads number */
-    zmqHubIntance->tcpPktProcessThreadsNum = getCpuCoresNum () * 4 + 1;
-    if (zmqHubIntance->tcpPktProcessThreadsNum < MIN_TCP_PACKET_PROCESS_THREADS_NUM)
-        zmqHubIntance->tcpPktProcessThreadsNum = MIN_TCP_PACKET_PROCESS_THREADS_NUM;
-    else if (zmqHubIntance->tcpPktProcessThreadsNum > MAX_TCP_PACKET_PROCESS_THREADS_NUM)
-        zmqHubIntance->tcpPktProcessThreadsNum = MAX_TCP_PACKET_PROCESS_THREADS_NUM;
-
-    /* Alloc tcpPktProcessThreadIDsHolder */
-    zmqHubIntance->tcpPktProcessThreadIDsHolder =
-            (u_int *) malloc (sizeof (u_int) * zmqHubIntance->tcpPktProcessThreadsNum);
-    if (zmqHubIntance->tcpPktProcessThreadIDsHolder == NULL) {
-        LOGE ("Alloc tcpPktProcessThreadIDsHolder error: %s.\n", strerror (errno));
+    /* Create icmpPktSendSock */
+    zmqHubIntance->icmpPktSendSock = zsocket_new (zmqHubIntance->zmqCtxt, ZMQ_PUSH);
+    if (zmqHubIntance->icmpPktSendSock == NULL) {
+        LOGE ("Create icmpPktSendSock error.\n");
         goto destroyZmqCtxt;
     }
-    for (i = 0; i < zmqHubIntance->tcpPktProcessThreadsNum; i++) {
-        zmqHubIntance->tcpPktProcessThreadIDsHolder [i] = i;
+    /* Set icmpPktSendSock sndhwm to 500,000 */
+    zsocket_set_sndhwm (zmqHubIntance->icmpPktSendSock, 500000);
+    ret = zsocket_bind (zmqHubIntance->icmpPktSendSock, ICMP_PACKET_EXCHANGE_CHANNEL);
+    if (ret < 0) {
+        LOGE ("Bind to %s error.\n", ICMP_PACKET_EXCHANGE_CHANNEL);
+        goto destroyZmqCtxt;
+    }
+
+    /* Create icmpPktRecvSock */
+    zmqHubIntance->icmpPktRecvSock = zsocket_new (zmqHubIntance->zmqCtxt, ZMQ_PULL);
+    if (zmqHubIntance->icmpPktRecvSock == NULL) {
+        LOGE ("Create icmpPktRecvSock error.\n");
+        goto destroyZmqCtxt;
+    }
+    /* Set icmpPktRecvSock rcvhwm to 500,000 */
+    zsocket_set_rcvhwm (zmqHubIntance->icmpPktRecvSock, 500000);
+    ret = zsocket_connect (zmqHubIntance->icmpPktRecvSock, ICMP_PACKET_EXCHANGE_CHANNEL);
+    if (ret < 0) {
+        LOGE ("Connect to %s error.\n", ICMP_PACKET_EXCHANGE_CHANNEL);
+        goto destroyZmqCtxt;
+    }
+
+    /* Alloc icmpBreakdownSendSock */
+    zmqHubIntance->icmpBreakdownSendSock = zsocket_new (zmqHubIntance->zmqCtxt, ZMQ_PUSH);
+    if (zmqHubIntance->icmpBreakdownSendSock == NULL) {
+        LOGE ("Create icmpBreakdownSendSock error.\n");
+        goto destroyZmqCtxt;
+    }
+    zsocket_set_sndhwm (zmqHubIntance->icmpBreakdownSendSock, 500000);
+    ret = zsocket_connect (zmqHubIntance->icmpBreakdownSendSock, "tcp://%s:%u",
+                           getPropertiesBreakdownSinkIp (), getPropertiesBreakdownSinkPort ());
+    if (ret < 0) {
+        LOGE ("Connect to tcp://%s:%u error.\n",
+              getPropertiesBreakdownSinkIp (), getPropertiesBreakdownSinkPort ());
+        goto destroyZmqCtxt;
+    }
+
+    /* Get tcp process threads number */
+    zmqHubIntance->tcpProcessThreadsNum = getCpuCoresNum () * 4 + 1;
+    if (zmqHubIntance->tcpProcessThreadsNum < MIN_TCP_PROCESS_THREADS_NUM)
+        zmqHubIntance->tcpProcessThreadsNum = MIN_TCP_PROCESS_THREADS_NUM;
+    else if (zmqHubIntance->tcpProcessThreadsNum > MAX_TCP_PROCESS_THREADS_NUM)
+        zmqHubIntance->tcpProcessThreadsNum = MAX_TCP_PROCESS_THREADS_NUM;
+
+    /* Alloc tcpProcessThreadIDsHolder */
+    zmqHubIntance->tcpProcessThreadIDsHolder =
+            (u_int *) malloc (sizeof (u_int) * zmqHubIntance->tcpProcessThreadsNum);
+    if (zmqHubIntance->tcpProcessThreadIDsHolder == NULL) {
+        LOGE ("Alloc tcpProcessThreadIDsHolder error: %s.\n", strerror (errno));
+        goto destroyZmqCtxt;
+    }
+    for (i = 0; i < zmqHubIntance->tcpProcessThreadsNum; i++) {
+        zmqHubIntance->tcpProcessThreadIDsHolder [i] = i;
     }
 
     /* Alloc tcpPktSendSocks */
-    size = sizeof (void *) * zmqHubIntance->tcpPktProcessThreadsNum;
+    size = sizeof (void *) * zmqHubIntance->tcpProcessThreadsNum;
     zmqHubIntance->tcpPktSendSocks = (void **) malloc (size);
     if (zmqHubIntance->tcpPktSendSocks == NULL) {
         LOGE ("Alloc tcpPktSendSocks error: %s\n", strerror (errno));
         goto freeTcpPktProcessThreadIDsHolder;
     }
-    for (i = 0; i < zmqHubIntance->tcpPktProcessThreadsNum; i++) {
+    for (i = 0; i < zmqHubIntance->tcpProcessThreadsNum; i++) {
         zmqHubIntance->tcpPktSendSocks [i] = zsocket_new (zmqHubIntance->zmqCtxt, ZMQ_PUSH);
         if (zmqHubIntance->tcpPktSendSocks [i] == NULL) {
             LOGE ("Create tcpPktSendSocks [%d] error.\n", i);
@@ -196,7 +255,7 @@ initZmqHub (void) {
         LOGE ("Alloc tcpPktRecvSocks error: %s\n", strerror (errno));
         goto freeTcpPktSendSocks;
     }
-    for (i = 0; i < zmqHubIntance->tcpPktProcessThreadsNum; i++) {
+    for (i = 0; i < zmqHubIntance->tcpProcessThreadsNum; i++) {
         zmqHubIntance->tcpPktRecvSocks [i] = zsocket_new (zmqHubIntance->zmqCtxt, ZMQ_PULL);
         if (zmqHubIntance->tcpPktRecvSocks [i] == NULL) {
             LOGE ("Create tcpPktRecvSocks [%d] error.\n", i);
@@ -210,33 +269,33 @@ initZmqHub (void) {
         }
     }
 
-    /* Alloc breakdownSendSocks */
-    zmqHubIntance->breakdownSendSocks = (void **) malloc (size);
-    if (zmqHubIntance->breakdownSendSocks == NULL) {
-        LOGE ("Alloc breakdownSendSocks error: %s\n", strerror (errno));
+    /* Alloc tcpBreakdownSendSocks */
+    zmqHubIntance->tcpBreakdownSendSocks = (void **) malloc (size);
+    if (zmqHubIntance->tcpBreakdownSendSocks == NULL) {
+        LOGE ("Alloc tcpBreakdownSendSocks error: %s\n", strerror (errno));
         goto freeTcpPktRecvSocks;
     }
-    for (i = 0; i < zmqHubIntance->tcpPktProcessThreadsNum; i++) {
-        zmqHubIntance->breakdownSendSocks [i] = zsocket_new (zmqHubIntance->zmqCtxt, ZMQ_PUSH);
-        if (zmqHubIntance->breakdownSendSocks [i] == NULL) {
-            LOGE ("Create breakdownSendSocks [%d] error.\n", i);
-            goto freeBreakdownSendSocks;
+    for (i = 0; i < zmqHubIntance->tcpProcessThreadsNum; i++) {
+        zmqHubIntance->tcpBreakdownSendSocks [i] = zsocket_new (zmqHubIntance->zmqCtxt, ZMQ_PUSH);
+        if (zmqHubIntance->tcpBreakdownSendSocks [i] == NULL) {
+            LOGE ("Create tcpBreakdownSendSocks [%d] error.\n", i);
+            goto freeTcpBreakdownSendSocks;
         }
-        zsocket_set_sndhwm (zmqHubIntance->breakdownSendSocks [i], 500000);
-        ret = zsocket_connect (zmqHubIntance->breakdownSendSocks [i], "tcp://%s:%u",
+        zsocket_set_sndhwm (zmqHubIntance->tcpBreakdownSendSocks [i], 500000);
+        ret = zsocket_connect (zmqHubIntance->tcpBreakdownSendSocks [i], "tcp://%s:%u",
                                getPropertiesBreakdownSinkIp (), getPropertiesBreakdownSinkPort ());
         if (ret < 0) {
             LOGE ("Connect to tcp://%s:%u error.\n",
                   getPropertiesBreakdownSinkIp (), getPropertiesBreakdownSinkPort ());
-            goto freeBreakdownSendSocks;
+            goto freeTcpBreakdownSendSocks;
         }
     }
 
     return 0;
 
-freeBreakdownSendSocks:
-    free (zmqHubIntance->breakdownSendSocks);
-    zmqHubIntance->breakdownSendSocks = NULL;
+freeTcpBreakdownSendSocks:
+    free (zmqHubIntance->tcpBreakdownSendSocks);
+    zmqHubIntance->tcpBreakdownSendSocks = NULL;
 freeTcpPktRecvSocks:
     free (zmqHubIntance->tcpPktRecvSocks);
     zmqHubIntance->tcpPktRecvSocks = NULL;
@@ -244,9 +303,9 @@ freeTcpPktSendSocks:
     free (zmqHubIntance->tcpPktSendSocks);
     zmqHubIntance->tcpPktSendSocks = NULL;
 freeTcpPktProcessThreadIDsHolder:
-    free (zmqHubIntance->tcpPktProcessThreadIDsHolder);
-    zmqHubIntance->tcpPktProcessThreadIDsHolder = NULL;
-    zmqHubIntance->tcpPktProcessThreadsNum = 0;
+    free (zmqHubIntance->tcpProcessThreadIDsHolder);
+    zmqHubIntance->tcpProcessThreadIDsHolder = NULL;
+    zmqHubIntance->tcpProcessThreadsNum = 0;
 destroyZmqCtxt:
     zctx_destroy (&zmqHubIntance->zmqCtxt);
 freeZmqHubInstance:
@@ -257,14 +316,14 @@ freeZmqHubInstance:
 
 void
 destroyZmqHub (void) {
-    free (zmqHubIntance->tcpPktProcessThreadIDsHolder);
-    zmqHubIntance->tcpPktProcessThreadIDsHolder = NULL;
+    free (zmqHubIntance->tcpProcessThreadIDsHolder);
+    zmqHubIntance->tcpProcessThreadIDsHolder = NULL;
     free (zmqHubIntance->tcpPktSendSocks);
     zmqHubIntance->tcpPktSendSocks = NULL;
     free (zmqHubIntance->tcpPktRecvSocks);
     zmqHubIntance->tcpPktRecvSocks = NULL;
-    free (zmqHubIntance->breakdownSendSocks);
-    zmqHubIntance->breakdownSendSocks = NULL;
+    free (zmqHubIntance->tcpBreakdownSendSocks);
+    zmqHubIntance->tcpBreakdownSendSocks = NULL;
     zctx_destroy (&zmqHubIntance->zmqCtxt);
     free (zmqHubIntance);
     zmqHubIntance = NULL;

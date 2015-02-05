@@ -17,9 +17,10 @@
 #include "app_service_manager.h"
 #include "netdev.h"
 #include "management_service.h"
-#include "raw_packet_capture_service.h"
-#include "ip_packet_process_service.h"
-#include "tcp_packet_process_service.h"
+#include "raw_capture_service.h"
+#include "ip_process_service.h"
+#include "icmp_process_service.h"
+#include "tcp_process_service.h"
 
 /* Agent pid file fd */
 static int agentPidFd = -1;
@@ -79,22 +80,28 @@ startTasks (void) {
         goto stopAllTask;
     }
 
-    ret = newTask (rawPktCaptureService, NULL);
+    ret = newTask (rawCaptureService, NULL);
     if (ret < 0) {
-        LOGE ("Create rawPktCaptureService task error.\n");
+        LOGE ("Create rawCaptureService task error.\n");
         goto stopAllTask;
     }
 
-    ret = newTask (ipPktProcessService, NULL);
+    ret = newTask (ipProcessService, NULL);
     if (ret < 0) {
-        LOGE ("Create ipPktProcessService task error.\n");
+        LOGE ("Create ipProcessService task error.\n");
         goto stopAllTask;
     }
 
-    for (i = 0; i < getTcpPktProcessThreadsNum (); i++) {
-        ret = newTask (tcpPktProcessService, getTcpPktProcessThreadIDHolder (i));
+    ret = newTask (icmpProcessService, NULL);
+    if (ret < 0) {
+        LOGE ("Create icmpProcessService task error.\n");
+        goto stopAllTask;
+    }
+    
+    for (i = 0; i < getTcpProcessThreadsNum (); i++) {
+        ret = newTask (tcpProcessService, getTcpProcessThreadIDHolder (i));
         if (ret < 0) {
-            LOGE ("Create tcpPktProcessService %u task error.\n", i);
+            LOGE ("Create tcpProcessService %u task error.\n", i);
             goto stopAllTask;
         }
     }

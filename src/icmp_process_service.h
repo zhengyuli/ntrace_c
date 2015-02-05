@@ -1,9 +1,9 @@
-#ifndef __RAW_PACKET_CAPTURE_SERVICE__
-#define __RAW_PACKET_CAPTURE_SERVICE__
+#ifndef __ICMP_PROCESS_SERVICE__
+#define __ICMP_PROCESS_SERVICE__
 
 /*========================Interfaces definition============================*/
 void *
-rawPktCaptureService (void *args);
+icmpProcessService (void *args);
 /*=======================Interfaces definition end=========================*/
 
-#endif /* __RAW_PACKET_CAPTURE_SERVICE__ */
+#endif /* __ICMP_PROCESS_SERVICE__ */

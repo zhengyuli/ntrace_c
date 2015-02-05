@@ -1,9 +1,9 @@
-#ifndef __TCP_PACKET_PROCESS_SERVICE__
-#define __TCP_PACKET_PROCESS_SERVICE__
+#ifndef __RAW_CAPTURE_SERVICE__
+#define __RAW_CAPTURE_SERVICE__
 
 /*========================Interfaces definition============================*/
 void *
-tcpPktProcessService (void *args);
+rawCaptureService (void *args);
 /*=======================Interfaces definition end=========================*/
 
-#endif /* __TCP_PACKET_PROCESS_SERVICE__ */
+#endif /* __RAW_CAPTURE_SERVICE__ */

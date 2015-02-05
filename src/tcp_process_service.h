@@ -1,9 +1,9 @@
-#ifndef __IP_PACKET_PROCESS_SERVICE__
-#define __IP_PACKET_PROCESS_SERVICE__
+#ifndef __TCP_PROCESS_SERVICE__
+#define __TCP_PROCESS_SERVICE__
 
 /*========================Interfaces definition============================*/
 void *
-ipPktProcessService (void *args);
+tcpProcessService (void *args);
 /*=======================Interfaces definition end=========================*/
 
-#endif /* __IP_PACKET_PROCESS_SERVICE__ */
+#endif /* __TCP_PROCESS_SERVICE__ */

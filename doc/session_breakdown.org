@@ -2,7 +2,7 @@
 #+AUTHOR: zhengyu li
 #+OPTIONS: ^:nil \n:t
 
-* Tcp common breakdown interface
+** Tcp common breakdown interface
 |-------------------+-------------------+----------------+---------------------------+-------------------------------------------------------------|
 | variable type     | variable name     | breakdown type | breakdown name            | description                                                 |
 |-------------------+-------------------+----------------+---------------------------+-------------------------------------------------------------|
@@ -43,8 +43,21 @@
        TCP_BREAKDOWN_RESET_TYPE4           /**< Tcp connection reset type4 (from server and after connected) */
    } tcpBreakdownState;
  #+END_SRC
+ 
+** ICMP breakdown interface
+ |----------------+---------------+----------------+------------------------+------------------------|
+ | variable type  | variable name | breakdown type | breakdown name         | description            |
+ |----------------+---------------+----------------+------------------------+------------------------|
+ | /              | <             | <              | <                      | <                      |
+ | u_long_long    | timestamp     | u_long_long    | timestamp              | Timestamp in seconds   |
+ | u_char         | type          | u_int          | icmp_type              | Icmp type              |
+ | u_char         | code          | u_int          | icmp_code              | Icmp code              |
+ | struct in_addr | ip            | char *         | icmp_dest_unreach_ip   | Icmp dest unreach ip   |
+ | u_short        | port          | u_short        | icmp_dest_unreach_port | Icmp dest unreach port |
+ |----------------+---------------+----------------+------------------------+------------------------|
 
- * Default breakdown interface
+ 
+** Default breakdown interface
  |---------------+---------------+----------------+------------------------+-----------------------------|
  | variable type | variable name | breakdown type | breakdown name         | description                 |
  |---------------+---------------+----------------+------------------------+-----------------------------|
@@ -96,7 +109,7 @@
    } httpBreakdownState;
  #+END_SRC
 
- * Mysql breakdown interface
+** Mysql breakdown interface
  |---------------------+-----------------+----------------+-------------------------+-------------------------|
  | variable type       | variable name   | breakdown type | breakdown name          | description             |
  |---------------------+-----------------+----------------+-------------------------+-------------------------|

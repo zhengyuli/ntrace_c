@@ -8,7 +8,7 @@
 #include "ip.h"
 #include "tcp.h"
 #include "ip_packet.h"
-#include "ip_packet_process_service.h"
+#include "ip_process_service.h"
 
 static size_t
 dispatchHash (const char *key1, const char *key2) {
@@ -47,7 +47,7 @@ dispatchHash (const char *key1, const char *key2) {
  * @param tm capture timestamp to dispatch
  */
 static void
-packetDispatch (iphdrPtr iph, timeValPtr tm) {
+tcpPacketDispatch (iphdrPtr iph, timeValPtr tm) {
     int ret;
     u_int index;
     u_int ipPktLen;
@@ -58,20 +58,13 @@ packetDispatch (iphdrPtr iph, timeValPtr tm) {
     void *tcpPktSendSock;
 
     ipPktLen = ntohs (iph->ipLen);
-    
-    switch (iph->ipProto) {
-        case IPPROTO_TCP:
-            tcph = (tcphdrPtr) ((u_char *) iph + (iph->iphLen * 4));
-            snprintf (key1, sizeof (key1), "%s:%d", inet_ntoa (iph->ipSrc), ntohs (tcph->source));
-            snprintf (key2, sizeof (key2), "%s:%d", inet_ntoa (iph->ipDest), ntohs (tcph->dest));
-            break;
 
-        default:
-            return;
-    }
+    tcph = (tcphdrPtr) ((u_char *) iph + (iph->iphLen * 4));
+    snprintf (key1, sizeof (key1), "%s:%d", inet_ntoa (iph->ipSrc), ntohs (tcph->source));
+    snprintf (key2, sizeof (key2), "%s:%d", inet_ntoa (iph->ipDest), ntohs (tcph->dest));
 
     /* Get dispatch index */
-    index = dispatchHash (key1, key2) % getTcpPktProcessThreadsNum ();
+    index = dispatchHash (key1, key2) % getTcpProcessThreadsNum ();
     /* Get tcp packet send sock */
     tcpPktSendSock = getTcpPktSendSock (index);
 
@@ -103,12 +96,58 @@ packetDispatch (iphdrPtr iph, timeValPtr tm) {
 }
 
 /*
+ * @brief Dispatch timestamp and ip packet to icmp
+ *        packet process service thread.
+ *
+ * @param iph ip packet to dispatch
+ * @param tm capture timestamp to dispatch
+ */
+static void
+icmpPacketDispatch (iphdrPtr iph, timeValPtr tm) {
+    int ret;
+    u_int ipPktLen;
+    zframe_t *frame;
+    void *icmpPktSendSock;
+
+    ipPktLen = ntohs (iph->ipLen);
+    
+    /* Get icmp packet send sock */
+    icmpPktSendSock = getIcmpPktSendSock ();
+
+    /* Send tm zframe */
+    frame = zframe_new (tm, sizeof (timeVal));
+    if (frame == NULL) {
+        LOGE ("Create timestamp zframe error.\n");
+        return;
+    }
+    ret = zframe_send (&frame, icmpPktSendSock, ZFRAME_MORE);
+    if (ret < 0) {
+        LOGE ("Send tm zframe error.\n");
+        zframe_destroy (&frame);
+        return;
+    }
+    
+    /* Send ip packet */
+    frame = zframe_new (iph, ipPktLen);
+    if (frame == NULL) {
+        LOGE ("Create ip packet zframe error.");
+        return;
+    }
+    ret = zframe_send (&frame, icmpPktSendSock, 0);
+    if (ret < 0) {
+        LOGE ("Send ip packet zframe error.\n");
+        zframe_destroy (&frame);
+        return;
+    }
+}
+
+/*
  * Ip packet process service.
  * Read ip packet send by rawPktCaptureService, then do ip process and
  * dispatch ip defragment packet to specific tcpPktProcessService thread.
  */
 void *
-ipPktProcessService (void *args) {
+ipProcessService (void *args) {
     int ret;
     void *ipPktRecvSock;
     zframe_t *tmFrame = NULL;
@@ -127,7 +166,7 @@ ipPktProcessService (void *args) {
 
     /* Get ipPktRecvSock */
     ipPktRecvSock = getIpPktRecvSock ();
-
+    
     /* Init ip context */
     ret = initIp ();
     if (ret < 0) {
@@ -169,7 +208,19 @@ ipPktProcessService (void *args) {
         if (ret < 0)
             LOGE ("Ip packet defragment error.\n");
         else if (newIphdr) {
-            packetDispatch ((iphdrPtr) newIphdr, (timeValPtr) zframe_data (tmFrame));
+            /* Dispatch ip packet and tmFrame */
+            switch (newIphdr->ipProto) {
+                case IPPROTO_TCP:
+                    tcpPacketDispatch (newIphdr, (timeValPtr) zframe_data (tmFrame));                    
+                    break;
+
+                case IPPROTO_ICMP:
+                    icmpPacketDispatch (newIphdr, (timeValPtr) zframe_data (tmFrame));
+
+                default:
+                    break;
+            }
+
             /* New ip packet after defragment */
             if (newIphdr != (iphdrPtr) zframe_data (pktFrame))
                 free (newIphdr);

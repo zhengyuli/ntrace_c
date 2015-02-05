@@ -5,6 +5,7 @@
 #include <uuid/uuid.h>
 #include "util.h"
 #include "list.h"
+#include "publish_session_breakdown.h"
 #include "ip.h"
 #include "proto_analyzer.h"
 
@@ -166,32 +167,29 @@ struct _tcpBreakdown {
     void *sessionBreakdown;             /**< Application level session breakdown */
 };
 
-/* Common session breakdown json key definitions */
-#define COMMON_SKBD_BREAKDOWN_ID "breakdown_id"
-#define COMMON_SKBD_TIMESTAMP "timestamp"
-#define COMMON_SKBD_PROTOCOL "protocol"
-#define COMMON_SKBD_SOURCE_IP "source_ip"
-#define COMMON_SKBD_SOURCE_PORT "source_port"
-#define COMMON_SKBD_SERVICE_IP "service_ip"
-#define COMMON_SKBD_SERVICE_PORT "service_port"
-#define COMMON_SKBD_TCP_CONNECTION_ID "tcp_connection_id"
-#define COMMON_SKBD_TCP_STATE "tcp_state"
-#define COMMON_SKBD_TCP_RETRIES "tcp_retries"
-#define COMMON_SKBD_TCP_RETRIES_LATENCY "tcp_retries_latency"
-#define COMMON_SKBD_TCP_DUPLICATE_SYNACKS "tcp_duplicate_synacks"
-#define COMMON_SKBD_TCP_RTT "tcp_rtt"
-#define COMMON_SKBD_TCP_MSS "tcp_mss"
-#define COMMON_SKBD_TCP_CONNECTION_LATENCY "tcp_connection_latency"
-#define COMMON_SKBD_TCP_TOTAL_PACKETS "tcp_total_packets"
-#define COMMON_SKBD_TCP_TINY_PACKETS "tcp_tiny_packets"
-#define COMMON_SKBD_TCP_PAWS_PACKETS "tcp_paws_packets"
-#define COMMON_SKBD_TCP_RETRANSMITTED_PACKETS "tcp_retransmitted_packets"
-#define COMMON_SKBD_TCP_OUT_OF_ORDER_PACKETS "tcp_out_of_order_packets"
-#define COMMON_SKBD_TCP_ZERO_WINDOWS "tcp_zero_windows"
-#define COMMON_SKBD_TCP_DUPLICATE_ACKS "tcp_duplicate_acks"
-
-/* Tcp session breakdown callback */
-typedef void (*publishSessionBreakdownCB) (const char *sessionBreakdown, void *args);
+/* Tcp session breakdown json key definitions */
+#define TCP_SKBD_BREAKDOWN_ID "breakdown_id"
+#define TCP_SKBD_TIMESTAMP "timestamp"
+#define TCP_SKBD_PROTOCOL "protocol"
+#define TCP_SKBD_SOURCE_IP "source_ip"
+#define TCP_SKBD_SOURCE_PORT "source_port"
+#define TCP_SKBD_SERVICE_IP "service_ip"
+#define TCP_SKBD_SERVICE_PORT "service_port"
+#define TCP_SKBD_TCP_CONNECTION_ID "tcp_connection_id"
+#define TCP_SKBD_TCP_STATE "tcp_state"
+#define TCP_SKBD_TCP_RETRIES "tcp_retries"
+#define TCP_SKBD_TCP_RETRIES_LATENCY "tcp_retries_latency"
+#define TCP_SKBD_TCP_DUPLICATE_SYNACKS "tcp_duplicate_synacks"
+#define TCP_SKBD_TCP_RTT "tcp_rtt"
+#define TCP_SKBD_TCP_MSS "tcp_mss"
+#define TCP_SKBD_TCP_CONNECTION_LATENCY "tcp_connection_latency"
+#define TCP_SKBD_TCP_TOTAL_PACKETS "tcp_total_packets"
+#define TCP_SKBD_TCP_TINY_PACKETS "tcp_tiny_packets"
+#define TCP_SKBD_TCP_PAWS_PACKETS "tcp_paws_packets"
+#define TCP_SKBD_TCP_RETRANSMITTED_PACKETS "tcp_retransmitted_packets"
+#define TCP_SKBD_TCP_OUT_OF_ORDER_PACKETS "tcp_out_of_order_packets"
+#define TCP_SKBD_TCP_ZERO_WINDOWS "tcp_zero_windows"
+#define TCP_SKBD_TCP_DUPLICATE_ACKS "tcp_duplicate_acks"
 
 /*========================Interfaces definition============================*/
 void

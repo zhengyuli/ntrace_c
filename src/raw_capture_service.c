@@ -11,7 +11,7 @@
 #include "netdev.h"
 #include "ip.h"
 #include "raw_packet.h"
-#include "raw_packet_capture_service.h"
+#include "raw_capture_service.h"
 
 /*
  * Raw packet capture service.
@@ -19,7 +19,7 @@
  * from raw packet and send it to ip packet process service.
  */
 void *
-rawPktCaptureService (void *args) {
+rawCaptureService (void *args) {
     int ret;
     pcap_t *pcapDev;
     int datalinkType;

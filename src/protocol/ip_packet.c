@@ -25,7 +25,8 @@
 #define IPQUEUE_HASH_KEY_FORMAT "%s:%s:%u"
 
 /* IpQueue expire timeout list */
-static LIST_HEAD (ipQueueExpireTimeoutList);
+static listHead ipQueueExpireTimeoutList;
+
 /* Ip host fragment hash table */
 static hashTablePtr ipQueueHashTable = NULL;
 
@@ -93,17 +94,18 @@ addIpQueueToExpireTimeoutList (ipQueuePtr ipq, timeValPtr tm) {
 
     new->queue = ipq;
     new->timeout = tm->tvSec + DEFAULT_IPQUEUE_EXPIRE_TIMEOUT;
-    listAddTail (&new->node, &ipQueueExpireTimeoutList);
+    listAppend (&new->node, &ipQueueExpireTimeoutList);
 }
 
 static void
 delIpQueueFromExpireTimeoutList (ipQueuePtr ipq) {
-    ipQueueTimeoutPtr pos, tmp;
+    ipQueueTimeoutPtr entry;
+    listHeadPtr pos, npos;
 
-    listForEachEntrySafe (pos, tmp, &ipQueueExpireTimeoutList, node) {
-        if (pos->queue == ipq) {
-            listDel (&pos->node);
-            free (pos);
+    listForEachEntrySafe (entry, pos, npos, &ipQueueExpireTimeoutList, node) {
+        if (entry->queue == ipq) {
+            listDel (&entry->node);
+            free (entry);
             return;
         }
     }
@@ -111,13 +113,14 @@ delIpQueueFromExpireTimeoutList (ipQueuePtr ipq) {
 
 static void
 updateIpQueueExpireTimeout (ipQueuePtr ipq, timeValPtr tm) {
-    ipQueueTimeoutPtr pos, tmp;
-
-    listForEachEntrySafe (pos, tmp, &ipQueueExpireTimeoutList, node) {
-        if (pos->queue == ipq) {
-            listDel (&pos->node);
-            pos->timeout = tm->tvSec + DEFAULT_IPQUEUE_EXPIRE_TIMEOUT;
-            listAddTail (&pos->node, &ipQueueExpireTimeoutList);
+    ipQueueTimeoutPtr entry;
+    listHeadPtr pos, npos;
+    
+    listForEachEntrySafe (entry, pos, npos, &ipQueueExpireTimeoutList, node) {
+        if (entry->queue == ipq) {
+            listDel (&entry->node);
+            entry->timeout = tm->tvSec + DEFAULT_IPQUEUE_EXPIRE_TIMEOUT;
+            listAppend (&entry->node, &ipQueueExpireTimeoutList);
             return;
         }
     }
@@ -144,7 +147,7 @@ delIpQueueFromHash (ipQueuePtr ipq) {
 
     snprintf (key, sizeof (key), IPQUEUE_HASH_KEY_FORMAT,
               inet_ntoa (ipq->ipSrc), inet_ntoa (ipq->ipDest), ipq->id);
-    ret = hashDel (ipQueueHashTable, key);
+    ret = hashRemove (ipQueueHashTable, key);
     if (ret < 0)
         LOGE ("Delete ipQueue from hash table error.\n");
 }
@@ -183,13 +186,14 @@ newIpQueue (iphdrPtr iph) {
 
 static void
 freeIpQueue (void *data) {
-    ipFragPtr pos, tmp;
+    ipFragPtr entry;
+    listHeadPtr pos, npos;
     ipQueuePtr ipq = (ipQueuePtr) data;
 
     delIpQueueFromExpireTimeoutList (ipq);
-    listForEachEntrySafe (pos, tmp, &ipq->fragments, node) {
-        listDel (&pos->node);
-        freeIpFrag (pos);
+    listForEachEntrySafe (entry, pos, npos, &ipq->fragments, node) {
+        listDel (&entry->node);
+        freeIpFrag (entry);
     }
     free (ipq->iph);
     free (ipq);
@@ -197,29 +201,31 @@ freeIpQueue (void *data) {
 
 static void
 checkIpQueueExpireTimeoutList (timeValPtr tm) {
-    ipQueueTimeoutPtr pos, tmp;
+    ipQueueTimeoutPtr entry;
+    listHeadPtr pos, npos;
 
-    listForEachEntrySafe (pos, tmp, &ipQueueExpireTimeoutList, node) {
-        if (tm->tvSec < pos->timeout)
+    listForEachEntrySafe (entry, pos, npos, &ipQueueExpireTimeoutList, node) {
+        if (tm->tvSec < entry->timeout)
             return;
         else
-            delIpQueueFromHash (pos->queue);
+            delIpQueueFromHash (entry->queue);
     }
 }
 
 static boolean
 ipQueueDone (ipQueuePtr ipq) {
-    ipFragPtr pos, tmp;
+    ipFragPtr entry;
+    listHeadPtr pos, npos;
     u_short offset;
 
     if (!ipq->dataLen)
         return false;
 
     offset = 0;
-    listForEachEntrySafe (pos, tmp, &ipq->fragments, node) {
-        if (pos->offset != offset)
+    listForEachEntrySafe (entry, pos, npos, &ipq->fragments, node) {
+        if (entry->offset != offset)
             return false;
-        offset = pos->end;
+        offset = entry->end;
     }
 
     return true;
@@ -237,7 +243,8 @@ glueIpQueue (ipQueuePtr ipq) {
     u_int ipLen;
     u_char *buf;
     iphdrPtr iph;
-    ipFragPtr pos, tmp;
+    ipFragPtr entry;
+    listHeadPtr pos, npos;
 
     ipLen = ipq->iphLen + ipq->dataLen;
     if (ipLen > MAX_IP_PACKET_SIZE) {
@@ -256,8 +263,8 @@ glueIpQueue (ipQueuePtr ipq) {
     /* Glue data of all fragments to new ip packet buffer . */
     memcpy (buf, ((u_char *) ipq->iph), ipq->iphLen);
     buf += ipq->iphLen;
-    listForEachEntrySafe (pos, tmp, &ipq->fragments, node) {
-        memcpy (buf + pos->offset, pos->dataPtr, pos->dataLen);
+    listForEachEntrySafe (entry, pos, npos, &ipq->fragments, node) {
+        memcpy (buf + entry->offset, entry->dataPtr, entry->dataLen);
     }
 
     iph = (iphdrPtr) buf;
@@ -329,7 +336,8 @@ int
 ipDefrag (iphdrPtr iph, timeValPtr tm, iphdrPtr *newIph) {
     int ret;
     u_short iphLen, ipLen, offset, end, flags, gap;
-    ipFragPtr ipf, prev, pos, tmp;
+    ipFragPtr ipf, prevEntry, entry;
+    listHeadPtr pos, npos;
     ipQueuePtr ipq;
     iphdrPtr tmpIph;
 
@@ -403,41 +411,47 @@ ipDefrag (iphdrPtr iph, timeValPtr tm, iphdrPtr *newIph) {
         ipq->dataLen = end;
 
     /* Find the proper position to insert fragment */
-    listForEachEntrySafeKeepPrev (prev, pos, tmp, &ipq->fragments, node) {
-        if (ipf->offset <= pos->offset)
+    listForEachEntrySafeKeepPrev (prevEntry, entry, pos, npos, &ipq->fragments, node) {
+        if (ipf->offset <= entry->offset)
             break;
     }
 
     /* Check for overlap with preceding fragment */
-    if ((prev != NULL) && (ipf->offset < prev->end)) {
-        gap = prev->end - ipf->offset;
+    if ((prevEntry != NULL) && (ipf->offset < prevEntry->end)) {
+        gap = prevEntry->end - ipf->offset;
+        /* If previous fragment overlap ipf completely, free ipf and return */
+        if (gap >= ipf->dataLen) {
+            freeIpFrag (ipf);
+            *newIph = NULL;
+            return 0;
+        }
         ipf->offset += gap;
         ipf->dataLen -= gap;
         ipf->dataPtr += gap;
     }
 
     /* Check for overlap with succeeding fragments */
-    listForEachEntryFromSafe (pos, tmp, &ipq->fragments, node) {
-        if (ipf->end <= pos->offset)
+    listForEachEntryFromSafe (entry, pos, npos, &ipq->fragments, node) {
+        if (ipf->end <= entry->offset)
             break;
 
-        gap = ipf->end - pos->offset;
-        /* If ipf overlap pos completely, remove pos */
-        if (gap >= pos->dataLen) {
-            listDel (&pos->node);
-            freeIpFrag (pos);
+        gap = ipf->end - entry->offset;
+        /* If ipf overlap succeeding fragment completely, remove it */
+        if (gap >= entry->dataLen) {
+            listDel (&entry->node);
+            freeIpFrag (entry);
         } else {
-            pos->offset += gap;
-            pos->dataLen -= gap;
-            pos->dataPtr += gap;
+            entry->offset += gap;
+            entry->dataLen -= gap;
+            entry->dataPtr += gap;
         }
     }
 
     /* The proper position to insert ip fragment */
-    if (prev == NULL)
-        listAdd (&ipf->node, &ipq->fragments);
+    if (prevEntry == NULL)
+        listPush (&ipf->node, &ipq->fragments);
     else
-        listAdd (&ipf->node, &prev->node);
+        listPush (&ipf->node, &prevEntry->node);
 
     if (ipQueueDone (ipq)) {
         tmpIph = (iphdrPtr) glueIpQueue (ipq);
@@ -464,6 +478,8 @@ ipDefrag (iphdrPtr iph, timeValPtr tm, iphdrPtr *newIph) {
 /* Init ip context */
 int
 initIp (void) {
+    initListHead (&ipQueueExpireTimeoutList);
+    
     ipQueueHashTable = hashNew (DEFAULT_IPQUEUE_HASH_TABLE_SIZE);
     if (ipQueueHashTable == NULL)
         return -1;

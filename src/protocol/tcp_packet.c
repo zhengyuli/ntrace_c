@@ -172,7 +172,7 @@ addTcpStreamToClosingTimeoutList (tcpStreamPtr stream, timeValPtr tm) {
     stream->inClosingTimeout = true;
     tst->stream = stream;
     tst->timeout = tm->tvSec + DEFAULT_TCP_STREAM_CLOSING_TIMEOUT;
-    listAddTail (&tst->node, &tcpStreamTimoutList);
+    listAppend (&tst->node, &tcpStreamTimoutList);
 }
 
 /*
@@ -182,15 +182,16 @@ addTcpStreamToClosingTimeoutList (tcpStreamPtr stream, timeValPtr tm) {
  */
 static void
 delTcpStreamFromClosingTimeoutList (tcpStreamPtr stream) {
-    tcpStreamTimeoutPtr pos, tmp;
+    tcpStreamTimeoutPtr entry;
+    listHeadPtr pos, npos;
 
     if (!stream->inClosingTimeout)
         return;
 
-    listForEachEntrySafe (pos, tmp, &tcpStreamTimoutList, node) {
-        if (pos->stream == stream) {
-            listDel (&pos->node);
-            free (pos);
+    listForEachEntrySafe (entry, pos, npos, &tcpStreamTimoutList, node) {
+        if (entry->stream == stream) {
+            listDel (&entry->node);
+            free (entry);
             return;
         }
     }
@@ -254,7 +255,7 @@ delTcpStreamFromHash (tcpStreamPtr stream) {
     snprintf (key, sizeof (key), TCP_STREAM_HASH_KEY_FORMAT,
               inet_ntoa (addr->saddr), addr->source,
               inet_ntoa (addr->daddr), addr->dest);
-    ret = hashDel (tcpStreamHashTable, key);
+    ret = hashRemove (tcpStreamHashTable, key);
     if (ret < 0)
         LOGE ("Delete stream from hash table error.\n");
     else {
@@ -422,7 +423,8 @@ newTcpStream (protoAnalyzerPtr analyzer) {
 
 static void
 freeTcpStream (tcpStreamPtr stream) {
-    skbuffPtr pos, tmp;
+    skbuffPtr entry;
+    listHeadPtr pos, npos;
 
     /* Delete stream from global tcp stream list */
     listDel (&stream->node);
@@ -430,18 +432,18 @@ freeTcpStream (tcpStreamPtr stream) {
     delTcpStreamFromClosingTimeoutList (stream);
 
     /* Free client halfStream */
-    listForEachEntrySafe (pos, tmp, &stream->client.head, node) {
-        listDel (&pos->node);
-        free (pos->data);
-        free (pos);
+    listForEachEntrySafe (entry, pos, npos, &stream->client.head, node) {
+        listDel (&entry->node);
+        free (entry->data);
+        free (entry);
     }
     free (stream->client.rcvBuf);
 
     /* Free server halfStream */
-    listForEachEntrySafe (pos, tmp, &stream->server.head, node) {
-        listDel (&pos->node);
-        free (pos->data);
-        free (pos);
+    listForEachEntrySafe (entry, pos, npos, &stream->server.head, node) {
+        listDel (&entry->node);
+        free (entry->data);
+        free (entry);
     }
     free (stream->server.rcvBuf);
 
@@ -516,12 +518,12 @@ addNewTcpStream (tcphdrPtr tcph, iphdrPtr iph, timeValPtr tm) {
      * from global tcp stream list.
      */
     if (hashSize (tcpStreamHashTable) >= (hashLimit (tcpStreamHashTable) * 0.8)) {
-        listFirstEntry (tmp, &tcpStreamList, node);
+        tmp = listHeadEntry (&tcpStreamList, tcpStream, node);
         delTcpStreamFromHash (tmp);
     }
 
     /* Add to global tcp stream list */
-    listAddTail (&stream->node, &tcpStreamList);
+    listAppend (&stream->node, &tcpStreamList);
 
     /* Add to global tcp stream hash table */
     ret = addTcpStreamToHash (stream, freeTcpStreamForHash);
@@ -729,16 +731,17 @@ generateSessionBreakdown (tcpStreamPtr stream, timeValPtr tm) {
  */
 static void
 checkTcpStreamClosingTimeoutList (timeValPtr tm) {
-    tcpStreamTimeoutPtr pos, tmp;
+    tcpStreamTimeoutPtr entry;
+    listHeadPtr pos, npos;
 
-    listForEachEntrySafe (pos, tmp, &tcpStreamTimoutList, node) {
-        if (pos->timeout > tm->tvSec)
+    listForEachEntrySafe (entry, pos, npos, &tcpStreamTimoutList, node) {
+        if (entry->timeout > tm->tvSec)
             return;
 
-        pos->stream->state = STREAM_TIME_OUT;
-        pos->stream->closeTime = timeVal2MilliSecond (tm);
-        generateSessionBreakdown (pos->stream, tm);
-        delTcpStreamFromHash (pos->stream);
+        entry->stream->state = STREAM_TIME_OUT;
+        entry->stream->closeTime = timeVal2MilliSecond (tm);
+        generateSessionBreakdown (entry->stream, tm);
+        delTcpStreamFromHash (entry->stream);
     }
 }
 
@@ -1020,7 +1023,8 @@ tcpQueue (tcpStreamPtr stream,
           halfStreamPtr snd, halfStreamPtr rcv,
           u_char *data, u_int dataLen, timeValPtr tm) {
     u_int curSeq;
-    skbuffPtr skbuf, prev, tmp;
+    skbuffPtr skbuf, entry;
+    listHeadPtr pos, ppos, npos;
 
     curSeq = ntohl (tcph->seq);
     if (!after (curSeq, EXP_SEQ)) {
@@ -1035,18 +1039,18 @@ tcpQueue (tcpStreamPtr stream,
                         (u_char *) data, dataLen, curSeq,
                         tcph->fin, tcph->urg, curSeq + ntohs (tcph->urgPtr) - 1, tcph->psh, tm);
 
-            listForEachEntrySafe (skbuf, tmp, &rcv->head, node) {
-                if (after (skbuf->seq, EXP_SEQ))
+            listForEachEntrySafe (entry, pos, npos, &rcv->head, node) {
+                if (after (entry->seq, EXP_SEQ))
                     break;
-                listDel (&skbuf->node);
-                if (after (skbuf->seq + skbuf->len + skbuf->fin, EXP_SEQ)) {
+                listDel (&entry->node);
+                if (after (entry->seq + entry->len + entry->fin, EXP_SEQ)) {
                     addFromSkb (stream, snd, rcv,
-                                skbuf->data, skbuf->len, skbuf->seq,
-                                skbuf->fin, skbuf->urg, skbuf->seq + skbuf->urgPtr - 1, skbuf->psh, tm);
+                                entry->data, entry->len, entry->seq,
+                                entry->fin, entry->urg, entry->seq + entry->urgPtr - 1, entry->psh, tm);
                 }
-                rcv->rmemAlloc -= skbuf->len;
-                free (skbuf->data);
-                free (skbuf);
+                rcv->rmemAlloc -= entry->len;
+                free (entry->data);
+                free (entry);
             }
         } else
             return;
@@ -1081,13 +1085,13 @@ tcpQueue (tcpStreamPtr stream,
         }
         rcv->rmemAlloc += skbuf->len;
 
-        listForEachEntryReverseSafe (prev, tmp, &rcv->head, node) {
-            if (before (prev->seq, curSeq)) {
-                listAdd (&skbuf->node, &prev->node);
+        listForEachEntryReverseSafe (entry, pos, ppos, &rcv->head, node) {
+            if (before (entry->seq, curSeq)) {
+                listPush (&skbuf->node, &entry->node);
                 return;
             }
         }
-        listAdd (&skbuf->node, &rcv->head);
+        listPush (&skbuf->node, &rcv->head);
     }
 }
 

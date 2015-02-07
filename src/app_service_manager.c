@@ -86,7 +86,7 @@ getAppServicesFilter (void) {
     }
     memset (filter, 0, filterLen);
 
-    ret = hashForEachItemDo (appServiceHashTableMaster, generateFilterForEachAppService, filter);
+    ret = hashLoopDo (appServiceHashTableMaster, generateFilterForEachAppService, filter);
     if (ret < 0) {
         LOGE ("Generate BPF filter for each application service error.\n");
         free (filter);

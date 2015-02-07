@@ -44,7 +44,7 @@ onReqMessageBegin (http_parser *parser) {
     else {
         hsdn->state = HTTP_REQUEST_HEADER_BEGIN;
         hsdn->reqTime = timeVal2MilliSecond (currTime);
-        listAddTail (&hsdn->node, &currSessionDetail->head);
+        listAppend (&hsdn->node, &currSessionDetail->head);
     }
 
     return 0;
@@ -54,7 +54,7 @@ static int
 onReqUrl (http_parser *parser, const char *from, size_t length) {
     httpSessionDetailNodePtr currNode;
 
-    listTailEntry (currNode, &currSessionDetail->head, node);
+    currNode = listTailEntry (&currSessionDetail->head, httpSessionDetailNode, node);
     if (currNode == NULL)
         return 0;
 
@@ -70,7 +70,7 @@ static int
 onReqHeaderField (http_parser *parser, const char* from, size_t length) {
     httpSessionDetailNodePtr currNode;
 
-    listTailEntry (currNode, &currSessionDetail->head, node);
+    currNode = listTailEntry (&currSessionDetail->head, httpSessionDetailNode, node);
     if (currNode == NULL)
         return 0;
 
@@ -98,7 +98,7 @@ static int
 onReqHeaderValue (http_parser *parser, const char* from, size_t length) {
     httpSessionDetailNodePtr currNode;
 
-    listTailEntry (currNode, &currSessionDetail->head, node);
+    currNode = listTailEntry (&currSessionDetail->head, httpSessionDetailNode, node);
     if (currNode == NULL)
         return 0;
 
@@ -164,7 +164,7 @@ onReqHeadersComplete (http_parser *parser) {
     char verStr [HTTP_VERSION_LENGTH];
     httpSessionDetailNodePtr currNode;
 
-    listTailEntry (currNode, &currSessionDetail->head, node);
+    currNode = listTailEntry (&currSessionDetail->head, httpSessionDetailNode, node);
     if (currNode == NULL)
         return 0;
 
@@ -182,7 +182,7 @@ static int
 onReqBody (http_parser *parser, const char* from, size_t length) {
     httpSessionDetailNodePtr currNode;
 
-    listTailEntry (currNode, &currSessionDetail->head, node);
+    currNode = listTailEntry (&currSessionDetail->head, httpSessionDetailNode, node);
     if (currNode == NULL)
         return 0;
 
@@ -196,7 +196,7 @@ static int
 onReqMessageComplete (http_parser *parser) {
     httpSessionDetailNodePtr currNode;
 
-    listTailEntry (currNode, &currSessionDetail->head, node);
+    currNode = listTailEntry (&currSessionDetail->head, httpSessionDetailNode, node);
     if (currNode == NULL)
         return 0;
 
@@ -210,7 +210,7 @@ static int
 onRespMessageBegin (http_parser *parser) {
     httpSessionDetailNodePtr currNode;
 
-    listFirstEntry (currNode, &currSessionDetail->head, node);
+    currNode = listHeadEntry (&currSessionDetail->head, httpSessionDetailNode, node);
     if (currNode == NULL)
         return 0;
 
@@ -229,7 +229,7 @@ static int
 onRespHeaderField (http_parser *parser, const char* from, size_t length) {
     httpSessionDetailNodePtr currNode;
 
-    listFirstEntry (currNode, &currSessionDetail->head, node);
+    currNode = listHeadEntry (&currSessionDetail->head, httpSessionDetailNode, node);
     if (currNode == NULL)
         return 0;
 
@@ -249,7 +249,7 @@ static int
 onRespHeaderValue (http_parser *parser, const char* from, size_t length) {
     httpSessionDetailNodePtr currNode;
 
-    listFirstEntry (currNode, &currSessionDetail->head, node);
+    currNode = listHeadEntry (&currSessionDetail->head, httpSessionDetailNode, node);
     if (currNode == NULL)
         return 0;
 
@@ -291,7 +291,7 @@ onRespHeadersComplete (http_parser *parser) {
     char verStr [HTTP_VERSION_LENGTH];
     httpSessionDetailNodePtr currNode;
 
-    listTailEntry (currNode, &currSessionDetail->head, node);
+    currNode = listHeadEntry (&currSessionDetail->head, httpSessionDetailNode, node);
     if (currNode == NULL)
         return 0;
 
@@ -310,7 +310,7 @@ static int
 onRespBody (http_parser *parser, const char* from, size_t length) {
     httpSessionDetailNodePtr currNode;
 
-    listFirstEntry (currNode, &currSessionDetail->head, node);
+    currNode = listHeadEntry (&currSessionDetail->head, httpSessionDetailNode, node);
     if (currNode == NULL)
         return 0;
 
@@ -324,7 +324,7 @@ static int
 onRespMessageComplete (http_parser *parser) {
     httpSessionDetailNodePtr currNode;
 
-    listFirstEntry (currNode, &currSessionDetail->head, node);
+    currNode = listHeadEntry (&currSessionDetail->head, httpSessionDetailNode, node);
     if (currNode == NULL)
         return 0;
 
@@ -464,15 +464,16 @@ newHttpSessionDetail (void) {
 
 static void
 freeHttpSessionDetail (void *sd) {
-    httpSessionDetailNodePtr pos, tmp;
+    httpSessionDetailNodePtr item;
+    listHeadPtr pos, npos;
     httpSessionDetailPtr hsd = (httpSessionDetailPtr) sd;
 
     if (hsd == NULL)
         return;
 
-    listForEachEntrySafe (pos, tmp, &hsd->head, node) {
-        listDel (&pos->node);
-        freeHttpSessionDetailNode (pos);
+    listForEachEntrySafe (item, pos, npos, &hsd->head, node) {
+        listDel (&item->node);
+        freeHttpSessionDetailNode (item);
     }
 
     free (sd);
@@ -571,7 +572,7 @@ generateHttpSessionBreakdown (void *sd, void *sbd) {
     httpSessionDetailPtr hsd = (httpSessionDetailPtr) sd;
     httpSessionBreakdownPtr hsbd = (httpSessionBreakdownPtr) sbd;
 
-    listFirstEntry (hsdn, &hsd->head, node);
+    hsdn = listHeadEntry (&hsd->head, httpSessionDetailNode, node);
     if (hsdn == NULL) {
         LOGE ("Generate http session breakdown error.\n");
         return -1;
@@ -924,7 +925,7 @@ httpSessionProcessReset (streamDirection direction, timeValPtr tm, void *sd) {
     httpSessionDetailNodePtr currNode;
     httpSessionDetailPtr hsd = (httpSessionDetailPtr) sd;
 
-    listFirstEntry (currNode, &hsd->head, node);
+    currNode = listHeadEntry (&hsd->head, httpSessionDetailNode, node);
     if (currNode) {
         if ((currNode->state == HTTP_REQUEST_HEADER_BEGIN) ||
             (currNode->state == HTTP_REQUEST_HEADER_COMPLETE) ||
@@ -946,7 +947,7 @@ httpSessionProcessReset (streamDirection direction, timeValPtr tm, void *sd) {
             LOGE ("NewHttpSessionDetailNode error.\n");
         else {
             currNode->state = HTTP_RESET_TYPE4;
-            listAddTail (&currNode->node, &hsd->head);
+            listAppend (&currNode->node, &hsd->head);
         }
     }
 }
@@ -957,7 +958,7 @@ httpSessionProcessFin (streamDirection direction, timeValPtr tm, void *sd, sessi
     httpSessionDetailPtr hsd = (httpSessionDetailPtr) sd;
 
     if (direction == STREAM_FROM_SERVER) {
-        listFirstEntry (currNode, &hsd->head, node);
+        currNode = listHeadEntry (&hsd->head, httpSessionDetailNode, node);
         if (currNode == NULL)
             return;
 

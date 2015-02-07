@@ -12,40 +12,115 @@ struct _listHead {
     listHeadPtr next;
 };
 
-#define LIST_HEAD(head)                         \
-    listHead head = {&(head), &(head)}
-
 static inline void
 initListHead (listHeadPtr head) {
     head->prev = head;
     head->next = head;
 }
 
-/* Insert new node after head */
+/* ======================================================================================== */
+
+#define listEntry(pos, type, member) ({                                 \
+            typeof (((type *) 0)->member) *mptr = (pos);                \
+            (type *) ((u_char *) mptr - ((size_t) &((type *) 0)->member)); \
+        })
+
+#define listHeadEntry(head, type, member) ({                    \
+            type *entry;                                        \
+            if (listIsEmpty (head))                             \
+                entry = NULL;                                   \
+            else                                                \
+                entry = listEntry ((head)->next, type, member); \
+            entry;                                              \
+        })
+
+#define listTailEntry(head, type, member) ({                    \
+            type *entry;                                        \
+            if (listIsEmpty (head))                             \
+                entry = NULL;                                   \
+            else                                                \
+                entry = listEntry ((head)->prev, type, member); \
+            entry;                                              \
+        })
+
+#define listForEachEntry(entry, pos, head, member)                       \
+    for ((entry) = NULL, (pos) = (head)->next;                           \
+         (pos) != (head) && ({(entry) = listEntry ((pos), typeof (*(entry)), member); 1;}); \
+         (pos) = (pos)->next)
+
+#define listForEachEntryKeepPrev(prevEntry, entry, pos, head, member)          \
+    for ((prevEntry) = NULL, (entry) = NULL, (pos) = (head)->next;            \
+         (pos) != (head) && ({(entry) = listEntry ((pos), typeof (*(entry)), member); 1;}); \
+         (prevEntry) = (entry), (pos) = (pos)->next)
+
+#define listForEachEntrySafe(entry, pos, npos, head, member)              \
+    for ((entry) = NULL, (pos) = (head)->next;                           \
+         (pos) != (head) && ({(npos) = (pos)->next; 1;}) && ({(entry) = listEntry ((pos), typeof (*(entry)), member); 1;}); \
+         (pos) = (npos))
+
+#define listForEachEntrySafeKeepPrev(prevEntry, entry, pos, npos, head, member) \
+    for ((prevEntry) = NULL, (entry) = NULL, (pos) = (head)->next;            \
+         (pos) != (head) && ({(npos) = (pos)->next; 1;}) && ({(entry) = listEntry ((pos), typeof (*(entry)), member); 1;}); \
+         (prevEntry) = (entry), (pos) = (npos))
+
+#define listForEachEntryReverse(entry, pos, head, member)                \
+    for ((entry) = NULL, (pos) = (head)->prev;                           \
+         (pos) != (head) && ({(entry) = listEntry ((pos), typeof (*(entry)), member); 1;}); \
+         (pos) = (pos)->prev)
+
+#define listForEachEntryReverseKeepPrev(prevEntry, entry, pos, head, member)          \
+    for ((prevEntry) = NULL, (entry) = NULL, (pos) = (head)->prev;            \
+         (pos) != (head) && ({(entry) = listEntry ((pos), typeof (*(entry)), member); 1;}); \
+         (prevEntry) = (entry), (pos) = (pos)->prev)
+
+#define listForEachEntryReverseSafe(entry, pos, ppos, head, member)              \
+    for ((entry) = NULL, (pos) = (head)->prev;                           \
+         (pos) != (head) && ({(ppos) = (pos)->prev; 1;}) && ({(entry) = listEntry ((pos), typeof (*(entry)), member); 1;}); \
+         (pos) = (ppos))
+
+#define listForEachEntryReverseSafeKeepPrev(prevEntry, entry, pos, ppos, head, member) \
+    for ((prevEntry) = NULL, (entry) = NULL, (pos) = (head)->prev;            \
+         (pos) != (head) && ({(ppos) = (pos)->prev; 1;}) && ({(entry) = listEntry ((pos), typeof (*(entry)), member); 1;}); \
+         (prevEntry) = (entry), (pos) = (ppos))
+
+#define listForEachEntryFrom(entry, pos, head, member)                   \
+    for ((entry) = NULL;                                             \
+         (pos) != (head) && ({(entry) = listEntry ((pos), typeof (*(entry)), member); 1;}); \
+         (pos) = (pos)->next)
+
+#define listForEachEntryFromSafe(entry, pos, npos, head, member)          \
+    for ((entry) = NULL;                                             \
+         (pos) != (head) && ({(npos) = (pos)->next; 1;}) && ({(entry) = listEntry ((pos), typeof (*(entry)), member); 1;}); \
+         (pos) = (npos))
+
+#define listForEachEntryFromReverse(entry, pos, head, member)                   \
+    for ((entry) = NULL;                                             \
+         (pos) != (head) && ({(entry) = listEntry ((pos), typeof (*(entry)), member); 1;}); \
+         (pos) = (pos)->prev)
+
+#define listForEachEntryFromReverseSafe(entry, pos, ppos, head, member)          \
+    for ((entry) = NULL;                                             \
+         (pos) != (head) && ({(ppos) = (pos)->next; 1;}) && ({(entry) = listEntry ((pos), typeof (*(entry)), member); 1;}); \
+         (pos) = (ppos))
+
+/* ======================================================================================== */
+
+/* Push an item to the start of the list */
 static inline void
-listAdd (listHeadPtr new, listHeadPtr head) {
+listPush (listHeadPtr new, listHeadPtr head) {
     new->prev = head;
     new->next = head->next;
     (head->next)->prev = new;
     head->next = new;
 }
 
-/* Add new node before nodeNext. */
+/* Append an item to the end of the list */
 static inline void
-listAddBefore (listHeadPtr new, listHeadPtr nodeNext) {
-    nodeNext->prev->next = new;
-    new->next = nodeNext;
-    new->prev = nodeNext->prev;
-    nodeNext->prev = new;
+listAppend (listHeadPtr new, listHeadPtr head) {
+    listPush (new, head->prev);
 }
 
-/* Insert new node to the tail */
-static inline void
-listAddTail (listHeadPtr new, listHeadPtr head) {
-    listAdd (new, head->prev);
-}
-
-/* Delete node from list */
+/* Delete an item from list */
 static inline void
 listDel (listHeadPtr node) {
     node->prev->next = node->next;
@@ -54,28 +129,7 @@ listDel (listHeadPtr node) {
     node->prev = node;
 }
 
-/* Replace old node with new one. */
-static inline void
-listReplace (listHeadPtr old, listHeadPtr new) {
-    new->next = old->next;
-    new->next->prev = new;
-    new->prev = old->prev;
-    new->prev->next = new;
-    /* Detach it from list */
-    old->next = old;
-    old->prev = old;
-}
-
-/* Check whether node is the tail node of list.  */
-static inline boolean
-listIsTail (const listHeadPtr node, const listHeadPtr head) {
-    if (node->next == head)
-        return true;
-    else
-        return false;
-}
-
-/* Check whether list is empty */
+/* Check list size */
 static inline boolean
 listIsEmpty (const listHeadPtr head) {
     if (head->next == head)
@@ -83,106 +137,5 @@ listIsEmpty (const listHeadPtr head) {
     else
         return false;
 }
-
-/* Get offset of member in type */
-#define offsetOfMember(type, member)            \
-    ((size_t) &((type *) 0)->member)
-
-/*
- * Cast a member of a structure out to the containing structure, for
- * macro definition,it uses {...} and ({...}) to describe compound
- * expressions but ({...}) has the same effect as comma expression and
- * return the result of the last expression
- */
-#define containerOfMember(pos, type, member) ({                         \
-            const typeof (((type *) 0)->member) *mptr = (pos);          \
-            (type *) ((u_char *) mptr - offsetOfMember (type, member));})
-
-#define listEntry(pos, type, member)            \
-    containerOfMember (pos, type, member)
-
-#define listForEach(pos, head)                                  \
-    for (pos = (head)->next; pos != (head); pos = pos->next)
-
-#define listForEachReverse(pos, head)                           \
-    for (pos = (head)->prev; pos != (head); pos = pos->prev)
-
-#define listFirstEntry(pos, head, member) ({                            \
-            if (listIsEmpty (head))                                     \
-                pos = NULL;                                             \
-            else                                                        \
-                pos = listEntry ((head)->next, typeof (*pos), member);})
-
-#define listTailEntry(pos, head, member) ({                             \
-            if (listIsEmpty (head))                                     \
-                pos = NULL;                                             \
-            else                                                        \
-                pos = listEntry ((head)->prev, typeof (*pos), member);})
-
-#define listForEachEntry(pos, head, member)                         \
-    for (pos = listEntry ((head)->next, typeof (*pos), member);     \
-         &pos->member != (head);                                    \
-         pos = listEntry (pos->member.next, typeof (*pos), member))
-
-#define listForEachEntryKeepPrev(prev, pos, head, member)               \
-    for (prev = NULL,                                                   \
-          pos = listEntry ((head)->next, typeof (*pos), member);        \
-         &pos->member != (head);                                        \
-         prev = pos, pos = listEntry (pos->member.next, typeof (*pos), member))
-
-#define listForEachEntrySafe(pos, tmp, head, member)                    \
-    for (pos = listEntry ((head)->next, typeof (*pos), member),         \
-         tmp = listEntry (pos->member.next, typeof (*pos), member);     \
-         &pos->member != (head);                                        \
-         pos = tmp, tmp = listEntry (tmp->member.next, typeof (*tmp), member))
-
-#define listForEachEntrySafeKeepPrev(prev, pos, tmp, head, member)      \
-    for (prev = NULL,                                               \
-          pos = listEntry ((head)->next, typeof (*pos), member),        \
-          tmp = listEntry (pos->member.next, typeof (*pos), member);    \
-         &pos->member != (head);                                        \
-         prev = pos, pos = tmp, tmp = listEntry (tmp->member.next, typeof (*tmp), member))
-
-#define listForEachEntryReverse(pos, head, member)                  \
-    for (pos = listEntry ((head)->prev, typeof (*pos), member);     \
-         &pos->member != (head);                                    \
-         pos = listEntry (pos->member.prev, typeof (*pos), member))
-
-#define listForEachEntryReverseKeepPrev(prev, pos, head, member)        \
-    for (prev = NULL,                                                   \
-          pos = listEntry ((head)->prev, typeof (*pos), member);        \
-         &pos->member != (head);                                        \
-         prev = pos, pos = listEntry (pos->member.prev, typeof (*pos), member))
-
-#define listForEachEntryReverseSafe(pos, tmp, head, member)             \
-    for (pos = listEntry ((head)->prev, typeof (*pos), member),         \
-         tmp = listEntry (pos->member.prev, typeof (*pos), member);     \
-         &pos->member != (head);                                        \
-         pos = tmp, tmp = listEntry (tmp->member.prev, typeof (*tmp), member))
-
-#define listForEachEntryReverseSafeKeepPrev(prev, pos, tmp, head, member) \
-    for (prev = NULL,                                                   \
-          pos = listEntry ((head)->prev, typeof (*pos), member),        \
-          tmp = listEntry (pos->member.prev, typeof (*pos), member);    \
-         &pos->member != (head);                                        \
-         prev = pos, pos = tmp, tmp = listEntry (tmp->member.prev, typeof (*tmp), member))
-
-#define listForEachEntryFrom(pos, head, member)                     \
-    for (; &pos->member != (head);                                  \
-         pos = listEntry (pos->member.next, typeof (*pos), member))
-
-#define listForEachEntryFromSafe(pos, tmp, head, member)                \
-    for (tmp = listEntry (pos->member.next, typeof (*pos), member); \
-         &pos->member != (head);                                        \
-         pos = tmp, tmp = listEntry (tmp->member.next, typeof (*tmp), member))
-
-#define listForEachEntryFromReverse(pos, head, member)                  \
-    for (; &pos->member != (head);                                  \
-         pos = listEntry (pos->member.prev, typeof (*pos), member))
-
-#define listForEachEntryFromReverseSafe(pos, tmp, head, member)         \
-    for ( tmp = listEntry (pos->member.prev, typeof (*pos), member);    \
-          &pos->member != (head);                                       \
-          pos = tmp, tmp = listEntry (tmp->member.prev, typeof (*tmp), member))
 
 #endif /* __LIST_H__ */

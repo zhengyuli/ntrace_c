@@ -112,7 +112,7 @@ stopTaskForEachHashItem (void *data, void *args) {
 
 void
 stopAllTask (void) {
-    hashForEachItemDelInSomeCase (taskManagerHashTable, stopTaskForEachHashItem, NULL);
+    hashLoopCheckToRemove (taskManagerHashTable, stopTaskForEachHashItem, NULL);
     usleep (100000);
 }
 

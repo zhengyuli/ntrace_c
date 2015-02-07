@@ -309,7 +309,7 @@ logDevAdd (logDevPtr dev) {
     if (ret < 0)
         return -1;
 
-    listAdd (&dev->node, &logDevices);
+    listPush (&dev->node, &logDevices);
 
     return 0;
 }
@@ -318,6 +318,7 @@ static void
 logDevWrite (listHeadPtr logDevices, char *msg) {
     u_int flag;
     logDevPtr dev;
+    listHeadPtr pos;
 
     switch (*msg) {
         case 'a':
@@ -332,18 +333,19 @@ logDevWrite (listHeadPtr logDevices, char *msg) {
             return;
     }
 
-    listForEachEntry (dev, logDevices, node) {
+    listForEachEntry (dev, pos, logDevices, node) {
         dev->write (msg + 1, dev, flag);
     }
 }
 
 static void
 logDevDestroy (void) {
-    logDevPtr dev, ndev;
+    logDevPtr entry;
+    listHeadPtr pos, npos;
 
-    listForEachEntrySafe (dev, ndev, &logDevices, node) {
-        dev->destroy (dev);
-        listDel (&dev->node);
+    listForEachEntrySafe (entry, pos, npos, &logDevices, node) {
+        entry->destroy (entry);
+        listDel (&entry->node);
     }
 }
 

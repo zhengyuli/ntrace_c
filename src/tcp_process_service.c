@@ -44,7 +44,7 @@ tcpProcessService (void *args) {
     ret = initTcp (publishSessionBreakdown, tcpBreakdownSendSock);
     if (ret < 0) {
         LOGE ("Init tcp context error.\n");
-        goto destroyLog;
+        goto destroyLogContext;
     }
 
     while (!SIGUSR1IsInterrupted ()) {
@@ -88,8 +88,8 @@ tcpProcessService (void *args) {
 
     LOGI ("TcpPktProcessService will exit ... .. .\n");
     destroyTcp ();
-destroyLog:
-    destroyLog ();
+destroyLogContext:
+    destroyLogContext ();
 exit:
     if (!SIGUSR1IsInterrupted ())
         sendTaskStatus (TASK_STATUS_EXIT);

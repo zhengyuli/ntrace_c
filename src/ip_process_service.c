@@ -171,7 +171,7 @@ ipProcessService (void *args) {
     ret = initIp ();
     if (ret < 0) {
         LOGE ("Init ip context error.\n");
-        goto destroyLog;
+        goto destroyLogContext;
     }
 
     while (!SIGUSR1IsInterrupted ()) {
@@ -233,8 +233,8 @@ ipProcessService (void *args) {
 
     LOGI ("IpPktProcessService will exit ... .. .\n");
     destroyIp ();
-destroyLog:
-    destroyLog ();
+destroyLogContext:
+    destroyLogContext ();
 exit:
     if (!SIGUSR1IsInterrupted ())
         sendTaskStatus (TASK_STATUS_EXIT);

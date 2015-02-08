@@ -42,7 +42,7 @@ icmpProcessService (void *args) {
     ret = initIcmp (publishSessionBreakdown, icmpBreakdownSendSock);
     if (ret < 0) {
         LOGE ("Init icmp context error.\n");
-        goto destroyLog;
+        goto destroyLogContext;
     }
 
     while (!SIGUSR1IsInterrupted ()) {
@@ -86,8 +86,8 @@ icmpProcessService (void *args) {
 
     LOGI ("IcmpPktProcessService will exit ... .. .\n");
     destroyIcmp ();
-destroyLog:
-    destroyLog ();
+destroyLogContext:
+    destroyLogContext ();
 exit:
     if (!SIGUSR1IsInterrupted ())
         sendTaskStatus (TASK_STATUS_EXIT);

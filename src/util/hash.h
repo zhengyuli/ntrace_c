@@ -3,44 +3,10 @@
 
 #include "util.h"
 
-typedef struct _hlistNode hlistNode;
-typedef hlistNode *hlistNodePtr;
-
-struct _hlistNode {
-    hlistNodePtr next;
-    hlistNodePtr *pprev;
-};
-
-typedef struct _hlistHead hlistHead;
-typedef hlistHead *hlistHeadPtr;
-
-struct _hlistHead {
-    hlistNodePtr first;
-};
-
-typedef void (*hashItemFreeCB) (void *data);
-
-typedef struct _hashItem hashItem;
-typedef hashItem *hashItemPtr;
-
-struct _hashItem {
-    char *key;                          /**< Hash key */
-    u_int index;                        /**< Hash Index */
-    void *data;                         /**< Opaque item value */
-    hashItemFreeCB fun;                 /**< Hash item free callback */
-    hlistNode node;                     /**< Hash list node */
-};
-
 typedef struct _hashTable hashTable;
 typedef hashTable *hashTablePtr;
 
-struct _hashTable {
-    u_int capacity;                     /**< Capacity of hash table */
-    u_int limit;                        /**< Limit of hash table */
-    u_int size;                         /**< Size of hash table */
-    hlistHeadPtr heads;                 /**< Hash list head array */
-};
-
+typedef void (*hashItemFreeCB) (void *data);
 typedef int (*hashLoopDoCB) (void *data, void *args);
 typedef boolean (*hashLoopCheckToRemoveCB) (void *data, void *args);
 

@@ -200,7 +200,7 @@ managementService (void *args) {
     }
 
     LOGI ("ManagementService will exit ... .. .\n");
-    destroyLog ();
+    destroyLogContext ();
 exit:
     if (!SIGUSR1IsInterrupted ())
         sendTaskStatus (TASK_STATUS_EXIT);

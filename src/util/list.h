@@ -105,19 +105,19 @@ initListHead (listHeadPtr head) {
 
 /* ======================================================================================== */
 
-/* Push an item to the start of the list */
+/* Add an item to the head of the list */
 static inline void
-listPush (listHeadPtr new, listHeadPtr head) {
+listAdd (listHeadPtr new, listHeadPtr head) {
     new->prev = head;
     new->next = head->next;
     (head->next)->prev = new;
     head->next = new;
 }
 
-/* Append an item to the end of the list */
+/* Aadd an item to the tail of the list */
 static inline void
-listAppend (listHeadPtr new, listHeadPtr head) {
-    listPush (new, head->prev);
+listAddTail (listHeadPtr new, listHeadPtr head) {
+    listAdd (new, head->prev);
 }
 
 /* Delete an item from list */

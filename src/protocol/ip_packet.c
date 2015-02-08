@@ -94,7 +94,7 @@ addIpQueueToExpireTimeoutList (ipQueuePtr ipq, timeValPtr tm) {
 
     new->queue = ipq;
     new->timeout = tm->tvSec + DEFAULT_IPQUEUE_EXPIRE_TIMEOUT;
-    listAppend (&new->node, &ipQueueExpireTimeoutList);
+    listAddTail (&new->node, &ipQueueExpireTimeoutList);
 }
 
 static void
@@ -120,7 +120,7 @@ updateIpQueueExpireTimeout (ipQueuePtr ipq, timeValPtr tm) {
         if (entry->queue == ipq) {
             listDel (&entry->node);
             entry->timeout = tm->tvSec + DEFAULT_IPQUEUE_EXPIRE_TIMEOUT;
-            listAppend (&entry->node, &ipQueueExpireTimeoutList);
+            listAddTail (&entry->node, &ipQueueExpireTimeoutList);
             return;
         }
     }
@@ -449,9 +449,9 @@ ipDefrag (iphdrPtr iph, timeValPtr tm, iphdrPtr *newIph) {
 
     /* The proper position to insert ip fragment */
     if (prevEntry == NULL)
-        listPush (&ipf->node, &ipq->fragments);
+        listAdd (&ipf->node, &ipq->fragments);
     else
-        listPush (&ipf->node, &prevEntry->node);
+        listAdd (&ipf->node, &prevEntry->node);
 
     if (ipQueueDone (ipq)) {
         tmpIph = (iphdrPtr) glueIpQueue (ipq);

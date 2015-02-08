@@ -44,7 +44,7 @@ onReqMessageBegin (http_parser *parser) {
     else {
         hsdn->state = HTTP_REQUEST_HEADER_BEGIN;
         hsdn->reqTime = timeVal2MilliSecond (currTime);
-        listAppend (&hsdn->node, &currSessionDetail->head);
+        listAddTail (&hsdn->node, &currSessionDetail->head);
     }
 
     return 0;
@@ -947,7 +947,7 @@ httpSessionProcessReset (streamDirection direction, timeValPtr tm, void *sd) {
             LOGE ("NewHttpSessionDetailNode error.\n");
         else {
             currNode->state = HTTP_RESET_TYPE4;
-            listAppend (&currNode->node, &hsd->head);
+            listAddTail (&currNode->node, &hsd->head);
         }
     }
 }

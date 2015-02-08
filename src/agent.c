@@ -151,7 +151,7 @@ agentService (void) {
     if (ret < 0) {
         LOGE ("Init zmq hub error.\n");
         ret = -1;
-        goto destroyLog;
+        goto destroyLogContext;
     }
 
     /* Init task manager */
@@ -247,8 +247,8 @@ destroyTaskManager:
     destroyTaskManager ();
 destroyZmqHub:
     destroyZmqHub ();
-destroyLog:
-    destroyLog ();
+destroyLogContext:
+    destroyLogContext ();
 destroyLogService:
     destroyLogService ();
 unlockPidFile:

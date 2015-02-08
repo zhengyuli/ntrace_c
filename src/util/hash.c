@@ -11,8 +11,45 @@
 /* Resize factor after splitting */
 #define HASH_TABLE_RESIZE_FACTOR 2       
 
-#define hlistEntry(pos, type, member) ({                         \
-            const typeof (((type *) 0)->member) *mptr = (pos);          \
+/* ========================================================================== */
+
+typedef struct _hlistNode hlistNode;
+typedef hlistNode *hlistNodePtr;
+
+struct _hlistNode {
+    hlistNodePtr next;
+    hlistNodePtr *pprev;
+};
+
+typedef struct _hlistHead hlistHead;
+typedef hlistHead *hlistHeadPtr;
+
+struct _hlistHead {
+    hlistNodePtr first;
+};
+
+typedef struct _hashItem hashItem;
+typedef hashItem *hashItemPtr;
+
+struct _hashItem {
+    char *key;                          /**< Hash key */
+    u_int index;                        /**< Hash Index */
+    void *data;                         /**< Opaque item value */
+    hashItemFreeCB fun;                 /**< Hash item free callback */
+    hlistNode node;                     /**< Hash list node */
+};
+
+struct _hashTable {
+    u_int capacity;                     /**< Capacity of hash table */
+    u_int limit;                        /**< Limit of hash table */
+    u_int size;                         /**< Size of hash table */
+    hlistHeadPtr heads;                 /**< Hash list head array */
+};
+
+/* ========================================================================== */
+
+#define hlistEntry(pos, type, member) ({                                \
+            typeof (((type *) 0)->member) *mptr = (pos);                \
             (type *) ((u_char *) mptr - ((size_t) &((type *) 0)->member));})
 
 #define hlistForEachEntry(tpos, pos, head, member)                      \
@@ -36,7 +73,7 @@
          (pos) = (npos))
 
 static void
-hlistPush (hlistNodePtr node, hlistHeadPtr head) {
+hlistAdd (hlistNodePtr node, hlistHeadPtr head) {
     hlistNodePtr first;
 
     first = head->first;
@@ -60,6 +97,8 @@ hlistDel (hlistNodePtr node) {
     node->next = NULL;
     node->pprev = NULL;
 }
+
+/* ========================================================================== */
 
 static u_int
 itemHash (char *key) {
@@ -119,7 +158,7 @@ hashItemInsert (hashTablePtr htbl, char *key, void *data, hashItemFreeCB fun) {
         item->fun = fun;
 
         head = &htbl->heads [index];
-        hlistPush (&item->node, head);
+        hlistAdd (&item->node, head);
         htbl->size++;
         return 0;
     } else {
@@ -153,7 +192,7 @@ hashItemAttach (hashTablePtr htbl, hashItemPtr item) {
     if (tmp == NULL) {
         item->index = index;
         head = &htbl->heads [index];
-        hlistPush (&item->node, head);
+        hlistAdd (&item->node, head);
         htbl->size++;
         return 0;
     } else

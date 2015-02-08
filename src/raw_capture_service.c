@@ -52,13 +52,13 @@ rawCaptureService (void *args) {
     filter = getAppServicesFilter ();
     if (filter == NULL) {
         LOGE ("Get application services filter error.\n");
-        goto destroyLog;
+        goto destroyLogContext;
     }
     ret = updateFilter (filter);
     if (ret < 0) {
         LOGE ("Update application services filter error.\n");
         free (filter);
-        goto destroyLog;
+        goto destroyLogContext;
     }
     LOGI ("Update BPF filter with: %s\n", filter);
     free (filter);
@@ -112,8 +112,8 @@ rawCaptureService (void *args) {
     }
 
     LOGI ("RawPktCaptureService will exit ... .. .\n");
-destroyLog:
-    destroyLog ();
+destroyLogContext:
+    destroyLogContext ();
 exit:
     if (!SIGUSR1IsInterrupted ())
         sendTaskStatus (TASK_STATUS_EXIT);

@@ -32,7 +32,7 @@ static __thread logContextPtr logCtxtInstance = NULL;
  * @param msg Real log message
  */
 void
-doLog (u_char logLevel, char *filePath, u_int line, const char *func, const char *msg, ...) {
+doLog (u_char logLevel, const char *file, u_int line, const char *func, char *msg, ...) {
     int ret;
     time_t seconds;
     struct tm *localTime;
@@ -88,7 +88,7 @@ doLog (u_char logLevel, char *filePath, u_int line, const char *func, const char
     else
         flag = 'n';
 
-    fileName = strrchr (filePath, '/') + 1;
+    fileName = strrchr (file, '/') + 1;
     snprintf (buf, sizeof (buf), "%c%s [thread:%u] %s file=%s (line=%u, func=%s): %s",
               flag, timeStr, gettid (), logLevelStr, fileName, line, func, tmp);
     buf [MAX_LOG_MESSAGE_LENGTH - 1] = 0;
@@ -154,7 +154,7 @@ initLogContext (u_int logLevel) {
 
 /* Destroy log context */
 void
-destroyLog (void) {
+destroyLogContext (void) {
     /* Wait for log send out completely */
     usleep (100000);
     zctx_destroy (&logCtxtInstance->zmqCtxt);

@@ -309,7 +309,7 @@ logDevAdd (logDevPtr dev) {
     if (ret < 0)
         return -1;
 
-    listPush (&dev->node, &logDevices);
+    listAdd (&dev->node, &logDevices);
 
     return 0;
 }

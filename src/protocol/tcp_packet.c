@@ -172,7 +172,7 @@ addTcpStreamToClosingTimeoutList (tcpStreamPtr stream, timeValPtr tm) {
     stream->inClosingTimeout = true;
     tst->stream = stream;
     tst->timeout = tm->tvSec + DEFAULT_TCP_STREAM_CLOSING_TIMEOUT;
-    listAppend (&tst->node, &tcpStreamTimoutList);
+    listAddTail (&tst->node, &tcpStreamTimoutList);
 }
 
 /*
@@ -523,7 +523,7 @@ addNewTcpStream (tcphdrPtr tcph, iphdrPtr iph, timeValPtr tm) {
     }
 
     /* Add to global tcp stream list */
-    listAppend (&stream->node, &tcpStreamList);
+    listAddTail (&stream->node, &tcpStreamList);
 
     /* Add to global tcp stream hash table */
     ret = addTcpStreamToHash (stream, freeTcpStreamForHash);
@@ -1087,11 +1087,11 @@ tcpQueue (tcpStreamPtr stream,
 
         listForEachEntryReverseSafe (entry, pos, ppos, &rcv->head, node) {
             if (before (entry->seq, curSeq)) {
-                listPush (&skbuf->node, &entry->node);
+                listAdd (&skbuf->node, &entry->node);
                 return;
             }
         }
-        listPush (&skbuf->node, &rcv->head);
+        listAdd (&skbuf->node, &rcv->head);
     }
 }
 

@@ -4,6 +4,11 @@
 #include <stdlib.h>
 #include <czmq.h>
 
+#define MANAGEMENT_SERVICE_PORT 58000
+#define PROFILE_PUBLISH_PORT 58001
+#define OWNERSHIP_OBSERVE_PORT 58002
+#define IP_PACKET_RECV_PORT 58003
+
 typedef struct _zmqHub zmqHub;
 typedef zmqHub *zmqHubPtr;
 
@@ -11,6 +16,12 @@ struct _zmqHub {
     zctx_t *zmqCtxt;                    /**< Zmq context */
 
     void *managementReplySock;          /**< Management reply sock */
+
+    void *profilePubSock;               /**< Profile publish sock */
+    void *profileSubSock;               /**< Profile subscribe sock */
+
+    void *slaveObserveSock;             /**< Slave observe sock */
+    void *slaveRegisterSock;            /**< Slave register sock */
 
     void *taskStatusSendSock;           /**< Task status send sock */
     void *taskStatusRecvSock;           /**< Task status recv sock */
@@ -32,6 +43,14 @@ struct _zmqHub {
 /*========================Interfaces definition============================*/
 void *
 getManagementReplySock (void);
+void *
+getProfilePubSock (void);
+void *
+getProfileSubSock (void);
+void *
+getSlaveObserveSock (void);
+void *
+getSlaveRegisterSock (void);
 void *
 getTaskStatusSendSock (void);
 void *

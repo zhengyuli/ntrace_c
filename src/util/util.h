@@ -62,34 +62,40 @@ struct _timeVal {
 #define STRING_TO_DOUBLE(dst, str) sscanf (str, "%lf", (double *) dst)
 
 /*========================Interfaces definition============================*/
-pid_t
-gettid ();
 u_long_long
 timeVal2Second (timeValPtr tm);
 u_long_long
 timeVal2MilliSecond (timeValPtr tm);
 u_long_long
 timeVal2MicoSecond (timeValPtr tm);
+
 u_long_long
 ntohll (u_long_long src);
 u_long_long
 htonll (u_long_long src);
+
 boolean
 strEqualIgnoreCase (char *str1, char *str2);
 boolean
 strEqual (char *str1, char *str2);
+
 ssize_t
 safeRead (int fd, void *buf, size_t count);
 ssize_t
 safeWrite (int fd, void *buf, size_t count);
 boolean
-fileExists (char *path);
+fileExist (char *path);
 boolean
 fileIsEmpty (char *path);
+
+pid_t
+gettid ();
 char *
 getIpAddrOfInterface (char *interface);
 u_int
 getCpuCoresNum (void);
+void
+getMemInfo (u_int *totalMem, u_int *freeMem);
 /*=======================Interfaces definition end=========================*/
 
 #endif /* __UTIL_H__ */

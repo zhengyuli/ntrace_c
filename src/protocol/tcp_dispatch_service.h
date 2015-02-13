@@ -1,9 +1,9 @@
-#ifndef __ARGS_PARSER_H__
-#define __ARGS_PARSER_H__
+#ifndef __TCP_DISPATCH_SERVICE__
+#define __TCP_DISPATCH_SERVICE__
 
 /*========================Interfaces definition============================*/
-int
-parseArgs (int argc, char *argv []);
+void *
+tcpDispatchService (void *args);
 /*=======================Interfaces definition end=========================*/
 
-#endif /* __ARGS_PARSER_H__ */
+#endif /* __TCP_DISPATCH_SERVICE__ */

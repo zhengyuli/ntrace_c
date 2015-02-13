@@ -3,6 +3,8 @@
 
 #include "proto_analyzer.h"
 
+#define PROFILE_APP_SERVICES "application_services"
+
 /*========================Interfaces definition============================*/
 protoAnalyzerPtr
 getAppServiceProtoAnalyzer (char *key);

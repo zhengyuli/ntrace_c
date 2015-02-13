@@ -7,10 +7,10 @@ ENDIF ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
 #ADD_DEFINITIONS (-DDO_STRICT_CHECK)
 ADD_DEFINITIONS (-DHAVE_PF_RING)
 
-SET (AGENT_CONFIG_FILE  ${PROJECT_CONFIG_DIR}/agent.conf)
-SET (AGENT_PID_FILE /var/run/${ROOT_PROJECT_LOWER}_agent.pid)
+SET (AGENT_CONFIG_FILE  ${PROJECT_CONFIG_DIR}/${SUB_PROJECT_LOWER}.conf)
+SET (AGENT_PID_FILE ${PROJECT_RUN_DIR}/${ROOT_PROJECT_LOWER}_${SUB_PROJECT_LOWER}.pid)
 SET (AGENT_ANALYZER_DIR ${PROJECT_DATA_DIR}/analyzers)
-SET (AGENT_APP_SERVICES_CACHE ${PROJECT_RUN_DIR}/application_services.cache)
+SET (AGENT_PROFILE_CACHE ${PROJECT_RUN_DIR}/profile.cache)
 
 # Configuration header file
 configure_file (
@@ -26,6 +26,7 @@ INCLUDE_DIRECTORIES (
   ./
   util
   log
+  service/
   protocol/
   analyzer/
   3rd_party/http_parser/
@@ -36,7 +37,7 @@ SET (AGENT_SOURCE_FILES
   util/util.c
   util/hash.c
   properties.c
-  args_parser.c
+  option_parser.c
   signals.c
   log/log_service.c
   log/log.c
@@ -44,13 +45,18 @@ SET (AGENT_SOURCE_FILES
   task_manager.c
   app_service.c
   app_service_manager.c
-  management_service.c
+  ownership_manager.c
+  profile_cache.c
   netdev.c
-  publish_session_breakdown.c
-  raw_capture_service.c
-  ip_process_service.c
-  icmp_process_service.c
-  tcp_process_service.c
+  session_breakdown_processor.c
+  management_service.c
+  ownership_observe_service.c
+  ownership_register_service.c
+  protocol/raw_capture_service.c
+  protocol/ip_process_service.c
+  protocol/icmp_process_service.c
+  protocol/tcp_dispatch_service.c
+  protocol/tcp_process_service.c
   protocol/checksum.c
   protocol/raw_packet.c
   protocol/ip_options.c

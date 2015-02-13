@@ -1,10 +1,12 @@
 #include <jansson.h>
+#include "config.h"
 #include "properties.h"
 #include "signals.h"
 #include "log.h"
 #include "zmq_hub.h"
 #include "task_manager.h"
 #include "app_service_manager.h"
+#include "profile_cache.h"
 #include "netdev.h"
 #include "management_service.h"
 
@@ -16,7 +18,7 @@
  * @return 0 if success else -1
  */
 static int
-resumeHandler (json_t *body) {
+handleResume (json_t *body) {
     int ret;
     char *filter;
 
@@ -46,7 +48,7 @@ resumeHandler (json_t *body) {
  * @return 0 if success else -1
  */
 static int
-pauseHandler (json_t *body) {
+handlerPause (json_t *body) {
     int ret;
     char *filter;
 
@@ -76,7 +78,7 @@ pauseHandler (json_t *body) {
  * @return 0 if success else -1
  */
 static int
-heartbeatHandler (json_t *body) {
+handleHeartbeat (json_t *body) {
     return 0;
 }
 
@@ -88,14 +90,26 @@ heartbeatHandler (json_t *body) {
  * @return 0 if success else -1
  */
 static int
-updateProfileHandler (json_t *body) {
+handleUpdateProfile (json_t *body) {
     int ret;
-    char *filter;
+    void *profilePubSock;
+    char *profileStr;
     json_t *appServices;
+    char *filter;
 
-    appServices = json_object_get (body, MANAGEMENT_BODY_APP_SERVICES);
+    /* Get publish profile to slave if any */
+    profilePubSock = getProfilePubSock ();
+
+    profileStr = json_dumps (body, JSON_INDENT (4));
+    if (profileStr == NULL) {
+        LOGE ("Json dump profile error.\n");
+        return -1;
+    }
+
+    appServices = getAppServicesFromProfile (body);
     if ((appServices == NULL) || !json_is_array (appServices)) {
-        LOGE ("Invalid format body of update profile\n.");
+        LOGE ("Invalid format of update profile\n.");
+        free (profileStr);
         return -1;
     }
 
@@ -103,6 +117,7 @@ updateProfileHandler (json_t *body) {
     ret = updateAppServiceManager (appServices);
     if (ret < 0) {
         LOGE ("Update application service manager error.\n");
+        free (profileStr);
         return -1;
     }
 
@@ -110,23 +125,67 @@ updateProfileHandler (json_t *body) {
     filter = getAppServicesFilter ();
     if (filter == NULL) {
         LOGE ("Get application services filter error.\n");
+        free (profileStr);
         return -1;
     }
 
-    /* Update application services filter */
+    /* Update application services filter for master */
     ret = updateFilter (filter);
-    if (ret < 0)
+    if (ret < 0) {
         LOGE ("Update application services filter error.\n");
-    else
-        LOGI ("Update application services filter: %s\n", filter);
+        free (filter);
+        free (profileStr);
+        return -1;
+    }
+
+    LOGI ("Update application services filter: %s\n", filter);
     free (filter);
 
-    return ret;
+    /* Publish profile to slave if any */
+    zstr_send (profilePubSock, profileStr);
+    /* Sync profile cache */
+    syncProfileCache (profileStr);
+
+    free (profileStr);
+    return 0;
+}
+
+/*
+ * @brief Build management response based on command and code
+ *
+ * @param cmd command for response
+ * @param code return code for response
+ *
+ * @return management resp if success else NULL
+ */
+static char *
+buildManagementResponse (char *cmd, int code) {
+    char *response;
+    json_t *root;
+
+    root = json_object ();
+    if (root == NULL) {
+        LOGE ("Create json object error.\n");
+        return NULL;
+    }
+
+    if (!code) {
+        json_object_set_new (root, MANAGEMENT_RESPONSE_CODE, json_integer (0));
+        json_object_set_new (root, MANAGEMENT_COMMON_BODY, json_object ());
+    } else {
+        json_object_set_new (root, MANAGEMENT_RESPONSE_CODE, json_integer (1));
+        json_object_set_new(root, MANAGEMENT_RESPONSE_ERROR_MESSAGE, json_string ("internal error"));
+    }
+
+    response = json_dumps (root, JSON_INDENT (4));
+
+    json_object_clear (root);
+    return response;
 }
 
 /*
  * Management service.
- * Handle all kinds of management request.
+ * Handle management requests.
  */
 void *
 managementService (void *args) {
@@ -161,40 +220,44 @@ managementService (void *args) {
         root = json_loads (requestMsg, JSON_DISABLE_EOF_CHECK, &error);
         if (root == NULL) {
             LOGE ("Management request parse error: %s\n", error.text);
-            zstr_send (managementReplySock, MANAGEMENT_HANDLE_ERROR_RESPONSE);
+            zstr_send (managementReplySock, DEFAULT_MANAGEMENT_ERROR_RESPONSE);
             free (requestMsg);
             continue;
         }
 
-        cmd = json_object_get (root, MANAGEMENT_COMMAND_TAG);
-        body = json_object_get (root, MANAGEMENT_BODY_TAG);
+        cmd = json_object_get (root, MANAGEMENT_REQUEST_COMMAND);
+        body = json_object_get (root, MANAGEMENT_COMMON_BODY);
         if ((cmd == NULL) || (body == NULL)) {
             LOGE ("Invalid format of management request: %s.\n", requestMsg);
-            zstr_send (managementReplySock, MANAGEMENT_HANDLE_ERROR_RESPONSE);
+            zstr_send (managementReplySock, DEFAULT_MANAGEMENT_ERROR_RESPONSE);
             json_object_clear (root);
             free (requestMsg);
             continue;
         }
 
         cmdStr = (char *) json_string_value (cmd);
-        if (strEqual (MANAGEMENT_COMMAND_RESUME, cmdStr))
-            ret = resumeHandler (body);
-        else if (strEqual (MANAGEMENT_COMMAND_PAUSE, cmdStr))
-            ret = pauseHandler (body);
-        else if (strEqual (MANAGEMENT_COMMAND_HEARTBEAT, cmdStr))
-            ret = heartbeatHandler (body);
-        else if (strEqual (MANAGEMENT_COMMAND_UPDATE_PROFILE, cmdStr))
-            ret = updateProfileHandler (body);
+        if (strEqual (MANAGEMENT_REQUEST_COMMAND_RESUME, cmdStr))
+            ret = handleResume (body);
+        else if (strEqual (MANAGEMENT_REQUEST_COMMAND_PAUSE, cmdStr))
+            ret = handlerPause (body);
+        else if (strEqual (MANAGEMENT_REQUEST_COMMAND_HEARTBEAT, cmdStr))
+            ret = handleHeartbeat (body);
+        else if (strEqual (MANAGEMENT_REQUEST_COMMAND_UPDATE_PROFILE, cmdStr))
+            ret = handleUpdateProfile (body);
         else {
             LOGE ("Unknown command: %s.\n", cmdStr);
             ret = -1;
         }
 
-        if (ret < 0)
-            resp = MANAGEMENT_HANDLE_ERROR_RESPONSE;
-        else
-            resp = MANAGEMENT_HANDLE_SUCCESS_RESPONSE;
-        zstr_send (managementReplySock, resp);
+        resp = buildManagementResponse (cmdStr, ret);
+        if (resp == NULL) {
+            LOGE ("Build management response error.\n");
+            zstr_send (managementReplySock, DEFAULT_MANAGEMENT_ERROR_RESPONSE);
+        } else {
+            zstr_send (managementReplySock, resp);
+            free (resp);
+        }
+
         json_object_clear (root);
         free (requestMsg);
     }

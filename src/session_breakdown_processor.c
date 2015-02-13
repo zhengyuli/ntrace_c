@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <czmq.h>
 #include "log.h"
-#include "publish_session_breakdown.h"
+#include "session_breakdown_processor.h"
 
 /* Publish session breakdown callback */
 void

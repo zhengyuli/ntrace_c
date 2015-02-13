@@ -12,7 +12,7 @@
 #include "util.h"
 #include "hash.h"
 #include "log.h"
-#include "netdev.h"
+#include "profile_cache.h"
 #include "app_service.h"
 #include "app_service_manager.h"
 
@@ -59,12 +59,12 @@ getAppServicesPaddingFilter (void) {
 static int
 generateFilterForEachAppService (void *data, void *args) {
     u_int len;
-    appServicePtr svc = (appServicePtr) data;
+    appServicePtr appSvc = (appServicePtr) data;
     char *filter = (char *) args;
 
     len = strlen (filter);
     snprintf (filter + len, APP_SERVICE_BPF_FILTER_LENGTH, APP_SERVICE_BPF_FILTER,
-              svc->ip, svc->port, APP_SERVICE_IP_FRAGMENT_BPF_FILTER);
+              appSvc->ip, appSvc->port, APP_SERVICE_IP_FRAGMENT_BPF_FILTER);
     return 0;
 }
 
@@ -76,6 +76,7 @@ getAppServicesFilter (void) {
     u_int filterLen;
 
     pthread_rwlock_rdlock (&appServiceHashTableMasterRWLock);
+
     svcNum = hashSize (appServiceHashTableMaster);
     filterLen = APP_SERVICE_BPF_FILTER_LENGTH * (svcNum + 1);
     filter = (char *) malloc (filterLen);
@@ -88,14 +89,15 @@ getAppServicesFilter (void) {
 
     ret = hashLoopDo (appServiceHashTableMaster, generateFilterForEachAppService, filter);
     if (ret < 0) {
+        pthread_rwlock_unlock (&appServiceHashTableMasterRWLock);
         LOGE ("Generate BPF filter for each application service error.\n");
         free (filter);
-        pthread_rwlock_unlock (&appServiceHashTableMasterRWLock);
         return NULL;
     }
-    strcat (filter, APP_SERVICE_PADDING_BPF_FILTER);
 
     pthread_rwlock_unlock (&appServiceHashTableMasterRWLock);
+
+    strcat (filter, APP_SERVICE_PADDING_BPF_FILTER);
     return filter;
 }
 
@@ -180,10 +182,10 @@ updateAppServicesFromJson (json_t *root) {
     appServicePtr *appServices;
     u_int appServicesNum;
 
-    /* Load appServices from json */
+    /* Get appServices from json */
     appServices = getAppServicesFromJson (root, &appServicesNum);
     if (appServices == NULL) {
-        LOGE ("Load application services from json error.\n");
+        LOGE ("Get application services from json error.\n");
         return -1;
     }
 
@@ -209,63 +211,34 @@ exit:
 }
 
 static int
-updateAppServicesFromCache (void) {
+updateAppServicesFromProfileCache (void) {
     int ret;
     char *out;
-    json_t *root;
-    json_error_t error;
+    json_t *appSvcs;
 
-    root = json_load_file (AGENT_APP_SERVICES_CACHE, JSON_DISABLE_EOF_CHECK, &error);
-    if (root == NULL)
+    appSvcs = getAppServicesFromProfileCache ();
+    if (appSvcs == NULL)
         return 0;
-
-    ret = updateAppServicesFromJson (root);
+    
+    ret = updateAppServicesFromJson (appSvcs);
     if (ret < 0) {
-        json_object_clear (root);
+        json_object_clear (appSvcs);
         return -1;
     }
 
-    out = json_dumps (root, JSON_INDENT (4));
+    out = json_dumps (appSvcs, JSON_INDENT (4));
     if (out) {
-        LOGI ("Load %s cache success:\n%s\n", AGENT_APP_SERVICES_CACHE, out);
+        LOGI ("Get appServices from profile cache success:\n%s\n", out);
         free (out);
     }
-    json_object_clear (root);
+
+    json_object_clear (appSvcs);    
     return 0;
-}
-
-static void
-syncAppServicesCache (char *appServicesCache) {
-    int fd;
-    int ret;
-
-    fd = open (AGENT_APP_SERVICES_CACHE, O_WRONLY | O_TRUNC | O_CREAT, 0755);
-    if (fd < 0) {
-        LOGE ("Open file %s error: %s\n", AGENT_APP_SERVICES_CACHE, strerror (errno));
-        return;
-    }
-
-    ret = safeWrite (fd, appServicesCache, strlen (appServicesCache));
-    if ((ret < 0) || (ret != strlen (appServicesCache)))
-        LOGE ("Sync appServices cache error: %s", strerror (errno));
-
-    close (fd);
-    return;
 }
 
 int
 updateAppServiceManager (json_t *root) {
-    int ret;
-    char *out;
-
-    ret = updateAppServicesFromJson (root);
-    if (!ret && (out = json_dumps (root, JSON_INDENT (4)))) {
-        syncAppServicesCache (out);
-        LOGI ("Update appService manager success:\n%s\n", out);
-        free (out);
-    }
-
-    return ret;
+    return updateAppServicesFromJson (root);
 }
 
 /* Init application service manager */
@@ -291,9 +264,9 @@ initAppServiceManager (void) {
         goto destroyAppServiceHashTableMaster;
     }
 
-    ret = updateAppServicesFromCache ();
+    ret = updateAppServicesFromProfileCache ();
     if (ret < 0) {
-        LOGE ("Update appServices from cache error.\n");
+        LOGE ("Update appServices from profile cache error.\n");
         goto destroyAppServiceHashTableSlave;
     }
 

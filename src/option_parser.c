@@ -1,14 +1,18 @@
 #include <stdio.h>
 #include <getopt.h>
+#include "config.h"
 #include "properties.h"
 #include "version.h"
-#include "args_parser.h"
+#include "option_parser.h"
 
-static struct option argsOptions [] = {
+static struct option options [] = {
+    {"config", required_argument, NULL, 'C'},
     {"daemonMode", no_argument, NULL, 'D'},
+    {"role", required_argument, NULL, 'R'},
+    {"masterIp", required_argument, NULL, 'M'},
+    {"slaveIp", required_argument, NULL, 'S'},
     {"mirrorInterface", required_argument, NULL, 'm'},
     {"pcapOfflineInput", required_argument, NULL, 'r'},
-    {"managementServicePort", required_argument, NULL, 'P'},
     {"breakdownSinkIp", required_argument, NULL, 'i'},
     {"breakdownSinkPort", required_argument, NULL, 'p'},
     {"logDir", required_argument, NULL, 'd'},
@@ -28,10 +32,13 @@ showHelpInfo (const char *cmd) {
              "Usage: %s -m <eth*> [options]\n"
              "       %s [-vh]\n"
              "Basic options: \n"
+             "  -C|--config, config file\n"
              "  -D|--daemonMode, run as daemon\n"
+             "  -R|--role <role> 0=master/1=slave\n"
+             "  -M|--masterIp <ip> master ip\n"
+             "  -M|--slaveIp <ip> slave ip\n"
              "  -m|--mirrorInterface <eth*> interface to collect packets\n"
              "  -r|--pcapOfflineInput <fname> pcap offline input file\n"
-             "  -P|--managementServicePort <port> management service port\n"
              "  -i|--breakdownSinkIp <ip> breakdown sink ip\n"
              "  -p|--breakdownSinkPort <port> breakdown sink port\n"
              "  -d|--logDir <path>, log file directory\n"
@@ -43,19 +50,66 @@ showHelpInfo (const char *cmd) {
              cmdName, cmdName, cmdName);
 }
 
-/* Command line arguments parser */
+char *
+getConfigFile (int argc, char *argv []) {
+    char option;
+
+    optind = 1;
+    while ((option = getopt_long (argc, argv, ":C:?", options, NULL)) != -1) {
+        switch (option) {
+            case 'C':
+                return optarg;
+
+            case ':':
+                fprintf (stderr, "Miss option argument.\n");
+                showHelpInfo (argv [0]);
+                return NULL;
+                
+            case '?':
+                break;
+        }
+    }
+
+    return AGENT_CONFIG_FILE;
+}
+
+/* Command line options parser */
 int
-parseArgs (int argc, char *argv []) {
+parseOptions (int argc, char *argv []) {
     char option;
     boolean showVersion = false;
     boolean showHelp = false;
 
-    while ((option = getopt_long (argc, argv, "Dm:r:i:p:l:vh?", argsOptions, NULL)) != -1) {
+    optind = 1;
+    while ((option = getopt_long (argc, argv, ":C:Dm:r:i:p:l:vh?", options, NULL)) != -1) {
         switch (option) {
+            case 'C':
+                break;
+            
             case 'D':
                 updatePropertiesDaemonMode (true);
                 break;
 
+            case 'R':
+                updatePropertiesRoleType (atoi (optarg));
+                break;
+
+            case 'M':
+                updatePropertiesMasterIp (optarg);
+                if (getPropertiesMasterIp () == NULL) {
+                    fprintf (stderr, "Parse master ip error!\n");
+                    return -1;
+                }
+                break;
+
+            case 'S':
+                updatePropertiesSlaveIp (optarg);
+                if (getPropertiesSlaveIp () == NULL) {
+                    fprintf (stderr, "Parse slave ip error!\n");
+                    return -1;
+                }
+                break;
+                
             case 'm':
                 updatePropertiesMirrorInterface (optarg);
                 if (getPropertiesMirrorInterface () == NULL) {
@@ -70,10 +124,6 @@ parseArgs (int argc, char *argv []) {
                     fprintf (stderr, "Parse pcap offline input error!\n");
                     return -1;
                 }
-                break;
-
-            case 'P':
-                updatePropertiesManagementServicePort (atoi (optarg));
                 break;
 
             case 'i':
@@ -116,6 +166,11 @@ parseArgs (int argc, char *argv []) {
                 showHelp = true;
                 break;
 
+            case ':':
+                fprintf (stderr, "Miss option argument.\n");
+                showHelpInfo (argv [0]);
+                return -1;
+                
             case '?':
                 fprintf (stderr, "Unknown option.\n");
                 showHelpInfo (argv [0]);

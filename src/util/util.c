@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <fcntl.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
 #include <net/if.h>
@@ -12,11 +13,7 @@
 #include <sys/syscall.h>
 #include "util.h"
 
-inline pid_t
-gettid () {
-    return syscall (SYS_gettid);
-}
-
+/* ========================================================================== */
 u_long_long
 timeVal2Second (timeValPtr tm) {
     u_long_long second;
@@ -41,6 +38,7 @@ timeVal2MicoSecond (timeValPtr tm) {
     return micro;
 }
 
+/* ========================================================================== */
 u_long_long
 ntohll (u_long_long src) {
 #if __BYTE_ORDER == __LITTLE_ENDIAN
@@ -67,6 +65,7 @@ htonll (u_long_long src) {
     return ntohll (src);
 }
 
+/* ========================================================================== */
 boolean
 strEqualIgnoreCase (char *str1, char *str2) {
     if (strlen (str1) != strlen (str2))
@@ -92,6 +91,7 @@ strEqual (char *str1, char *str2) {
         return false;
 }
 
+/* ========================================================================== */
 ssize_t
 safeRead (int fd, void *buf, size_t count) {
     size_t nread = 0;
@@ -139,7 +139,7 @@ safeWrite (int fd, void *buf, size_t count) {
 }
 
 boolean
-fileExists (char *path) {
+fileExist (char *path) {
     if (access (path, F_OK))
         return false;
     else
@@ -159,6 +159,12 @@ fileIsEmpty (char *path) {
         return true;
     else
         return false;
+}
+
+/* ========================================================================== */
+inline pid_t
+gettid () {
+    return syscall (SYS_gettid);
 }
 
 /*
@@ -199,5 +205,19 @@ getIpAddrOfInterface (char *interface) {
 
 u_int
 getCpuCoresNum (void) {
-    return sysconf (_SC_NPROCESSORS_CONF);
+    return sysconf (_SC_NPROCESSORS_ONLN);
 }
+
+/*
+ * @brief Get memory info
+ * 
+ * @param totalMem total memory in MB
+ * @param freeMem free memory in MB
+ */
+void
+getMemInfo (u_int *totalMem, u_int *freeMem) {
+    *totalMem = sysconf (_SC_PHYS_PAGES) / 256;
+    *freeMem = sysconf (_SC_AVPHYS_PAGES) / 256;
+}
+
+/* ========================================================================== */

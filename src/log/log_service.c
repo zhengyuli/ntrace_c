@@ -95,7 +95,7 @@ logFileRotate (char *logFileName) {
     for (index = (LOG_FILE_ROTATION_COUNT - 1); index > 0; index--) {
         if (index == (LOG_FILE_ROTATION_COUNT - 1)) {
             snprintf (fileNameBuf2, sizeof (fileNameBuf2), "%s_%d", logFileName, index);
-            if (fileExists (fileNameBuf2)) {
+            if (fileExist (fileNameBuf2)) {
                 ret = remove (fileNameBuf2);
                 if (ret < 0) {
                     fprintf (stderr, "Log file rotate error.\n");
@@ -105,7 +105,7 @@ logFileRotate (char *logFileName) {
         } else {
             snprintf (fileNameBuf1, sizeof (fileNameBuf1), "%s_%d", logFileName, index);
             snprintf (fileNameBuf2, sizeof (fileNameBuf2), "%s_%d", logFileName, index + 1);
-            if (fileExists (fileNameBuf1)) {
+            if (fileExist (fileNameBuf1)) {
                 ret = rename (fileNameBuf1, fileNameBuf2);
                 if (ret < 0) {
                     fprintf (stderr, "Log file rotate error.\n");
@@ -156,7 +156,7 @@ initLogFile (logDevPtr dev) {
     char logFilePath [LOG_FILE_PATH_MAX_LEN];
     logFilePtr logfile;
 
-    if (!fileExists (getPropertiesLogDir ()) &&
+    if (!fileExist (getPropertiesLogDir ()) &&
         (mkdir (getPropertiesLogDir (), 0755) < 0))
         return -1;
 

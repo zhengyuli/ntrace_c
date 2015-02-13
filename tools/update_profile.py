@@ -4,7 +4,7 @@
 # Name: update_profile.py
 # Purpose:
 #
-# Time-stamp: <2015-01-21 23:13:54 Wednesday by lzy>
+# Time-stamp: <2015-02-13 11:52:46 Friday by lzy>
 #
 # Author: zhengyu li
 # Created: 24 May 2014
@@ -30,7 +30,7 @@ appService2 ['port'] = 3306
 appServiceList = [appService1, appService2]
 
 updateProfileBody = {}
-updateProfileBody ['app_services'] = appServiceList
+updateProfileBody ['application_services'] = appServiceList
 
 updateProfileDict = {}
 updateProfileDict ['command'] = 'update_profile'

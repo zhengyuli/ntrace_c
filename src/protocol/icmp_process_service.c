@@ -6,29 +6,27 @@
 #include "zmq_hub.h"
 #include "task_manager.h"
 #include "ip.h"
-#include "tcp_packet.h"
-#include "publish_session_breakdown.h"
-#include "tcp_process_service.h"
+#include "icmp_packet.h"
+#include "session_breakdown_processor.h"
+#include "icmp_process_service.h"
 
 /*
- * Tcp packet process service.
- * Read ip packets send by ipPktProcessService, then do tcp process and
+ * Icmp packet process service.
+ * Read ip packets send by ipPktProcessService, then do icmp process and
  * send session breakdown to session breakdown sink service.
  */
 void *
-tcpProcessService (void *args) {
+icmpProcessService (void *args) {
     int ret;
-    u_int dispatchIndex;
-    void *tcpPktRecvSock;
-    void *tcpBreakdownSendSock;
+    void *icmpPktRecvSock;
+    void *icmpBreakdownSendSock;
     zframe_t *tmFrame = NULL;
     zframe_t *ipPktFrame = NULL;
     timeValPtr tm;
     iphdrPtr iph;
 
-    dispatchIndex = *((u_int *) args);
-    tcpPktRecvSock = getTcpPktRecvSock (dispatchIndex);
-    tcpBreakdownSendSock = getTcpBreakdownSendSock (dispatchIndex);
+    icmpPktRecvSock = getIcmpPktRecvSock ();
+    icmpBreakdownSendSock = getIcmpBreakdownSendSock ();
 
     /* Reset signals flag */
     resetSignalsFlag ();
@@ -40,17 +38,17 @@ tcpProcessService (void *args) {
         goto exit;
     }
 
-    /* Init tcp context */
-    ret = initTcp (publishSessionBreakdown, tcpBreakdownSendSock);
+    /* Init icmp context */
+    ret = initIcmp (publishSessionBreakdown, icmpBreakdownSendSock);
     if (ret < 0) {
-        LOGE ("Init tcp context error.\n");
+        LOGE ("Init icmp context error.\n");
         goto destroyLogContext;
     }
 
     while (!SIGUSR1IsInterrupted ()) {
         /* Receive timestamp zframe */
         if (tmFrame == NULL) {
-            tmFrame = zframe_recv (tcpPktRecvSock);
+            tmFrame = zframe_recv (icmpPktRecvSock);
             if (tmFrame == NULL) {
                 if (!SIGUSR1IsInterrupted ())
                     LOGE ("Receive timestamp zframe fatal error.\n");
@@ -62,7 +60,7 @@ tcpProcessService (void *args) {
         }
 
         /* Receive ip packet zframe */
-        ipPktFrame = zframe_recv (tcpPktRecvSock);
+        ipPktFrame = zframe_recv (icmpPktRecvSock);
         if (ipPktFrame == NULL) {
             if (!SIGUSR1IsInterrupted ())
                 LOGE ("Receive ip packet zframe fatal error.\n");
@@ -78,16 +76,16 @@ tcpProcessService (void *args) {
         tm = (timeValPtr) zframe_data (tmFrame);
         iph = (iphdrPtr) zframe_data (ipPktFrame);
 
-        /* Do tcp process */
-        tcpProcess (iph, tm);
+        /* Do icmp process */
+        icmpProcess (iph, tm);
 
         /* Free zframe */
         zframe_destroy (&tmFrame);
         zframe_destroy (&ipPktFrame);
     }
 
-    LOGI ("TcpPktProcessService will exit ... .. .\n");
-    destroyTcp ();
+    LOGI ("IcmpPktProcessService will exit ... .. .\n");
+    destroyIcmp ();
 destroyLogContext:
     destroyLogContext ();
 exit:

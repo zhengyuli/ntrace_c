@@ -5,7 +5,7 @@
 #include <uuid/uuid.h>
 #include "util.h"
 #include "list.h"
-#include "publish_session_breakdown.h"
+#include "session_breakdown_processor.h"
 #include "ip.h"
 #include "proto_analyzer.h"
 

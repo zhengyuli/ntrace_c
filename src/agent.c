@@ -7,7 +7,7 @@
 #include "config.h"
 #include "util.h"
 #include "properties.h"
-#include "args_parser.h"
+#include "option_parser.h"
 #include "signals.h"
 #include "log_service.h"
 #include "log.h"
@@ -15,11 +15,15 @@
 #include "task_manager.h"
 #include "proto_analyzer.h"
 #include "app_service_manager.h"
+#include "ownership_manager.h"
 #include "netdev.h"
 #include "management_service.h"
+#include "ownership_observe_service.h"
+#include "ownership_register_service.h"
 #include "raw_capture_service.h"
 #include "ip_process_service.h"
 #include "icmp_process_service.h"
+#include "tcp_dispatch_service.h"
 #include "tcp_process_service.h"
 
 /* Agent pid file fd */
@@ -74,30 +78,50 @@ startTasks (void) {
     int ret;
     u_int i;
 
-    ret = newTask (managementService, NULL);
-    if (ret < 0) {
-        LOGE ("Create managementService task error.\n");
-        goto stopAllTask;
+    if (getPropertiesRoleType () == ROLE_MASTER) {
+        ret = newTask (managementService, NULL);
+        if (ret < 0) {
+            LOGE ("Create managementService task error.\n");
+            goto stopAllTask;
+        }
+
+        ret = newTask (ownershipObserveService, NULL);
+        if (ret < 0) {
+            LOGE ("Create ownershipObserveService task error.\n");
+            goto stopAllTask;
+        }
+
+        ret = newTask (rawCaptureService, NULL);
+        if (ret < 0) {
+            LOGE ("Create rawCaptureService task error.\n");
+            goto stopAllTask;
+        }
+
+        ret = newTask (ipProcessService, NULL);
+        if (ret < 0) {
+            LOGE ("Create ipProcessService task error.\n");
+            goto stopAllTask;
+        }
+
+        ret = newTask (icmpProcessService, NULL);
+        if (ret < 0) {
+            LOGE ("Create icmpProcessService task error.\n");
+            goto stopAllTask;
+        }
+    } else {
+        ret = newTask (ownershipRegisterService, NULL);
+        if (ret < 0) {
+            LOGE ("Create ownershipRegisterService task error.\n");
+            goto stopAllTask;
+        }
+
+        ret = newTask (tcpDispatchService, NULL);
+        if (ret < 0) {
+            LOGE ("Create tcpDispatchService task error.\n");
+            goto stopAllTask;
+        }
     }
 
-    ret = newTask (rawCaptureService, NULL);
-    if (ret < 0) {
-        LOGE ("Create rawCaptureService task error.\n");
-        goto stopAllTask;
-    }
-
-    ret = newTask (ipProcessService, NULL);
-    if (ret < 0) {
-        LOGE ("Create ipProcessService task error.\n");
-        goto stopAllTask;
-    }
-
-    ret = newTask (icmpProcessService, NULL);
-    if (ret < 0) {
-        LOGE ("Create icmpProcessService task error.\n");
-        goto stopAllTask;
-    }
-    
     for (i = 0; i < getTcpProcessThreadsNum (); i++) {
         ret = newTask (tcpProcessService, getTcpProcessThreadIDHolder (i));
         if (ret < 0) {
@@ -177,18 +201,27 @@ agentService (void) {
         goto destroyProtoAnalyzer;
     }
 
-    ret = initNetDev ();
-    if (ret < 0) {
-        LOGE ("Init net device error.\n");
-        ret = -1;
-        goto destroyAppServiceManager;
+    if (getPropertiesRoleType () == ROLE_MASTER) {
+        ret = initNetDev ();
+        if (ret < 0) {
+            LOGE ("Init net device error.\n");
+            ret = -1;
+            goto destroyAppServiceManager;
+        }
+
+        ret = initOwnershipManager ();
+        if (ret < 0) {
+            LOGE ("Init packetOwnership error.\n");
+            ret = -1;
+            goto destroyNetDev;
+        }
     }
 
     ret = startTasks ();
     if (ret < 0) {
         LOGE ("Start tasks error.\n");
         ret = -1;
-        goto destroyNetDev;
+        goto destroyOwnershipManager;
     }
 
     /* Create zloop reactor */
@@ -237,8 +270,12 @@ destroyZloop:
     zloop_destroy (&loop);
 stopAllTask:
     stopAllTask ();
+destroyOwnershipManager:
+    if (getPropertiesRoleType () == ROLE_MASTER)
+        destroyOwnershipManager ();
 destroyNetDev:
-    destroyNetDev ();
+    if (getPropertiesRoleType () == ROLE_MASTER)
+        destroyNetDev ();
 destroyAppServiceManager:
     destroyAppServiceManager (exitNormally);
 destroyProtoAnalyzer:
@@ -332,6 +369,7 @@ agentDaemon (void) {
 int
 main (int argc, char *argv []) {
     int ret;
+    char *configFile;
 
     if (getuid () != 0) {
         fprintf (stderr, "Permission denied, please run as root.\n");
@@ -341,20 +379,30 @@ main (int argc, char *argv []) {
     /* Set locale */
     setlocale (LC_COLLATE,"");
 
+    /* Get config file */
+    configFile = getConfigFile (argc, argv);
+    if (configFile == NULL) {
+        fprintf (stderr, "Get config file error.\n");
+        return -1;
+    }
+
     /* Init properties */
-    ret = initProperties ();
+    ret = initProperties (configFile);
     if (ret < 0) {
         fprintf (stderr, "Init properties error.\n");
         return -1;
     }
 
-    /* Parse command line arguments */
-    ret = parseArgs (argc, argv);
+    /* Parse command line options */
+    ret = parseOptions (argc, argv);
     if (ret < 0) {
-        fprintf (stderr, "Parse command line arguments error.\n");
+        fprintf (stderr, "Parse command line options error.\n");
         ret = -1;
         goto destroyProperties;
     }
+
+    /* Show properties detail info */
+    displayPropertiesDetail ();
 
     /* Run as daemon service */
     if (getPropertiesDaemonMode ())

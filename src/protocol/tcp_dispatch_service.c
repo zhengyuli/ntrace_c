@@ -7,10 +7,9 @@
 #include "task_manager.h"
 #include "ip.h"
 #include "tcp.h"
-#include "ip_packet.h"
-#include "ip_process_service.h"
+#include "tcp_dispatch_service.h"
 
-static size_t
+static u_int
 dispatchHash (const char *key1, const char *key2) {
     u_int sum, hash = 0;
     u_int seed = 16777619;
@@ -49,13 +48,13 @@ dispatchHash (const char *key1, const char *key2) {
 static void
 tcpPacketDispatch (iphdrPtr iph, timeValPtr tm) {
     int ret;
-    u_int index;
+    u_int hash;
     u_int ipPktLen;
     tcphdrPtr tcph;
     char key1 [32];
     char key2 [32];
     zframe_t *frame;
-    void *tcpPktSendSock;
+    void *tcpPktSendSock = NULL;
 
     ipPktLen = ntohs (iph->ipLen);
 
@@ -63,10 +62,8 @@ tcpPacketDispatch (iphdrPtr iph, timeValPtr tm) {
     snprintf (key1, sizeof (key1), "%s:%d", inet_ntoa (iph->ipSrc), ntohs (tcph->source));
     snprintf (key2, sizeof (key2), "%s:%d", inet_ntoa (iph->ipDest), ntohs (tcph->dest));
 
-    /* Get dispatch index */
-    index = dispatchHash (key1, key2) % getTcpProcessThreadsNum ();
-    /* Get tcp packet send sock */
-    tcpPktSendSock = getTcpPktSendSock (index);
+    hash = dispatchHash (key1, key2);    
+    tcpPktSendSock = getTcpPktSendSock (hash % getTcpProcessThreadsNum ());
 
     /* Send tm zframe */
     frame = zframe_new (tm, sizeof (timeVal));
@@ -80,7 +77,7 @@ tcpPacketDispatch (iphdrPtr iph, timeValPtr tm) {
         zframe_destroy (&frame);
         return;
     }
-    
+
     /* Send ip packet */
     frame = zframe_new (iph, ipPktLen);
     if (frame == NULL) {
@@ -96,63 +93,17 @@ tcpPacketDispatch (iphdrPtr iph, timeValPtr tm) {
 }
 
 /*
- * @brief Dispatch timestamp and ip packet to icmp
- *        packet process service thread.
- *
- * @param iph ip packet to dispatch
- * @param tm capture timestamp to dispatch
- */
-static void
-icmpPacketDispatch (iphdrPtr iph, timeValPtr tm) {
-    int ret;
-    u_int ipPktLen;
-    zframe_t *frame;
-    void *icmpPktSendSock;
-
-    ipPktLen = ntohs (iph->ipLen);
-    
-    /* Get icmp packet send sock */
-    icmpPktSendSock = getIcmpPktSendSock ();
-
-    /* Send tm zframe */
-    frame = zframe_new (tm, sizeof (timeVal));
-    if (frame == NULL) {
-        LOGE ("Create timestamp zframe error.\n");
-        return;
-    }
-    ret = zframe_send (&frame, icmpPktSendSock, ZFRAME_MORE);
-    if (ret < 0) {
-        LOGE ("Send tm zframe error.\n");
-        zframe_destroy (&frame);
-        return;
-    }
-    
-    /* Send ip packet */
-    frame = zframe_new (iph, ipPktLen);
-    if (frame == NULL) {
-        LOGE ("Create ip packet zframe error.");
-        return;
-    }
-    ret = zframe_send (&frame, icmpPktSendSock, 0);
-    if (ret < 0) {
-        LOGE ("Send ip packet zframe error.\n");
-        zframe_destroy (&frame);
-        return;
-    }
-}
-
-/*
- * Ip packet process service.
- * Read ip packet send by rawPktCaptureService, then do ip process and
- * dispatch ip defragment packet to specific tcpPktProcessService thread.
+ * Tcp packet dispatch service.
+ * Read ip packet send by master, then dispatch ip defragment packet to
+ * local specific tcpPktProcessService thread.
  */
 void *
-ipProcessService (void *args) {
+tcpDispatchService (void *args) {
     int ret;
     void *ipPktRecvSock;
     zframe_t *tmFrame = NULL;
     zframe_t *pktFrame = NULL;
-    iphdrPtr newIphdr;
+    iphdrPtr iph;
 
     /* Reset signals flag */
     resetSignalsFlag ();
@@ -166,13 +117,6 @@ ipProcessService (void *args) {
 
     /* Get ipPktRecvSock */
     ipPktRecvSock = getIpPktRecvSock ();
-    
-    /* Init ip context */
-    ret = initIp ();
-    if (ret < 0) {
-        LOGE ("Init ip context error.\n");
-        goto destroyLogContext;
-    }
 
     while (!SIGUSR1IsInterrupted ()) {
         /* Receive timestamp zframe */
@@ -202,28 +146,15 @@ ipProcessService (void *args) {
             continue;
         }
 
-        /* Ip packet defragment process */
-        ret = ipDefrag ((iphdrPtr) zframe_data (pktFrame),
-                        (timeValPtr) zframe_data (tmFrame), &newIphdr);
-        if (ret < 0)
-            LOGE ("Ip packet defragment error.\n");
-        else if (newIphdr) {
-            /* Dispatch ip packet and tmFrame */
-            switch (newIphdr->ipProto) {
-                case IPPROTO_TCP:
-                    tcpPacketDispatch (newIphdr, (timeValPtr) zframe_data (tmFrame));                    
-                    break;
+        iph = (iphdrPtr) zframe_data (pktFrame);
+        /* Dispatch ip packet and tmFrame */
+        switch (iph->ipProto) {
+            case IPPROTO_TCP:
+                tcpPacketDispatch (iph, (timeValPtr) zframe_data (tmFrame));
+                break;
 
-                case IPPROTO_ICMP:
-                    icmpPacketDispatch (newIphdr, (timeValPtr) zframe_data (tmFrame));
-
-                default:
-                    break;
-            }
-
-            /* New ip packet after defragment */
-            if (newIphdr != (iphdrPtr) zframe_data (pktFrame))
-                free (newIphdr);
+            default:
+                break;
         }
 
         /* Free zframe */
@@ -231,9 +162,7 @@ ipProcessService (void *args) {
         zframe_destroy (&pktFrame);
     }
 
-    LOGI ("IpPktProcessService will exit ... .. .\n");
-    destroyIp ();
-destroyLogContext:
+    LOGI ("tcpDispatchService will exit ... .. .\n");
     destroyLogContext ();
 exit:
     if (!SIGUSR1IsInterrupted ())

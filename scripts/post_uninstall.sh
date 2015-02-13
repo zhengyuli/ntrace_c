@@ -4,7 +4,7 @@
 # Name: post_install.sh
 # Purpose:
 #
-# Time-stamp: <2015-01-21 14:07:34 Wednesday by lzy>
+# Time-stamp: <2015-02-10 10:52:02 Tuesday by lzy>
 #
 # Author: zhengyu li
 # Created: 2014-03-27
@@ -27,3 +27,5 @@ toUpper() {
 
 rm -rf /var/run/$(toLower ${PROJECT_NAME})
 rm -rf /var/log/$(toLower ${PROJECT_NAME})
+rm -rf /etc/$(toLower ${PROJECT_NAME})
+rm -rf /usr/share/$(toLower ${PROJECT_NAME})

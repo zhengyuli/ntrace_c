@@ -285,7 +285,7 @@ destroyAppServiceHashTableMasterRWLock:
 
 /* Destroy application service manager */
 void
-destroyAppServiceManager (boolean exitNormally) {
+destroyAppServiceManager (void) {
     pthread_rwlock_destroy (&appServiceHashTableMasterRWLock);
     hashDestroy (appServiceHashTableMaster);
     appServiceHashTableMaster = NULL;

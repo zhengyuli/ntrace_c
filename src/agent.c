@@ -18,8 +18,6 @@
 #include "ownership_manager.h"
 #include "netdev.h"
 #include "management_service.h"
-#include "ownership_observe_service.h"
-#include "ownership_register_service.h"
 #include "raw_capture_service.h"
 #include "ip_process_service.h"
 #include "icmp_process_service.h"
@@ -78,48 +76,34 @@ startTasks (void) {
     int ret;
     u_int i;
 
-    if (getPropertiesRoleType () == ROLE_MASTER) {
-        ret = newTask (managementService, NULL);
-        if (ret < 0) {
-            LOGE ("Create managementService task error.\n");
-            goto stopAllTask;
-        }
+    ret = newTask (managementService, NULL);
+    if (ret < 0) {
+        LOGE ("Create managementService task error.\n");
+        goto stopAllTask;
+    }
 
-        ret = newTask (ownershipObserveService, NULL);
-        if (ret < 0) {
-            LOGE ("Create ownershipObserveService task error.\n");
-            goto stopAllTask;
-        }
+    ret = newTask (rawCaptureService, NULL);
+    if (ret < 0) {
+        LOGE ("Create rawCaptureService task error.\n");
+        goto stopAllTask;
+    }
 
-        ret = newTask (rawCaptureService, NULL);
-        if (ret < 0) {
-            LOGE ("Create rawCaptureService task error.\n");
-            goto stopAllTask;
-        }
+    ret = newTask (ipProcessService, NULL);
+    if (ret < 0) {
+        LOGE ("Create ipProcessService task error.\n");
+        goto stopAllTask;
+    }
 
-        ret = newTask (ipProcessService, NULL);
-        if (ret < 0) {
-            LOGE ("Create ipProcessService task error.\n");
-            goto stopAllTask;
-        }
+    ret = newTask (icmpProcessService, NULL);
+    if (ret < 0) {
+        LOGE ("Create icmpProcessService task error.\n");
+        goto stopAllTask;
+    }
 
-        ret = newTask (icmpProcessService, NULL);
-        if (ret < 0) {
-            LOGE ("Create icmpProcessService task error.\n");
-            goto stopAllTask;
-        }
-    } else {
-        ret = newTask (ownershipRegisterService, NULL);
-        if (ret < 0) {
-            LOGE ("Create ownershipRegisterService task error.\n");
-            goto stopAllTask;
-        }
-
-        ret = newTask (tcpDispatchService, NULL);
-        if (ret < 0) {
-            LOGE ("Create tcpDispatchService task error.\n");
-            goto stopAllTask;
-        }
+    ret = newTask (tcpDispatchService, NULL);
+    if (ret < 0) {
+        LOGE ("Create tcpDispatchService task error.\n");
+        goto stopAllTask;
     }
 
     for (i = 0; i < getTcpProcessThreadsNum (); i++) {
@@ -142,7 +126,6 @@ agentService (void) {
     int ret;
     zloop_t *loop;
     zmq_pollitem_t pollItems [2];
-    boolean exitNormally = false;
 
     /* Lock pid file */
     ret = lockPidFile ();
@@ -201,20 +184,18 @@ agentService (void) {
         goto destroyProtoAnalyzer;
     }
 
-    if (getPropertiesRoleType () == ROLE_MASTER) {
-        ret = initNetDev ();
-        if (ret < 0) {
-            LOGE ("Init net device error.\n");
-            ret = -1;
-            goto destroyAppServiceManager;
-        }
+    ret = initNetDev ();
+    if (ret < 0) {
+        LOGE ("Init net device error.\n");
+        ret = -1;
+        goto destroyAppServiceManager;
+    }
 
-        ret = initOwnershipManager ();
-        if (ret < 0) {
-            LOGE ("Init packetOwnership error.\n");
-            ret = -1;
-            goto destroyNetDev;
-        }
+    ret = initOwnershipManager ();
+    if (ret < 0) {
+        LOGE ("Init packetOwnership error.\n");
+        ret = -1;
+        goto destroyNetDev;
     }
 
     ret = startTasks ();
@@ -232,7 +213,7 @@ agentService (void) {
         goto stopAllTask;
     }
 
-    /* Init poll item 0*/
+    /* Init poll item 0 */
     pollItems [0].socket = getLogServiceStatusRecvSock ();
     pollItems [0].fd = 0;
     pollItems [0].events = ZMQ_POLLIN;
@@ -244,7 +225,7 @@ agentService (void) {
         goto destroyZloop;
     }
 
-    /* Init poll item 1*/
+    /* Init poll item 1 */
     pollItems [1].socket = getTaskStatusRecvSock ();
     pollItems [1].fd = 0;
     pollItems [1].events = ZMQ_POLLIN;
@@ -258,26 +239,21 @@ agentService (void) {
 
     /* Start zloop */
     ret = zloop_start (loop);
-    if (ret < 0) {
-        exitNormally = false;
+    if (ret < 0)
         LOGE ("Agent exit abnormally.\n");
-    } else {
-        exitNormally = true;
+    else
         LOGI ("Agent exit normally.\n");
-    }
 
 destroyZloop:
     zloop_destroy (&loop);
 stopAllTask:
     stopAllTask ();
 destroyOwnershipManager:
-    if (getPropertiesRoleType () == ROLE_MASTER)
-        destroyOwnershipManager ();
+    destroyOwnershipManager ();
 destroyNetDev:
-    if (getPropertiesRoleType () == ROLE_MASTER)
-        destroyNetDev ();
+    destroyNetDev ();
 destroyAppServiceManager:
-    destroyAppServiceManager (exitNormally);
+    destroyAppServiceManager ();
 destroyProtoAnalyzer:
     destroyProtoAnalyzer ();
 destroyTaskManager:

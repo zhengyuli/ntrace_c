@@ -36,17 +36,12 @@
 #define EXP_SEQ (snd->firstDataSeq + rcv->count + rcv->urgCount)
 
 /* Tcp streams alloc statistic */
-static u_int tcpStreamsAlloc = 0;
+static u_long_long tcpStreamsAlloc = 0;
 static pthread_spinlock_t tcpStreamsAllocLock;
 
 /* Tcp streams free statistic */
-static u_int tcpStreamsFree = 0;
+static u_long_long tcpStreamsFree = 0;
 static pthread_spinlock_t tcpStreamsFreeLock;
-
-/* Global tcp breakdown id */
-static u_long_long tcpBreakdownId = 0;
-/* Tcp breakdown id lock */
-static pthread_spinlock_t tcpBreakdownIdLock;
 
 /* Tcp context init once control */
 static pthread_once_t tcpInitOnceControl = PTHREAD_ONCE_INIT;
@@ -124,18 +119,6 @@ getTcpStreamsFree (void) {
     pthread_spin_unlock (&tcpStreamsFreeLock);
 
     return streams;
-}
-
-static inline u_long_long
-getTcpBreakdownId (void) {
-    u_long_long bkdId;
-
-    pthread_spin_lock (&tcpBreakdownIdLock);
-    bkdId = tcpBreakdownId;
-    tcpBreakdownId ++;
-    pthread_spin_unlock (&tcpBreakdownIdLock);
-
-    return bkdId;
 }
 
 static inline boolean
@@ -547,8 +530,6 @@ tcpBreakdown2Json (tcpStreamPtr stream, tcpBreakdownPtr tbd) {
         LOGE ("Create json object error.\n");
         return NULL;
     }
-    /* Tcp breakdown id */
-    json_object_set_new (root, TCP_SKBD_BREAKDOWN_ID, json_integer (tbd->bkdId));
     /* Tcp breakdown timestamp */
     json_object_set_new (root, TCP_SKBD_TIMESTAMP, json_integer (tbd->timestamp));
     /* Tcp application layer protocol */
@@ -616,7 +597,6 @@ generateSessionBreakdown (tcpStreamPtr stream, timeValPtr tm) {
         return;
     }
 
-    tbd.bkdId = getTcpBreakdownId ();
     tbd.timestamp = tm->tvSec;
     tbd.proto = stream->proto;
     tbd.ipSrc = stream->addr.saddr;
@@ -1298,19 +1278,17 @@ static void
 initTcpSharedInstance (void) {
     tcpStreamsAlloc = 0;
     pthread_spin_init (&tcpStreamsAllocLock, PTHREAD_PROCESS_PRIVATE);
-
     tcpStreamsFree = 0;
     pthread_spin_init (&tcpStreamsFreeLock, PTHREAD_PROCESS_PRIVATE);
-
-    tcpBreakdownId = 0;
-    pthread_spin_init (&tcpBreakdownIdLock, PTHREAD_PROCESS_PRIVATE);
 
     tcpDestroyOnceControl = PTHREAD_ONCE_INIT;
 }
 
 static void
 destroyTcpSharedInstance (void) {
-    pthread_spin_destroy (&tcpBreakdownIdLock);
+    pthread_spin_destroy (&tcpStreamsAllocLock);
+    pthread_spin_destroy (&tcpStreamsFreeLock);
+
     tcpInitOnceControl = PTHREAD_ONCE_INIT;
 }
 

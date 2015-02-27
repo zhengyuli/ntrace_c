@@ -1,13 +1,14 @@
-#ifndef __OWNERSHIP_MANAGER_H__
-#define __OWNERSHIP_MANAGER_H__
+#ifndef __OWNERSHIP_H__
+#define __OWNERSHIP_H__
 
 #include <stdlib.h>
+#include <jansson.h>
 #include <czmq.h>
 #include "list.h"
 
 typedef enum {
-    OWNERSHIP_LOCAL = 0,
-    OWNERSHIP_REMOTE = 1,
+    OWNERSHIP_TYPE_LOCAL,
+    OWNERSHIP_TYPE_REMOTE
 } ownershipType;
 
 typedef struct _ownership ownership;
@@ -19,17 +20,19 @@ struct _ownership {
     u_int cpuCores;
     u_int totalMem;
     u_int freeMem;
-    void *pktSendSock;
+    zctx_t *zmqCtxt;
+    void *pktDispatchSock;
     listHead node;
 };
 
 /*========================Interfaces definition============================*/
-inline void *
-getOwnershipPktSendSock (u_int hash);
-int
-initOwnershipManager (void);
+ownershipPtr
+newOwnership (ownershipType type, char *ip,
+              u_int cpuCores, u_int totalMem, u_int freeMem);
+ownershipPtr
+newLocalOwnership (void);
 void
-destroyOwnershipManager (void);
+freeOwnership (ownershipPtr self);
 /*=======================Interfaces definition end=========================*/
 
-#endif /* __OWNERSHIP_MANAGER_H__ */
+#endif /* __OWNERSHIP_H__ */

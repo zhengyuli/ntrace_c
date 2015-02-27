@@ -11,31 +11,31 @@
 #include <net/if.h>
 #include <arpa/inet.h>
 #include <sys/syscall.h>
+#include <sys/time.h>
 #include "util.h"
 
 /* ========================================================================== */
 u_long_long
 timeVal2Second (timeValPtr tm) {
-    u_long_long second;
-
-    second = tm->tvSec + (tm->tvUsec / 1000000);
-    return second;
+    return tm->tvSec + (tm->tvUsec / 1000000);
 }
 
 u_long_long
 timeVal2MilliSecond (timeValPtr tm) {
-    u_long_long milli;
-
-    milli = (tm->tvSec * 1000) + (tm->tvUsec / 1000);
-    return milli;
+    return (tm->tvSec * 1000) + (tm->tvUsec / 1000);
 }
 
 u_long_long
 timeVal2MicoSecond (timeValPtr tm) {
-    u_long_long micro;
+    return (tm->tvSec * 1000000) + tm->tvUsec;
+}
 
-    micro = (tm->tvSec * 1000000) + tm->tvUsec;
-    return micro;
+u_long_long
+getSysTime (void) {
+    struct timeval tv;
+
+    gettimeofday (&tv, NULL);
+    return (u_long_long) ((u_long_long) tv.tv_sec * 1000 + (u_long_long) tv.tv_usec / 1000);
 }
 
 /* ========================================================================== */
@@ -208,16 +208,14 @@ getCpuCoresNum (void) {
     return sysconf (_SC_NPROCESSORS_ONLN);
 }
 
-/*
- * @brief Get memory info
- * 
- * @param totalMem total memory in MB
- * @param freeMem free memory in MB
- */
-void
-getMemInfo (u_int *totalMem, u_int *freeMem) {
-    *totalMem = sysconf (_SC_PHYS_PAGES) / 256;
-    *freeMem = sysconf (_SC_AVPHYS_PAGES) / 256;
+u_int
+getTotalMemory (void) {
+    return sysconf (_SC_PHYS_PAGES) / 256;
+}
+
+u_int
+getFreeMemory (void) {
+    return sysconf (_SC_AVPHYS_PAGES) / 256;
 }
 
 /* ========================================================================== */

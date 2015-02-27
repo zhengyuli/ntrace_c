@@ -5,9 +5,7 @@
 #include <czmq.h>
 
 #define MANAGEMENT_SERVICE_PORT 58000
-#define PROFILE_PUBLISH_PORT 58001
-#define OWNERSHIP_OBSERVE_PORT 58002
-#define IP_PACKET_RECV_PORT 58003
+#define TCP_PACKET_DISPATCH_RECV_PORT 58001
 
 typedef struct _zmqHub zmqHub;
 typedef zmqHub *zmqHubPtr;
@@ -16,12 +14,6 @@ struct _zmqHub {
     zctx_t *zmqCtxt;                    /**< Zmq context */
 
     void *managementReplySock;          /**< Management reply sock */
-
-    void *profilePubSock;               /**< Profile publish sock */
-    void *profileSubSock;               /**< Profile subscribe sock */
-
-    void *slaveObserveSock;             /**< Slave observe sock */
-    void *slaveRegisterSock;            /**< Slave register sock */
 
     void *taskStatusSendSock;           /**< Task status send sock */
     void *taskStatusRecvSock;           /**< Task status recv sock */
@@ -33,6 +25,8 @@ struct _zmqHub {
     void *icmpPktRecvSock;              /**< Icmp packet recv sock */
     void *icmpBreakdownSendSock;        /**< Icmp breakdown send sock */
 
+    void *tcpPktDispatchRecvSock;       /**< Tcp packet dispatch recv sock */
+
     u_int tcpProcessThreadsNum;         /**< Tcp process threads number */
     u_int *tcpProcessThreadIDsHolder;   /**< Tcp process thread IDs holder */
     void **tcpPktSendSocks;             /**< Tcp packet dispatch send socks */
@@ -43,14 +37,6 @@ struct _zmqHub {
 /*========================Interfaces definition============================*/
 void *
 getManagementReplySock (void);
-void *
-getProfilePubSock (void);
-void *
-getProfileSubSock (void);
-void *
-getSlaveObserveSock (void);
-void *
-getSlaveRegisterSock (void);
 void *
 getTaskStatusSendSock (void);
 void *
@@ -65,6 +51,8 @@ void *
 getIcmpPktRecvSock (void);
 void *
 getIcmpBreakdownSendSock (void);
+void *
+getTcpPktDispatchRecvSock (void);
 u_int
 getTcpProcessThreadsNum (void);
 u_int *

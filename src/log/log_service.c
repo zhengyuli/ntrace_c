@@ -286,7 +286,7 @@ writeLogNet (char *msg, logDevPtr dev, u_int flag) {
 
     ret = zframe_send (&frame, lognet->sock, 0);
     if (ret < 0) {
-        zframe_destroy (&frame);
+        fprintf (stderr, "Send log message error.\n");
         return;
     }
 }
@@ -352,6 +352,7 @@ logDevDestroy (void) {
 static void *
 logService (void *args) {
     int ret;
+    u_int retries = 3;
     char *logMsg;
     char exitMsg [128];
 
@@ -398,7 +399,13 @@ destroyDev:
 exit:
     if (!SIGUSR1IsInterrupted ()) {
         snprintf (exitMsg, sizeof (exitMsg), "%u:%lu", LOG_SERVICE_STATUS_EXIT, pthread_self ());
-        zstr_send (logServiceCtxtInstance->statusSendSock, exitMsg);
+        do {
+            ret = zstr_send (logServiceCtxtInstance->statusSendSock, exitMsg);
+            retries -= 1;
+        } while ((ret < 0) && retries);
+
+        if (ret < 0)
+            fprintf (stderr, "Send log service state error.\n");
     }
 
     return NULL;
@@ -464,7 +471,7 @@ initLogService (void) {
         fprintf (stderr, "Alloc logServiceCtxtInstance error.\n");
         return -1;
     }
-    
+
     logServiceCtxtInstance->zmqCtxt = zctx_new ();
     if (logServiceCtxtInstance->zmqCtxt == NULL) {
         fprintf (stderr, "Create zmq context error");

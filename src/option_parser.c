@@ -8,11 +8,8 @@
 static struct option options [] = {
     {"config", required_argument, NULL, 'C'},
     {"daemonMode", no_argument, NULL, 'D'},
-    {"role", required_argument, NULL, 'R'},
-    {"masterIp", required_argument, NULL, 'M'},
-    {"slaveIp", required_argument, NULL, 'S'},
     {"mirrorInterface", required_argument, NULL, 'm'},
-    {"pcapOfflineInput", required_argument, NULL, 'r'},
+    {"pcapOfflineInput", required_argument, NULL, 'I'},
     {"breakdownSinkIp", required_argument, NULL, 'i'},
     {"breakdownSinkPort", required_argument, NULL, 'p'},
     {"logDir", required_argument, NULL, 'd'},
@@ -34,11 +31,8 @@ showHelpInfo (const char *cmd) {
              "Basic options: \n"
              "  -C|--config, config file\n"
              "  -D|--daemonMode, run as daemon\n"
-             "  -R|--role <role> 0=master/1=slave\n"
-             "  -M|--masterIp <ip> master ip\n"
-             "  -M|--slaveIp <ip> slave ip\n"
              "  -m|--mirrorInterface <eth*> interface to collect packets\n"
-             "  -r|--pcapOfflineInput <fname> pcap offline input file\n"
+             "  -I|--pcapOfflineInput <fname> pcap offline input file\n"
              "  -i|--breakdownSinkIp <ip> breakdown sink ip\n"
              "  -p|--breakdownSinkPort <port> breakdown sink port\n"
              "  -d|--logDir <path>, log file directory\n"
@@ -81,33 +75,13 @@ parseOptions (int argc, char *argv []) {
     boolean showHelp = false;
 
     optind = 1;
-    while ((option = getopt_long (argc, argv, ":C:Dm:r:i:p:l:vh?", options, NULL)) != -1) {
+    while ((option = getopt_long (argc, argv, ":C:Dm:I:i:p:d:f:l:vh?", options, NULL)) != -1) {
         switch (option) {
             case 'C':
                 break;
             
             case 'D':
                 updatePropertiesDaemonMode (true);
-                break;
-
-            case 'R':
-                updatePropertiesRoleType (atoi (optarg));
-                break;
-
-            case 'M':
-                updatePropertiesMasterIp (optarg);
-                if (getPropertiesMasterIp () == NULL) {
-                    fprintf (stderr, "Parse master ip error!\n");
-                    return -1;
-                }
-                break;
-
-            case 'S':
-                updatePropertiesSlaveIp (optarg);
-                if (getPropertiesSlaveIp () == NULL) {
-                    fprintf (stderr, "Parse slave ip error!\n");
-                    return -1;
-                }
                 break;
                 
             case 'm':
@@ -118,7 +92,7 @@ parseOptions (int argc, char *argv []) {
                 }
                 break;
 
-            case 'r':
+            case 'I':
                 updatePropertiesPcapOfflineInput (optarg);
                 if (getPropertiesPcapOfflineInput () == NULL) {
                     fprintf (stderr, "Parse pcap offline input error!\n");

@@ -65,7 +65,7 @@ tcpPacketDispatch (iphdrPtr iph, timeValPtr tm) {
     hash = dispatchHash (key1, key2);    
     tcpPktSendSock = getTcpPktSendSock (hash % getTcpProcessThreadsNum ());
 
-    /* Send tm zframe */
+    /* Send tm zframe*/
     frame = zframe_new (tm, sizeof (timeVal));
     if (frame == NULL) {
         LOGE ("Create timestamp zframe error.\n");
@@ -74,7 +74,6 @@ tcpPacketDispatch (iphdrPtr iph, timeValPtr tm) {
     ret = zframe_send (&frame, tcpPktSendSock, ZFRAME_MORE);
     if (ret < 0) {
         LOGE ("Send tm zframe error.\n");
-        zframe_destroy (&frame);
         return;
     }
 
@@ -87,20 +86,19 @@ tcpPacketDispatch (iphdrPtr iph, timeValPtr tm) {
     ret = zframe_send (&frame, tcpPktSendSock, 0);
     if (ret < 0) {
         LOGE ("Send ip packet zframe error.\n");
-        zframe_destroy (&frame);
         return;
     }
 }
 
 /*
  * Tcp packet dispatch service.
- * Read ip packet send by master, then dispatch ip defragment packet to
- * local specific tcpPktProcessService thread.
+ * Read ip packet send by remote/local node, then dispatch ip
+ * packet to local specific tcpPktProcessService thread.
  */
 void *
 tcpDispatchService (void *args) {
     int ret;
-    void *ipPktRecvSock;
+    void *tcpPktDispatchRecvSock;
     zframe_t *tmFrame = NULL;
     zframe_t *pktFrame = NULL;
     iphdrPtr iph;
@@ -115,13 +113,13 @@ tcpDispatchService (void *args) {
         goto exit;
     }
 
-    /* Get ipPktRecvSock */
-    ipPktRecvSock = getIpPktRecvSock ();
+    /* Get tcpPktDispatchRecvSock */
+    tcpPktDispatchRecvSock = getTcpPktDispatchRecvSock ();
 
     while (!SIGUSR1IsInterrupted ()) {
         /* Receive timestamp zframe */
         if (tmFrame == NULL) {
-            tmFrame = zframe_recv (ipPktRecvSock);
+            tmFrame = zframe_recv (tcpPktDispatchRecvSock);
             if (tmFrame == NULL) {
                 if (!SIGUSR1IsInterrupted ())
                     LOGE ("Receive timestamp zframe fatal error.\n");
@@ -133,7 +131,7 @@ tcpDispatchService (void *args) {
         }
 
         /* Receive ip packet zframe */
-        pktFrame = zframe_recv (ipPktRecvSock);
+        pktFrame = zframe_recv (tcpPktDispatchRecvSock);
         if (pktFrame == NULL) {
             if (!SIGUSR1IsInterrupted ())
                 LOGE ("Receive ip packet zframe fatal error.\n");

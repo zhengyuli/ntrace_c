@@ -101,7 +101,6 @@ doLog (u_char logLevel, const char *file, u_int line, const char *func, char *ms
     ret = zframe_send (&frame, logCtxtInstance->logSock, 0);
     if (ret < 0) {
         fprintf (stderr, "Send log message error.\n");
-        zframe_destroy (&frame);
         return;
     }
 }

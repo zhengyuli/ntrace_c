@@ -118,14 +118,22 @@ stopAllTask (void) {
 
 void
 sendTaskStatus (taskStatus status) {
+    int ret;
+    u_int retries = 3;
     char taskStatusMsg [128];
 
     snprintf (taskStatusMsg, sizeof (taskStatusMsg),
               TASK_STATUS_MESSAGE_FORMAT_STRING, status, pthread_self ());
 
-    pthread_mutex_lock (&taskStatusSendSockLock);
-    zstr_send (getTaskStatusSendSock (), taskStatusMsg);
-    pthread_mutex_unlock (&taskStatusSendSockLock);
+    do {
+        pthread_mutex_lock (&taskStatusSendSockLock);
+        ret = zstr_send (getTaskStatusSendSock (), taskStatusMsg);
+        pthread_mutex_unlock (&taskStatusSendSockLock);
+        retries -= 1;
+    } while ((ret < 0) && retries);
+
+    if (ret < 0)
+        LOGE ("Send task status error.\n");
 }
 
 int

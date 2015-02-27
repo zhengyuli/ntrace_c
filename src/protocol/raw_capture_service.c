@@ -89,7 +89,6 @@ rawCaptureService (void *args) {
             ret = zframe_send (&frame, ipPktSendSock, ZFRAME_MORE);
             if (ret < 0) {
                 LOGE ("Send packet timestamp zframe error.\n");
-                zframe_destroy (&frame);
                 continue;
             }
 
@@ -102,7 +101,6 @@ rawCaptureService (void *args) {
             ret = zframe_send (&frame, ipPktSendSock, 0);
             if (ret < 0) {
                 LOGE ("Send ip packet zframe error.\n");
-                zframe_destroy (&frame);
                 continue;
             }
         } else if (ret == -1) {
@@ -111,7 +109,7 @@ rawCaptureService (void *args) {
         }
     }
 
-    LOGI ("RawPktCaptureService will exit ... .. .\n");
+    LOGI ("RawCaptureService will exit ... .. .\n");
 destroyLogContext:
     destroyLogContext ();
 exit:

@@ -11,10 +11,8 @@ json_t *
 getAppServicesFromProfileCache (void);
 json_t *
 getAppServicesFromProfile (json_t *profile);
-json_t *
-getProfileCache (void);
-void
-syncProfileCache (char *profile);
+int
+syncProfileCache (json_t *profile);
 /*=======================Interfaces definition end=========================*/
 
 #endif /* __PROFILE_CACHE_H__ */

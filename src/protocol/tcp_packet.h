@@ -142,7 +142,6 @@ typedef struct _tcpBreakdown tcpBreakdown;
 typedef tcpBreakdown *tcpBreakdownPtr;
 
 struct _tcpBreakdown {
-    u_long_long bkdId;                  /**< Global breakdown id */
     u_long_long timestamp;              /**< Timestamp in seconds */
     char *proto;                        /**< Tcp application level proto type */
     struct in_addr ipSrc;               /**< Source ip */
@@ -168,7 +167,6 @@ struct _tcpBreakdown {
 };
 
 /* Tcp session breakdown json key definitions */
-#define TCP_SKBD_BREAKDOWN_ID "breakdown_id"
 #define TCP_SKBD_TIMESTAMP "timestamp"
 #define TCP_SKBD_PROTOCOL "protocol"
 #define TCP_SKBD_SOURCE_IP "source_ip"

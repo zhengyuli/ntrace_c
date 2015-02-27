@@ -26,7 +26,7 @@ INCLUDE_DIRECTORIES (
   ./
   util
   log
-  service/
+  ownership/
   protocol/
   analyzer/
   3rd_party/http_parser/
@@ -45,13 +45,12 @@ SET (AGENT_SOURCE_FILES
   task_manager.c
   app_service.c
   app_service_manager.c
-  ownership_manager.c
   profile_cache.c
   netdev.c
   session_breakdown_processor.c
   management_service.c
-  ownership_observe_service.c
-  ownership_register_service.c
+  ownership/ownership.c
+  ownership/ownership_manager.c
   protocol/raw_capture_service.c
   protocol/ip_process_service.c
   protocol/icmp_process_service.c

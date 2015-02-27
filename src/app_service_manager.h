@@ -17,7 +17,7 @@ updateAppServiceManager (json_t *root);
 int
 initAppServiceManager (void);
 void
-destroyAppServiceManager (boolean exitNormally);
+destroyAppServiceManager (void);
 /*=======================Interfaces definition end=========================*/
 
 #endif /* __APP_SERVICE_MANAGER_H__ */

@@ -41,11 +41,11 @@ dispatchHash (const char *key1, const char *key2) {
 }
 
 /*
- * @brief Dispatch timestamp and ip packet to specific tcp
- *        packet process service thread.
+ * @brief Dispatch timestamp and ip packet to local or remote
+ *        tcp packet dispatch service.
  *
  * @param iph ip packet to dispatch
- * @param tm capture timestamp to dispatch
+ * @param tm timestamp to dispatch
  */
 static void
 tcpPacketDispatch (iphdrPtr iph, timeValPtr tm) {
@@ -65,7 +65,7 @@ tcpPacketDispatch (iphdrPtr iph, timeValPtr tm) {
     snprintf (key2, sizeof (key2), "%s:%d", inet_ntoa (iph->ipDest), ntohs (tcph->dest));
 
     hash = dispatchHash (key1, key2);
-    tcpPktSendSock = getOwnershipPktSendSock (hash);
+    tcpPktSendSock = getOwnershipPktDispatchSock (hash);
 
     /* Send tm zframe */
     frame = zframe_new (tm, sizeof (timeVal));
@@ -76,7 +76,6 @@ tcpPacketDispatch (iphdrPtr iph, timeValPtr tm) {
     ret = zframe_send (&frame, tcpPktSendSock, ZFRAME_MORE);
     if (ret < 0) {
         LOGE ("Send tm zframe error.\n");
-        zframe_destroy (&frame);
         return;
     }
 
@@ -89,14 +88,13 @@ tcpPacketDispatch (iphdrPtr iph, timeValPtr tm) {
     ret = zframe_send (&frame, tcpPktSendSock, 0);
     if (ret < 0) {
         LOGE ("Send ip packet zframe error.\n");
-        zframe_destroy (&frame);
         return;
     }
 }
 
 /*
  * @brief Dispatch timestamp and ip packet to icmp
- *        packet process service thread.
+ *        packet process service.
  *
  * @param iph ip packet to dispatch
  * @param tm capture timestamp to dispatch
@@ -122,7 +120,6 @@ icmpPacketDispatch (iphdrPtr iph, timeValPtr tm) {
     ret = zframe_send (&frame, icmpPktSendSock, ZFRAME_MORE);
     if (ret < 0) {
         LOGE ("Send tm zframe error.\n");
-        zframe_destroy (&frame);
         return;
     }
 
@@ -135,7 +132,6 @@ icmpPacketDispatch (iphdrPtr iph, timeValPtr tm) {
     ret = zframe_send (&frame, icmpPktSendSock, 0);
     if (ret < 0) {
         LOGE ("Send ip packet zframe error.\n");
-        zframe_destroy (&frame);
         return;
     }
 }
@@ -229,7 +225,7 @@ ipProcessService (void *args) {
         zframe_destroy (&pktFrame);
     }
 
-    LOGI ("IpPktProcessService will exit ... .. .\n");
+    LOGI ("IpProcessService will exit ... .. .\n");
     destroyIp ();
 destroyLogContext:
     destroyLogContext ();

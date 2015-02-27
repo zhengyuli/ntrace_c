@@ -4,23 +4,12 @@
 #include <stdlib.h>
 #include "util.h"
 
-typedef enum {
-    ROLE_MASTER = 0,
-    ROLE_SLAVE = 1
-} roleType;
-
 typedef struct _properties properties;
 typedef properties *propertiesPtr;
 
 struct _properties {
     boolean daemonMode;                 /**< Daemon mode */
 
-    roleType role;                      /**< Role type */
-
-    char *masterIp;                     /**< Master ip */
-
-    char *slaveIp;                      /**< Slave ip */
-    
     char *mirrorInterface;              /**< Mirror interface */
 
     char *pcapOfflineInput;             /**< Pcap offline input file */
@@ -38,18 +27,6 @@ boolean
 getPropertiesDaemonMode (void);
 void
 updatePropertiesDaemonMode (boolean daemonMode);
-roleType
-getPropertiesRoleType (void);
-void
-updatePropertiesRoleType (roleType role);
-char *
-getPropertiesMasterIp (void);
-void
-updatePropertiesMasterIp (char *ip);
-char *
-getPropertiesSlaveIp (void);
-void
-updatePropertiesSlaveIp (char *ip);
 char *
 getPropertiesMirrorInterface (void);
 void

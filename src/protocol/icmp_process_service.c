@@ -84,7 +84,7 @@ icmpProcessService (void *args) {
         zframe_destroy (&ipPktFrame);
     }
 
-    LOGI ("IcmpPktProcessService will exit ... .. .\n");
+    LOGI ("IcmpProcessService will exit ... .. .\n");
     destroyIcmp ();
 destroyLogContext:
     destroyLogContext ();

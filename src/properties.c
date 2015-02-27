@@ -16,9 +16,6 @@ newProperties (void) {
         return NULL;
 
     tmp->daemonMode = 0;
-    tmp->role = ROLE_MASTER;
-    tmp->masterIp = NULL;
-    tmp->slaveIp = NULL;
     tmp->mirrorInterface = NULL;
     tmp->pcapOfflineInput = NULL;
     tmp->breakdownSinkIp = NULL;
@@ -34,10 +31,6 @@ freeProperties (propertiesPtr instance) {
     if (instance == NULL)
         return;
 
-    free (instance->masterIp);
-    instance->masterIp = NULL;
-    free (instance->slaveIp);
-    instance->slaveIp = NULL;
     free (instance->mirrorInterface);
     instance->mirrorInterface = NULL;
     free (instance->pcapOfflineInput);
@@ -91,69 +84,25 @@ loadPropertiesFromConfigFile (char *configFile) {
     else
         tmp->daemonMode = false;
 
-    /* Get role */
-    ret = get_config_item ("MAIN", "role", iniConfig, &item);
-    if (ret) {
-        fprintf(stderr, "Get_config_item \"role\" error.\n");
+    /* Get mirror interface */
+    ret = get_config_item ("MAIN", "mirrorInterface", iniConfig, &item);
+    if (ret || (item == NULL)) {
+        fprintf (stderr, "Get_config_item \"mirrorInterface\" error.\n");
         goto freeProperties;
     }
-    ret = get_int_config_value (item, 1, 0, &error);
-    if (error && item) {
-        fprintf (stderr, "Parse \"role\" error.\n");
+    tmp->mirrorInterface = strdup (get_const_string_config_value (item, &error));
+    if (tmp->mirrorInterface == NULL) {
+        fprintf (stderr, "Get \"mirrorInterface\" error.\n");
         goto freeProperties;
     }
-    if (ret)
-        tmp->role = ROLE_SLAVE;
-    else
-        tmp->role = ROLE_MASTER;
 
-
-    /* Get master/slave ip if role is slave */
-    if (tmp->role == ROLE_SLAVE) {
-        ret = get_config_item ("MAIN", "masterIp", iniConfig, &item);
-        if (ret || (item == NULL)) {
-            fprintf (stderr, "Get_config_item \"masterIp\" error.\n");
+    /* Get pcap offline input */
+    ret = get_config_item ("MAIN", "pcapOfflineInput", iniConfig, &item);
+    if (!ret && item) {
+        tmp->pcapOfflineInput = strdup (get_const_string_config_value (item, &error));
+        if (tmp->pcapOfflineInput == NULL) {
+            fprintf (stderr, "Get \"pcapOfflineInput\" error.\n");
             goto freeProperties;
-        }
-        tmp->masterIp = strdup (get_const_string_config_value (item, &error));
-        if (tmp->masterIp == NULL) {
-            fprintf (stderr, "Get \"masterIp\" error.\n");
-            goto freeProperties;
-        }
-
-        ret = get_config_item ("MAIN", "slaveIp", iniConfig, &item);
-        if (ret || (item == NULL)) {
-            fprintf (stderr, "Get_config_item \"slaveIp\" error.\n");
-            goto freeProperties;
-        }
-        tmp->slaveIp = strdup (get_const_string_config_value (item, &error));
-        if (tmp->slaveIp == NULL) {
-            fprintf (stderr, "Get \"slaveIp\" error.\n");
-            goto freeProperties;
-        }
-    }
-
-    if (tmp->role == ROLE_MASTER) {
-        /* Get mirror interface */
-        ret = get_config_item ("MAIN", "mirrorInterface", iniConfig, &item);
-        if (ret || (item == NULL)) {
-            fprintf (stderr, "Get_config_item \"mirrorInterface\" error.\n");
-            goto freeProperties;
-        }
-        tmp->mirrorInterface = strdup (get_const_string_config_value (item, &error));
-        if (tmp->mirrorInterface == NULL) {
-            fprintf (stderr, "Get \"mirrorInterface\" error.\n");
-            goto freeProperties;
-        }
-
-        /* Get pcap offline input */
-        ret = get_config_item ("MAIN", "pcapOfflineInput", iniConfig, &item);
-        if (!ret && item) {
-            tmp->pcapOfflineInput = strdup (get_const_string_config_value (item, &error));
-            if (tmp->pcapOfflineInput == NULL) {
-                fprintf (stderr, "Get \"pcapOfflineInput\" error.\n");
-                goto freeProperties;
-            }
         }
     }
 
@@ -240,38 +189,6 @@ updatePropertiesDaemonMode (boolean daemonMode) {
     propertiesInstance->daemonMode = daemonMode;
 }
 
-roleType
-getPropertiesRoleType (void) {
-    return propertiesInstance->role;
-}
-
-void
-updatePropertiesRoleType (roleType role) {
-    propertiesInstance->role = role;
-}
-
-char *
-getPropertiesMasterIp (void) {
-    return propertiesInstance->masterIp;
-}
-
-void
-updatePropertiesMasterIp (char *ip) {
-    free (propertiesInstance->masterIp);
-    propertiesInstance->masterIp = strdup (ip);
-}
-
-char *
-getPropertiesSlaveIp (void) {
-    return propertiesInstance->slaveIp;
-}
-
-void
-updatePropertiesSlaveIp (char *ip) {
-    free (propertiesInstance->slaveIp);
-    propertiesInstance->slaveIp = strdup (ip);
-}
-
 char *
 getPropertiesMirrorInterface (void) {
     return propertiesInstance->mirrorInterface;
@@ -352,11 +269,6 @@ displayPropertiesDetail (void) {
     fprintf (stdout, "Startup with properties:\n");
     fprintf (stdout, "{\n");
     fprintf (stdout, "    daemonMode: %s\n", propertiesInstance->daemonMode ? "true" : "false");
-    fprintf (stdout, "    role: %s\n", (propertiesInstance->role == ROLE_MASTER) ? "master" : "slave");
-    if (propertiesInstance->role == ROLE_SLAVE) {
-        fprintf (stdout, "    masterIp: %s\n", propertiesInstance->masterIp);
-        fprintf (stdout, "    slaveIp: %s\n", propertiesInstance->slaveIp);
-    }
     fprintf (stdout, "    mirrorInterface: %s\n", propertiesInstance->mirrorInterface);
     fprintf (stdout, "    pcapOfflineInput: %s\n", propertiesInstance->pcapOfflineInput);
     fprintf (stdout, "    breakdownSinkIp: %s\n", propertiesInstance->breakdownSinkIp);
@@ -402,6 +314,16 @@ initProperties (char *configFile) {
 /* Destroy properties */
 void
 destroyProperties (void) {
+    free (propertiesInstance->mirrorInterface);
+    propertiesInstance->mirrorInterface = NULL;
+    free (propertiesInstance->pcapOfflineInput);
+    propertiesInstance->pcapOfflineInput = NULL;
+    free (propertiesInstance->breakdownSinkIp);
+    propertiesInstance->breakdownSinkIp = NULL;
+    free (propertiesInstance->logDir);
+    propertiesInstance->logDir = NULL;
+    free (propertiesInstance->logFileName);
+    propertiesInstance->logFileName = NULL;
     freeProperties (propertiesInstance);
     propertiesInstance = NULL;
 }

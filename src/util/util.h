@@ -68,6 +68,8 @@ u_long_long
 timeVal2MilliSecond (timeValPtr tm);
 u_long_long
 timeVal2MicoSecond (timeValPtr tm);
+u_long_long
+getSysTime (void);
 
 u_long_long
 ntohll (u_long_long src);
@@ -89,13 +91,15 @@ boolean
 fileIsEmpty (char *path);
 
 pid_t
-gettid ();
+gettid (void);
 char *
 getIpAddrOfInterface (char *interface);
 u_int
 getCpuCoresNum (void);
-void
-getMemInfo (u_int *totalMem, u_int *freeMem);
+u_int
+getTotalMemory (void);
+u_int
+getFreeMemory (void);
 /*=======================Interfaces definition end=========================*/
 
 #endif /* __UTIL_H__ */

@@ -23,26 +23,6 @@ getManagementReplySock (void) {
 }
 
 void *
-getProfilePubSock (void) {
-    return zmqHubIntance->profilePubSock;
-}
-
-void *
-getProfileSubSock (void) {
-    return zmqHubIntance->profileSubSock;
-}
-
-void *
-getSlaveObserveSock (void) {
-    return zmqHubIntance->slaveObserveSock;
-}
-
-void *
-getSlaveRegisterSock (void) {
-    return zmqHubIntance->slaveRegisterSock;
-}
-
-void *
 getTaskStatusSendSock (void) {
     return zmqHubIntance->taskStatusSendSock;
 }
@@ -77,6 +57,11 @@ getIcmpBreakdownSendSock (void) {
     return zmqHubIntance->icmpBreakdownSendSock;
 }
 
+void *
+getTcpPktDispatchRecvSock (void) {
+    return zmqHubIntance->tcpPktDispatchRecvSock;
+}
+
 u_int
 getTcpProcessThreadsNum (void) {
     return zmqHubIntance->tcpProcessThreadsNum;
@@ -103,8 +88,8 @@ getTcpBreakdownSendSock (u_int index) {
 
 int
 initZmqHub (void) {
-    int i, size;
     int ret;
+    u_int i, size;
 
     /* Alloc zmqHubIntance */
     zmqHubIntance = (zmqHubPtr) malloc (sizeof (zmqHub));
@@ -121,69 +106,16 @@ initZmqHub (void) {
     }
     zctx_set_linger (zmqHubIntance->zmqCtxt, 0);
 
-    if (getPropertiesRoleType () == ROLE_MASTER) {
-        /* Create managementReplySock */
-        zmqHubIntance->managementReplySock = zsocket_new (zmqHubIntance->zmqCtxt, ZMQ_REP);
-        if (zmqHubIntance->managementReplySock == NULL) {
-            LOGE ("Create managementReplySock error.\n");
-            goto destroyZmqCtxt;
-        }
-        ret = zsocket_bind (zmqHubIntance->managementReplySock, "tcp://*:%u", MANAGEMENT_SERVICE_PORT);
-        if (ret < 0) {
-            LOGE ("Bind to tcp://*:%u error.\n", MANAGEMENT_SERVICE_PORT);
-            goto destroyZmqCtxt;
-        }
-
-        /* Create profilePubSock */
-        zmqHubIntance->profilePubSock = zsocket_new (zmqHubIntance->zmqCtxt, ZMQ_PUB);
-        if (zmqHubIntance->profilePubSock == NULL) {
-            LOGE ("Create profilePubSock error.\n");
-            goto destroyZmqCtxt;
-        }
-        ret = zsocket_bind (zmqHubIntance->profilePubSock, "tcp://*:%u", PROFILE_PUBLISH_PORT);
-        if (ret < 0) {
-            LOGE ("Bind to tcp://*:%u error.\n", PROFILE_PUBLISH_PORT);
-            goto destroyZmqCtxt;
-        }
-
-        /* Create slaveObserveSock */
-        zmqHubIntance->slaveObserveSock = zsocket_new (zmqHubIntance->zmqCtxt, ZMQ_ROUTER);
-        if (zmqHubIntance->slaveObserveSock == NULL) {
-            LOGE ("Create slaveObserveSock error.\n");
-            goto destroyZmqCtxt;
-        }
-        ret = zsocket_bind (zmqHubIntance->managementReplySock, "tcp://*:%u", OWNERSHIP_OBSERVE_PORT);
-        if (ret < 0) {
-            LOGE ("Bind to tcp://*:%u error.\n", OWNERSHIP_OBSERVE_PORT);
-            goto destroyZmqCtxt;
-        }
-    } else {
-        /* Create profileSubSock */
-        zmqHubIntance->profileSubSock = zsocket_new (zmqHubIntance->zmqCtxt, ZMQ_SUB);
-        if (zmqHubIntance->profileSubSock == NULL) {
-            LOGE ("Create profileSubSock error.\n");
-            goto destroyZmqCtxt;
-        }
-        ret = zsocket_connect (zmqHubIntance->profileSubSock, "tcp://%s:%u",
-                               getPropertiesMasterIp (), PROFILE_PUBLISH_PORT);
-        if (ret < 0) {
-            LOGE ("Connect to tcp://%s:%u error.\n", getPropertiesMasterIp (), PROFILE_PUBLISH_PORT);
-            goto destroyZmqCtxt;
-        }
-        zsocket_set_subscribe (zmqHubIntance->profileSubSock, ""); 
-        
-        /* Create slaveRegisterSock */
-        zmqHubIntance->slaveRegisterSock = zsocket_new (zmqHubIntance->zmqCtxt, ZMQ_DEALER);
-        if (zmqHubIntance->slaveRegisterSock == NULL) {
-            LOGE ("Create slaveRegisterSock error.\n");
-            goto destroyZmqCtxt;
-        }
-        ret = zsocket_connect (zmqHubIntance->slaveRegisterSock, "tcp://%s:%u",
-                               getPropertiesMasterIp (), OWNERSHIP_OBSERVE_PORT);
-        if (ret < 0) {
-            LOGE ("Connect to tcp://%s:%u error.\n", getPropertiesMasterIp (), OWNERSHIP_OBSERVE_PORT);
-            goto destroyZmqCtxt;
-        }
+    /* Create managementReplySock */
+    zmqHubIntance->managementReplySock = zsocket_new (zmqHubIntance->zmqCtxt, ZMQ_REP);
+    if (zmqHubIntance->managementReplySock == NULL) {
+        LOGE ("Create managementReplySock error.\n");
+        goto destroyZmqCtxt;
+    }
+    ret = zsocket_bind (zmqHubIntance->managementReplySock, "tcp://*:%u", MANAGEMENT_SERVICE_PORT);
+    if (ret < 0) {
+        LOGE ("Bind to tcp://*:%u error.\n", MANAGEMENT_SERVICE_PORT);
+        goto destroyZmqCtxt;
     }
 
     /* Create taskStatusSendSock */
@@ -210,50 +142,35 @@ initZmqHub (void) {
         goto destroyZmqCtxt;
     }
 
+    /* Set zmq context io threads */
     zctx_set_iothreads (zmqHubIntance->zmqCtxt, 3);
 
-    if (getPropertiesRoleType () == ROLE_MASTER) {
-        /* Create ipPktSendSock */
-        zmqHubIntance->ipPktSendSock = zsocket_new (zmqHubIntance->zmqCtxt, ZMQ_PUSH);
-        if (zmqHubIntance->ipPktSendSock == NULL) {
-            LOGE ("Create ipPktSendSock error.\n");
-            goto destroyZmqCtxt;
-        }
-        /* Set ipPktSendSock sndhwm to 500,000 */
-        zsocket_set_sndhwm (zmqHubIntance->ipPktSendSock, 500000);
-        ret = zsocket_bind (zmqHubIntance->ipPktSendSock, IP_PACKET_EXCHANGE_CHANNEL);
-        if (ret < 0) {
-            LOGE ("Bind to %s error.\n", IP_PACKET_EXCHANGE_CHANNEL);
-            goto destroyZmqCtxt;
-        }
+    /* Create ipPktSendSock */
+    zmqHubIntance->ipPktSendSock = zsocket_new (zmqHubIntance->zmqCtxt, ZMQ_PUSH);
+    if (zmqHubIntance->ipPktSendSock == NULL) {
+        LOGE ("Create ipPktSendSock error.\n");
+        goto destroyZmqCtxt;
+    }
+    /* Set ipPktSendSock sndhwm to 500,000 */
+    zsocket_set_sndhwm (zmqHubIntance->ipPktSendSock, 500000);
+    ret = zsocket_bind (zmqHubIntance->ipPktSendSock, IP_PACKET_EXCHANGE_CHANNEL);
+    if (ret < 0) {
+        LOGE ("Bind to %s error.\n", IP_PACKET_EXCHANGE_CHANNEL);
+        goto destroyZmqCtxt;
+    }
 
-        /* Create ipPktRecvSock */
-        zmqHubIntance->ipPktRecvSock = zsocket_new (zmqHubIntance->zmqCtxt, ZMQ_PULL);
-        if (zmqHubIntance->ipPktRecvSock == NULL) {
-            LOGE ("Create ipPktRecvSock error.\n");
-            goto destroyZmqCtxt;
-        }
-        /* Set ipPktRecvSock rcvhwm to 500,000 */
-        zsocket_set_rcvhwm (zmqHubIntance->ipPktRecvSock, 500000);
-        ret = zsocket_connect (zmqHubIntance->ipPktRecvSock, IP_PACKET_EXCHANGE_CHANNEL);
-        if (ret < 0) {
-            LOGE ("Connect to %s error.\n", IP_PACKET_EXCHANGE_CHANNEL);
-            goto destroyZmqCtxt;
-        }
-    } else {
-        /* Create ipPktRecvSock */
-        zmqHubIntance->ipPktRecvSock = zsocket_new (zmqHubIntance->zmqCtxt, ZMQ_PULL);
-        if (zmqHubIntance->ipPktRecvSock == NULL) {
-            LOGE ("Create ipPktRecvSock error.\n");
-            goto destroyZmqCtxt;
-        }
-        /* Set ipPktRecvSock rcvhwm to 500,000 */
-        zsocket_set_rcvhwm (zmqHubIntance->ipPktRecvSock, 500000);
-        ret = zsocket_bind (zmqHubIntance->ipPktRecvSock, "tcp://*:%u", IP_PACKET_RECV_PORT);
-        if (ret < 0) {
-            LOGE ("Bind to %s error.\n", IP_PACKET_RECV_PORT);
-            goto destroyZmqCtxt;
-        }
+    /* Create ipPktRecvSock */
+    zmqHubIntance->ipPktRecvSock = zsocket_new (zmqHubIntance->zmqCtxt, ZMQ_PULL);
+    if (zmqHubIntance->ipPktRecvSock == NULL) {
+        LOGE ("Create ipPktRecvSock error.\n");
+        goto destroyZmqCtxt;
+    }
+    /* Set ipPktRecvSock rcvhwm to 500,000 */
+    zsocket_set_rcvhwm (zmqHubIntance->ipPktRecvSock, 500000);
+    ret = zsocket_connect (zmqHubIntance->ipPktRecvSock, IP_PACKET_EXCHANGE_CHANNEL);
+    if (ret < 0) {
+        LOGE ("Connect to %s error.\n", IP_PACKET_EXCHANGE_CHANNEL);
+        goto destroyZmqCtxt;
     }
 
     /* Create icmpPktSendSock */
@@ -296,6 +213,20 @@ initZmqHub (void) {
     if (ret < 0) {
         LOGE ("Connect to tcp://%s:%u error.\n",
               getPropertiesBreakdownSinkIp (), getPropertiesBreakdownSinkPort ());
+        goto destroyZmqCtxt;
+    }
+
+    /* Create tcpPktDispatchRecvSock */
+    zmqHubIntance->tcpPktDispatchRecvSock = zsocket_new (zmqHubIntance->zmqCtxt, ZMQ_PULL);
+    if (zmqHubIntance->tcpPktDispatchRecvSock == NULL) {
+        LOGE ("Create tcpPktDispatchRecvSock error.\n");
+        goto destroyZmqCtxt;
+    }
+    /* Set tcpPktDispatchRecvSock rcvhwm to 500,000 */
+    zsocket_set_rcvhwm (zmqHubIntance->tcpPktDispatchRecvSock, 500000);
+    ret = zsocket_bind (zmqHubIntance->tcpPktDispatchRecvSock, "tcp://*:%u", TCP_PACKET_DISPATCH_RECV_PORT);
+    if (ret < 0) {
+        LOGE ("Bind to tcp://*:%u error.\n", TCP_PACKET_DISPATCH_RECV_PORT);
         goto destroyZmqCtxt;
     }
 

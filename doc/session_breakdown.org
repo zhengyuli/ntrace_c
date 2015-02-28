@@ -7,7 +7,6 @@
 | variable type     | variable name     | breakdown type | breakdown name            | description                                                 |
 |-------------------+-------------------+----------------+---------------------------+-------------------------------------------------------------|
 | /                 | <                 | <              | <                         | <                                                           |
-| u_long_long       | bkdId             | u_long_long    | breakdown_id              | Global breakdown id                                         |
 | u_long_long       | timestamp         | u_long_long    | timestamp                 | Timestamp in seconds                                        |
 | protoType         | proto             | char *         | protocol                  | Tcp application level protocol type                         |
 | struct in_addr    | srcIp             | char *         | source_ip                 | Source ip                                                   |

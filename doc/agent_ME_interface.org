@@ -19,11 +19,11 @@
   }
 #+END_SRC
 
-* Stop
+* Pause
 ** request:
 #+BEGIN_SRC js
   {
-      "command":"stop"
+      "command":"pause"
       "body":{}
   }
 #+END_SRC
@@ -59,7 +59,7 @@
   {
       "command":"update_profile"
       "body":{
-          "app_services":[{"service_id":"1" ...}, {"service_id":"2" ...}]
+          "app_services":[{"id":1, "proto":"HTTP", "ip":"210.28.129.4", "port":80}, {"id":2 ...}]
       }
   }
 #+END_SRC

@@ -9,6 +9,8 @@ getNetDev (void);
 int
 getNetDevDatalinkType (void);
 int
+getNetDevPakcetsStatistic (u_int *pktsRecv, u_int *pktsDrop);
+int
 updateFilter (char *filter);
 int
 initNetDev (void);

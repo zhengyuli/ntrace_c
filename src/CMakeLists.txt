@@ -25,7 +25,8 @@ configure_file (
 INCLUDE_DIRECTORIES (
   ./
   util
-  log
+  logger
+  app_service/
   ownership/
   protocol/
   analyzer/
@@ -39,15 +40,14 @@ SET (AGENT_SOURCE_FILES
   properties.c
   option_parser.c
   signals.c
-  log/log_service.c
-  log/log.c
+  logger/log_service.c
+  logger/log.c
   zmq_hub.c
   task_manager.c
-  app_service.c
-  app_service_manager.c
+  app_service/app_service.c
+  app_service/app_service_manager.c
   profile_cache.c
   netdev.c
-  session_breakdown_processor.c
   management_service.c
   ownership/ownership.c
   ownership/ownership_manager.c
@@ -56,6 +56,7 @@ SET (AGENT_SOURCE_FILES
   protocol/icmp_process_service.c
   protocol/tcp_dispatch_service.c
   protocol/tcp_process_service.c
+  protocol/session_breakdown_service.c  
   protocol/checksum.c
   protocol/raw_packet.c
   protocol/ip_options.c
@@ -81,5 +82,5 @@ INSTALL (
   DESTINATION /etc/init.d/
   PERMISSIONS  OWNER_READ OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ)
 
-ADD_SUBDIRECTORY (log)
+ADD_SUBDIRECTORY (logger)
 ADD_SUBDIRECTORY (analyzer)

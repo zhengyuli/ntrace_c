@@ -7,7 +7,6 @@
 #include "task_manager.h"
 #include "ip.h"
 #include "icmp_packet.h"
-#include "session_breakdown_processor.h"
 #include "icmp_process_service.h"
 
 /*
@@ -39,7 +38,7 @@ icmpProcessService (void *args) {
     }
 
     /* Init icmp context */
-    ret = initIcmp (publishSessionBreakdown, icmpBreakdownSendSock);
+    ret = initIcmp (icmpBreakdownSendSock);
     if (ret < 0) {
         LOGE ("Init icmp context error.\n");
         goto destroyLogContext;

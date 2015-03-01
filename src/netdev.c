@@ -108,6 +108,22 @@ getNetDevDatalinkType (void) {
     return datalinkType;
 }
 
+/* Get net device packets statistic info */
+int
+getNetDevPakcetsStatistic (u_int *pktsRecv, u_int *pktsDrop) {
+    int ret;
+    struct pcap_stat ps;
+
+    ret = pcap_stats (pcapDescInstance, &ps);
+    if (ret < 0)
+        return -1;
+
+    *pktsRecv = ps.ps_recv;
+    *pktsDrop = ps.ps_drop;
+    return 0;
+}
+
+/* Update filter of net device */
 int
 updateFilter (char *filter) {
     int ret;

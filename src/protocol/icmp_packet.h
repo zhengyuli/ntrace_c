@@ -4,7 +4,6 @@
 #include <stdlib.h>
 #include <arpa/inet.h>
 #include "util.h"
-#include "session_breakdown_processor.h"
 #include "ip.h"
 #include "icmp.h"
 
@@ -30,7 +29,7 @@ struct _icmpBreakdown {
 void
 icmpProcess (iphdrPtr iph, timeValPtr tm);
 int
-initIcmp (publishSessionBreakdownCB callback, void *args);
+initIcmp (void *sock);
 void
 destroyIcmp (void);
 /*=======================Interfaces definition end=========================*/

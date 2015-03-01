@@ -7,7 +7,6 @@
 #include "task_manager.h"
 #include "ip.h"
 #include "tcp_packet.h"
-#include "session_breakdown_processor.h"
 #include "tcp_process_service.h"
 
 /*
@@ -41,7 +40,7 @@ tcpProcessService (void *args) {
     }
 
     /* Init tcp context */
-    ret = initTcp (publishSessionBreakdown, tcpBreakdownSendSock);
+    ret = initTcp (tcpBreakdownSendSock);
     if (ret < 0) {
         LOGE ("Init tcp context error.\n");
         goto destroyLogContext;

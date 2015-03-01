@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <arpa/inet.h>
 #include <jansson.h>
+#include <czmq.h>
 #include "util.h"
 #include "log.h"
 #include "app_service_manager.h"
@@ -9,10 +10,22 @@
 #include "icmp.h"
 #include "icmp_packet.h"
 
-/* Icmp breakdown publish callback */
-static publishSessionBreakdownCB publishSessionBreakdownCallbackFunc;
-/* Icmp breakdown publish callback args */
-static void *publishSessionBreakdownCallbackArgs;
+/* Icmp breakdown send sock */
+static void *icmpBreakdownSendSock;
+
+static void
+publishIcmpBreakdown (char *sessionBreakdown) {
+    int ret;
+    u_int retries = 3;
+
+    do {
+        ret = zstr_send (icmpBreakdownSendSock, sessionBreakdown);
+        retries -= 1;
+    } while ((ret < 0) && retries);
+
+    if (ret < 0)
+        LOGE ("Send icmp breakdown error.\n");
+}
 
 static char *
 icmpBreakdown2Json (icmpBreakdownPtr ibd) {
@@ -54,13 +67,19 @@ icmpPktShouldDrop (iphdrPtr iph, tcphdrPtr tcph) {
         return true;
 }
 
+/*
+ * @brief Icmp pakcet processor
+ * 
+ * @param iph ip packet header
+ * @param tm packet capture timestamp
+ */
 void
 icmpProcess (iphdrPtr iph, timeValPtr tm) {
     u_int len;
     icmphdrPtr icmph;
     iphdrPtr origIph;
     tcphdrPtr origTcph;
-    icmpBreakdown breakdown;
+    icmpBreakdown ibd;
     char *jsonStr;
 
     len = ntohs (iph->ipLen) - iph->iphLen * 4;
@@ -85,37 +104,31 @@ icmpProcess (iphdrPtr iph, timeValPtr tm) {
     if (origIph->ipProto != IPPROTO_TCP)
         return;
 
-    breakdown.timestamp = ntohll (tm->tvSec);
-    breakdown.type = icmph->type;
-    breakdown.code = icmph->code;
-    breakdown.ip = origIph->ipDest;
+    ibd.timestamp = ntohll (tm->tvSec);
+    ibd.type = icmph->type;
+    ibd.code = icmph->code;
+    ibd.ip = origIph->ipDest;
 
     if (icmph->code == ICMP_PORT_UNREACH) {
         origTcph = (tcphdrPtr) ((u_char *) origIph + origIph->iphLen * 4);
         if (icmpPktShouldDrop (origIph, origTcph))
             return;
-        breakdown.port = ntohs (origTcph->dest);
+        ibd.port = ntohs (origTcph->dest);
     }
 
-    jsonStr = icmpBreakdown2Json (&breakdown);
+    jsonStr = icmpBreakdown2Json (&ibd);
     if (jsonStr == NULL) {
         LOGE ("IcmpBreakdown2Json error.\n");
         return;
     }
 
-    publishSessionBreakdownCallbackFunc (jsonStr, publishSessionBreakdownCallbackArgs);
+    publishIcmpBreakdown (jsonStr);
     free (jsonStr);
 }
 
 int
-initIcmp (publishSessionBreakdownCB callback, void *args) {
-    if (callback == NULL) {
-        LOGE ("Publish session breakdown callback is null.\n");
-        return -1;
-    }
-
-    publishSessionBreakdownCallbackFunc = callback;
-    publishSessionBreakdownCallbackArgs = args;
+initIcmp (void *sock) {
+    icmpBreakdownSendSock = sock;
 
     return 0;
 }

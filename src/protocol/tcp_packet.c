@@ -7,6 +7,7 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 #include <jansson.h>
+#include <czmq.h>
 #include "config.h"
 #include "util.h"
 #include "list.h"
@@ -55,12 +56,10 @@ static __thread listHead tcpStreamTimoutList;
 /* Tcp stream hash table */
 static __thread hashTablePtr tcpStreamHashTable;
 
-/* Tcp breakdown publish callback */
-static __thread publishSessionBreakdownCB publishSessionBreakdownCallbackFunc;
-/* Tcp breakdown publish callback args */
-static __thread void *publishSessionBreakdownCallbackArgs;
+/* Tcp breakdown send sock */
+static __thread void *tcpBreakdownSendSock;
 
-/* Tcp stream hash */
+/* Tcp stream cache */
 static __thread tcpStreamPtr streamCache = NULL;
 
 static inline boolean
@@ -519,6 +518,20 @@ addNewTcpStream (tcphdrPtr tcph, iphdrPtr iph, timeValPtr tm) {
     }
 }
 
+static void
+publishTcpBreakdown (char *sessionBreakdown) {
+    int ret;
+    u_int retries = 3;
+
+    do {
+        ret = zstr_send (tcpBreakdownSendSock, sessionBreakdown);
+        retries -= 1;
+    } while ((ret < 0) && retries);
+
+    if (ret < 0)
+        LOGE ("Send tcp breakdown error.\n");
+}
+
 static char *
 tcpBreakdown2Json (tcpStreamPtr stream, tcpBreakdownPtr tbd) {
     char *out;
@@ -687,7 +700,7 @@ generateSessionBreakdown (tcpStreamPtr stream, timeValPtr tm) {
         (*stream->analyzer->freeSessionBreakdown) (tbd.sessionBreakdown);
         return;
     }
-    publishSessionBreakdownCallbackFunc (jsonStr, publishSessionBreakdownCallbackArgs);
+    publishTcpBreakdown (jsonStr);
 
     /* Free json string and application layer session breakdown */
     free (jsonStr);
@@ -740,7 +753,7 @@ handleEstb (tcpStreamPtr stream, timeValPtr tm) {
     generateSessionBreakdown (stream, tm);
 }
 
-/* Tcp urgence data handler callback */
+/* Tcp urgency data handler callback */
 static void
 handleUrgData (tcpStreamPtr stream, halfStreamPtr snd, u_char urgData, timeValPtr tm) {
     streamDirection direction;
@@ -1076,12 +1089,10 @@ tcpQueue (tcpStreamPtr stream,
 }
 
 /*
- * @brief Tcp process portal, it will construct tcp connection, tcp data
- *        defragment, generate tcp session breakdown, publish tcp session
- *        breakdown and tcp stream context destroy.
+ * @brief Tcp packet processor
  *
  * @param iph ip packet header
- * @param tm current timestamp
+ * @param tm packet capture timestamp
  */
 void
 tcpProcess (iphdrPtr iph, timeValPtr tm) {
@@ -1294,19 +1305,13 @@ destroyTcpSharedInstance (void) {
 
 /* Init tcp context */
 int
-initTcp (publishSessionBreakdownCB callback, void *args) {
-    if (callback == NULL) {
-        LOGE ("Publish session breakdown callback is null.\n");
-        return -1;
-    }
-
+initTcp (void *sock) {
     pthread_once (&tcpInitOnceControl, initTcpSharedInstance);
 
     initListHead (&tcpStreamList);
     initListHead (&tcpStreamTimoutList);
 
-    publishSessionBreakdownCallbackFunc = callback;
-    publishSessionBreakdownCallbackArgs = args;
+    tcpBreakdownSendSock = sock;
 
     tcpStreamHashTable = hashNew (DEFAULT_TCP_STREAM_HASH_TABLE_SIZE);
     if (tcpStreamHashTable == NULL) {

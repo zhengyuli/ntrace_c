@@ -5,7 +5,6 @@
 #include <uuid/uuid.h>
 #include "util.h"
 #include "list.h"
-#include "session_breakdown_processor.h"
 #include "ip.h"
 #include "proto_analyzer.h"
 
@@ -145,7 +144,7 @@ struct _tcpBreakdown {
     u_long_long timestamp;              /**< Timestamp in seconds */
     char *proto;                        /**< Tcp application level proto type */
     struct in_addr ipSrc;               /**< Source ip */
-    u_short source;                    /**< Source port */
+    u_short source;                     /**< Source port */
     struct in_addr svcIp;               /**< Service ip */
     u_short svcPort;                    /**< Service port */
     uuid_t connId;                      /**< Global tcp connection id */
@@ -193,7 +192,7 @@ struct _tcpBreakdown {
 void
 tcpProcess (iphdrPtr iph, timeValPtr tm);
 int
-initTcp (publishSessionBreakdownCB callback, void *args);
+initTcp (void *sock);
 void
 destroyTcp (void);
 /*=======================Interfaces definition end=========================*/

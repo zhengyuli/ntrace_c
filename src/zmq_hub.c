@@ -13,6 +13,7 @@
 #define IP_PACKET_EXCHANGE_CHANNEL "inproc://ipPacketExchangeChannel"
 #define ICMP_PACKET_EXCHANGE_CHANNEL "inproc://icmpPacketExchangeChannel"
 #define TCP_PACKET_EXCHANGE_CHANNEL "inproc://tcpPacketExchangeChannel"
+#define SESSION_BREAKDOWN_EXCHANGE_CHANNEL "inproc://sessionBreakdownExchangeChannel"
 
 /* Zmq hub instance */
 static zmqHubPtr zmqHubIntance = NULL;
@@ -40,6 +41,16 @@ getIpPktSendSock (void) {
 void *
 getIpPktRecvSock (void) {
     return zmqHubIntance->ipPktRecvSock;
+}
+
+void *
+getSessionBreakdownRecvSock (void) {
+    return zmqHubIntance->sessionBreakdownRecvSock;
+}
+
+void *
+getSessionBreakdownPushSock (void) {
+    return zmqHubIntance->sessionBreakdownPushSock;
 }
 
 void *
@@ -173,6 +184,34 @@ initZmqHub (void) {
         goto destroyZmqCtxt;
     }
 
+    /* Create session breakdown recv sock */
+    zmqHubIntance->sessionBreakdownRecvSock = zsocket_new (zmqHubIntance->zmqCtxt, ZMQ_PULL);
+    if (zmqHubIntance->sessionBreakdownRecvSock == NULL) {
+        LOGE ("Create sessionBreakdownRecvSock error.\n");
+        goto destroyZmqCtxt;
+    }
+    zsocket_set_rcvhwm (zmqHubIntance->sessionBreakdownRecvSock, 500000);
+    ret = zsocket_bind (zmqHubIntance->sessionBreakdownRecvSock, SESSION_BREAKDOWN_EXCHANGE_CHANNEL);
+    if (ret < 0) {
+        LOGE ("Bind to %s error.\n", SESSION_BREAKDOWN_EXCHANGE_CHANNEL);
+        goto destroyZmqCtxt;
+    }
+
+    /* Create session breakdown push sock */
+    zmqHubIntance->sessionBreakdownPushSock = zsocket_new (zmqHubIntance->zmqCtxt, ZMQ_PUSH);
+    if (zmqHubIntance->sessionBreakdownPushSock == NULL) {
+        LOGE ("Create sessionBreakdownPushSock error.\n");
+        goto destroyZmqCtxt;
+    }
+    zsocket_set_sndhwm (zmqHubIntance->sessionBreakdownPushSock, 500000);
+    ret = zsocket_connect (zmqHubIntance->sessionBreakdownPushSock, "tcp://%s:%u",
+                           getPropertiesBreakdownSinkIp (), getPropertiesBreakdownSinkPort ());
+    if (ret < 0) {
+        LOGE ("Connect to tcp://%s:%u error.\n",
+              getPropertiesBreakdownSinkIp (), getPropertiesBreakdownSinkPort ());
+        goto destroyZmqCtxt;
+    }
+
     /* Create icmpPktSendSock */
     zmqHubIntance->icmpPktSendSock = zsocket_new (zmqHubIntance->zmqCtxt, ZMQ_PUSH);
     if (zmqHubIntance->icmpPktSendSock == NULL) {
@@ -208,11 +247,9 @@ initZmqHub (void) {
         goto destroyZmqCtxt;
     }
     zsocket_set_sndhwm (zmqHubIntance->icmpBreakdownSendSock, 500000);
-    ret = zsocket_connect (zmqHubIntance->icmpBreakdownSendSock, "tcp://%s:%u",
-                           getPropertiesBreakdownSinkIp (), getPropertiesBreakdownSinkPort ());
+    ret = zsocket_connect (zmqHubIntance->icmpBreakdownSendSock, SESSION_BREAKDOWN_EXCHANGE_CHANNEL);
     if (ret < 0) {
-        LOGE ("Connect to tcp://%s:%u error.\n",
-              getPropertiesBreakdownSinkIp (), getPropertiesBreakdownSinkPort ());
+        LOGE ("Connect to %s error.\n", SESSION_BREAKDOWN_EXCHANGE_CHANNEL);
         goto destroyZmqCtxt;
     }
 
@@ -302,11 +339,9 @@ initZmqHub (void) {
             goto freeTcpBreakdownSendSocks;
         }
         zsocket_set_sndhwm (zmqHubIntance->tcpBreakdownSendSocks [i], 500000);
-        ret = zsocket_connect (zmqHubIntance->tcpBreakdownSendSocks [i], "tcp://%s:%u",
-                               getPropertiesBreakdownSinkIp (), getPropertiesBreakdownSinkPort ());
+        ret = zsocket_connect (zmqHubIntance->tcpBreakdownSendSocks [i], SESSION_BREAKDOWN_EXCHANGE_CHANNEL);
         if (ret < 0) {
-            LOGE ("Connect to tcp://%s:%u error.\n",
-                  getPropertiesBreakdownSinkIp (), getPropertiesBreakdownSinkPort ());
+            LOGE ("Connect to %s error.\n", SESSION_BREAKDOWN_EXCHANGE_CHANNEL);
             goto freeTcpBreakdownSendSocks;
         }
     }

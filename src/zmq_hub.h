@@ -21,6 +21,9 @@ struct _zmqHub {
     void *ipPktSendSock;                /**< Ip packet send sock */
     void *ipPktRecvSock;                /**< Ip packet recv sock */
 
+    void *sessionBreakdownRecvSock;     /**< Session breakdown recv sock */
+    void *sessionBreakdownPushSock;     /**< Session breakdown push sock */
+    
     void *icmpPktSendSock;              /**< Icmp packet send sock */
     void *icmpPktRecvSock;              /**< Icmp packet recv sock */
     void *icmpBreakdownSendSock;        /**< Icmp breakdown send sock */
@@ -45,6 +48,10 @@ void *
 getIpPktSendSock (void);
 void *
 getIpPktRecvSock (void);
+void *
+getSessionBreakdownRecvSock (void);
+void *
+getSessionBreakdownPushSock (void);
 void *
 getIcmpPktSendSock (void);
 void *

@@ -18,6 +18,7 @@
 #include "ownership_manager.h"
 #include "netdev.h"
 #include "management_service.h"
+#include "session_breakdown_service.h"
 #include "raw_capture_service.h"
 #include "ip_process_service.h"
 #include "icmp_process_service.h"
@@ -72,44 +73,50 @@ unlockPidFile (void) {
 }
 
 static int
-startTasks (void) {
+startServices (void) {
     int ret;
     u_int i;
 
     ret = newTask (managementService, NULL);
     if (ret < 0) {
-        LOGE ("Create managementService task error.\n");
+        LOGE ("Create managementService error.\n");
         goto stopAllTask;
     }
 
+    ret = newTask (sessionBreakdownService, NULL);
+    if (ret < 0) {
+        LOGE ("Create sessionBreakdownService error.\n");
+        goto stopAllTask;
+    }
+    
     ret = newTask (rawCaptureService, NULL);
     if (ret < 0) {
-        LOGE ("Create rawCaptureService task error.\n");
+        LOGE ("Create rawCaptureService error.\n");
         goto stopAllTask;
     }
 
     ret = newTask (ipProcessService, NULL);
     if (ret < 0) {
-        LOGE ("Create ipProcessService task error.\n");
+        LOGE ("Create ipProcessService error.\n");
         goto stopAllTask;
     }
 
     ret = newTask (icmpProcessService, NULL);
     if (ret < 0) {
-        LOGE ("Create icmpProcessService task error.\n");
+        LOGE ("Create icmpProcessService error.\n");
         goto stopAllTask;
     }
 
     ret = newTask (tcpDispatchService, NULL);
     if (ret < 0) {
-        LOGE ("Create tcpDispatchService task error.\n");
+        LOGE ("Create tcpDispatchService error.\n");
         goto stopAllTask;
     }
 
     for (i = 0; i < getTcpProcessThreadsNum (); i++) {
         ret = newTask (tcpProcessService, getTcpProcessThreadIDHolder (i));
         if (ret < 0) {
-            LOGE ("Create tcpProcessService %u task error.\n", i);
+            LOGE ("Create tcpProcessService %u error.\n", i);
             goto stopAllTask;
         }
     }
@@ -119,6 +126,11 @@ startTasks (void) {
 stopAllTask:
     stopAllTask ();
     return -1;
+}
+
+static void
+stopServices (void) {
+    stopAllTask ();
 }
 
 static int
@@ -184,25 +196,25 @@ agentService (void) {
         goto destroyProtoAnalyzer;
     }
 
-    ret = initNetDev ();
-    if (ret < 0) {
-        LOGE ("Init net device error.\n");
-        ret = -1;
-        goto destroyAppServiceManager;
-    }
-
     ret = initOwnershipManager ();
     if (ret < 0) {
         LOGE ("Init packetOwnership error.\n");
         ret = -1;
-        goto destroyNetDev;
+        goto destroyAppServiceManager;
     }
 
-    ret = startTasks ();
+    ret = initNetDev ();
     if (ret < 0) {
-        LOGE ("Start tasks error.\n");
+        LOGE ("Init net device error.\n");
         ret = -1;
         goto destroyOwnershipManager;
+    }
+
+    ret = startServices ();
+    if (ret < 0) {
+        LOGE ("Start services error.\n");
+        ret = -1;
+        goto destroyNetDev;
     }
 
     /* Create zloop reactor */
@@ -210,7 +222,7 @@ agentService (void) {
     if (loop == NULL) {
         LOGE ("Create zloop error.\n");
         ret = -1;
-        goto stopAllTask;
+        goto stopServices;
     }
 
     /* Init poll item 0 */
@@ -246,12 +258,12 @@ agentService (void) {
 
 destroyZloop:
     zloop_destroy (&loop);
-stopAllTask:
-    stopAllTask ();
-destroyOwnershipManager:
-    destroyOwnershipManager ();
+stopServices:
+    stopServices ();
 destroyNetDev:
     destroyNetDev ();
+destroyOwnershipManager:
+    destroyOwnershipManager ();
 destroyAppServiceManager:
     destroyAppServiceManager ();
 destroyProtoAnalyzer:

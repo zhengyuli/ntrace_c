@@ -12,11 +12,17 @@
 #define MANAGEMENT_REQUEST_COMMAND_PAUSE "pause"
 #define MANAGEMENT_REQUEST_COMMAND_HEARTBEAT "heartbeat"
 #define MANAGEMENT_REQUEST_COMMAND_UPDATE_PROFILE "update_profile"
+#define MANAGEMENT_REQUEST_COMMAND_PACKETS_STATISTIC "packets_statistic"
 
 /* Management response json key definitions */
 #define MANAGEMENT_RESPONSE_CODE "code"
 #define MANAGEMENT_RESPONSE_BODY "body"
 #define MANAGEMENT_RESPONSE_ERROR_MESSAGE "error_message"
+
+/* Management response body json key definitions */
+#define MANAGEMENT_RESPONSE_BODY_PACKETS_RECEIVE "packets_receive"
+#define MANAGEMENT_RESPONSE_BODY_PACKETS_DROP "packets_drop"
+#define MANAGEMENT_RESPONSE_BODY_PACKETS_DROP_RATE "packets_drop_rate"
 
 /* Default management error response */
 #define DEFAULT_MANAGEMENT_ERROR_RESPONSE "{\"code\":1, \"error_message\":\"internal error\"}"

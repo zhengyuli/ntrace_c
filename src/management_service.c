@@ -10,6 +10,10 @@
 #include "netdev.h"
 #include "management_service.h"
 
+/* Packets statistic related variables */
+static u_int packetsStatisticPktsReceive = 0;
+static u_int packetsStatisticPktsDrop = 0;
+
 /*
  * @brief Build management response based on command
  *
@@ -20,17 +24,33 @@
 static char *
 buildManagementResponse (char *cmd, int code) {
     char *response;
-    json_t *root;
+    json_t *root, *body;
 
     root = json_object ();
     if (root == NULL) {
-        LOGE ("Create json object error.\n");
+        LOGE ("Create json object root error.\n");
         return NULL;
     }
 
     if (!code) {
+        body = json_object ();
+        if (body == NULL) {
+            LOGE ("Create json object body error.\n");
+            json_object_clear (root);
+            return NULL;
+        }
+
+        if (strEqual (cmd, MANAGEMENT_REQUEST_COMMAND_PACKETS_STATISTIC)) {
+            json_object_set_new (body, MANAGEMENT_RESPONSE_BODY_PACKETS_RECEIVE,
+                                 json_integer (packetsStatisticPktsReceive));
+            json_object_set_new (body, MANAGEMENT_RESPONSE_BODY_PACKETS_DROP,
+                                 json_integer (packetsStatisticPktsDrop));
+            json_object_set_new (body, MANAGEMENT_RESPONSE_BODY_PACKETS_DROP_RATE,
+                                 json_real (((double) packetsStatisticPktsDrop / (double) packetsStatisticPktsReceive) * 100));
+        }
+        
         json_object_set_new (root, MANAGEMENT_RESPONSE_CODE, json_integer (0));
-        json_object_set_new (root, MANAGEMENT_RESPONSE_BODY, json_object ());
+        json_object_set_new (root, MANAGEMENT_RESPONSE_BODY, body);
     } else {
         json_object_set_new (root, MANAGEMENT_RESPONSE_CODE, json_integer (1));
         json_object_set_new (root, MANAGEMENT_RESPONSE_ERROR_MESSAGE, json_string ("Internal error."));
@@ -174,6 +194,27 @@ handleUpdateProfileRequest (json_t *body) {
 }
 
 /*
+ * @brief packets_statistic request handler
+ *
+ * @param  body data to handle
+ *
+ * @return 0 if success else -1
+ */
+static int
+handlePacketsStatisticRequest (json_t *body) {
+    int ret;
+
+    ret = getNetDevPakcetsStatistic (&packetsStatisticPktsReceive,
+                                     &packetsStatisticPktsDrop);
+    if (ret < 0) {
+        LOGE ("Get packets statistic info error.\n");
+        return -1;
+    }
+
+    return 0;
+}
+
+/*
  * Management service.
  * Handle management requests.
  */
@@ -232,8 +273,10 @@ managementService (void *args) {
             ret = handleHeartbeatRequest (body);
         else if (strEqual (MANAGEMENT_REQUEST_COMMAND_UPDATE_PROFILE, cmdStr))
             ret = handleUpdateProfileRequest (body);
+        else if (strEqual (MANAGEMENT_REQUEST_COMMAND_PACKETS_STATISTIC, cmdStr), cmdStr)
+            ret = handlePacketsStatisticRequest (body);
         else {
-            LOGE ("Unknown request: %s.\n", cmdStr);
+            LOGE ("Unknown request command: %s.\n", cmdStr);
             ret = -1;
         }
 

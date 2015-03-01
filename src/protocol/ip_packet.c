@@ -38,12 +38,15 @@ displayIphdr (iphdrPtr iph) {
     flags = offset & ~IP_OFFMASK;
     offset = (offset & IP_OFFMASK) << 3;
 
-    if ((flags & IP_MF) || offset) {
-        LOGD ("Ip fragment src: %s ------------>", inet_ntoa (iph->ipSrc));
-        LOGD (" dst: %s\n", inet_ntoa (iph->ipDest));
-        LOGD ("Ip header len: %d , ip packet len: %u, offset: %u, IP_MF: %u.\n",
-              (iph->iphLen * 4), ntohs (iph->ipLen), offset, ((flags & IP_MF) ? 1 : 0));
-    }
+    if ((flags & IP_MF) || offset)
+        LOGD ("Fragment ip packet");
+    else
+        LOGD ("Defragment ip packet");
+
+    LOGD (" src: %s ------------>", inet_ntoa (iph->ipSrc));
+    LOGD (" dst: %s\n", inet_ntoa (iph->ipDest));
+    LOGD ("Ip header len: %d , ip packet len: %u, offset: %u, IP_MF: %u.\n",
+          (iph->iphLen * 4), ntohs (iph->ipLen), offset, ((flags & IP_MF) ? 1 : 0));
 }
 
 static ipFragPtr
@@ -115,7 +118,7 @@ static void
 updateIpQueueExpireTimeout (ipQueuePtr ipq, timeValPtr tm) {
     ipQueueTimeoutPtr entry;
     listHeadPtr pos, npos;
-    
+
     listForEachEntrySafe (entry, pos, npos, &ipQueueExpireTimeoutList, node) {
         if (entry->queue == ipq) {
             listDel (&entry->node);
@@ -262,9 +265,8 @@ glueIpQueue (ipQueuePtr ipq) {
 
     /* Glue data of all fragments to new ip packet buffer . */
     memcpy (buf, ((u_char *) ipq->iph), ipq->iphLen);
-    buf += ipq->iphLen;
     listForEachEntrySafe (entry, pos, npos, &ipq->fragments, node) {
-        memcpy (buf + entry->offset, entry->dataPtr, entry->dataLen);
+        memcpy (buf + ipq->iphLen + entry->offset, entry->dataPtr, entry->dataLen);
     }
 
     iph = (iphdrPtr) buf;
@@ -324,7 +326,7 @@ ipPktShouldDrop (iphdrPtr iph) {
 }
 
 /*
- * @brief Ip packet defragment
+ * @brief Ip packet defragment processor
  *
  * @param iph ip packet header
  * @param tm packet capture timestamp
@@ -460,10 +462,11 @@ ipDefrag (iphdrPtr iph, timeValPtr tm, iphdrPtr *newIph) {
             *newIph = NULL;
             return -1;
         } else {
+            displayIphdr (tmpIph);
             if (ipPktShouldDrop (tmpIph)) {
                 free (tmpIph);
                 *newIph = NULL;
-                return -1;
+                return 0;
             } else {
                 *newIph = tmpIph;
                 return 0;
@@ -479,7 +482,7 @@ ipDefrag (iphdrPtr iph, timeValPtr tm, iphdrPtr *newIph) {
 int
 initIp (void) {
     initListHead (&ipQueueExpireTimeoutList);
-    
+
     ipQueueHashTable = hashNew (DEFAULT_IPQUEUE_HASH_TABLE_SIZE);
     if (ipQueueHashTable == NULL)
         return -1;

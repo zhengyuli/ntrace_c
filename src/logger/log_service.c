@@ -432,16 +432,16 @@ logServiceStatusHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
     switch (status) {
         case LOG_SERVICE_STATUS_EXIT:
             fprintf (stderr, "Task %lu exit abnormally.\n", tid);
-            retries = LOG_SERVICE_RESTART_MAX_RETRIES;
             retries = 0;
             while (retries < LOG_SERVICE_RESTART_MAX_RETRIES) {
-                fprintf (stdout, "Try to restart logService %u.\n", retries);
+                fprintf (stdout, "Try to restart logService with retries: %u.\n", retries);
                 ret = pthread_create (&logServiceCtxtInstance->tid, NULL, logService, NULL);
                 if (!ret)
                     break;
 
                 retries++;
             }
+
             if (ret < 0) {
                 fprintf (stderr, "Restart logService failed.\n");
                 ret = -1;

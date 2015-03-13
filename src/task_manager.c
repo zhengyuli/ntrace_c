@@ -153,10 +153,10 @@ taskStatusHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
     sscanf (taskStatusMsg, TASK_STATUS_MESSAGE_FORMAT_STRING, &taskStatus, &tid);
     switch (taskStatus) {
         case TASK_STATUS_EXIT:
-            LOGE ("Task %lu exit abnormally.\n");
+            LOGE ("Task %lu exit abnormally.\n",  tid);
             retries = 1;
             while (retries <= TASK_RESTART_MAX_RETRIES) {
-                LOGI ("Try to restart task %u\n", retries);
+                LOGI ("Try to restart task with retries: %u\n", retries);
                 ret = restartTask (tid);
                 if (!ret)
                     break;

@@ -139,6 +139,12 @@ agentService (void) {
     zloop_t *loop;
     zmq_pollitem_t pollItems [2];
 
+    /* Check Permission */
+    if (getuid () != 0) {
+        fprintf (stderr, "Permission denied, please run as root.\n");
+        return -1;
+    }
+    
     /* Lock pid file */
     ret = lockPidFile ();
     if (ret < 0) {
@@ -288,7 +294,7 @@ agentDaemon (void) {
     int stdoutfd;
 
     if (chdir ("/") < 0) {
-        fprintf (stderr, "Chdir error: %s.\n", strerror (errno));
+        fprintf (stderr, "Change dir error: %s.\n", strerror (errno));
         return -1;
     }
 
@@ -358,11 +364,6 @@ int
 main (int argc, char *argv []) {
     int ret;
     char *configFile;
-
-    if (getuid () != 0) {
-        fprintf (stderr, "Permission denied, please run as root.\n");
-        return -1;
-    }
 
     /* Set locale */
     setlocale (LC_COLLATE,"");

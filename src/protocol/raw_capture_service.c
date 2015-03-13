@@ -30,6 +30,7 @@ rawCaptureService (void *args) {
     iphdrPtr iph;
     timeVal captureTime;
     zframe_t *frame;
+    u_long_long rawPktCaptureStartTime;
 
     /* Reset signals flag */
     resetSignalsFlag ();
@@ -63,6 +64,8 @@ rawCaptureService (void *args) {
     LOGI ("Update BPF filter with: %s\n", filter);
     free (filter);
 
+    /* Init rawPktCaptureStartTime */
+    rawPktCaptureStartTime = getSysTime ();
     while (!SIGUSR1IsInterrupted ())
     {
         ret = pcap_next_ex (pcapDev, &capPktHdr, (const u_char **) &rawPkt);
@@ -104,10 +107,17 @@ rawCaptureService (void *args) {
                 continue;
             }
         } else if (ret == -1) {
-            LOGE ("Capture raw packet with fatal error.\n");
+            LOGE ("Capture raw packets with fatal error.\n");
+            break;
+        } else if (ret == -2) {
+            LOGI ("Capture raw packets from offline file complete.\n");
+            pthread_kill (pthread_self (), SIGUSR1);
             break;
         }
     }
+
+    LOGI ("Capture raw packets with interval: %llu ms\n",
+          (getSysTime () - rawPktCaptureStartTime));
 
     LOGI ("RawCaptureService will exit ... .. .\n");
 destroyLogContext:

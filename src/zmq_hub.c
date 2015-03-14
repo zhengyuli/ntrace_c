@@ -5,10 +5,6 @@
 #include "log.h"
 #include "zmq_hub.h"
 
-/* Max/Min tcp process threads number */
-#define MIN_TCP_PROCESS_THREADS_NUM 5
-#define MAX_TCP_PROCESS_THREADS_NUM 1025
-
 #define TASK_STATUS_EXCHANGE_CHANNEL "inproc://taskStatusExchangeChannel"
 #define IP_PACKET_EXCHANGE_CHANNEL "inproc://ipPacketExchangeChannel"
 #define ICMP_PACKET_EXCHANGE_CHANNEL "inproc://icmpPacketExchangeChannel"
@@ -268,11 +264,7 @@ initZmqHub (void) {
     }
 
     /* Get tcp process threads number */
-    zmqHubIntance->tcpProcessThreadsNum = getCpuCoresNum () * 4 + 1;
-    if (zmqHubIntance->tcpProcessThreadsNum < MIN_TCP_PROCESS_THREADS_NUM)
-        zmqHubIntance->tcpProcessThreadsNum = MIN_TCP_PROCESS_THREADS_NUM;
-    else if (zmqHubIntance->tcpProcessThreadsNum > MAX_TCP_PROCESS_THREADS_NUM)
-        zmqHubIntance->tcpProcessThreadsNum = MAX_TCP_PROCESS_THREADS_NUM;
+    zmqHubIntance->tcpProcessThreadsNum = getCpuCoresNum () + 1;
 
     /* Alloc tcpProcessThreadIDsHolder */
     zmqHubIntance->tcpProcessThreadIDsHolder =

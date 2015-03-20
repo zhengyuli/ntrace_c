@@ -159,7 +159,7 @@ addTcpStreamToClosingTimeoutList (tcpStreamPtr stream, timeValPtr tm) {
 
 /*
  * @brief Delete tcp stream from closing timeout list
- * 
+ *
  * @param stream tcp stream to Delete
  */
 static void
@@ -287,7 +287,7 @@ findTcpStream (tcphdrPtr tcph, iphdrPtr iph, streamDirection *direction) {
             return streamCache;
         }
     }
-    
+
     stream = lookupTcpStreamFromHash (&addr);
     if (stream) {
         streamCache = stream;
@@ -536,6 +536,7 @@ static char *
 tcpBreakdown2Json (tcpStreamPtr stream, tcpBreakdownPtr tbd) {
     char *out;
     json_t *root;
+    struct tm *localTime;
     char buf [64];
 
     root = json_object ();
@@ -544,7 +545,11 @@ tcpBreakdown2Json (tcpStreamPtr stream, tcpBreakdownPtr tbd) {
         return NULL;
     }
     /* Tcp breakdown timestamp */
-    json_object_set_new (root, TCP_SKBD_TIMESTAMP, json_integer (tbd->timestamp));
+    localTime = localtime (&tbd->timestamp.tv_sec);
+    snprintf (buf, sizeof (buf), "%04d-%02d-%02dT%02d:%02d:%02d.%03d",
+              (localTime->tm_year + 1900), localTime->tm_mon + 1, localTime->tm_mday,
+              localTime->tm_hour, localTime->tm_min, localTime->tm_sec, (int) (tbd->timestamp.tv_usec / 1000));
+    json_object_set_new (root, TCP_SKBD_TIMESTAMP, json_string (buf));
     /* Tcp application layer protocol */
     json_object_set_new (root, TCP_SKBD_PROTOCOL, json_string (tbd->proto));
     /* Tcp source ip */
@@ -610,7 +615,8 @@ generateSessionBreakdown (tcpStreamPtr stream, timeValPtr tm) {
         return;
     }
 
-    tbd.timestamp = tm->tvSec;
+    tbd.timestamp.tv_sec = (time_t) tm->tvSec;
+    tbd.timestamp.tv_usec = (time_t) tm->tvUsec;
     tbd.proto = stream->proto;
     tbd.ipSrc = stream->addr.saddr;
     tbd.source = stream->addr.source;

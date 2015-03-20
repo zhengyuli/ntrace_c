@@ -31,7 +31,9 @@ static char *
 icmpBreakdown2Json (icmpBreakdownPtr ibd) {
     char *out;
     json_t *root;
-
+    struct tm *localTime;
+    char buf [32];
+    
     root = json_object ();
     if (root == NULL) {
         LOGE ("Create json object error.\n");
@@ -39,7 +41,13 @@ icmpBreakdown2Json (icmpBreakdownPtr ibd) {
     }
 
     /* Icmp timestamp */
-    json_object_set_new (root, ICMP_SKBD_TIMESTAMP, json_integer (ibd->timestamp));
+    localTime = localtime (&ibd->timestamp.tv_sec);
+    snprintf (buf, sizeof (buf), "%04d-%02d-%02dT%02d:%02d:%02d.%03d",
+              (localTime->tm_year + 1900), localTime->tm_mon + 1, localTime->tm_mday,
+              localTime->tm_hour, localTime->tm_min, localTime->tm_sec, (int) (ibd->timestamp.tv_usec / 1000));
+    json_object_set_new (root, ICMP_SKBD_TIMESTAMP, json_string (buf));
+    /* Icmp protocol */
+    json_object_set_new (root, ICMP_SKBD_PROTOCOL, json_string ("ICMP"));
     /* Icmp type */
     json_object_set_new (root, ICMP_SKBD_ICMP_TYPE, json_integer (ibd->type));
     /* Icmp code */
@@ -104,7 +112,8 @@ icmpProcess (iphdrPtr iph, timeValPtr tm) {
     if (origIph->ipProto != IPPROTO_TCP)
         return;
 
-    ibd.timestamp = ntohll (tm->tvSec);
+    ibd.timestamp.tv_sec = (time_t) ntohll (tm->tvSec);
+    ibd.timestamp.tv_usec = (time_t) ntohll (tm->tvUsec);
     ibd.type = icmph->type;
     ibd.code = icmph->code;
     ibd.ip = origIph->ipDest;

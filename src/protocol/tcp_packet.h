@@ -3,6 +3,7 @@
 
 #include <stdlib.h>
 #include <uuid/uuid.h>
+#include <time.h>
 #include "util.h"
 #include "list.h"
 #include "ip.h"
@@ -141,7 +142,7 @@ typedef struct _tcpBreakdown tcpBreakdown;
 typedef tcpBreakdown *tcpBreakdownPtr;
 
 struct _tcpBreakdown {
-    u_long_long timestamp;              /**< Timestamp in seconds */
+    struct timeval timestamp;           /**< Timestamp */
     char *proto;                        /**< Tcp application level proto type */
     struct in_addr ipSrc;               /**< Source ip */
     u_short source;                     /**< Source port */

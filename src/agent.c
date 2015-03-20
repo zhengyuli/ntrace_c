@@ -144,7 +144,7 @@ agentService (void) {
         fprintf (stderr, "Permission denied, please run as root.\n");
         return -1;
     }
-    
+
     /* Lock pid file */
     ret = lockPidFile ();
     if (ret < 0) {

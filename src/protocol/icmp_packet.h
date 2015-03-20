@@ -3,6 +3,7 @@
 
 #include <stdlib.h>
 #include <arpa/inet.h>
+#include <time.h>
 #include "util.h"
 #include "ip.h"
 #include "icmp.h"
@@ -11,7 +12,7 @@ typedef struct _icmpBreakdown icmpBreakdown;
 typedef icmpBreakdown *icmpBreakdownPtr;
 
 struct _icmpBreakdown {
-    u_long_long timestamp;              /**< Timestamp in seconds */
+    struct timeval timestamp;           /**< Timestamp */
     u_char type;                        /**< Icmp type */
     u_char code;                        /**< Icmp code */
     struct in_addr ip;                  /**< Icmp dest unreachable ip */
@@ -20,6 +21,7 @@ struct _icmpBreakdown {
 
 /* Icmp breakdown json key definitions */
 #define ICMP_SKBD_TIMESTAMP "timestamp"
+#define ICMP_SKBD_PROTOCOL "protocol"
 #define ICMP_SKBD_ICMP_TYPE "icmp_type"
 #define ICMP_SKBD_ICMP_CODE "icmp_code"
 #define ICMP_SKBD_ICMP_DEST_UNREACH_IP "icmp_dest_unreach_ip"

@@ -30,7 +30,9 @@ rawCaptureService (void *args) {
     iphdrPtr iph;
     timeVal captureTime;
     zframe_t *frame;
+    u_long_long rawPktCaptureSize;
     u_long_long rawPktCaptureStartTime;
+    u_long_long rawPktCaptureEndTime;
 
     /* Reset signals flag */
     resetSignalsFlag ();
@@ -64,15 +66,17 @@ rawCaptureService (void *args) {
     LOGI ("Update BPF filter with: %s\n", filter);
     free (filter);
 
-    /* Init rawPktCaptureStartTime */
+    /* Init rawPktCaptureSize and rawPktCaptureStartTime */
+    rawPktCaptureSize = 0;
     rawPktCaptureStartTime = getSysTime ();
-    while (!SIGUSR1IsInterrupted ())
-    {
+
+    while (!SIGUSR1IsInterrupted ()) {
         ret = pcap_next_ex (pcapDev, &capPktHdr, (const u_char **) &rawPkt);
         if (ret == 1) {
             /* Filter out incomplete raw packet */
             if (capPktHdr->caplen != capPktHdr->len)
                 continue;
+            rawPktCaptureSize += capPktHdr->caplen;
 
             /* Get ip packet */
             iph = (iphdrPtr) getIpPacket (rawPkt, datalinkType);
@@ -116,8 +120,13 @@ rawCaptureService (void *args) {
         }
     }
 
-    LOGI ("Capture raw packets with interval: %llu ms\n",
-          (getSysTime () - rawPktCaptureStartTime));
+    rawPktCaptureEndTime = getSysTime ();
+    /* Show raw packets capture statistics info */
+    LOGI ("Capture raw packets with size: %lf KB, interval: %llu ms, rate: %lf MB/s\n",
+          ((double) rawPktCaptureSize / 1024),
+          (rawPktCaptureEndTime - rawPktCaptureStartTime),
+          (((double) rawPktCaptureSize / (128 * 1024)) /
+           ((double) (rawPktCaptureEndTime - rawPktCaptureStartTime) / 1000)));
 
     LOGI ("RawCaptureService will exit ... .. .\n");
 destroyLogContext:

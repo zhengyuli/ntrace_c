@@ -31,8 +31,7 @@ static char *
 icmpBreakdown2Json (icmpBreakdownPtr ibd) {
     char *out;
     json_t *root;
-    struct tm *localTime;
-    char buf [32];
+    char buf [64];
     
     root = json_object ();
     if (root == NULL) {
@@ -41,10 +40,7 @@ icmpBreakdown2Json (icmpBreakdownPtr ibd) {
     }
 
     /* Icmp timestamp */
-    localTime = localtime (&ibd->timestamp.tv_sec);
-    snprintf (buf, sizeof (buf), "%04d-%02d-%02dT%02d:%02d:%02d.%03d",
-              (localTime->tm_year + 1900), localTime->tm_mon + 1, localTime->tm_mday,
-              localTime->tm_hour, localTime->tm_min, localTime->tm_sec, (int) (ibd->timestamp.tv_usec / 1000));
+    formatLocalTimeStr (&ibd->timestamp, buf, sizeof (buf));
     json_object_set_new (root, ICMP_SKBD_TIMESTAMP, json_string (buf));
     /* Icmp protocol */
     json_object_set_new (root, ICMP_SKBD_PROTOCOL, json_string ("ICMP"));

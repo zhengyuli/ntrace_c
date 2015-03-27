@@ -537,8 +537,6 @@ static char *
 tcpBreakdown2Json (tcpStreamPtr stream, tcpBreakdownPtr tbd) {
     char *out;
     json_t *root;
-    struct tm *localTime;
-    int tmGMTOff;
     char buf [64];
 
     root = json_object ();
@@ -547,13 +545,7 @@ tcpBreakdown2Json (tcpStreamPtr stream, tcpBreakdownPtr tbd) {
         return NULL;
     }
     /* Tcp breakdown timestamp */
-    localTime = localtime (&tbd->timestamp.tv_sec);
-    tmGMTOff = localTime->tm_gmtoff / 3600;
-    snprintf (buf, sizeof (buf), "%04d-%02d-%02dT%02d:%02d:%02d.%03d%c%02d:00",
-              (localTime->tm_year + 1900), localTime->tm_mon + 1, localTime->tm_mday,
-              localTime->tm_hour, localTime->tm_min, localTime->tm_sec, (int) (tbd->timestamp.tv_usec / 1000),
-              tmGMTOff > 0 ? '+' : '-', abs (tmGMTOff));
-
+    formatLocalTimeStr (&tbd->timestamp, buf, sizeof (buf));
     json_object_set_new (root, TCP_SKBD_TIMESTAMP, json_string (buf));
     /* Tcp application layer protocol */
     json_object_set_new (root, TCP_SKBD_PROTOCOL, json_string (tbd->proto));

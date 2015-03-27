@@ -12,6 +12,7 @@
 #include <arpa/inet.h>
 #include <sys/syscall.h>
 #include <sys/time.h>
+#include <time.h>
 #include "util.h"
 
 /* ========================================================================== */
@@ -36,6 +37,19 @@ getSysTime (void) {
 
     gettimeofday (&tv, NULL);
     return (u_long_long) ((u_long_long) tv.tv_sec * 1000 + (u_long_long) tv.tv_usec / 1000);
+}
+
+void
+formatLocalTimeStr (struct timeval *timestamp, char *buf, u_int bufLen) {
+    struct tm *localTime;
+    int tmGMTOff;
+
+    localTime = localtime (&timestamp->tv_sec);
+    tmGMTOff = localTime->tm_gmtoff / 3600;
+    snprintf (buf, bufLen, "%04d-%02d-%02dT%02d:%02d:%02d.%03d%c%02d:00",
+              (localTime->tm_year + 1900), localTime->tm_mon + 1, localTime->tm_mday,
+              localTime->tm_hour, localTime->tm_min, localTime->tm_sec, (int) (timestamp->tv_usec / 1000),
+              tmGMTOff > 0 ? '+' : '-', abs (tmGMTOff));
 }
 
 /* ========================================================================== */
@@ -111,7 +125,7 @@ safeRead (int fd, void *buf, size_t count) {
         count -= r;
         nread += r;
     }
-    
+
     return nread;
 }
 
@@ -134,7 +148,7 @@ safeWrite (int fd, void *buf, size_t count) {
         count -= r;
         nwritten += r;
     }
-    
+
     return nwritten;
 }
 

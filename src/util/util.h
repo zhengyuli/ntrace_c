@@ -3,6 +3,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 typedef long long int long_long;
 typedef unsigned long long int u_long_long;
@@ -70,6 +71,8 @@ u_long_long
 timeVal2MicoSecond (timeValPtr tm);
 u_long_long
 getSysTime (void);
+void
+formatLocalTimeStr (struct timeval *timestamp, char *buf, u_int bufLen);
 
 u_long_long
 ntohll (u_long_long src);

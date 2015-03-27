@@ -125,7 +125,9 @@ main (int argc, char *argv []) {
         freeCmdlineArgs ();
         return -1;
     }
-    ret = zsocket_connect (subSock, "tcp://%s:%d", logServerIp ? logServerIp : "localhost", LOG_SERVICE_LOG_PUBLISH_PORT);
+    ret = zsocket_connect (subSock, "tcp://%s:%d",
+                           logServerIp ? logServerIp : "localhost",
+                           LOG_SERVICE_LOG_PUBLISH_PORT);
     if (ret < 0) {
         zctx_destroy (&zmqContext);
         freeCmdlineArgs ();
@@ -140,8 +142,10 @@ main (int argc, char *argv []) {
                        (logLevel && strstr (logMsg, logLevel)))) {
             if (showInDetail)
                 realLogMsg = logMsg;
-            else
+            else if (strstr (logMsg, "): "))
                 realLogMsg = strstr (logMsg, "): ") + strlen ("): ");
+            else
+                realLogMsg = NULL;
 
             if (realLogMsg)
                 printf ("%s", realLogMsg);

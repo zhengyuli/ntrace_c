@@ -31,7 +31,7 @@ sessionBreakdownService (void *args) {
     /* Get sessionBreakdownPushSock */
     sessionBreakdownPushSock = getSessionBreakdownPushSock ();
 
-    while (!SIGUSR1IsInterrupted ()) {
+    while (!SIGUSR1IsInterrupted () && !zctx_interrupted) {
         /* Receive session breakdown */
         sessionBreakdown = zstr_recv (sessionBreakdownRecvSock);
         if (sessionBreakdown == NULL) {

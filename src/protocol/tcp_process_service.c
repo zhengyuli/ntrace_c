@@ -46,7 +46,7 @@ tcpProcessService (void *args) {
         goto destroyLogContext;
     }
 
-    while (!SIGUSR1IsInterrupted ()) {
+    while (!SIGUSR1IsInterrupted () && !zctx_interrupted) {
         /* Receive timestamp zframe */
         if (tmFrame == NULL) {
             tmFrame = zframe_recv (tcpPktRecvSock);

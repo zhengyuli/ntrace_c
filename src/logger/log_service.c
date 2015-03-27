@@ -386,7 +386,7 @@ logService (void *args) {
     if (ret < 0)
         goto destroyDev;
 
-    while (!SIGUSR1IsInterrupted ()) {
+    while (!SIGUSR1IsInterrupted () && !zctx_interrupted) {
         logMsg = zstr_recv (logServiceCtxtInstance->logRecvSock);
         if (logMsg == NULL)
             break;

@@ -70,7 +70,7 @@ rawCaptureService (void *args) {
     rawPktCaptureSize = 0;
     rawPktCaptureStartTime = getSysTime ();
 
-    while (!SIGUSR1IsInterrupted ()) {
+    while (!SIGUSR1IsInterrupted () && !zctx_interrupted) {
         ret = pcap_next_ex (pcapDev, &capPktHdr, (const u_char **) &rawPkt);
         if (ret == 1) {
             /* Filter out incomplete raw packet */

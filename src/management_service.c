@@ -239,7 +239,7 @@ managementService (void *args) {
         goto exit;
     }
 
-    while (!SIGUSR1IsInterrupted ()) {
+    while (!SIGUSR1IsInterrupted () && !zctx_interrupted) {
         request = zstr_recv (managementReplySock);
         if (request == NULL) {
             if (!SIGUSR1IsInterrupted ())

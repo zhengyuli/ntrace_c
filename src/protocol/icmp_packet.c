@@ -108,8 +108,8 @@ icmpProcess (iphdrPtr iph, timeValPtr tm) {
     if (origIph->ipProto != IPPROTO_TCP)
         return;
 
-    ibd.timestamp.tv_sec = (time_t) ntohll (tm->tvSec);
-    ibd.timestamp.tv_usec = (time_t) ntohll (tm->tvUsec);
+    ibd.timestamp.tvSec = ntohll (tm->tvSec);
+    ibd.timestamp.tvUsec = ntohll (tm->tvUsec);
     ibd.type = icmph->type;
     ibd.code = icmph->code;
     ibd.ip = origIph->ipDest;

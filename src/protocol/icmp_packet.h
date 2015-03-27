@@ -12,7 +12,7 @@ typedef struct _icmpBreakdown icmpBreakdown;
 typedef icmpBreakdown *icmpBreakdownPtr;
 
 struct _icmpBreakdown {
-    struct timeval timestamp;           /**< Timestamp */
+    timeVal timestamp;                  /**< Timestamp */
     u_char type;                        /**< Icmp type */
     u_char code;                        /**< Icmp code */
     struct in_addr ip;                  /**< Icmp dest unreachable ip */

@@ -40,16 +40,18 @@ getSysTime (void) {
 }
 
 void
-formatLocalTimeStr (struct timeval *timestamp, char *buf, u_int bufLen) {
+formatLocalTimeStr (timeValPtr timestamp, char *buf, u_int bufLen) {
+    time_t seconds = (time_t) timestamp->tvSec;
     struct tm *localTime;
     int tmGMTOff;
 
-    localTime = localtime (&timestamp->tv_sec);
+    localTime = localtime (&seconds);
     tmGMTOff = localTime->tm_gmtoff / 3600;
-    snprintf (buf, bufLen, "%04d-%02d-%02dT%02d:%02d:%02d.%03d%c%02d:00",
+    snprintf (buf, bufLen,
+              "%04d-%02d-%02dT%02d:%02d:%02d.%03d%c%02d:00",
               (localTime->tm_year + 1900), localTime->tm_mon + 1, localTime->tm_mday,
-              localTime->tm_hour, localTime->tm_min, localTime->tm_sec, (int) (timestamp->tv_usec / 1000),
-              tmGMTOff > 0 ? '+' : '-', abs (tmGMTOff));
+              localTime->tm_hour, localTime->tm_min, localTime->tm_sec,
+              (int) (timestamp->tvUsec / 1000), tmGMTOff > 0 ? '+' : '-', abs (tmGMTOff));
 }
 
 /* ========================================================================== */

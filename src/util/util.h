@@ -72,7 +72,7 @@ timeVal2MicoSecond (timeValPtr tm);
 u_long_long
 getSysTime (void);
 void
-formatLocalTimeStr (struct timeval *timestamp, char *buf, u_int bufLen);
+formatLocalTimeStr (timeValPtr timestamp, char *buf, u_int bufLen);
 
 u_long_long
 ntohll (u_long_long src);

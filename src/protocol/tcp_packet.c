@@ -612,8 +612,8 @@ generateSessionBreakdown (tcpStreamPtr stream, timeValPtr tm) {
         return;
     }
 
-    tbd.timestamp.tv_sec = (time_t) tm->tvSec;
-    tbd.timestamp.tv_usec = (time_t) tm->tvUsec;
+    tbd.timestamp.tvSec = tm->tvSec;
+    tbd.timestamp.tvUsec = tm->tvUsec;
     tbd.proto = stream->proto;
     tbd.ipSrc = stream->addr.saddr;
     tbd.source = stream->addr.source;

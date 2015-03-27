@@ -142,7 +142,7 @@ typedef struct _tcpBreakdown tcpBreakdown;
 typedef tcpBreakdown *tcpBreakdownPtr;
 
 struct _tcpBreakdown {
-    struct timeval timestamp;           /**< Timestamp */
+    timeVal timestamp;                  /**< Timestamp */
     char *proto;                        /**< Tcp application level proto type */
     struct in_addr ipSrc;               /**< Source ip */
     u_short source;                     /**< Source port */

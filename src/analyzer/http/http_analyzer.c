@@ -24,12 +24,12 @@ freeHttpSessionDetailNode (httpSessionDetailNodePtr hsdn);
 static inline boolean
 httpHeaderEqualWithLen (const char *hdr1, const char *hdr2, size_t hdr2Len) {
     if (strlen (hdr1) != hdr2Len)
-        return false;
+        return False;
 
     if (!strncmp (hdr1, hdr2, hdr2Len))
-        return true;
+        return True;
     else
-        return false;
+        return False;
 }
 
 /* =====================================Http_parser callback===================================== */
@@ -509,8 +509,9 @@ newHttpSessionBreakdown (void) {
     hsbd->reqBodySize = 0;
     hsbd->respHeaderSize = 0;
     hsbd->respBodySize = 0;
-    hsbd->respLatency = 0;
+    hsbd->serverLatency = 0;
     hsbd->downloadLatency = 0;
+    hsbd->respLatency = 0;
     return hsbd;
 }
 
@@ -725,7 +726,6 @@ generateHttpSessionBreakdown (void *sd, void *sbd) {
     }
 
     switch (hsdn->state) {
-        /* Reset before http request */
         case HTTP_RESPONSE_BODY_COMPLETE:
             hsbd->state = genHttpBreakdownState (hsdn->statusCode);
             hsbd->statusCode = hsdn->statusCode;
@@ -733,8 +733,9 @@ generateHttpSessionBreakdown (void *sd, void *sbd) {
             hsbd->reqBodySize = hsdn->reqBodySize;
             hsbd->respHeaderSize = hsdn->respHeaderSize;
             hsbd->respBodySize = hsdn->respBodySize;
-            hsbd->respLatency = (u_int) (hsdn->respTimeBegin - hsdn->reqTime);
+            hsbd->serverLatency = (u_int) (hsdn->respTimeBegin - hsdn->reqTime);
             hsbd->downloadLatency = (u_int) (hsdn->respTimeEnd - hsdn->respTimeBegin);
+            hsbd->respLatency = (u_int) (hsdn->respTimeEnd - hsdn->reqTime);
             break;
 
         case HTTP_RESET_TYPE1:
@@ -748,8 +749,9 @@ generateHttpSessionBreakdown (void *sd, void *sbd) {
             hsbd->reqBodySize = hsdn->reqBodySize;
             hsbd->respHeaderSize = 0;
             hsbd->respBodySize = 0;
-            hsbd->respLatency = 0;
+            hsbd->serverLatency = 0;
             hsbd->downloadLatency = 0;
+            hsbd->respLatency = 0;
             break;
 
         case HTTP_RESET_TYPE3:
@@ -759,8 +761,9 @@ generateHttpSessionBreakdown (void *sd, void *sbd) {
             hsbd->reqBodySize = hsdn->reqBodySize;
             hsbd->respHeaderSize = hsdn->respHeaderSize;
             hsbd->respBodySize = hsdn->respBodySize;
-            hsbd->respLatency = (u_int) (hsdn->respTimeBegin - hsdn->reqTime);
+            hsbd->serverLatency = (u_int) (hsdn->respTimeBegin - hsdn->reqTime);
             hsbd->downloadLatency = 0;
+            hsbd->respLatency = (u_int) (hsdn->respTimeBegin - hsdn->reqTime);
             break;
 
         case HTTP_RESET_TYPE4:
@@ -770,8 +773,9 @@ generateHttpSessionBreakdown (void *sd, void *sbd) {
             hsbd->reqBodySize = 0;
             hsbd->respHeaderSize = 0;
             hsbd->respBodySize = 0;
-            hsbd->respLatency = 0;
+            hsbd->serverLatency = 0;
             hsbd->downloadLatency = 0;
+            hsbd->respLatency = 0;
             break;
 
         default:
@@ -882,10 +886,12 @@ httpSessionBreakdown2Json (json_t *root, void *sd, void *sbd) {
         json_object_set_new (root, HTTP_SBKD_RESPONSE_HEADER_SIZE, json_integer (hsbd->respHeaderSize));
         /* Http response body size */
         json_object_set_new (root, HTTP_SBKD_RESPONSE_BODY_SIZE, json_integer (hsbd->respBodySize));
-        /* Http response latency */
-        json_object_set_new (root, HTTP_SBKD_RESPONSE_LATENCY, json_integer (hsbd->respLatency));
+        /* Http server latency */
+        json_object_set_new (root, HTTP_SBKD_SERVER_LATENCY, json_integer (hsbd->serverLatency));
         /* Http download latency */
         json_object_set_new (root, HTTP_SBKD_DOWNLOAD_LATENCY, json_integer (hsbd->downloadLatency));
+        /* Http response latency */
+        json_object_set_new (root, HTTP_SBKD_RESPONSE_LATENCY, json_integer (hsbd->respLatency));
     }
 }
 

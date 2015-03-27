@@ -68,9 +68,9 @@ before (u_int seq1, u_int seq2) {
 
     ret = (int) (seq1 - seq2);
     if (ret < 0)
-        return true;
+        return True;
     else
-        return false;
+        return False;
 }
 
 static inline boolean
@@ -79,9 +79,9 @@ after (u_int seq1, u_int seq2) {
 
     ret = (int) (seq1 - seq2);
     if (ret > 0)
-        return true;
+        return True;
     else
-        return false;
+        return False;
 }
 
 static inline void
@@ -126,9 +126,9 @@ tuple4IsEqual (tuple4Ptr addr1, tuple4Ptr addr2) {
         (addr1->source == addr2->source) &&
         (addr1->daddr.s_addr == addr2->daddr.s_addr) &&
         (addr1->dest == addr2->dest))
-        return true;
+        return True;
 
-    return false;
+    return False;
 }
 
 /*
@@ -151,7 +151,7 @@ addTcpStreamToClosingTimeoutList (tcpStreamPtr stream, timeValPtr tm) {
         return;
     }
 
-    stream->inClosingTimeout = true;
+    stream->inClosingTimeout = True;
     tst->stream = stream;
     tst->timeout = tm->tvSec + DEFAULT_TCP_STREAM_CLOSING_TIMEOUT;
     listAddTail (&tst->node, &tcpStreamTimoutList);
@@ -340,8 +340,8 @@ newTcpStream (protoAnalyzerPtr analyzer) {
     stream->client.urgSeen = 0;
     stream->client.urgPtr = 0;
     stream->client.window = 0;
-    stream->client.tsOn = false;
-    stream->client.wscaleOn = false;
+    stream->client.tsOn = False;
+    stream->client.wscaleOn = False;
     stream->client.currTs = 0;
     stream->client.wscale = 0;
     stream->client.mss = 0;
@@ -365,8 +365,8 @@ newTcpStream (protoAnalyzerPtr analyzer) {
     stream->server.urgSeen = 0;
     stream->server.urgPtr = 0;
     stream->server.window = 0;
-    stream->server.tsOn = false;
-    stream->server.wscaleOn = false;
+    stream->server.tsOn = False;
+    stream->server.wscaleOn = False;
     stream->server.currTs = 0;
     stream->server.wscale = 0;
     stream->server.mss = 0;
@@ -396,7 +396,7 @@ newTcpStream (protoAnalyzerPtr analyzer) {
         free (stream);
         return NULL;
     }
-    stream->inClosingTimeout = false;
+    stream->inClosingTimeout = False;
     stream->closeTime = 0;
     initListHead (&stream->node);
 
@@ -1209,19 +1209,19 @@ tcpProcess (iphdrPtr iph, timeValPtr tm) {
             if (stream->client.tsOn) {
                 stream->server.tsOn = getTimeStampOption (tcph, &stream->server.currTs);
                 if (!stream->server.tsOn)
-                    stream->client.tsOn = false;
+                    stream->client.tsOn = False;
             } else
-                stream->server.tsOn = false;
+                stream->server.tsOn = False;
 
             if (stream->client.wscaleOn) {
                 stream->server.wscaleOn = getTcpWindowScaleOption (tcph, &stream->server.wscale);
                 if (!stream->server.wscaleOn) {
-                    stream->client.wscaleOn = false;
+                    stream->client.wscaleOn = False;
                     stream->client.wscale  = 1;
                     stream->server.wscale = 1;
                 }
             } else {
-                stream->server.wscaleOn = false;
+                stream->server.wscaleOn = False;
                 stream->server.wscale = 1;
             }
 

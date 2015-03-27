@@ -131,8 +131,9 @@ struct _httpSessionBreakdown {
     u_int reqBodySize;                  /**< Http request body size */
     u_int respHeaderSize;               /**< Http response header size */
     u_int respBodySize;                 /**< Http response body size */
-    u_int respLatency;                  /**< Http response latency */
+    u_int serverLatency;                /**< Http server latency */
     u_int downloadLatency;              /**< Http response download latency */
+    u_int respLatency;                  /**< Http response latency */
 };
 
 /* Http session breakdown json key definitions */
@@ -158,7 +159,8 @@ struct _httpSessionBreakdown {
 #define HTTP_SBKD_REQUEST_BODY_SIZE "http_request_body_size"
 #define HTTP_SBKD_RESPONSE_HEADER_SIZE "http_response_header_size"
 #define HTTP_SBKD_RESPONSE_BODY_SIZE "http_response_body_size"
-#define HTTP_SBKD_RESPONSE_LATENCY "http_response_latency"
+#define HTTP_SBKD_SERVER_LATENCY "http_server_latency"
 #define HTTP_SBKD_DOWNLOAD_LATENCY "http_download_latency"
+#define HTTP_SBKD_RESPONSE_LATENCY "http_response_latency"
 
 #endif /* __HTTP_ANALYZER_H__ */

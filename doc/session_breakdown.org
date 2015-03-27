@@ -65,7 +65,7 @@
  | u_int         | serverLatency | u_int          | default_server_latency | Default server latency      |
  |---------------+---------------+----------------+------------------------+-----------------------------|
 
- * Http breakdown interface
+** Http breakdown interface
  |--------------------+--------------------+----------------+---------------------------+-----------------------------------|
  | variable type      | variable name      | breakdown type | breakdown name            | description                       |
  |--------------------+--------------------+----------------+---------------------------+-----------------------------------|
@@ -92,8 +92,9 @@
  | u_int              | reqBodySize        | u_int          | http_request_body_size    | Http request body size            |
  | u_int              | respHeaderSize     | u_int          | http_response_header_size | Http response header size         |
  | u_int              | respBodySize       | u_int          | http_response_body_size   | Http response body size           |
- | u_int              | respLatency        | u_int          | http_response_latency     | Http response latency             |
+ | u_int              | serverLatency      | u_int          | http_server_latency       | Http server latency               |
  | u_int              | downloadLatency    | u_int          | http_download_latency     | Http download latency             |
+ | u_int              | respLatency        | u_int          | http_response_latency     | Http response latency             |
  |--------------------+--------------------+----------------+---------------------------+-----------------------------------|
 
  Notes: Http state for http breakdown

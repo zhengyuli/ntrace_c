@@ -80,9 +80,9 @@ loadPropertiesFromConfigFile (char *configFile) {
         goto freeProperties;
     }
     if (ret)
-        tmp->daemonMode = true;
+        tmp->daemonMode = True;
     else
-        tmp->daemonMode = false;
+        tmp->daemonMode = False;
 
     /* Get mirror interface */
     ret = get_config_item ("MAIN", "mirrorInterface", iniConfig, &item);
@@ -268,7 +268,7 @@ void
 displayPropertiesDetail (void) {
     fprintf (stdout, "Startup with properties:\n");
     fprintf (stdout, "{\n");
-    fprintf (stdout, "    daemonMode: %s\n", propertiesInstance->daemonMode ? "true" : "false");
+    fprintf (stdout, "    daemonMode: %s\n", propertiesInstance->daemonMode ? "True" : "False");
     fprintf (stdout, "    mirrorInterface: %s\n", propertiesInstance->mirrorInterface);
     fprintf (stdout, "    pcapOfflineInput: %s\n", propertiesInstance->pcapOfflineInput);
     fprintf (stdout, "    breakdownSinkIp: %s\n", propertiesInstance->breakdownSinkIp);

@@ -222,16 +222,16 @@ ipQueueDone (ipQueuePtr ipq) {
     u_short offset;
 
     if (!ipq->dataLen)
-        return false;
+        return False;
 
     offset = 0;
     listForEachEntrySafe (entry, pos, npos, &ipq->fragments, node) {
         if (entry->offset != offset)
-            return false;
+            return False;
         offset = entry->end;
     }
 
-    return true;
+    return True;
 }
 
 /*
@@ -318,11 +318,11 @@ ipPktShouldDrop (iphdrPtr iph) {
         snprintf (key1, sizeof (key1), "%s:%d", inet_ntoa (iph->ipSrc), ntohs (tcph->source));
         snprintf (key2, sizeof (key2), "%s:%d", inet_ntoa (iph->ipDest), ntohs (tcph->dest));
         if (getAppServiceProtoAnalyzer (key1) || getAppServiceProtoAnalyzer (key2))
-            return false;
+            return False;
         else
-            return true;
+            return True;
     } else
-        return true;
+        return True;
 }
 
 /*

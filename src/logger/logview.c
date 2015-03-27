@@ -8,7 +8,7 @@
 #include "log_service.h"
 
 static char *logServerIp = NULL;
-static boolean showInDetail  = false;
+static boolean showInDetail  = False;
 static char *logLevel = NULL;
 
 static zctx_t *zmqContext = NULL;
@@ -20,9 +20,9 @@ checkLogLevel (char *logLevel) {
         strEqual ("WARNING", logLevel) ||
         strEqual ("INFO", logLevel) ||
         strEqual ("DEBUG", logLevel))
-        return true;
+        return True;
     else
-        return false;
+        return False;
 }
 
 static struct option logviewOptions [] = {

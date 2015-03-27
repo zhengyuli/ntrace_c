@@ -69,26 +69,26 @@ htonll (u_long_long src) {
 boolean
 strEqualIgnoreCase (char *str1, char *str2) {
     if (strlen (str1) != strlen (str2))
-        return false;
+        return False;
 
     while (*str1) {
         if (tolower (*str1) != tolower (*str2))
-            return false;
+            return False;
         str1++;
         str2++;
     }
-    return true;
+    return True;
 }
 
 boolean
 strEqual (char *str1, char *str2) {
     if (strlen (str1) != strlen (str2))
-        return false;
+        return False;
 
     if (!strcmp (str1, str2))
-        return true;
+        return True;
     else
-        return false;
+        return False;
 }
 
 /* ========================================================================== */
@@ -141,9 +141,9 @@ safeWrite (int fd, void *buf, size_t count) {
 boolean
 fileExist (char *path) {
     if (access (path, F_OK))
-        return false;
+        return False;
     else
-        return true;
+        return True;
 }
 
 boolean
@@ -153,12 +153,12 @@ fileIsEmpty (char *path) {
 
     ret = stat (path, &st);
     if (ret < 0)
-        return true;
+        return True;
 
     if (!st.st_size)
-        return true;
+        return True;
     else
-        return false;
+        return False;
 }
 
 /* ========================================================================== */

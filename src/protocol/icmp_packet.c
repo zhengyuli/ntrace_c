@@ -70,9 +70,9 @@ icmpPktShouldDrop (iphdrPtr iph, tcphdrPtr tcph) {
 
     snprintf (key, sizeof (key), "%s:%d", inet_ntoa (iph->ipDest), ntohs (tcph->dest));
     if (getAppServiceProtoAnalyzer (key))
-        return false;
+        return False;
     else
-        return true;
+        return True;
 }
 
 /*

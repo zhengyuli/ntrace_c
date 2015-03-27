@@ -133,9 +133,9 @@ listDel (listHeadPtr node) {
 static inline boolean
 listIsEmpty (const listHeadPtr head) {
     if (head->next == head)
-        return true;
+        return True;
     else
-        return false;
+        return False;
 }
 
 #endif /* __LIST_H__ */

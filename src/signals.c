@@ -3,11 +3,11 @@
 #include "signals.h"
 
 /* Thread local SIGUSR1 signal interrupted flag */
-static __thread boolean SIGUSR1InterruptedFlag = false;
+static __thread boolean SIGUSR1InterruptedFlag = False;
 
 static void
 SIGUSR1Handler (int signo) {
-    SIGUSR1InterruptedFlag = true;
+    SIGUSR1InterruptedFlag = True;
 }
 
 boolean
@@ -17,7 +17,7 @@ SIGUSR1IsInterrupted (void) {
 
 void
 resetSignalsFlag (void) {
-    SIGUSR1InterruptedFlag = false;
+    SIGUSR1InterruptedFlag = False;
 }
 
 void

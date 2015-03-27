@@ -8,7 +8,7 @@
 #include "log.h"
 #include "mysql_analyzer.h"
 
-#define MATCH(a, b) ((a) == (b) ? true : false)
+#define MATCH(a, b) ((a) == (b) ? True : False)
 
 /* Mysql response packet header */
 #define MYSQL_RESPONSE_OK_HEADER 0x00
@@ -237,9 +237,9 @@ pktServerHandshake (mysqlEvent event, u_char *payload, u_int payloadLen, streamD
     /* Get capability flags lower 2 bytes */
     caps = FLI2 (pkt);
     if (caps & CLIENT_PROTOCOL_41)
-        currSharedInfo->cliProtoIsV41 = true;
+        currSharedInfo->cliProtoIsV41 = True;
     else
-        currSharedInfo->cliProtoIsV41 = false;
+        currSharedInfo->cliProtoIsV41 = False;
     pkt += 2;
     LOGD ("%sCLIENT_PROTOCOL_41:%s\n",
           MYSQL_INFO_DISPLAY_INDENT1, currSharedInfo->cliProtoIsV41 ? "YES" : "NO");
@@ -432,8 +432,8 @@ pktClientHandshake (mysqlEvent event, u_char *payload, u_int payloadLen, streamD
         }
     }
 
-    currSharedInfo->doSSL = ((currSharedInfo->cliCaps & CLIENT_SSL) ? true : false);
-    currSharedInfo->doCompress = ((currSharedInfo->cliCaps & CLIENT_COMPRESS) ? true : false);
+    currSharedInfo->doSSL = ((currSharedInfo->cliCaps & CLIENT_SSL) ? True : False);
+    currSharedInfo->doCompress = ((currSharedInfo->cliCaps & CLIENT_COMPRESS) ? True : False);
     LOGD ("%sConnection doSSL:%s, doCompress:%s\n",
           MYSQL_INFO_DISPLAY_INDENT1,
           currSharedInfo->doSSL ? "Yes" : "No", currSharedInfo->doCompress ? "Yes" : "No");
@@ -1087,7 +1087,7 @@ pktOk (mysqlEvent event, u_char *payload, u_int payloadLen, streamDirection dire
         return EVENT_HANDLE_ERROR;
 
     if (currSessionDetail->showS2CTag) {
-        currSessionDetail->showS2CTag = false;
+        currSessionDetail->showS2CTag = False;
         LOGD ("Cli <<----------------<< Server packet seqId:%u\n", currSessionDetail->seqId);
     }
 
@@ -1160,7 +1160,7 @@ pktError (mysqlEvent event, u_char *payload, u_int payloadLen, streamDirection d
         return EVENT_HANDLE_ERROR;
 
     if (currSessionDetail->showS2CTag) {
-        currSessionDetail->showS2CTag = false;
+        currSessionDetail->showS2CTag = False;
         LOGD ("Cli <<----------------<< Server packet seqId:%u\n", currSessionDetail->seqId);
     }
 
@@ -1232,7 +1232,7 @@ pktEnd (mysqlEvent event, u_char *payload, u_int payloadLen, streamDirection dir
     if (event == EVENT_END_WITH_MULTI_RESULT) {
         if (statusFlags & SERVER_MORE_RESULTS_EXISTS) {
             if (currSessionDetail->showS2CTag) {
-                currSessionDetail->showS2CTag = false;
+                currSessionDetail->showS2CTag = False;
                 LOGD ("Cli <<----------------<< Server packet seqId:%u\n", currSessionDetail->seqId);
             }
 
@@ -1243,7 +1243,7 @@ pktEnd (mysqlEvent event, u_char *payload, u_int payloadLen, streamDirection dir
     }
 
     if (currSessionDetail->showS2CTag) {
-        currSessionDetail->showS2CTag = false;
+        currSessionDetail->showS2CTag = False;
         LOGD ("Cli <<----------------<< Server packet seqId:%u\n", currSessionDetail->seqId);
     }
 
@@ -1269,7 +1269,7 @@ pktStatistics (mysqlEvent event, u_char *payload, u_int payloadLen, streamDirect
     u_char *pkt = payload;
 
     if (currSessionDetail->showS2CTag) {
-        currSessionDetail->showS2CTag = false;
+        currSessionDetail->showS2CTag = False;
         LOGD ("Cli <<----------------<< Server packet seqId:%u\n", currSessionDetail->seqId);
     }
 
@@ -1300,7 +1300,7 @@ pktNFields (mysqlEvent event, u_char *payload, u_int payloadLen, streamDirection
         return EVENT_HANDLE_ERROR;
 
     if (currSessionDetail->showS2CTag) {
-        currSessionDetail->showS2CTag = false;
+        currSessionDetail->showS2CTag = False;
         LOGD ("Cli <<----------------<< Server packet seqId:%u\n", currSessionDetail->seqId);
     }
 
@@ -1364,7 +1364,7 @@ pktField (mysqlEvent event, u_char *payload, u_int payloadLen, streamDirection d
         return EVENT_HANDLE_ERROR;
 
     if (currSessionDetail->showS2CTag) {
-        currSessionDetail->showS2CTag = false;
+        currSessionDetail->showS2CTag = False;
         LOGD ("Cli <<----------------<< Server packet seqId:%u\n", currSessionDetail->seqId);
     }
 
@@ -1531,7 +1531,7 @@ pktTxtRow (mysqlEvent event, u_char *payload, u_int payloadLen, streamDirection 
         return EVENT_HANDLE_ERROR;
 
     if (currSessionDetail->showS2CTag) {
-        currSessionDetail->showS2CTag = false;
+        currSessionDetail->showS2CTag = False;
         LOGD ("Cli <<----------------<< Server packet seqId:%u\n", currSessionDetail->seqId);
     }
 
@@ -1566,7 +1566,7 @@ pktLocalINFileData (mysqlEvent event, u_char *payload, u_int payloadLen, streamD
         return EVENT_HANDLE_ERROR;
 
     if (currSessionDetail->showC2STag) {
-        currSessionDetail->showC2STag = false;
+        currSessionDetail->showC2STag = False;
         LOGD ("Cli >>---------------->> Server packet seqId:%u\n", currSessionDetail->seqId);
         LOGD ("%sLocal infile data:\n", MYSQL_INFO_DISPLAY_INDENT1);
     }
@@ -1604,7 +1604,7 @@ pktBinRow (mysqlEvent event, u_char *payload, u_int payloadLen, streamDirection 
         return EVENT_HANDLE_ERROR;
 
     if (currSessionDetail->showS2CTag) {
-        currSessionDetail->showS2CTag = false;
+        currSessionDetail->showS2CTag = False;
         LOGD ("Cli <<----------------<< Server packet seqId:%u\n", currSessionDetail->seqId);
     }
 
@@ -1779,7 +1779,7 @@ pktStmtMeta (mysqlEvent event, u_char *payload, u_int payloadLen, streamDirectio
         return EVENT_HANDLE_ERROR;
 
     if (currSessionDetail->showS2CTag) {
-        currSessionDetail->showS2CTag = false;
+        currSessionDetail->showS2CTag = False;
         LOGD ("Cli <<----------------<< Server packet seqId:%u\n", currSessionDetail->seqId);
     }
 
@@ -1823,7 +1823,7 @@ pktStmtFetchRS (mysqlEvent event, u_char *payload, u_int payloadLen, streamDirec
         return EVENT_HANDLE_ERROR;
 
     if (currSessionDetail->showS2CTag) {
-        currSessionDetail->showS2CTag = false;
+        currSessionDetail->showS2CTag = False;
         LOGD ("Cli <<----------------<< Server packet seqId:%u\n", currSessionDetail->seqId);
     }
 
@@ -2347,11 +2347,11 @@ initMysqlSharedinfo (mysqlSharedInfoPtr sharedInfo) {
     sharedInfo->protoVer = 0;
     sharedInfo->serverVer = NULL;
     sharedInfo->cliCaps = 0;
-    sharedInfo->cliProtoIsV41 = false;
+    sharedInfo->cliProtoIsV41 = False;
     sharedInfo->conId = 0;
     sharedInfo->maxPktSize = 0;
-    sharedInfo->doCompress = false;
-    sharedInfo->doSSL = false;
+    sharedInfo->doCompress = False;
+    sharedInfo->doSSL = False;
     sharedInfo->userName = NULL;
 }
 
@@ -2375,8 +2375,8 @@ newMysqlSessionDetail (void) {
     msd->cmdCtxt.fieldsCount = 0;
     msd->cmdCtxt.fieldsRecv = 0;
     initMysqlSharedinfo (&msd->sharedInfo);
-    msd->showC2STag = true;
-    msd->showS2CTag = true;
+    msd->showC2STag = True;
+    msd->showS2CTag = True;
     msd->mstate = STATE_NOT_CONNECTED;
     msd->seqId = 0;
     msd->reqStmt = NULL;
@@ -2398,8 +2398,8 @@ resetMysqlSessionDetail (mysqlSessionDetailPtr msd) {
     msd->cmd = COM_UNKNOWN;
     msd->cmdCtxt.fieldsCount = 0;
     msd->cmdCtxt.fieldsRecv = 0;
-    msd->showC2STag = true;
-    msd->showS2CTag = true;
+    msd->showC2STag = True;
+    msd->showS2CTag = True;
     free (msd->reqStmt);
     msd->reqStmt = NULL;
     msd->state = MYSQL_INIT;

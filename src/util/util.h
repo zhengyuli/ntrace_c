@@ -8,8 +8,8 @@ typedef long long int long_long;
 typedef unsigned long long int u_long_long;
 
 typedef enum {
-    false = 0,
-    true = 1
+    False = 0,
+    True = 1
 } boolean;
 
 typedef struct _timeVal timeVal;

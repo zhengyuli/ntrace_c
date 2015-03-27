@@ -71,8 +71,8 @@ getConfigFile (int argc, char *argv []) {
 int
 parseOptions (int argc, char *argv []) {
     char option;
-    boolean showVersion = false;
-    boolean showHelp = false;
+    boolean showVersion = False;
+    boolean showHelp = False;
 
     optind = 1;
     while ((option = getopt_long (argc, argv, ":C:Dm:I:i:p:d:f:l:vh?", options, NULL)) != -1) {
@@ -81,7 +81,7 @@ parseOptions (int argc, char *argv []) {
                 break;
             
             case 'D':
-                updatePropertiesDaemonMode (true);
+                updatePropertiesDaemonMode (True);
                 break;
                 
             case 'm':
@@ -133,11 +133,11 @@ parseOptions (int argc, char *argv []) {
                 break;
 
             case 'v':
-                showVersion = true;
+                showVersion = True;
                 break;
 
             case 'h':
-                showHelp = true;
+                showHelp = True;
                 break;
 
             case ':':

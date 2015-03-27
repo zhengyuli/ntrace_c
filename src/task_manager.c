@@ -107,7 +107,7 @@ stopTaskForEachHashItem (void *data, void *args) {
     tsk = (taskItemPtr) data;
     pthread_kill (tsk->tid, SIGUSR1);
 
-    return true;
+    return True;
 }
 
 void

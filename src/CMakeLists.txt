@@ -71,7 +71,7 @@ SET (AGENT_SOURCE_FILES
   analyzer/mysql/mysql_analyzer.c)
 
 ADD_EXECUTABLE (${ROOT_PROJECT_LOWER}_agent ${AGENT_SOURCE_FILES})
-TARGET_LINK_LIBRARIES (${ROOT_PROJECT_LOWER}_agent pcap czmq pthread ini_config z jansson dl uuid)
+#TARGET_LINK_LIBRARIES (${ROOT_PROJECT_LOWER}_agent pcap czmq pthread ini_config z jansson dl uuid)
 INSTALL (
   TARGETS ${ROOT_PROJECT_LOWER}_agent
   DESTINATION ${PROJECT_BIN_DIR})

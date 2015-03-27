@@ -49,9 +49,9 @@ struct _logDev {
 static inline boolean
 flagOn (u_int flag, u_int bitMask) {
     if (flag & bitMask)
-        return true;
+        return True;
     else
-        return false;
+        return False;
 }
 
 /*===========================Log file dev=================================*/
@@ -77,12 +77,12 @@ logFileOversize (char *filePath) {
 
     ret = stat (filePath, &fileStat);
     if (ret < 0)
-        return true;
+        return True;
 
     if (fileStat.st_size >= LOG_FILE_MAX_SIZE)
-        return true;
+        return True;
     else
-        return false;
+        return False;
 }
 
 static int

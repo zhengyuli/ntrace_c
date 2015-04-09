@@ -48,7 +48,7 @@ icmpBreakdown2Json (icmpBreakdownPtr ibd) {
                          json_string ("ICMP"));
     /* Icmp type */
     json_object_set_new (root, ICMP_SKBD_ICMP_TYPE,
-                         json_string (icmpTypeName [ibd->type]));
+                         json_string ("ICMP_DEST_UNREACH"));
     /* Icmp code */
     json_object_set_new (root, ICMP_SKBD_ICMP_CODE,
                          json_string (icmpDestUnreachCodeName [ibd->code]));

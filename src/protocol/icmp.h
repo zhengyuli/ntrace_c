@@ -19,23 +19,6 @@
 #define ICMP_ADDRESSREPLY   18 /* Address Mask Reply */
 #define NR_ICMP_TYPES       18
 
-static char *icmpTypeName [] = {
-    "ICMP_ECHOREPLY",
-    "ICMP_DEST_UNREACH",
-    "ICMP_SOURCE_QUENCH",
-    "ICMP_REDIRECT",
-    "ICMP_ECHO",
-    "ICMP_TIME_EXCEEDED",
-    "ICMP_PARAMETERPROB",
-    "ICMP_TIMESTAMP",
-    "ICMP_TIMESTAMPREPLY",
-    "ICMP_INFO_REQUEST",
-    "ICMP_INFO_REPLY",
-    "ICMP_ADDRESS",
-    "ICMP_ADDRESSREPLY",
-    "NR_ICMP_TYPES"
-};
-
 /* Codes for UNREACH. */
 #define ICMP_NET_UNREACH    0  /* Network Unreachable */
 #define ICMP_HOST_UNREACH   1  /* Host Unreachable */
@@ -72,7 +55,6 @@ static char *icmpDestUnreachCodeName [] = {
     "ICMP_PKT_FILTERED",
     "ICMP_PREC_VIOLATION",
     "ICMP_PREC_CUTOFF",
-    "NR_ICMP_UNREACH"
 };
 
 typedef struct _icmphdr icmphdr;

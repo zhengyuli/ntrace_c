@@ -269,7 +269,9 @@ typedef enum {
     EVENT_HANDLE_ERROR = 1
 } mysqlEventHandleState;
 
-typedef mysqlEventHandleState (*mysqlEventHandler) (mysqlEvent event, u_char *payload, u_int payloadLen,
+typedef mysqlEventHandleState (*mysqlEventHandler) (mysqlEvent event,
+                                                    u_char *payload,
+                                                    u_int payloadLen,
                                                     streamDirection direction);
 
 typedef struct _mysqlEventHandleMap mysqlEventHandleMap;
@@ -290,6 +292,15 @@ typedef enum {
     MYSQL_BREAKDOWN_RESET_TYPE3,        /**< Mysql reset during response */
     MYSQL_BREAKDOWN_RESET_TYPE4         /**< Mysql reset without request */
 } mysqlBreakdownState;
+
+static char *mysqlBreakdownStateName [] = {
+    "MYSQL_OK",
+    "MYSQL_ERROR",
+    "MYSQL_RESET_TYPE1",
+    "MYSQL_RESET_TYPE2",
+    "MYSQL_RESET_TYPE3",
+    "MYSQL_RESET_TYPE4",
+};
 
 typedef struct _mysqlSessionBreakdown mysqlSessionBreakdown;
 typedef mysqlSessionBreakdown *mysqlSessionBreakdownPtr;

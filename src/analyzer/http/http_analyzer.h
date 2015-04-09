@@ -104,6 +104,15 @@ typedef enum {
     HTTP_BREAKDOWN_RESET_TYPE4          /**< Http reset without request */
 } httpBreakdownState;
 
+static char *httpBreakdownStateName [] = {
+    "HTTP_OK",
+    "HTTP_ERROR",
+    "HTTP_RESET_TYPE1",
+    "HTTP_RESET_TYPE2",
+    "HTTP_RESET_TYPE3",
+    "HTTP_RESET_TYPE4",
+};
+
 typedef struct _httpSessionBreakdown httpSessionBreakdown;
 typedef httpSessionBreakdown *httpSessionBreakdownPtr;
 
@@ -141,6 +150,7 @@ struct _httpSessionBreakdown {
 #define HTTP_SBKD_METHOD "http_method"
 #define HTTP_SBKD_URL "http_url"
 #define HTTP_SBKD_HOST "http_host"
+#define HTTP_SBKD_REQUEST_LINE "http_request_line"
 #define HTTP_SBKD_USER_AGENT "http_user_agent"
 #define HTTP_SBKD_REFERER "http_referer"
 #define HTTP_SBKD_ACCEPT "http_accept"

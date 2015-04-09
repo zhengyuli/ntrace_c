@@ -791,107 +791,156 @@ generateHttpSessionBreakdown (void *sd, void *sbd) {
 
 static void
 httpSessionBreakdown2Json (json_t *root, void *sd, void *sbd) {
+    char buf [1024];
     httpSessionBreakdownPtr hsbd = (httpSessionBreakdownPtr) sbd;
 
     if (hsbd->state != HTTP_BREAKDOWN_RESET_TYPE4) {
         /* Http request version */
         if (hsbd->reqVer)
-            json_object_set_new (root, HTTP_SBKD_REQUEST_VERSION, json_string (hsbd->reqVer));
+            json_object_set_new (root, HTTP_SBKD_REQUEST_VERSION,
+                                 json_string (hsbd->reqVer));
         else
-            json_object_set_new (root, HTTP_SBKD_REQUEST_VERSION, json_string (""));
+            json_object_set_new (root, HTTP_SBKD_REQUEST_VERSION,
+                                 json_string (""));
         /* Http request method */
         if (hsbd->method)
-            json_object_set_new (root, HTTP_SBKD_METHOD, json_string (hsbd->method));
+            json_object_set_new (root, HTTP_SBKD_METHOD,
+                                 json_string (hsbd->method));
         else
-            json_object_set_new (root, HTTP_SBKD_METHOD, json_string (""));
+            json_object_set_new (root, HTTP_SBKD_METHOD,
+                                 json_string (""));
         /* Http request url */
         if (hsbd->url)
-            json_object_set_new (root, HTTP_SBKD_URL, json_string (hsbd->url));
+            json_object_set_new (root, HTTP_SBKD_URL,
+                                 json_string (hsbd->url));
         else
-            json_object_set_new (root, HTTP_SBKD_URL, json_string (""));
+            json_object_set_new (root, HTTP_SBKD_URL,
+                                 json_string (""));
         /* Http request host */
         if (hsbd->host)
-            json_object_set_new (root, HTTP_SBKD_HOST, json_string (hsbd->host));
+            json_object_set_new (root, HTTP_SBKD_HOST,
+                                 json_string (hsbd->host));
         else
-            json_object_set_new (root, HTTP_SBKD_HOST, json_string (""));
+            json_object_set_new (root, HTTP_SBKD_HOST,
+                                 json_string (""));
+
+        /* Http request line */
+        snprintf (buf, sizeof (buf), "%s http://%s%s",
+                  hsbd->method, hsbd->host, hsbd->url);
+        json_object_set_new (root, HTTP_SBKD_REQUEST_LINE,
+                             json_string (buf));
+
         /* Http request user agent */
         if (hsbd->userAgent)
-            json_object_set_new (root, HTTP_SBKD_USER_AGENT, json_string (hsbd->userAgent));
+            json_object_set_new (root, HTTP_SBKD_USER_AGENT,
+                                 json_string (hsbd->userAgent));
         else
-            json_object_set_new (root, HTTP_SBKD_USER_AGENT, json_string (""));
+            json_object_set_new (root, HTTP_SBKD_USER_AGENT,
+                                 json_string (""));
         /* Http referer url */
         if (hsbd->referer)
-            json_object_set_new (root, HTTP_SBKD_REFERER, json_string (hsbd->referer));
+            json_object_set_new (root, HTTP_SBKD_REFERER,
+                                 json_string (hsbd->referer));
         else
-            json_object_set_new (root, HTTP_SBKD_REFERER, json_string (""));
+            json_object_set_new (root, HTTP_SBKD_REFERER,
+                                 json_string (""));
         /* Http request accept source */
         if (hsbd->accept)
-            json_object_set_new (root, HTTP_SBKD_ACCEPT, json_string (hsbd->accept));
+            json_object_set_new (root, HTTP_SBKD_ACCEPT,
+                                 json_string (hsbd->accept));
         else
-            json_object_set_new (root, HTTP_SBKD_ACCEPT, json_string (""));
+            json_object_set_new (root, HTTP_SBKD_ACCEPT,
+                                 json_string (""));
         /* Http request accept Language */
         if (hsbd->acceptLanguage)
-            json_object_set_new (root, HTTP_SBKD_ACCEPT_LANGUAGE, json_string (hsbd->acceptLanguage));
+            json_object_set_new (root, HTTP_SBKD_ACCEPT_LANGUAGE,
+                                 json_string (hsbd->acceptLanguage));
         else
-            json_object_set_new (root, HTTP_SBKD_ACCEPT_LANGUAGE, json_string (""));
+            json_object_set_new (root, HTTP_SBKD_ACCEPT_LANGUAGE,
+                                 json_string (""));
         /* Http request accept encoding */
         if (hsbd->acceptEncoding)
-            json_object_set_new (root, HTTP_SBKD_ACCEPT_ENCODING, json_string (hsbd->acceptEncoding));
+            json_object_set_new (root, HTTP_SBKD_ACCEPT_ENCODING,
+                                 json_string (hsbd->acceptEncoding));
         else
-            json_object_set_new (root, HTTP_SBKD_ACCEPT_ENCODING, json_string (""));
+            json_object_set_new (root, HTTP_SBKD_ACCEPT_ENCODING,
+                                 json_string (""));
         /* Http request X-Forwarded-For */
         if (hsbd->xForwardedFor)
-            json_object_set_new (root, HTTP_SBKD_X_FORWARDED_FOR, json_string (hsbd->xForwardedFor));
+            json_object_set_new (root, HTTP_SBKD_X_FORWARDED_FOR,
+                                 json_string (hsbd->xForwardedFor));
         else
-            json_object_set_new (root, HTTP_SBKD_X_FORWARDED_FOR, json_string (""));
+            json_object_set_new (root, HTTP_SBKD_X_FORWARDED_FOR,
+                                 json_string (""));
         /* Http request connection type */
         if (hsbd->reqConnection)
-            json_object_set_new (root, HTTP_SBKD_REQUEST_CONNECTION, json_string (hsbd->reqConnection));
+            json_object_set_new (root, HTTP_SBKD_REQUEST_CONNECTION,
+                                 json_string (hsbd->reqConnection));
         else
-            json_object_set_new (root, HTTP_SBKD_REQUEST_CONNECTION, json_string (""));
+            json_object_set_new (root, HTTP_SBKD_REQUEST_CONNECTION,
+                                 json_string (""));
         /* Http response version */
         if (hsbd->respVer)
-            json_object_set_new (root, HTTP_SBKD_RESPONSE_VERSION, json_string (hsbd->respVer));
+            json_object_set_new (root, HTTP_SBKD_RESPONSE_VERSION,
+                                 json_string (hsbd->respVer));
         else
-            json_object_set_new (root, HTTP_SBKD_RESPONSE_VERSION, json_string (""));
+            json_object_set_new (root, HTTP_SBKD_RESPONSE_VERSION,
+                                 json_string (""));
         /* Http response connection type */
         if (hsbd->contentType)
-            json_object_set_new (root, HTTP_SBKD_CONTENT_TYPE, json_string (hsbd->contentType));
+            json_object_set_new (root, HTTP_SBKD_CONTENT_TYPE,
+                                 json_string (hsbd->contentType));
         else
-            json_object_set_new (root, HTTP_SBKD_CONTENT_TYPE, json_string (""));
+            json_object_set_new (root, HTTP_SBKD_CONTENT_TYPE,
+                                 json_string (""));
         /* Http response content Disposition */
         if (hsbd->contentDisposition)
-            json_object_set_new (root, HTTP_SBKD_CONTENT_DISPOSITION, json_string (hsbd->contentDisposition));
+            json_object_set_new (root, HTTP_SBKD_CONTENT_DISPOSITION,
+                                 json_string (hsbd->contentDisposition));
         else
-            json_object_set_new (root, HTTP_SBKD_CONTENT_DISPOSITION, json_string (""));
+            json_object_set_new (root, HTTP_SBKD_CONTENT_DISPOSITION,
+                                 json_string (""));
         /* Http response transfer Encoding */
         if (hsbd->transferEncoding)
-            json_object_set_new (root, HTTP_SBKD_TRANSFER_ENCODING, json_string (hsbd->transferEncoding));
+            json_object_set_new (root, HTTP_SBKD_TRANSFER_ENCODING,
+                                 json_string (hsbd->transferEncoding));
         else
-            json_object_set_new (root, HTTP_SBKD_TRANSFER_ENCODING, json_string (""));
+            json_object_set_new (root, HTTP_SBKD_TRANSFER_ENCODING,
+                                 json_string (""));
         /* Http response connection type */
         if (hsbd->respConnection)
-            json_object_set_new (root, HTTP_SBKD_RESPONSE_CONNECTION, json_string (hsbd->respConnection));
+            json_object_set_new (root, HTTP_SBKD_RESPONSE_CONNECTION,
+                                 json_string (hsbd->respConnection));
         else
-            json_object_set_new (root, HTTP_SBKD_RESPONSE_CONNECTION, json_string (""));
+            json_object_set_new (root, HTTP_SBKD_RESPONSE_CONNECTION,
+                                 json_string (""));
         /* Http state */
-        json_object_set_new (root, HTTP_SBKD_STATE, json_integer (hsbd->state));
+        json_object_set_new (root, HTTP_SBKD_STATE,
+                             json_string (httpBreakdownStateName [hsbd->state]));
         /* Http status code */
-        json_object_set_new (root, HTTP_SBKD_STATUS_CODE, json_integer (hsbd->statusCode));
+        json_object_set_new (root, HTTP_SBKD_STATUS_CODE,
+                             json_integer (hsbd->statusCode));
         /* Http request header size */
-        json_object_set_new (root, HTTP_SBKD_REQUEST_HEADER_SIZE, json_integer (hsbd->reqHeaderSize));
+        json_object_set_new (root, HTTP_SBKD_REQUEST_HEADER_SIZE,
+                             json_integer (hsbd->reqHeaderSize));
         /* Http request body size */
-        json_object_set_new (root, HTTP_SBKD_REQUEST_BODY_SIZE, json_integer (hsbd->reqBodySize));
+        json_object_set_new (root, HTTP_SBKD_REQUEST_BODY_SIZE,
+                             json_integer (hsbd->reqBodySize));
         /* Http response header size */
-        json_object_set_new (root, HTTP_SBKD_RESPONSE_HEADER_SIZE, json_integer (hsbd->respHeaderSize));
+        json_object_set_new (root, HTTP_SBKD_RESPONSE_HEADER_SIZE,
+                             json_integer (hsbd->respHeaderSize));
         /* Http response body size */
-        json_object_set_new (root, HTTP_SBKD_RESPONSE_BODY_SIZE, json_integer (hsbd->respBodySize));
+        json_object_set_new (root, HTTP_SBKD_RESPONSE_BODY_SIZE,
+                             json_integer (hsbd->respBodySize));
         /* Http server latency */
-        json_object_set_new (root, HTTP_SBKD_SERVER_LATENCY, json_integer (hsbd->serverLatency));
+        json_object_set_new (root, HTTP_SBKD_SERVER_LATENCY,
+                             json_integer (hsbd->serverLatency));
         /* Http download latency */
-        json_object_set_new (root, HTTP_SBKD_DOWNLOAD_LATENCY, json_integer (hsbd->downloadLatency));
+        json_object_set_new (root, HTTP_SBKD_DOWNLOAD_LATENCY,
+                             json_integer (hsbd->downloadLatency));
         /* Http response latency */
-        json_object_set_new (root, HTTP_SBKD_RESPONSE_LATENCY, json_integer (hsbd->respLatency));
+        json_object_set_new (root, HTTP_SBKD_RESPONSE_LATENCY,
+                             json_integer (hsbd->respLatency));
     }
 }
 
@@ -901,7 +950,8 @@ httpSessionProcessEstb (timeValPtr tm, void *sd) {
 }
 
 static void
-httpSessionProcessUrgData (streamDirection direction, char urgData, timeValPtr tm, void *sd) {
+httpSessionProcessUrgData (streamDirection direction, char urgData,
+                           timeValPtr tm, void *sd) {
     return;
 }
 
@@ -916,10 +966,12 @@ httpSessionProcessData (streamDirection direction, u_char *data, u_int dataLen,
     currSessionDetail = (httpSessionDetailPtr) sd;
 
     if (direction == STREAM_FROM_CLIENT)
-        parseCount = http_parser_execute (&currSessionDetail->reqParser, &currSessionDetail->reqParserSettings,
+        parseCount = http_parser_execute (&currSessionDetail->reqParser,
+                                          &currSessionDetail->reqParserSettings,
                                           (const char *) data, dataLen);
     else
-        parseCount = http_parser_execute (&currSessionDetail->resParser, &currSessionDetail->resParserSettings,
+        parseCount = http_parser_execute (&currSessionDetail->resParser,
+                                          &currSessionDetail->resParserSettings,
                                           (const char *) data, dataLen);
 
     *state = currSessionState;
@@ -959,7 +1011,8 @@ httpSessionProcessReset (streamDirection direction, timeValPtr tm, void *sd) {
 }
 
 static void
-httpSessionProcessFin (streamDirection direction, timeValPtr tm, void *sd, sessionState *state) {
+httpSessionProcessFin (streamDirection direction, timeValPtr tm, void *sd,
+                       sessionState *state) {
     httpSessionDetailNodePtr currNode;
     httpSessionDetailPtr hsd = (httpSessionDetailPtr) sd;
 

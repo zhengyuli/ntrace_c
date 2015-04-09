@@ -138,6 +138,17 @@ typedef enum {
     TCP_BREAKDOWN_RESET_TYPE4           /**< Tcp connection reset type4 (from server and after connected) */
 } tcpBreakdownState;
 
+/* Tcp state name for tcp breakdown */
+static char *tcpBreakdownStateName [] = {
+    "TCP_CONNECTED",
+    "TCP_DATA_EXCHANGING",
+    "TCP_CLOSED",
+    "TCP_RESET_TYPE1",
+    "TCP_RESET_TYPE2",
+    "TCP_RESET_TYPE3",
+    "TCP_RESET_TYPE4",
+};
+
 typedef struct _tcpBreakdown tcpBreakdown;
 typedef tcpBreakdown *tcpBreakdownPtr;
 

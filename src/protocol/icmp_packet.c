@@ -32,7 +32,7 @@ icmpBreakdown2Json (icmpBreakdownPtr ibd) {
     char *out;
     json_t *root;
     char buf [64];
-    
+
     root = json_object ();
     if (root == NULL) {
         LOGE ("Create json object error.\n");
@@ -41,18 +41,24 @@ icmpBreakdown2Json (icmpBreakdownPtr ibd) {
 
     /* Icmp timestamp */
     formatLocalTimeStr (&ibd->timestamp, buf, sizeof (buf));
-    json_object_set_new (root, ICMP_SKBD_TIMESTAMP, json_string (buf));
+    json_object_set_new (root, ICMP_SKBD_TIMESTAMP,
+                         json_string (buf));
     /* Icmp protocol */
-    json_object_set_new (root, ICMP_SKBD_PROTOCOL, json_string ("ICMP"));
+    json_object_set_new (root, ICMP_SKBD_PROTOCOL,
+                         json_string ("ICMP"));
     /* Icmp type */
-    json_object_set_new (root, ICMP_SKBD_ICMP_TYPE, json_integer (ibd->type));
+    json_object_set_new (root, ICMP_SKBD_ICMP_TYPE,
+                         json_string (icmpTypeName [ibd->type]));
     /* Icmp code */
-    json_object_set_new (root, ICMP_SKBD_ICMP_CODE, json_integer (ibd->code));
+    json_object_set_new (root, ICMP_SKBD_ICMP_CODE,
+                         json_string (icmpDestUnreachCodeName [ibd->code]));
     /* Icmp dest unreach ip */
-    json_object_set_new (root, ICMP_SKBD_ICMP_DEST_UNREACH_IP, json_string (inet_ntoa (ibd->ip)));
+    json_object_set_new (root, ICMP_SKBD_ICMP_DEST_UNREACH_IP,
+                         json_string (inet_ntoa (ibd->ip)));
     /* Icmp dest unreach port */
     if (ibd->code == ICMP_PORT_UNREACH)
-        json_object_set_new (root, ICMP_SKBD_ICMP_DEST_UNREACH_PORT, json_integer (ibd->port));
+        json_object_set_new (root, ICMP_SKBD_ICMP_DEST_UNREACH_PORT,
+                             json_integer (ibd->port));
 
     out = json_dumps (root, JSON_INDENT (4));
     json_object_clear (root);
@@ -73,7 +79,7 @@ icmpPktShouldDrop (iphdrPtr iph, tcphdrPtr tcph) {
 
 /*
  * @brief Icmp pakcet processor
- * 
+ *
  * @param iph ip packet header
  * @param tm packet capture timestamp
  */

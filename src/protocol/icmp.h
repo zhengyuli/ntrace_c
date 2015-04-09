@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 
+/* ICMP type */
 #define ICMP_ECHOREPLY      0  /* Echo Reply */
 #define ICMP_DEST_UNREACH   3  /* Destination Unreachable */
 #define ICMP_SOURCE_QUENCH  4  /* Source Quench */
@@ -17,6 +18,23 @@
 #define ICMP_ADDRESS        17 /* Address Mask Request */
 #define ICMP_ADDRESSREPLY   18 /* Address Mask Reply */
 #define NR_ICMP_TYPES       18
+
+static char *icmpTypeName [] = {
+    "ICMP_ECHOREPLY",
+    "ICMP_DEST_UNREACH",
+    "ICMP_SOURCE_QUENCH",
+    "ICMP_REDIRECT",
+    "ICMP_ECHO",
+    "ICMP_TIME_EXCEEDED",
+    "ICMP_PARAMETERPROB",
+    "ICMP_TIMESTAMP",
+    "ICMP_TIMESTAMPREPLY",
+    "ICMP_INFO_REQUEST",
+    "ICMP_INFO_REPLY",
+    "ICMP_ADDRESS",
+    "ICMP_ADDRESSREPLY",
+    "NR_ICMP_TYPES"
+};
 
 /* Codes for UNREACH. */
 #define ICMP_NET_UNREACH    0  /* Network Unreachable */
@@ -36,6 +54,26 @@
 #define ICMP_PREC_VIOLATION 14  /* Precedence violation */
 #define ICMP_PREC_CUTOFF    15  /* Precedence cut off */
 #define NR_ICMP_UNREACH     15  /*instead of hardcoding immediate value */
+
+static char *icmpDestUnreachCodeName [] = {
+    "ICMP_NET_UNREACH",
+    "ICMP_HOST_UNREACH",
+    "ICMP_PROT_UNREACH",
+    "ICMP_PORT_UNREACH",
+    "ICMP_FRAG_NEEDED",
+    "ICMP_SR_FAILED",
+    "ICMP_NET_UNKNOWN",
+    "ICMP_HOST_UNKNOWN",
+    "ICMP_HOST_ISOLATED",
+    "ICMP_NET_ANO",
+    "ICMP_HOST_ANO",
+    "ICMP_NET_UNR_TOS",
+    "ICMP_HOST_UNR_TOS",
+    "ICMP_PKT_FILTERED",
+    "ICMP_PREC_VIOLATION",
+    "ICMP_PREC_CUTOFF",
+    "NR_ICMP_UNREACH"
+};
 
 typedef struct _icmphdr icmphdr;
 typedef icmphdr *icmphdrPtr;

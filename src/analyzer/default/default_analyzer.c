@@ -72,8 +72,10 @@ static void
 defaultSessionBreakdown2Json (json_t *root, void *sd, void *sbd) {
     defaultSessionBreakdownPtr dsbd = (defaultSessionBreakdownPtr) sbd;
 
-    json_object_set_new (root, DEFAULT_SBKD_EXCHANGE_SIZE, json_integer (dsbd->exchangeSize));
-    json_object_set_new (root, DEFAULT_SBKD_SERVER_LATENCY, json_integer (dsbd->serverLatency));
+    json_object_set_new (root, DEFAULT_SBKD_EXCHANGE_SIZE,
+                         json_integer (dsbd->exchangeSize));
+    json_object_set_new (root, DEFAULT_SBKD_SERVER_LATENCY,
+                         json_integer (dsbd->serverLatency));
 }
 
 static void
@@ -84,7 +86,8 @@ defaultSessionProcessEstb (timeValPtr tm, void *sd) {
 }
 
 static void
-defaultSessionProcessUrgData (streamDirection direction, char urgData, timeValPtr tm, void *sd) {
+defaultSessionProcessUrgData (streamDirection direction, char urgData,
+                              timeValPtr tm, void *sd) {
     return;
 }
 
@@ -105,7 +108,8 @@ defaultSessionProcessReset (streamDirection direction, timeValPtr tm, void *sd) 
 }
 
 static void
-defaultSessionProcessFin (streamDirection direction, timeValPtr tm, void *sd, sessionState *state) {
+defaultSessionProcessFin (streamDirection direction, timeValPtr tm, void *sd,
+                          sessionState *state) {
     defaultSessionDetailPtr dsd = (defaultSessionDetailPtr) sd;
 
     if (dsd->serverTimeEnd == 0)

@@ -78,8 +78,10 @@ static void
 templateSessionBreakdown2Json (json_t *root, void *sd, void *sbd) {
     templateSessionBreakdownPtr dsbd = (templateSessionBreakdownPtr) sbd;
 
-    json_object_set_new (root, TEMPLATE_SBKD_EXCHANGE_SIZE, json_integer (dsbd->exchangeSize));
-    json_object_set_new (root, TEMPLATE_SBKD_SERVER_LATENCY, json_integer (dsbd->serverLatency));
+    json_object_set_new (root, TEMPLATE_SBKD_EXCHANGE_SIZE,
+                         json_integer (dsbd->exchangeSize));
+    json_object_set_new (root, TEMPLATE_SBKD_SERVER_LATENCY,
+                         json_integer (dsbd->serverLatency));
 }
 
 static void
@@ -90,7 +92,8 @@ templateSessionProcessEstb (timeValPtr tm, void *sd) {
 }
 
 static void
-templateSessionProcessUrgData (streamDirection direction, char urgData, timeValPtr tm, void *sd) {
+templateSessionProcessUrgData (streamDirection direction, char urgData,
+                               timeValPtr tm, void *sd) {
     return;
 }
 
@@ -111,7 +114,8 @@ templateSessionProcessReset (streamDirection direction, timeValPtr tm, void *sd)
 }
 
 static void
-templateSessionProcessFin (streamDirection direction, timeValPtr tm, void *sd, sessionState *state) {
+templateSessionProcessFin (streamDirection direction, timeValPtr tm, void *sd,
+                           sessionState *state) {
     templateSessionDetailPtr dsd = (templateSessionDetailPtr) sd;
 
     if (dsd->serverTimeEnd == 0)

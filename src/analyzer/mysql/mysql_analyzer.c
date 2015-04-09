@@ -216,7 +216,7 @@ pktServerHandshake (mysqlEvent event, u_char *payload, u_int payloadLen,
     /* Get proto version */
     currSharedInfo->protoVer = (u_int) FLI1 (pkt);
     pkt += 1;
-    LOGD ("%sProto version:%x\n", MYSQL_INFO_DISPLAY_INDENT1,
+    LOGD ("%sProto version:%d\n", MYSQL_INFO_DISPLAY_INDENT1,
           (u_char) currSharedInfo->protoVer);
 
     /* Get server version, example:4.1.1 ........ */
@@ -456,10 +456,12 @@ pktSecureAuth (mysqlEvent event, u_char *payload, u_int payloadLen,
         return EVENT_HANDLE_ERROR;
 
     if (direction == STREAM_FROM_CLIENT) {
-        LOGD ("Cli >>---------------->> Server packet seqId:%u\n", currSessionDetail->seqId);
+        LOGD ("Cli >>---------------->> Server packet seqId:%u\n",
+              currSessionDetail->seqId);
         LOGD ("%sSecure authentication...\n", MYSQL_INFO_DISPLAY_INDENT1);
     } else {
-        LOGD ("Cli <<----------------<< Server packet seqId:%u\n", currSessionDetail->seqId);
+        LOGD ("Cli <<----------------<< Server packet seqId:%u\n",
+              currSessionDetail->seqId);
         LOGD ("%sSecure authentication...\n", MYSQL_INFO_DISPLAY_INDENT1);
     }
 
@@ -905,8 +907,7 @@ pktRegisterSlave (mysqlEvent event, u_char *payload, u_int payloadLen,
 
     /* Construct command */
     snprintf (com, sizeof (com),
-              "%s server_id:%u, host_name:%s, user:%s, password:%s, "
-              "mysql_port:%u, replication_rank:%u, master_id:%u",
+              "%s server_id:%u, host_name:%s, user:%s, password:%s, mysql_port:%u, replication_rank:%u, master_id:%u",
               cmdName, serverId, hostName, user, passwd, mysqlPort, repRank, masterId);
     LOGD ("%s%s\n", MYSQL_INFO_DISPLAY_INDENT1, com);
 
@@ -2520,8 +2521,9 @@ newMysqlSessionBreakdown (void) {
     msbd->errMsg = NULL;
     msbd->reqSize = 0;
     msbd->respSize = 0;
-    msbd->respLatency = 0;
+    msbd->serverLatency = 0;
     msbd->downloadLatency = 0;
+    msbd->respLatency = 0;
     return msbd;
 }
 
@@ -2609,8 +2611,9 @@ generateMysqlSessionBreakdown (void *sd, void *sbd) {
             }
             msbd->reqSize = msd->reqSize;
             msbd->respSize = msd->respSize;
-            msbd->respLatency = (u_int) (msd->respTimeBegin - msd->reqTime);
+            msbd->serverLatency = (u_int) (msd->respTimeBegin - msd->reqTime);
             msbd->downloadLatency = (u_int) (msd->respTimeEnd - msd->respTimeBegin);
+            msbd->respLatency = (u_int) (msd->respTimeEnd - msd->reqTime);
             break;
 
         case MYSQL_RESET_TYPE1:
@@ -2624,8 +2627,9 @@ generateMysqlSessionBreakdown (void *sd, void *sbd) {
             msbd->errMsg = NULL;
             msbd->reqSize = msd->reqSize;
             msbd->respSize = 0;
-            msbd->respLatency = 0;
+            msbd->serverLatency = 0;
             msbd->downloadLatency = 0;
+            msbd->respLatency = 0;
             break;
 
         case MYSQL_RESET_TYPE3:
@@ -2635,8 +2639,9 @@ generateMysqlSessionBreakdown (void *sd, void *sbd) {
             msbd->errMsg = NULL;
             msbd->reqSize = msd->reqSize;
             msbd->respSize = msd->respSize;
-            msbd->respLatency = (u_int) (msd->respTimeBegin - msd->reqTime);
+            msbd->serverLatency = (u_int) (msd->respTimeBegin - msd->reqTime);
             msbd->downloadLatency = 0;
+            msbd->respLatency = (u_int) (msd->respTimeBegin - msd->reqTime);
             break;
 
         case MYSQL_RESET_TYPE4:
@@ -2646,8 +2651,9 @@ generateMysqlSessionBreakdown (void *sd, void *sbd) {
             msbd->errMsg = NULL;
             msbd->reqSize = 0;
             msbd->respSize = 0;
-            msbd->respLatency = 0;
+            msbd->serverLatency = 0;
             msbd->downloadLatency = 0;
+            msbd->respLatency = 0;
             break;
 
         default:
@@ -2700,12 +2706,15 @@ mysqlSessionBreakdown2Json (json_t *root, void *sd, void *sbd) {
     /* Mysql response size */
     json_object_set_new (root, MYSQL_SBKD_RESPONSE_SIZE,
                          json_integer (msbd->respSize));
-    /* Mysql response latency */
-    json_object_set_new (root, MYSQL_SBKD_RESPONSE_LATENCY,
-                         json_integer (msbd->respLatency));
+    /* Mysql server latency */
+    json_object_set_new (root, MYSQL_SBKD_SERVER_LATENCY,
+                         json_integer (msbd->serverLatency));
     /* Mysql download latency */
     json_object_set_new (root, MYSQL_SBKD_DOWNLOAD_LATENCY,
                          json_integer (msbd->downloadLatency));
+    /* Mysql response latency */
+    json_object_set_new (root, MYSQL_SBKD_RESPONSE_LATENCY,
+                         json_integer (msbd->respLatency));
 }
 
 static void

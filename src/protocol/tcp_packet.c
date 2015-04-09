@@ -383,7 +383,10 @@ newTcpStream (protoAnalyzerPtr analyzer) {
     stream->synAckTime = 0;
     stream->estbTime = 0;
     stream->mss = 0;
-    stream->totalPkts = 0;
+    stream->c2sBytes = 0;
+    stream->s2cBytes = 0;
+    stream->c2sPkts = 0;
+    stream->s2cPkts = 0;
     stream->tinyPkts = 0;
     stream->pawsPkts = 0;
     stream->retransmittedPkts = 0;
@@ -492,7 +495,8 @@ addNewTcpStream (tcphdrPtr tcph, iphdrPtr iph, timeValPtr tm) {
         LOGW ("Tcp MSS from client is null.\n");
     stream->synTime = timeVal2MilliSecond (tm);
     stream->retriesTime = timeVal2MilliSecond (tm);
-    stream->totalPkts++;
+    stream->c2sBytes = ntohs (iph->ipLen);
+    stream->c2sPkts++;
     if (!stream->client.window)
         stream->zeroWindows++;
 
@@ -588,6 +592,21 @@ tcpBreakdown2Json (tcpStreamPtr stream, tcpBreakdownPtr tbd) {
     /* Tcp connection latency */
     json_object_set_new (root, TCP_SKBD_TCP_CONNECTION_LATENCY,
                          json_integer (tbd->connLatency));
+    /* Tcp c2s bytes */
+    json_object_set_new (root, TCP_SKBD_TCP_C2S_BYTES,
+                         json_integer (tbd->c2sBytes));
+    /* Tcp s2c bytes */
+    json_object_set_new (root, TCP_SKBD_TCP_S2C_BYTES,
+                         json_integer (tbd->s2cBytes));
+    /* Tcp total bytes */
+    json_object_set_new (root, TCP_SKBD_TCP_TOTAL_BYTES,
+                         json_integer (tbd->totalBytes));
+    /* Tcp c2s packets */
+    json_object_set_new (root, TCP_SKBD_TCP_C2S_PACKETS,
+                         json_integer (tbd->c2sPkts));
+    /* Tcp s2c packets */
+    json_object_set_new (root, TCP_SKBD_TCP_S2C_PACKETS,
+                         json_integer (tbd->s2cPkts));
     /* Tcp total packets */
     json_object_set_new (root, TCP_SKBD_TCP_TOTAL_PACKETS,
                          json_integer (tbd->totalPkts));
@@ -697,7 +716,12 @@ generateSessionBreakdown (tcpStreamPtr stream, timeValPtr tm) {
 
     tbd.rtt = stream->estbTime - stream->retriesTime;
     tbd.mss = stream->mss;
-    tbd.totalPkts = stream->totalPkts;
+    tbd.c2sBytes = stream->c2sBytes;
+    tbd.s2cBytes = stream->s2cBytes;
+    tbd.totalBytes = stream->c2sBytes + stream->s2cBytes;
+    tbd.c2sPkts = stream->c2sPkts;
+    tbd.s2cPkts = stream->s2cPkts;
+    tbd.totalPkts = stream->c2sPkts + stream->s2cPkts;
     tbd.tinyPkts = stream->tinyPkts;
     tbd.pawsPkts = stream->pawsPkts;
     tbd.retransmittedPkts = stream->retransmittedPkts;
@@ -731,7 +755,10 @@ generateSessionBreakdown (tcpStreamPtr stream, timeValPtr tm) {
     (*stream->analyzer->freeSessionBreakdown) (tbd.sessionBreakdown);
 
     /* Reset some statistic fields of tcp stream */
-    stream->totalPkts = 0;
+    stream->c2sBytes = 0;
+    stream->s2cBytes = 0;
+    stream->c2sPkts = 0;
+    stream->s2cPkts = 0;
     stream->tinyPkts = 0;
     stream->pawsPkts = 0;
     stream->retransmittedPkts = 0;
@@ -1183,13 +1210,17 @@ tcpProcess (iphdrPtr iph, timeValPtr tm) {
     if (direction == STREAM_FROM_CLIENT) {
         snd = &stream->client;
         rcv = &stream->server;
+
+        stream->c2sBytes += ntohs (iph->ipLen);
+        stream->c2sPkts++;
     } else {
         rcv = &stream->client;
         snd = &stream->server;
+
+        stream->s2cBytes += ntohs (iph->ipLen);
+        stream->s2cPkts++;
     }
 
-    /* Accumulate totoal packets */
-    stream->totalPkts++;
     /* Tcp window check */
     snd->window = ntohs (tcph->window);
     if (!snd->window)

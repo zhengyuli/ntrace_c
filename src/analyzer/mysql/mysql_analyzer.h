@@ -316,8 +316,9 @@ struct _mysqlSessionBreakdown {
     char *errMsg;                       /**< Mysql error message */
     u_int reqSize;                      /**< Mysql request size */
     u_int respSize;                     /**< Mysql response size */
-    u_int respLatency;                  /**< Mysql response latency */
+    u_int serverLatency;                /**< Mysql response server latency */
     u_int downloadLatency;              /**< Mysql response download latency */
+    u_int respLatency;                  /**< Mysql response latency */
 };
 
 /* Mysql session breakdown json key definitions */
@@ -331,7 +332,8 @@ struct _mysqlSessionBreakdown {
 #define MYSQL_SBKD_ERROR_MESSAGE "mysql_error_message"
 #define MYSQL_SBKD_REQUEST_SIZE "mysql_request_size"
 #define MYSQL_SBKD_RESPONSE_SIZE "mysql_response_size"
-#define MYSQL_SBKD_RESPONSE_LATENCY "mysql_response_latency"
+#define MYSQL_SBKD_SERVER_LATENCY "mysql_server_latency"
 #define MYSQL_SBKD_DOWNLOAD_LATENCY "mysql_download_latency"
+#define MYSQL_SBKD_RESPONSE_LATENCY "mysql_response_latency"
 
 #endif /* __MYSQL_ANALYZER_H__ */

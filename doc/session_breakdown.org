@@ -21,7 +21,12 @@
 | u_int             | rtt               | u_int          | tcp_rtt                   | Tcp RTT                                                     |
 | u_int             | mss               | u_int          | tcp_mss                   | Tcp mss (maxium segment size)                               |
 | u_int             | connLatency       | u_int          | tcp_connection_latency    | Tcp connection latency in milliseconds                      |
-| u_int             | totalPkts         | u_int          | tcp_total_packets         | Tcp total packages                                          |
+| u_int             | c2sBytes          | u_int          | tcp_c2s_bytes             | Tcp client to server bytes                                  |
+| u_int             | s2cBytes          | u_int          | tcp_s2c_bytes             | Tcp server to client bytes                                  |
+| None              | None              | u_int          | tcp_total_bytes           | Tcp total bytes                                             |
+| u_int             | c2sPkts           | u_int          | tcp_c2s_packets           | Tcp client to server packets                                |
+| u_int             | s2cPkts           | u_int          | tcp_s2c_packets           | Tcp server to client packets                                |
+| None              | None              | u_int          | tcp_total_packets         | Tcp total packets                                           |
 | u_int             | tinyPkts          | u_int          | tcp_tiny_packets          | Tcp tiny packets                                            |
 | u_int             | pawsPkts          | u_int          | tcp_paws_packets          | Tcp PAWS (Protect Against Wrapped Sequence numbers) packets |
 | u_int             | retransmittedPkts | u_int          | tcp_retransmitted_packets | Tcp retransmitted packets                                   |
@@ -42,7 +47,7 @@
        TCP_BREAKDOWN_RESET_TYPE4           /**< Tcp connection reset type4 (from server and after connected) */
    } tcpBreakdownState;
  #+END_SRC
- 
+
 ** ICMP breakdown interface
  |----------------+---------------+----------------+------------------------+------------------------|
  | variable type  | variable name | breakdown type | breakdown name         | description            |
@@ -55,7 +60,7 @@
  | u_short        | port          | u_short        | icmp_dest_unreach_port | Icmp dest unreach port |
  |----------------+---------------+----------------+------------------------+------------------------|
 
- 
+
 ** Default breakdown interface
  |---------------+---------------+----------------+------------------------+-----------------------------|
  | variable type | variable name | breakdown type | breakdown name         | description                 |
@@ -74,6 +79,7 @@
  | char *             | method             | char *         | http_method               | Http request method               |
  | char *             | url                | char *         | http_url                  | Http request url                  |
  | char *             | host               | char *         | http_host                 | Http server host                  |
+ | None               | None               | char *         | http_request_line         | Http request method + host + url  |
  | char *             | userAgent          | char *         | http_user_agent           | Http request user agent           |
  | char *             | referer            | char *         | http_referer              | Http request referer              |
  | char *             | accept             | char *         | http_accept               | Http request accept sourses       |
@@ -124,8 +130,9 @@
  | char *              | errMsg          | char *         | mysql_error_message     | Mysql error message     |
  | u_int               | reqSize         | u_int          | mysql_request_size      | Mysql request size      |
  | u_int               | respSize        | u_int          | mysql_response_size     | Mysql response size     |
- | u_int               | respLatency     | u_int          | mysql_response_latency  | Mysql response latency  |
+ | u_int               | serverLatency   | u_int          | mysql_server_latency    | Mysql server latency    |
  | u_int               | downloadLatency | u_int          | mysql_download_latency  | Mysql download latency  |
+ | u_int               | respLatency     | u_int          | mysql_response_latency  | Mysql response latency  |
  |---------------------+-----------------+----------------+-------------------------+-------------------------|
 
 Notes: Mysql state for mysql breakdown

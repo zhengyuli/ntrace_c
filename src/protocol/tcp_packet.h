@@ -104,7 +104,10 @@ struct _tcpStream {
     u_long_long synAckTime;             /**< Syn/ack timestamp of three handshake */
     u_long_long estbTime;               /**< Tcp establish timestamp */
     u_int mss;                          /**< Tcp MSS */
-    u_int totalPkts;                    /**< Tcp total packets */
+    u_int c2sBytes;                     /**< Tcp client to server bytes */
+    u_int s2cBytes;                     /**< Tcp server to client bytes */
+    u_int c2sPkts;                      /**< Tcp client to server packets */
+    u_int s2cPkts;                      /**< Tcp server to client packets */
     u_int tinyPkts;                     /**< Tcp tiny packets */
     u_int pawsPkts;                     /**< Tcp PAWS packets */
     u_int retransmittedPkts;            /**< Tcp retransmitted packets */
@@ -167,6 +170,11 @@ struct _tcpBreakdown {
     u_int rtt;                          /**< Tcp rtt */
     u_int mss;                          /**< Tcp mss (maxium segment size) */
     u_int connLatency;                  /**< Tcp connection latency in milliseconds */
+    u_int c2sBytes;                     /**< Tcp client to server bytes */
+    u_int s2cBytes;                     /**< Tcp server to client bytes */
+    u_int totalBytes;                   /**< Tcp total bytes */
+    u_int c2sPkts;                      /**< Tcp client to server packets */
+    u_int s2cPkts;                      /**< Tcp server to client packets */
     u_int totalPkts;                    /**< Tcp total packets */
     u_int tinyPkts;                     /**< Tcp tiny packets */
     u_int pawsPkts;                     /**< Tcp PAWS (Protect Against Wrapped Sequence numbers) packets */
@@ -192,6 +200,11 @@ struct _tcpBreakdown {
 #define TCP_SKBD_TCP_RTT "tcp_rtt"
 #define TCP_SKBD_TCP_MSS "tcp_mss"
 #define TCP_SKBD_TCP_CONNECTION_LATENCY "tcp_connection_latency"
+#define TCP_SKBD_TCP_C2S_BYTES "tcp_c2s_bytes"
+#define TCP_SKBD_TCP_S2C_BYTES "tcp_s2c_bytes"
+#define TCP_SKBD_TCP_TOTAL_BYTES "tcp_total_bytes"
+#define TCP_SKBD_TCP_C2S_PACKETS "tcp_c2s_packets"
+#define TCP_SKBD_TCP_S2C_PACKETS "tcp_s2c_packets"
 #define TCP_SKBD_TCP_TOTAL_PACKETS "tcp_total_packets"
 #define TCP_SKBD_TCP_TINY_PACKETS "tcp_tiny_packets"
 #define TCP_SKBD_TCP_PAWS_PACKETS "tcp_paws_packets"

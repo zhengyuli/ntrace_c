@@ -41,7 +41,7 @@ sessionBreakdownService (void *args) {
         }
 
         zstr_send (sessionBreakdownPushSock, sessionBreakdown);
-        
+
         LOGD ("\nSession breakdown:\n%s\n", sessionBreakdown);
         free (sessionBreakdown);
     }

@@ -37,6 +37,7 @@ SET (AGENT_SOURCE_FILES
   agent.c
   util/util.c
   util/hash.c
+  util/base64.c
   properties.c
   option_parser.c
   signals.c
@@ -56,7 +57,7 @@ SET (AGENT_SOURCE_FILES
   protocol/icmp_process_service.c
   protocol/tcp_dispatch_service.c
   protocol/tcp_process_service.c
-  protocol/session_breakdown_service.c  
+  protocol/session_breakdown_service.c
   protocol/checksum.c
   protocol/raw_packet.c
   protocol/ip_options.c

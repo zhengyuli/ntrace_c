@@ -3,7 +3,7 @@
 
 #define BAD_CHAR(c, p) (!(p = memchr (base64String, c, 64)))
 
-static char base64String [] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+static u_char base64String [] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 /*
  * @brief Encode binary data to base64

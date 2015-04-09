@@ -273,22 +273,19 @@ static void
 writeLogNet (char *msg, logDevPtr dev, u_int flag) {
     int ret;
     logNetPtr lognet;
-    zframe_t *frame = NULL;
+    u_int retries = 3;
 
     if (!flagOn (flag, LOG_TO_NET_MASK))
         return;
 
     lognet = (logNetPtr) dev->data;
+    do {
+        ret = zstr_send (lognet->sock, msg);
+        retries -= 1;
+    } while ((ret < 0) && retries);
 
-    frame = zframe_new ((void *) msg, strlen (msg));
-    if (frame == NULL)
-        return;
-
-    ret = zframe_send (&frame, lognet->sock, 0);
-    if (ret < 0) {
-        fprintf (stderr, "Send log message error.\n");
-        return;
-    }
+    if (ret < 0)
+        LOGE ("Send log message error.\n");
 }
 
 static void

@@ -279,16 +279,12 @@ pktServerHandshake (mysqlEvent event, u_char *payload, u_int payloadLen,
             memcpy (authPluginData + 8, pkt, toCopyLen);
             authPluginData [toCopyLen] = 0;
             pkt += authPluginDataLen;
-            LOGD ("%sAuth_plugin_data:%s\n",
-                  MYSQL_INFO_DISPLAY_INDENT1, authPluginData);
         }
 
         /* Get auth plugin name */
         if (caps & CLIENT_PLUGIN_AUTH) {
             authPluginName = (char *) pkt;
             pkt += strlen ((const char *) pkt) + 1;
-            LOGD ("%sAuth_plugin_name:%s\n",
-                  MYSQL_INFO_DISPLAY_INDENT1, authPluginName);
         }
     }
 
@@ -363,7 +359,6 @@ pktClientHandshake (mysqlEvent event, u_char *payload, u_int payloadLen,
             authResp [toCopyLen] = 0;
             pkt += realLen + 1;
         }
-        LOGD ("%sAuth_response:%s\n", MYSQL_INFO_DISPLAY_INDENT1, authResp);
 
         /* Get database */
         if (currSharedInfo->cliCaps & CLIENT_CONNECT_WITH_DB) {
@@ -376,8 +371,6 @@ pktClientHandshake (mysqlEvent event, u_char *payload, u_int payloadLen,
         if (currSharedInfo->cliCaps & CLIENT_PLUGIN_AUTH) {
             authPluginName = (char *) pkt;
             pkt += strlen ((const char *) pkt) + 1;
-            LOGD ("%sAuth_plugin_name:%s\n",
-                  MYSQL_INFO_DISPLAY_INDENT1, authPluginName);
         }
 
         /* Get attributes */
@@ -429,7 +422,6 @@ pktClientHandshake (mysqlEvent event, u_char *payload, u_int payloadLen,
             memcpy (authResp, pkt, toCopyLen);
             authResp [toCopyLen] = 0;
             pkt += realLen + 1;
-            LOGD ("%sAuth_response:%s\n", MYSQL_INFO_DISPLAY_INDENT1, authResp);
 
             /* Get database */
             dataBase = (char *) pkt;
@@ -441,7 +433,6 @@ pktClientHandshake (mysqlEvent event, u_char *payload, u_int payloadLen,
             memcpy (authResp, pkt, toCopyLen);
             authResp [toCopyLen] = 0;
             pkt += realLen;
-            LOGD ("%sAuth_response:%s\n", MYSQL_INFO_DISPLAY_INDENT1, authResp);
         }
     }
 

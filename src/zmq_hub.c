@@ -15,8 +15,8 @@
 static zmqHubPtr zmqHubIntance = NULL;
 
 void *
-getManagementReplySock (void) {
-    return zmqHubIntance->managementReplySock;
+getManagementControlReplySock (void) {
+    return zmqHubIntance->managementControlReplySock;
 }
 
 void *
@@ -113,13 +113,13 @@ initZmqHub (void) {
     }
     zctx_set_linger (zmqHubIntance->zmqCtxt, 0);
 
-    /* Create managementReplySock */
-    zmqHubIntance->managementReplySock = zsocket_new (zmqHubIntance->zmqCtxt, ZMQ_REP);
-    if (zmqHubIntance->managementReplySock == NULL) {
-        LOGE ("Create managementReplySock error.\n");
+    /* Create managementControlReplySock */
+    zmqHubIntance->managementControlReplySock = zsocket_new (zmqHubIntance->zmqCtxt, ZMQ_REP);
+    if (zmqHubIntance->managementControlReplySock == NULL) {
+        LOGE ("Create managementControlReplySock error.\n");
         goto destroyZmqCtxt;
     }
-    ret = zsocket_bind (zmqHubIntance->managementReplySock, "tcp://*:%u",
+    ret = zsocket_bind (zmqHubIntance->managementControlReplySock, "tcp://*:%u",
                         getPropertiesManagementServicePort ());
     if (ret < 0) {
         LOGE ("Bind to tcp://*:%u error.\n", getPropertiesManagementServiceIp ());

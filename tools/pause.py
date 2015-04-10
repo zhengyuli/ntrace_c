@@ -4,7 +4,7 @@
 # Name: pause.py
 # Purpose:
 #
-# Time-stamp: <2015-03-28 21:54:59 Saturday by lzy>
+# Time-stamp: <2015-04-10 19:29:11 Friday by lzy>
 #
 # Author: zhengyu li
 # Created: 24 May 2014
@@ -25,6 +25,6 @@ print pauseJson
 
 context = zmq.Context()
 request = context.socket(zmq.REQ)
-request.connect("tcp://127.0.0.1:58000")
+request.connect("tcp://127.0.0.1:53001")
 request.send_json(pauseDict)
 print request.recv_json()

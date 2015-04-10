@@ -21,7 +21,7 @@ newProperties (void) {
     tmp->managementServiceIp = NULL;
     tmp->managementServicePort = 0;
     tmp->serverIp = NULL;
-    tmp->agentRegisterPort = 0;
+    tmp->managementRegisterPort = 0;
     tmp->breakdownSinkPort = 0;
     tmp->logDir = NULL;
     tmp->logFileName = NULL;
@@ -147,15 +147,15 @@ loadPropertiesFromConfigFile (char *configFile) {
         goto freeProperties;
     }
 
-    /* Get agent register port */
-    ret = get_config_item ("MAIN", "agentRegisterPort", iniConfig, &item);
+    /* Get management register port */
+    ret = get_config_item ("MAIN", "managementRegisterPort", iniConfig, &item);
     if (ret || (item == NULL)) {
-        fprintf (stderr, "Get_config_item \"agentRegisterPort\" error.\n");
+        fprintf (stderr, "Get_config_item \"managementRegisterPort\" error.\n");
         goto freeProperties;
     }
-    tmp->agentRegisterPort = get_int_config_value (item, 1, 0, &error);
+    tmp->managementRegisterPort = get_int_config_value (item, 1, 0, &error);
     if (error) {
-        fprintf (stderr, "Get \"agentRegisterPort\" error.\n");
+        fprintf (stderr, "Get \"managementRegisterPort\" error.\n");
         goto freeProperties;
     }
 
@@ -285,13 +285,13 @@ updatePropertiesServerIp (char *ip) {
 }
 
 u_short
-getPropertiesAgentRegisterPort (void) {
-    return propertiesInstance->agentRegisterPort;
+getPropertiesManagementRegisterPort (void) {
+    return propertiesInstance->managementRegisterPort;
 }
 
 void
-updatePropertiesAgentRegisterPort (u_short port) {
-    propertiesInstance->agentRegisterPort = port;
+updatePropertiesManagementRegisterPort (u_short port) {
+    propertiesInstance->managementRegisterPort = port;
 }
 
 u_short
@@ -346,7 +346,7 @@ displayPropertiesDetail (void) {
     fprintf (stdout, "    managementServiceIp: %s\n", propertiesInstance->managementServiceIp);
     fprintf (stdout, "    managementServicePort: %u\n", propertiesInstance->managementServicePort);
     fprintf (stdout, "    serverIp: %s\n", propertiesInstance->serverIp);
-    fprintf (stdout, "    agentRegisterPort: %u\n", propertiesInstance->agentRegisterPort);
+    fprintf (stdout, "    managementRegisterPort: %u\n", propertiesInstance->managementRegisterPort);
     fprintf (stdout, "    breakdownSinkPort: %u\n", propertiesInstance->breakdownSinkPort);
     fprintf (stdout, "    logDir: %s\n", propertiesInstance->logDir);
     fprintf (stdout, "    logFileName: %s\n", propertiesInstance->logFileName);

@@ -21,9 +21,13 @@
 #define LOG_TO_FILE_MASK (1 << 0)
 #define LOG_TO_NET_MASK (1 << 1)
 
+#define LOG_SERVICE_RESTART_MAX_COUNT 5
 #define LOG_SERVICE_RESTART_MAX_RETRIES 3
 
 #define LOG_SERVICE_STATUS_EXCHANGE_CHANNEL "inproc://logServiceStatusExchangeChannel"
+
+/* Log service restart count */
+static u_int logServiceRestartCount = 0;
 
 /* Log service instance */
 static logServiceCtxtPtr logServiceCtxtInstance = NULL;
@@ -140,12 +144,16 @@ logFileUpdate (logDevPtr dev) {
 
     close (logfile->fd);
     ret = logFileRotate (logfile->filePath);
-    if (ret < 0)
+    if (ret < 0) {
+        fprintf (stderr, "Log file rotate error.\n");
         return -1;
+    }
 
     logfile->fd = open (logfile->filePath, O_WRONLY | O_APPEND | O_CREAT, 0755);
-    if (logfile->fd < 0)
+    if (logfile->fd < 0) {
+        fprintf (stderr, "Open log file error.\n");
         return -1;
+    }
 
     logfile->checkCount = 0;
     return 0;
@@ -157,22 +165,28 @@ initLogFile (logDevPtr dev) {
     logFilePtr logfile;
 
     if (!fileExist (getPropertiesLogDir ()) &&
-        (mkdir (getPropertiesLogDir (), 0755) < 0))
+        (mkdir (getPropertiesLogDir (), 0755) < 0)) {
+        fprintf (stderr, "Mkdir %s error.\n", getPropertiesLogDir ());
         return -1;
+    }
 
     logfile = (logFilePtr) malloc (sizeof (logFile));
-    if (logfile == NULL)
+    if (logfile == NULL) {
+        fprintf (stderr, "Malloc logFile error.\n");
         return -1;
+    }
 
     snprintf (logFilePath, sizeof (logFilePath), "%s/%s",
               getPropertiesLogDir (), getPropertiesLogFileName ());
     logfile->filePath = strdup (logFilePath);
     if (logfile->filePath == NULL) {
+        fprintf (stderr, "Join log file path error.\n");
         free (logfile);
         return -1;
     }
     logfile->fd = open (logfile->filePath, O_WRONLY | O_APPEND | O_CREAT, 0755);
     if (logfile->fd < 0) {
+        fprintf (stderr, "Open log file error.\n");
         free (logfile->filePath);
         free (logfile);
         return -1;
@@ -242,24 +256,31 @@ initLogNet (logDevPtr dev) {
     logNetPtr lognet;
 
     lognet = (logNetPtr) malloc (sizeof (logNet));
-    if (lognet == NULL)
+    if (lognet == NULL) {
+        fprintf (stderr, "Malloc logNet error.\n");
         return -1;
+    }
 
     lognet->zmqCtxt = zctx_new ();
     if (lognet->zmqCtxt == NULL) {
+        fprintf (stderr, "Create zmqCtxt error.\n");
         free (lognet);
         return -1;
     }
 
     lognet->sock = zsocket_new (lognet->zmqCtxt, ZMQ_PUB);
     if (lognet->sock == NULL) {
+        fprintf (stderr, "Create log net socket error.\n");
         zctx_destroy (&lognet->zmqCtxt);
         free (lognet);
         return -1;
     }
 
-    ret = zsocket_bind (lognet->sock, "tcp://*:%u", LOG_SERVICE_LOG_PUBLISH_PORT);
+    ret = zsocket_bind (lognet->sock, "tcp://*:%u",
+                        LOG_SERVICE_LOG_PUBLISH_PORT);
     if (ret < 0) {
+        fprintf (stderr, "Bind log net socket to %u error.\n",
+                 LOG_SERVICE_LOG_PUBLISH_PORT);
         zctx_destroy (&lognet->zmqCtxt);
         free (lognet);
         return -1;
@@ -303,8 +324,10 @@ logDevAdd (logDevPtr dev) {
     int ret;
 
     ret = dev->init (dev);
-    if (ret < 0)
+    if (ret < 0) {
+        fprintf (stderr, "Init log dev error.\n");
         return -1;
+    }
 
     listAdd (&dev->node, &logDevices);
 
@@ -429,6 +452,12 @@ logServiceStatusHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
     switch (status) {
         case LOG_SERVICE_STATUS_EXIT:
             fprintf (stderr, "Task %lu exit abnormally.\n", tid);
+            if (logServiceRestartCount >= LOG_SERVICE_RESTART_MAX_COUNT)
+                return -1;
+
+            if (logServiceRestartCount)
+                sleep (1);
+
             retries = 0;
             while (retries < LOG_SERVICE_RESTART_MAX_RETRIES) {
                 fprintf (stdout, "Try to restart logService with retries: %u.\n", retries);
@@ -446,6 +475,7 @@ logServiceStatusHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
                 fprintf (stdout, "Restart logService successfully.\n");
                 ret = 0;
             }
+            logServiceRestartCount++;
             break;
 
         default:

@@ -13,7 +13,7 @@ static struct option options [] = {
     {"managementServiceIp", required_argument, NULL, 'I'},
     {"managementServicePort", required_argument, NULL, 'P'},
     {"serverIp", required_argument, NULL, 'i'},
-    {"agentRegisterPort", required_argument, NULL, 'r'},
+    {"managementRegisterPort", required_argument, NULL, 'r'},
     {"breakdownSinkPort", required_argument, NULL, 'p'},
     {"logDir", required_argument, NULL, 'd'},
     {"logFileName", required_argument, NULL, 'f'},
@@ -39,7 +39,7 @@ showHelpInfo (const char *cmd) {
              "  -I|--managementServiceIp <ip> management service ip\n"
              "  -P|--managementServicePort <port> management service port\n"
              "  -i|--serverIp <ip> server ip\n"
-             "  -r|--agentRegisterPort <port> agent register port\n"
+             "  -r|--managementRegisterPort <port> management register port\n"
              "  -p|--breakdownSinkPort <port> breakdown sink port\n"
              "  -d|--logDir <path>, log file directory\n"
              "  -f|--logFileName <name>, log file name\n"
@@ -127,7 +127,7 @@ parseOptions (int argc, char *argv []) {
                 break;
 
             case 'r':
-                updatePropertiesAgentRegisterPort (atoi (optarg));
+                updatePropertiesManagementRegisterPort (atoi (optarg));
                 break;
 
             case 'p':

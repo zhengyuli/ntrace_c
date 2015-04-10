@@ -10,68 +10,17 @@
 #include "netdev.h"
 #include "management_service.h"
 
-/* Register expire time 3000ms */
-#define REGISTER_TASK_EXPIRE_TIME 3000
+static boolean managementRegisterSuccess = False;
 
-static boolean registerSuccess = False;
+static boolean managementRegisterTaskIsRunning = False;
+static u_long_long managementRegisterTaskExpireTime;
 
-static boolean registerTaskStarted = False;
-static u_long_long registerTaskExpireTime;
-
-static zctx_t *zmqCtxt = NULL;
-static zmq_pollitem_t registerTaskPollItem;
+static zctx_t *managmentServiceZmqCtxt = NULL;
+static zmq_pollitem_t managementRegisterResponsePollItem;
 
 /* Packets statistic related variables */
 static u_int packetsStatisticPktsReceive = 0;
 static u_int packetsStatisticPktsDrop = 0;
-
-/*
- * @brief Build management response based on command
- *
- * @param cmd command for response
- *
- * @return response if success else NULL
- */
-static char *
-buildManagementResponse (char *cmd, int code) {
-    char *response;
-    json_t *root, *body;
-
-    root = json_object ();
-    if (root == NULL) {
-        LOGE ("Create json object root error.\n");
-        return NULL;
-    }
-
-    if (!code) {
-        body = json_object ();
-        if (body == NULL) {
-            LOGE ("Create json object body error.\n");
-            json_object_clear (root);
-            return NULL;
-        }
-
-        if (strEqual (cmd, MANAGEMENT_REQUEST_COMMAND_PACKETS_STATISTIC)) {
-            json_object_set_new (body, MANAGEMENT_RESPONSE_BODY_PACKETS_RECEIVE,
-                                 json_integer (packetsStatisticPktsReceive));
-            json_object_set_new (body, MANAGEMENT_RESPONSE_BODY_PACKETS_DROP,
-                                 json_integer (packetsStatisticPktsDrop));
-            json_object_set_new (body, MANAGEMENT_RESPONSE_BODY_PACKETS_DROP_RATE,
-                                 json_real (((double) packetsStatisticPktsDrop / (double) packetsStatisticPktsReceive) * 100));
-        }
-
-        json_object_set_new (root, MANAGEMENT_RESPONSE_CODE, json_integer (0));
-        json_object_set_new (root, MANAGEMENT_RESPONSE_BODY, body);
-    } else {
-        json_object_set_new (root, MANAGEMENT_RESPONSE_CODE, json_integer (1));
-        json_object_set_new (root, MANAGEMENT_RESPONSE_ERROR_MESSAGE, json_string ("Internal error."));
-    }
-
-    response = json_dumps (root, JSON_INDENT (4));
-
-    json_object_clear (root);
-    return response;
-}
 
 /*
  * @brief resume request handler
@@ -225,21 +174,69 @@ handlePacketsStatisticRequest (json_t *body) {
     return 0;
 }
 
+/*
+ * @brief Build management control response based on command
+ *
+ * @param cmd command for response
+ *
+ * @return response if success else NULL
+ */
+static char *
+buildManagementControlResponse (char *cmd, int code) {
+    char *response;
+    json_t *root, *body;
+
+    root = json_object ();
+    if (root == NULL) {
+        LOGE ("Create json object root error.\n");
+        return NULL;
+    }
+
+    if (!code) {
+        body = json_object ();
+        if (body == NULL) {
+            LOGE ("Create json object body error.\n");
+            json_object_clear (root);
+            return NULL;
+        }
+
+        if (strEqual (cmd, MANAGEMENT_CONTROL_REQUEST_COMMAND_PACKETS_STATISTIC)) {
+            json_object_set_new (body, MANAGEMENT_CONTROL_RESPONSE_BODY_PACKETS_RECEIVE,
+                                 json_integer (packetsStatisticPktsReceive));
+            json_object_set_new (body, MANAGEMENT_CONTROL_RESPONSE_BODY_PACKETS_DROP,
+                                 json_integer (packetsStatisticPktsDrop));
+            json_object_set_new (body, MANAGEMENT_CONTROL_RESPONSE_BODY_PACKETS_DROP_RATE,
+                                 json_real (((double) packetsStatisticPktsDrop / (double) packetsStatisticPktsReceive) * 100));
+        }
+
+        json_object_set_new (root, MANAGEMENT_CONTROL_RESPONSE_CODE, json_integer (0));
+        json_object_set_new (root, MANAGEMENT_CONTROL_RESPONSE_BODY, body);
+    } else {
+        json_object_set_new (root, MANAGEMENT_CONTROL_RESPONSE_CODE, json_integer (1));
+        json_object_set_new (root, MANAGEMENT_CONTROL_RESPONSE_ERROR_MESSAGE, json_string ("Internal error."));
+    }
+
+    response = json_dumps (root, JSON_INDENT (4));
+
+    json_object_clear (root);
+    return response;
+}
+
 static int
-managementRequestHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
+managementControlRequestHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
     int ret;
-    void *managementReplySock;
+    void *managementControlReplySock;
     char *request, *response, *cmdStr;
     json_t *root, *cmd, *body;
     json_error_t error;
 
     /* Get management reply sock */
-    managementReplySock = getManagementReplySock ();
+    managementControlReplySock = getManagementControlReplySock ();
 
-    request = zstr_recv (managementReplySock);
+    request = zstr_recv (managementControlReplySock);
     if (request == NULL) {
         if (!SIGUSR1IsInterrupted ()) {
-            LOGE ("Receive management request with fatal error.\n");
+            LOGE ("Receive management control request with fatal error.\n");
             return -1;
         }
 
@@ -249,42 +246,42 @@ managementRequestHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
     root = json_loads (request, JSON_DISABLE_EOF_CHECK, &error);
     free (request);
     if (root == NULL) {
-        LOGE ("Management request parse error: %s\n", error.text);
-        zstr_send (managementReplySock, DEFAULT_MANAGEMENT_ERROR_RESPONSE);
+        LOGE ("Management control request parse error: %s\n", error.text);
+        zstr_send (managementControlReplySock, DEFAULT_MANAGEMENT_CONTROL_ERROR_RESPONSE);
         return 0;
     }
 
-    cmd = json_object_get (root, MANAGEMENT_REQUEST_COMMAND);
-    body = json_object_get (root, MANAGEMENT_REQUEST_BODY);
+    cmd = json_object_get (root, MANAGEMENT_CONTROL_REQUEST_COMMAND);
+    body = json_object_get (root, MANAGEMENT_CONTROL_REQUEST_BODY);
     if (cmd == NULL) {
-        LOGE ("Invalid format of management request: %s.\n", request);
-        zstr_send (managementReplySock, DEFAULT_MANAGEMENT_ERROR_RESPONSE);
+        LOGE ("Invalid format of management control request: %s.\n", request);
+        zstr_send (managementControlReplySock, DEFAULT_MANAGEMENT_CONTROL_ERROR_RESPONSE);
         json_object_clear (root);
         return 0;
     }
 
     cmdStr = (char *) json_string_value (cmd);
-    if (strEqual (MANAGEMENT_REQUEST_COMMAND_RESUME, cmdStr))
+    if (strEqual (MANAGEMENT_CONTROL_REQUEST_COMMAND_RESUME, cmdStr))
         ret = handleResumeRequest (body);
-    else if (strEqual (MANAGEMENT_REQUEST_COMMAND_PAUSE, cmdStr))
+    else if (strEqual (MANAGEMENT_CONTROL_REQUEST_COMMAND_PAUSE, cmdStr))
         ret = handlePauseRequest (body);
-    else if (strEqual (MANAGEMENT_REQUEST_COMMAND_HEARTBEAT, cmdStr))
+    else if (strEqual (MANAGEMENT_CONTROL_REQUEST_COMMAND_HEARTBEAT, cmdStr))
         ret = handleHeartbeatRequest (body);
-    else if (strEqual (MANAGEMENT_REQUEST_COMMAND_UPDATE_PROFILE, cmdStr))
+    else if (strEqual (MANAGEMENT_CONTROL_REQUEST_COMMAND_UPDATE_PROFILE, cmdStr))
         ret = handleUpdateProfileRequest (body);
-    else if (strEqual (MANAGEMENT_REQUEST_COMMAND_PACKETS_STATISTIC, cmdStr), cmdStr)
+    else if (strEqual (MANAGEMENT_CONTROL_REQUEST_COMMAND_PACKETS_STATISTIC, cmdStr), cmdStr)
         ret = handlePacketsStatisticRequest (body);
     else {
-        LOGE ("Unknown request command: %s.\n", cmdStr);
+        LOGE ("Unknown management control request command: %s.\n", cmdStr);
         ret = -1;
     }
 
-    response = buildManagementResponse (cmdStr, ret);
+    response = buildManagementControlResponse (cmdStr, ret);
     if (response == NULL) {
-        LOGE ("Build management response error.\n");
-        zstr_send (managementReplySock, DEFAULT_MANAGEMENT_ERROR_RESPONSE);
+        LOGE ("Build management control response error.\n");
+        zstr_send (managementControlReplySock, DEFAULT_MANAGEMENT_CONTROL_ERROR_RESPONSE);
     } else {
-        zstr_send (managementReplySock, response);
+        zstr_send (managementControlReplySock, response);
         free (response);
     }
 
@@ -294,7 +291,7 @@ managementRequestHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
 }
 
 static int
-registerResponseHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
+managementRegisterResponseHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
     char *response;
     json_t *root;
     json_t *code;
@@ -304,7 +301,7 @@ registerResponseHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
     response = zstr_recv (item->socket);
     if (response == NULL) {
         if (!SIGUSR1IsInterrupted ()) {
-            LOGE ("Receive register reponse with fatal error.\n");
+            LOGE ("Receive management register reponse with fatal error.\n");
             return -1;
         }
 
@@ -314,34 +311,34 @@ registerResponseHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
     root = json_loads (response, JSON_DISABLE_EOF_CHECK, &error);
     free (response);
     if (root == NULL) {
-        LOGE ("Register response parse error: %s\n", error.text);
+        LOGE ("Mangement register response parse error: %s\n", error.text);
         return 0;
     }
 
 
     code = json_object_get (root, MANAGEMENT_REGISTER_RESPONSE_CODE);
     if (code == NULL) {
-        LOGE ("Register response parse error: %s\n", error.text);
+        LOGE ("Management register response parse error: %s\n", error.text);
         return 0;
     }
 
     if (json_integer_value (code)) {
         errMsg = json_object_get (root, MANAGEMENT_REGISTER_RESPONSE_ERROR_MESSAGE);
         if (errMsg)
-            LOGE ("Register error: %s.\n", json_string_value (errMsg));
+            LOGE ("Management register error: %s.\n", json_string_value (errMsg));
         else
-            LOGE ("Register error.\n");
+            LOGE ("Management register error.\n");
         return 0;
     }
 
-    registerTaskStarted = False;
-    registerSuccess = True;
-    LOGI ("Register success.\n");
+    managementRegisterTaskIsRunning = False;
+    managementRegisterSuccess = True;
+    LOGI ("Mangement register success.\n");
     return 0;
 }
 
 static char *
-buildRegisterRequest (void) {
+buildManagementRegisterRequest (void) {
     char *request;
     json_t *root, *body;
 
@@ -375,63 +372,64 @@ buildRegisterRequest (void) {
 }
 
 static void
-startRegisterTask (zloop_t *loop) {
+startManagementRegisterTask (zloop_t *loop) {
     int ret;
     char *request;
-    void *registerRequestSock;
+    void *requestSock;
 
-    registerRequestSock = zsocket_new (zmqCtxt, ZMQ_REQ);
-    if (registerRequestSock == NULL) {
-        LOGE ("Create registerRequestSock error.\n");
+    requestSock = zsocket_new (managmentServiceZmqCtxt, ZMQ_REQ);
+    if (requestSock == NULL) {
+        LOGE ("Create management register requestSock error.\n");
         return;
     }
-    ret = zsocket_connect (registerRequestSock, "tcp://%s:%u",
+    ret = zsocket_connect (requestSock, "tcp://%s:%u",
                            getPropertiesServerIp (),
-                           getPropertiesAgentRegisterPort ());
+                           getPropertiesManagementRegisterPort ());
     if (ret < 0) {
         LOGE ("Bind to tcp://%s:%u error.\n",
               getPropertiesServerIp (),
-              getPropertiesAgentRegisterPort ());
-        zsocket_destroy (zmqCtxt, registerRequestSock);
+              getPropertiesManagementRegisterPort ());
+        zsocket_destroy (managmentServiceZmqCtxt, requestSock);
     }
 
-    request = buildRegisterRequest ();
+    request = buildManagementRegisterRequest ();
     if (request == NULL) {
-        LOGE ("Build register request error.\n");
-        zsocket_destroy (zmqCtxt, registerRequestSock);
+        LOGE ("Build management register request error.\n");
+        zsocket_destroy (managmentServiceZmqCtxt, requestSock);
         return;
     }
 
-    ret = zstr_send (registerRequestSock, request);
+    ret = zstr_send (requestSock, request);
     if (ret < 0) {
-        LOGE ("Send register request error.\n");
+        LOGE ("Send management register request error.\n");
         return;
     }
-    LOGD ("Send register request: %s\n", request);
+    LOGD ("Send management register request: %s\n", request);
 
-    registerTaskPollItem.socket =  registerRequestSock;
-    registerTaskPollItem.fd = 0;
-    registerTaskPollItem.events = ZMQ_POLLIN;
-    ret = zloop_poller (loop, &registerTaskPollItem, registerResponseHandler, NULL);
+    managementRegisterResponsePollItem.socket = requestSock;
+    managementRegisterResponsePollItem.fd = 0;
+    managementRegisterResponsePollItem.events = ZMQ_POLLIN;
+    ret = zloop_poller (loop, &managementRegisterResponsePollItem,
+                        managementRegisterResponseHandler, NULL);
     if (ret < 0) {
-        LOGE ("Register registerTaskPollItem error.\n");
-        zsocket_destroy (zmqCtxt, registerRequestSock);
+        LOGE ("Register managementRegisterResponsePollItem error.\n");
+        zsocket_destroy (managmentServiceZmqCtxt, requestSock);
     }
 
-    registerTaskStarted = True;
-    registerTaskExpireTime = getSysTime () + REGISTER_TASK_EXPIRE_TIME;
+    managementRegisterTaskIsRunning = True;
+    managementRegisterTaskExpireTime = getSysTime () + MANAGEMENT_REGISTER_TASK_EXPIRE_INTERVAL;
 }
 
 static int
 managementTimerHandler (zloop_t *loop, int timerId, void *arg) {
-    if (!registerSuccess) {
-        if (!registerTaskStarted)
-            startRegisterTask (loop);
-        else if (getSysTime () > registerTaskExpireTime) {
-            LOGD ("Register request expire.\n");
-            zsocket_destroy (zmqCtxt, registerTaskPollItem.socket);
-            zloop_poller_end (loop, &registerTaskPollItem);
-            startRegisterTask (loop);
+    if (!managementRegisterSuccess) {
+        if (!managementRegisterTaskIsRunning)
+            startManagementRegisterTask (loop);
+        else if (getSysTime () > managementRegisterTaskExpireTime) {
+            LOGD ("Management register request expire.\n");
+            zsocket_destroy (managmentServiceZmqCtxt, managementRegisterResponsePollItem.socket);
+            zloop_poller_end (loop, &managementRegisterResponsePollItem);
+            startManagementRegisterTask (loop);
         }
     }
 
@@ -440,7 +438,7 @@ managementTimerHandler (zloop_t *loop, int timerId, void *arg) {
 
 /*
  * Management service.
- * Handle management requests.
+ * Handle management register and control requests.
  */
 void *
 managementService (void *args) {
@@ -459,27 +457,27 @@ managementService (void *args) {
     }
 
     /* Create zmq context */
-    zmqCtxt = zctx_new ();
-    if (zmqCtxt == NULL) {
+    managmentServiceZmqCtxt = zctx_new ();
+    if (managmentServiceZmqCtxt == NULL) {
         LOGE ("Create zmq context error.\n");
         goto destroyLogContext;
     }
-    zctx_set_linger (zmqCtxt, 0);
+    zctx_set_linger (managmentServiceZmqCtxt, 0);
 
     /* Create zloop reactor */
     loop = zloop_new ();
     if (loop == NULL) {
         LOGE ("Create zloop error.\n");
         ret = -1;
-        goto destroyZmqCtxt;
+        goto destroyManagementServiceZmqCtxt;
     }
 
     /* Init poll item 0 */
-    pollItems [0].socket = getManagementReplySock ();
+    pollItems [0].socket = getManagementControlReplySock ();
     pollItems [0].fd = 0;
     pollItems [0].events = ZMQ_POLLIN;
     /* Register poll item 0 */
-    ret = zloop_poller (loop, &pollItems [0], managementRequestHandler, NULL);
+    ret = zloop_poller (loop, &pollItems [0], managementControlRequestHandler, NULL);
     if (ret < 0) {
         LOGE ("Register poll items [0] error.\n");
         goto destroyZloop;
@@ -500,8 +498,8 @@ managementService (void *args) {
 
 destroyZloop:
     zloop_destroy (&loop);
-destroyZmqCtxt:
-    zctx_destroy (&zmqCtxt);
+destroyManagementServiceZmqCtxt:
+    zctx_destroy (&managmentServiceZmqCtxt);
 destroyLogContext:
     destroyLogContext ();
 exit:

@@ -3,26 +3,33 @@
 
 #include <czmq.h>
 
-/* Management request json key definitions */
-#define MANAGEMENT_REQUEST_COMMAND "command"
-#define MANAGEMENT_REQUEST_BODY "body"
+/* Management register expire interval is 3000ms */
+#define MANAGEMENT_REGISTER_TASK_EXPIRE_INTERVAL 3000
 
-/* Management request command definitions */
-#define MANAGEMENT_REQUEST_COMMAND_RESUME "resume"
-#define MANAGEMENT_REQUEST_COMMAND_PAUSE "pause"
-#define MANAGEMENT_REQUEST_COMMAND_HEARTBEAT "heartbeat"
-#define MANAGEMENT_REQUEST_COMMAND_UPDATE_PROFILE "update_profile"
-#define MANAGEMENT_REQUEST_COMMAND_PACKETS_STATISTIC "packets_statistic"
+/* Management control request json key definitions */
+#define MANAGEMENT_CONTROL_REQUEST_COMMAND "command"
+#define MANAGEMENT_CONTROL_REQUEST_BODY "body"
 
-/* Management response json key definitions */
-#define MANAGEMENT_RESPONSE_CODE "code"
-#define MANAGEMENT_RESPONSE_BODY "body"
-#define MANAGEMENT_RESPONSE_ERROR_MESSAGE "error_message"
+/* Management control request command definitions */
+#define MANAGEMENT_CONTROL_REQUEST_COMMAND_RESUME "resume"
+#define MANAGEMENT_CONTROL_REQUEST_COMMAND_PAUSE "pause"
+#define MANAGEMENT_CONTROL_REQUEST_COMMAND_HEARTBEAT "heartbeat"
+#define MANAGEMENT_CONTROL_REQUEST_COMMAND_UPDATE_PROFILE "update_profile"
+#define MANAGEMENT_CONTROL_REQUEST_COMMAND_PACKETS_STATISTIC "packets_statistic"
 
-/* Management response body json key definitions */
-#define MANAGEMENT_RESPONSE_BODY_PACKETS_RECEIVE "packets_receive"
-#define MANAGEMENT_RESPONSE_BODY_PACKETS_DROP "packets_drop"
-#define MANAGEMENT_RESPONSE_BODY_PACKETS_DROP_RATE "packets_drop_rate"
+/* Management control response json key definitions */
+#define MANAGEMENT_CONTROL_RESPONSE_CODE "code"
+#define MANAGEMENT_CONTROL_RESPONSE_BODY "body"
+#define MANAGEMENT_CONTROL_RESPONSE_ERROR_MESSAGE "error_message"
+
+/* Management control response body json key definitions */
+#define MANAGEMENT_CONTROL_RESPONSE_BODY_PACKETS_RECEIVE "packets_receive"
+#define MANAGEMENT_CONTROL_RESPONSE_BODY_PACKETS_DROP "packets_drop"
+#define MANAGEMENT_CONTROL_RESPONSE_BODY_PACKETS_DROP_RATE "packets_drop_rate"
+
+/* Default management control error response */
+#define DEFAULT_MANAGEMENT_CONTROL_ERROR_RESPONSE           \
+    "{\"code\":1, \"error_message\":\"internal error\"}"
 
 /* Management register request json key definitions */
 #define MANAGEMENT_REGISTER_REQUEST_COMMAND "command"
@@ -39,9 +46,6 @@
 #define MANAGEMENT_REGISTER_RESPONSE_CODE "code"
 #define MANAGEMENT_REGISTER_RESPONSE_BODY "body"
 #define MANAGEMENT_REGISTER_RESPONSE_ERROR_MESSAGE "error_message"
-
-/* Default management error response */
-#define DEFAULT_MANAGEMENT_ERROR_RESPONSE "{\"code\":1, \"error_message\":\"internal error\"}"
 
 /*========================Interfaces definition============================*/
 void *

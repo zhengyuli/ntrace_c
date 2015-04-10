@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <czmq.h>
 
-#define TCP_PACKET_DISPATCH_RECV_PORT 58001
+#define TCP_PACKET_DISPATCH_RECV_PORT 51001
 
 typedef struct _zmqHub zmqHub;
 typedef zmqHub *zmqHubPtr;
@@ -12,7 +12,7 @@ typedef zmqHub *zmqHubPtr;
 struct _zmqHub {
     zctx_t *zmqCtxt;                    /**< Zmq context */
 
-    void *managementReplySock;          /**< Management reply sock */
+    void *managementControlReplySock;   /**< Management reply sock */
 
     void *taskStatusSendSock;           /**< Task status send sock */
     void *taskStatusRecvSock;           /**< Task status recv sock */
@@ -38,7 +38,7 @@ struct _zmqHub {
 
 /*========================Interfaces definition============================*/
 void *
-getManagementReplySock (void);
+getManagementControlReplySock (void);
 void *
 getTaskStatusSendSock (void);
 void *

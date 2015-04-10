@@ -18,7 +18,7 @@ struct _properties {
     u_short managementServicePort;      /**< Management service port */
 
     char *serverIp;                     /**< Server ip */
-    u_short agentRegisterPort;          /**< Agent register port */
+    u_short managementRegisterPort;     /**< Management register port */
     u_short breakdownSinkPort;          /**< Breakdown sink port */
 
     char *logDir;                       /**< Log dir */
@@ -52,9 +52,9 @@ getPropertiesServerIp (void);
 void
 updatePropertiesServerIp (char *ip);
 u_short
-getPropertiesAgentRegisterPort (void);
+getPropertiesManagementRegisterPort (void);
 void
-updatePropertiesAgentRegisterPort (u_short port);
+updatePropertiesManagementRegisterPort (u_short port);
 u_short
 getPropertiesBreakdownSinkPort (void);
 void

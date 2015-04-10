@@ -4,7 +4,7 @@
 # Name: mining_engine.py
 # Purpose:
 #
-# Time-stamp: <2015-03-28 21:53:45 Saturday by lzy>
+# Time-stamp: <2015-04-10 19:28:58 Friday by lzy>
 #
 # Author: zhengyu li
 # Created: 24 May 2014
@@ -39,7 +39,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     context = zmq.Context()
     bkdRecvSock = context.socket(zmq.PULL)
-    bkdRecvSock.bind("tcp://127.0.0.1:59009")
+    bkdRecvSock.bind("tcp://127.0.0.1:53001")
 
     createIndex(args.ip)
 

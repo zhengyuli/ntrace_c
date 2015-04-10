@@ -9,8 +9,11 @@ static struct option options [] = {
     {"config", required_argument, NULL, 'C'},
     {"daemonMode", no_argument, NULL, 'D'},
     {"mirrorInterface", required_argument, NULL, 'm'},
-    {"pcapOfflineInput", required_argument, NULL, 'I'},
-    {"breakdownSinkIp", required_argument, NULL, 'i'},
+    {"pcapOfflineInput", required_argument, NULL, 'o'},
+    {"managementServiceIp", required_argument, NULL, 'I'},
+    {"managementServicePort", required_argument, NULL, 'P'},
+    {"serverIp", required_argument, NULL, 'i'},
+    {"agentRegisterPort", required_argument, NULL, 'r'},
     {"breakdownSinkPort", required_argument, NULL, 'p'},
     {"logDir", required_argument, NULL, 'd'},
     {"logFileName", required_argument, NULL, 'f'},
@@ -32,8 +35,11 @@ showHelpInfo (const char *cmd) {
              "  -C|--config, config file\n"
              "  -D|--daemonMode, run as daemon\n"
              "  -m|--mirrorInterface <eth*> interface to collect packets\n"
-             "  -I|--pcapOfflineInput <fname> pcap offline input file\n"
-             "  -i|--breakdownSinkIp <ip> breakdown sink ip\n"
+             "  -o|--pcapOfflineInput <fname> pcap offline input file\n"
+             "  -I|--managementServiceIp <ip> management service ip\n"
+             "  -P|--managementServicePort <port> management service port\n"
+             "  -i|--serverIp <ip> server ip\n"
+             "  -r|--agentRegisterPort <port> agent register port\n"
              "  -p|--breakdownSinkPort <port> breakdown sink port\n"
              "  -d|--logDir <path>, log file directory\n"
              "  -f|--logFileName <name>, log file name\n"
@@ -58,7 +64,7 @@ getConfigFile (int argc, char *argv []) {
                 fprintf (stderr, "Miss option argument.\n");
                 showHelpInfo (argv [0]);
                 return NULL;
-                
+
             case '?':
                 break;
         }
@@ -75,15 +81,15 @@ parseOptions (int argc, char *argv []) {
     boolean showHelp = False;
 
     optind = 1;
-    while ((option = getopt_long (argc, argv, ":C:Dm:I:i:p:d:f:l:vh?", options, NULL)) != -1) {
+    while ((option = getopt_long (argc, argv, ":C:Dm:o:I:P:i:r:p:d:f:l:vh?", options, NULL)) != -1) {
         switch (option) {
             case 'C':
                 break;
-            
+
             case 'D':
                 updatePropertiesDaemonMode (True);
                 break;
-                
+
             case 'm':
                 updatePropertiesMirrorInterface (optarg);
                 if (getPropertiesMirrorInterface () == NULL) {
@@ -92,7 +98,7 @@ parseOptions (int argc, char *argv []) {
                 }
                 break;
 
-            case 'I':
+            case 'o':
                 updatePropertiesPcapOfflineInput (optarg);
                 if (getPropertiesPcapOfflineInput () == NULL) {
                     fprintf (stderr, "Parse pcap offline input error!\n");
@@ -100,12 +106,28 @@ parseOptions (int argc, char *argv []) {
                 }
                 break;
 
-            case 'i':
-                updatePropertiesBreakdownSinkIp (optarg);
-                if (getPropertiesBreakdownSinkIp () == NULL) {
-                    fprintf (stderr, "Parse breakdown sink ip error!\n");
+            case 'I':
+                updatePropertiesManagementServiceIp (optarg);
+                if (getPropertiesManagementServiceIp () == NULL) {
+                    fprintf (stderr, "Parse management service ip error!\n");
                     return -1;
                 }
+                break;
+
+            case 'P':
+                updatePropertiesManagementServicePort (atoi (optarg));
+                break;
+
+            case 'i':
+                updatePropertiesServerIp (optarg);
+                if (getPropertiesServerIp () == NULL) {
+                    fprintf (stderr, "Parse server ip error!\n");
+                    return -1;
+                }
+                break;
+
+            case 'r':
+                updatePropertiesAgentRegisterPort (atoi (optarg));
                 break;
 
             case 'p':
@@ -144,7 +166,7 @@ parseOptions (int argc, char *argv []) {
                 fprintf (stderr, "Miss option argument.\n");
                 showHelpInfo (argv [0]);
                 return -1;
-                
+
             case '?':
                 fprintf (stderr, "Unknown option.\n");
                 showHelpInfo (argv [0]);

@@ -4,7 +4,6 @@
 #include <stdlib.h>
 #include <czmq.h>
 
-#define MANAGEMENT_SERVICE_PORT 58000
 #define TCP_PACKET_DISPATCH_RECV_PORT 58001
 
 typedef struct _zmqHub zmqHub;
@@ -23,7 +22,7 @@ struct _zmqHub {
 
     void *sessionBreakdownRecvSock;     /**< Session breakdown recv sock */
     void *sessionBreakdownPushSock;     /**< Session breakdown push sock */
-    
+
     void *icmpPktSendSock;              /**< Icmp packet send sock */
     void *icmpPktRecvSock;              /**< Icmp packet recv sock */
     void *icmpBreakdownSendSock;        /**< Icmp breakdown send sock */

@@ -88,7 +88,7 @@ startServices (void) {
         LOGE ("Create sessionBreakdownService error.\n");
         goto stopAllTask;
     }
-    
+
     ret = newTask (rawCaptureService, NULL);
     if (ret < 0) {
         LOGE ("Create rawCaptureService error.\n");

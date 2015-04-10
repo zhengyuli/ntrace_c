@@ -18,7 +18,10 @@ newProperties (void) {
     tmp->daemonMode = 0;
     tmp->mirrorInterface = NULL;
     tmp->pcapOfflineInput = NULL;
-    tmp->breakdownSinkIp = NULL;
+    tmp->managementServiceIp = NULL;
+    tmp->managementServicePort = 0;
+    tmp->serverIp = NULL;
+    tmp->agentRegisterPort = 0;
     tmp->breakdownSinkPort = 0;
     tmp->logDir = NULL;
     tmp->logFileName = NULL;
@@ -35,8 +38,10 @@ freeProperties (propertiesPtr instance) {
     instance->mirrorInterface = NULL;
     free (instance->pcapOfflineInput);
     instance->pcapOfflineInput = NULL;
-    free (instance->breakdownSinkIp);
-    instance->breakdownSinkIp = NULL;
+    free (instance->managementServiceIp);
+    instance->managementServiceIp = NULL;
+    free (instance->serverIp);
+    instance->serverIp = NULL;
     free (instance->logDir);
     instance->logDir = NULL;
     free (instance->logFileName);
@@ -106,15 +111,51 @@ loadPropertiesFromConfigFile (char *configFile) {
         }
     }
 
-    /* Get breakdown sink ip */
-    ret = get_config_item ("MAIN", "breakdownSinkIp", iniConfig, &item);
+    /* Get management service ip */
+    ret = get_config_item ("MAIN", "managementServiceIp", iniConfig, &item);
     if (ret || (item == NULL)) {
-        fprintf (stderr, "Get_config_item \"breakdownSinkIp\" error.\n");
+        fprintf (stderr, "Get_config_item \"managementServiceIp\" error.\n");
         goto freeProperties;
     }
-    tmp->breakdownSinkIp = strdup (get_const_string_config_value (item, &error));
-    if (tmp->breakdownSinkIp == NULL) {
-        fprintf (stderr, "Get \"breakdownSinkIp\" error.\n");
+    tmp->managementServiceIp = strdup (get_const_string_config_value (item, &error));
+    if (tmp->managementServiceIp == NULL) {
+        fprintf (stderr, "Get \"managementServiceIp\" error.\n");
+        goto freeProperties;
+    }
+
+    /* Get management service port */
+    ret = get_config_item ("MAIN", "managementServicePort", iniConfig, &item);
+    if (ret || (item == NULL)) {
+        fprintf (stderr, "Get_config_item \"managementServicePort\" error.\n");
+        goto freeProperties;
+    }
+    tmp->managementServicePort = get_int_config_value (item, 1, 0, &error);
+    if (error) {
+        fprintf (stderr, "Get \"managementServicePort\" error.\n");
+        goto freeProperties;
+    }
+
+    /* Get server ip */
+    ret = get_config_item ("MAIN", "serverIp", iniConfig, &item);
+    if (ret || (item == NULL)) {
+        fprintf (stderr, "Get_config_item \"serverIp\" error.\n");
+        goto freeProperties;
+    }
+    tmp->serverIp = strdup (get_const_string_config_value (item, &error));
+    if (tmp->serverIp == NULL) {
+        fprintf (stderr, "Get \"serverIp\" error.\n");
+        goto freeProperties;
+    }
+
+    /* Get agent register port */
+    ret = get_config_item ("MAIN", "agentRegisterPort", iniConfig, &item);
+    if (ret || (item == NULL)) {
+        fprintf (stderr, "Get_config_item \"agentRegisterPort\" error.\n");
+        goto freeProperties;
+    }
+    tmp->agentRegisterPort = get_int_config_value (item, 1, 0, &error);
+    if (error) {
+        fprintf (stderr, "Get \"agentRegisterPort\" error.\n");
         goto freeProperties;
     }
 
@@ -212,14 +253,45 @@ updatePropertiesPcapOfflineInput (char *fname) {
 }
 
 char *
-getPropertiesBreakdownSinkIp (void) {
-    return propertiesInstance->breakdownSinkIp;
+getPropertiesManagementServiceIp (void) {
+    return propertiesInstance->managementServiceIp;
 }
 
 void
-updatePropertiesBreakdownSinkIp (char *ip) {
-    free (propertiesInstance->breakdownSinkIp);
-    propertiesInstance->breakdownSinkIp = strdup (ip);
+updatePropertiesManagementServiceIp (char *ip) {
+    free (propertiesInstance->managementServiceIp);
+    propertiesInstance->managementServiceIp = strdup (ip);
+}
+
+u_short
+getPropertiesManagementServicePort (void) {
+    return propertiesInstance->managementServicePort;
+}
+
+void
+updatePropertiesManagementServicePort (u_short port) {
+    propertiesInstance->managementServicePort = port;
+}
+
+char *
+getPropertiesServerIp (void) {
+    return propertiesInstance->serverIp;
+}
+
+void
+updatePropertiesServerIp (char *ip) {
+    free (propertiesInstance->serverIp);
+    propertiesInstance->serverIp = strdup (ip);
+}
+
+u_short
+getPropertiesAgentRegisterPort (void) {
+    return propertiesInstance->agentRegisterPort;
+}
+
+void
+updatePropertiesAgentRegisterPort (u_short port) {
+    propertiesInstance->agentRegisterPort = port;
 }
 
 u_short
@@ -271,7 +343,10 @@ displayPropertiesDetail (void) {
     fprintf (stdout, "    daemonMode: %s\n", propertiesInstance->daemonMode ? "True" : "False");
     fprintf (stdout, "    mirrorInterface: %s\n", propertiesInstance->mirrorInterface);
     fprintf (stdout, "    pcapOfflineInput: %s\n", propertiesInstance->pcapOfflineInput);
-    fprintf (stdout, "    breakdownSinkIp: %s\n", propertiesInstance->breakdownSinkIp);
+    fprintf (stdout, "    managementServiceIp: %s\n", propertiesInstance->managementServiceIp);
+    fprintf (stdout, "    managementServicePort: %u\n", propertiesInstance->managementServicePort);
+    fprintf (stdout, "    serverIp: %s\n", propertiesInstance->serverIp);
+    fprintf (stdout, "    agentRegisterPort: %u\n", propertiesInstance->agentRegisterPort);
     fprintf (stdout, "    breakdownSinkPort: %u\n", propertiesInstance->breakdownSinkPort);
     fprintf (stdout, "    logDir: %s\n", propertiesInstance->logDir);
     fprintf (stdout, "    logFileName: %s\n", propertiesInstance->logFileName);
@@ -318,8 +393,10 @@ destroyProperties (void) {
     propertiesInstance->mirrorInterface = NULL;
     free (propertiesInstance->pcapOfflineInput);
     propertiesInstance->pcapOfflineInput = NULL;
-    free (propertiesInstance->breakdownSinkIp);
-    propertiesInstance->breakdownSinkIp = NULL;
+    free (propertiesInstance->managementServiceIp);
+    propertiesInstance->managementServiceIp = NULL;
+    free (propertiesInstance->serverIp);
+    propertiesInstance->serverIp = NULL;
     free (propertiesInstance->logDir);
     propertiesInstance->logDir = NULL;
     free (propertiesInstance->logFileName);

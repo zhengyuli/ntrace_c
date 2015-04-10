@@ -14,7 +14,11 @@ struct _properties {
 
     char *pcapOfflineInput;             /**< Pcap offline input file */
 
-    char *breakdownSinkIp;              /**< Breakdown sink ip */
+    char *managementServiceIp;          /**< Management service ip */
+    u_short managementServicePort;      /**< Management service port */
+
+    char *serverIp;                     /**< Server ip */
+    u_short agentRegisterPort;          /**< Agent register port */
     u_short breakdownSinkPort;          /**< Breakdown sink port */
 
     char *logDir;                       /**< Log dir */
@@ -36,9 +40,21 @@ getPropertiesPcapOfflineInput (void);
 void
 updatePropertiesPcapOfflineInput (char *fname);
 char *
-getPropertiesBreakdownSinkIp (void);
+getPropertiesManagementServiceIp (void);
 void
-updatePropertiesBreakdownSinkIp (char *ip);
+updatePropertiesManagementServiceIp (char *ip);
+u_short
+getPropertiesManagementServicePort (void);
+void
+updatePropertiesManagementServicePort (u_short port);
+char *
+getPropertiesServerIp (void);
+void
+updatePropertiesServerIp (char *ip);
+u_short
+getPropertiesAgentRegisterPort (void);
+void
+updatePropertiesAgentRegisterPort (u_short port);
 u_short
 getPropertiesBreakdownSinkPort (void);
 void

@@ -206,14 +206,16 @@ buildManagementControlResponse (char *cmd, int code) {
             json_object_set_new (body, MANAGEMENT_CONTROL_RESPONSE_BODY_PACKETS_DROP,
                                  json_integer (packetsStatisticPktsDrop));
             json_object_set_new (body, MANAGEMENT_CONTROL_RESPONSE_BODY_PACKETS_DROP_RATE,
-                                 json_real (((double) packetsStatisticPktsDrop / (double) packetsStatisticPktsReceive) * 100));
+                                 json_real (((double) packetsStatisticPktsDrop /
+                                             (double) packetsStatisticPktsReceive) * 100));
         }
 
         json_object_set_new (root, MANAGEMENT_CONTROL_RESPONSE_CODE, json_integer (0));
         json_object_set_new (root, MANAGEMENT_CONTROL_RESPONSE_BODY, body);
     } else {
         json_object_set_new (root, MANAGEMENT_CONTROL_RESPONSE_CODE, json_integer (1));
-        json_object_set_new (root, MANAGEMENT_CONTROL_RESPONSE_ERROR_MESSAGE, json_string ("Internal error."));
+        json_object_set_new (root, MANAGEMENT_CONTROL_RESPONSE_ERROR_MESSAGE,
+                             json_string ("Internal error."));
     }
 
     response = json_dumps (root, JSON_INDENT (4));

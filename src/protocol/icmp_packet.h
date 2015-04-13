@@ -21,6 +21,7 @@ struct _icmpBreakdown {
 
 /* Icmp breakdown json key definitions */
 #define ICMP_SKBD_TIMESTAMP "timestamp"
+#define ICMP_SKBD_TIMESTAMP_READABLE "timestamp_readable"
 #define ICMP_SKBD_PROTOCOL "protocol"
 #define ICMP_SKBD_ICMP_TYPE "icmp_type"
 #define ICMP_SKBD_ICMP_CODE "icmp_code"

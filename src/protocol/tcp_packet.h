@@ -187,6 +187,7 @@ struct _tcpBreakdown {
 
 /* Tcp session breakdown json key definitions */
 #define TCP_SKBD_TIMESTAMP "timestamp"
+#define TCP_SKBD_TIMESTAMP_READABLE "timestamp_readable"
 #define TCP_SKBD_PROTOCOL "protocol"
 #define TCP_SKBD_SOURCE_IP "source_ip"
 #define TCP_SKBD_SOURCE_PORT "source_port"

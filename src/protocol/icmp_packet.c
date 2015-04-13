@@ -40,8 +40,11 @@ icmpBreakdown2Json (icmpBreakdownPtr ibd) {
     }
 
     /* Icmp timestamp */
-    formatLocalTimeStr (&ibd->timestamp, buf, sizeof (buf));
     json_object_set_new (root, ICMP_SKBD_TIMESTAMP,
+                         json_integer (ibd->timestamp.tvSec));
+    /* Icmp timestamp readable */
+    formatLocalTimeStr (&ibd->timestamp, buf, sizeof (buf));
+    json_object_set_new (root, ICMP_SKBD_TIMESTAMP_READABLE,
                          json_string (buf));
     /* Icmp protocol */
     json_object_set_new (root, ICMP_SKBD_PROTOCOL,

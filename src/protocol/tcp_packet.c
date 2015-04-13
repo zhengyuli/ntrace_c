@@ -549,8 +549,11 @@ tcpBreakdown2Json (tcpStreamPtr stream, tcpBreakdownPtr tbd) {
         return NULL;
     }
     /* Tcp breakdown timestamp */
-    formatLocalTimeStr (&tbd->timestamp, buf, sizeof (buf));
     json_object_set_new (root, TCP_SKBD_TIMESTAMP,
+                         json_integer (tbd->timestamp.tvSec));
+    /* Tcp breakdown timestamp */
+    formatLocalTimeStr (&tbd->timestamp, buf, sizeof (buf));
+    json_object_set_new (root, TCP_SKBD_TIMESTAMP_READABLE,
                          json_string (buf));
     /* Tcp application layer protocol */
     json_object_set_new (root, TCP_SKBD_PROTOCOL,

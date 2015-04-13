@@ -423,7 +423,7 @@ startManagementRegisterTask (zloop_t *loop) {
 }
 
 static int
-managementTimerHandler (zloop_t *loop, int timerId, void *arg) {
+managementTimerHandler (zloop_t *loop, zmq_pollitem_t * timerId, void *arg) {
     if (!managementRegisterSuccess) {
         if (!managementRegisterTaskIsRunning)
             startManagementRegisterTask (loop);

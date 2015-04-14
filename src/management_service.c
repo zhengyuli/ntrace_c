@@ -113,7 +113,7 @@ handleUpdateProfileRequest (json_t *body) {
     }
 
     appServices = getAppServicesFromProfile (body);
-    if ((appServices == NULL) || !json_is_array (appServices)) {
+    if (appServices == NULL || !json_is_array (appServices)) {
         LOGE ("Invalid format of update profile\n.");
         return -1;
     }

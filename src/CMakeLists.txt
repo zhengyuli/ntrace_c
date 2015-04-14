@@ -50,6 +50,7 @@ SET (AGENT_SOURCE_FILES
   profile_cache.c
   netdev.c
   management_service.c
+  mining_service.c
   ownership/ownership.c
   ownership/ownership_manager.c
   protocol/raw_capture_service.c
@@ -57,7 +58,6 @@ SET (AGENT_SOURCE_FILES
   protocol/icmp_process_service.c
   protocol/tcp_dispatch_service.c
   protocol/tcp_process_service.c
-  protocol/session_breakdown_service.c
   protocol/checksum.c
   protocol/raw_packet.c
   protocol/ip_options.c

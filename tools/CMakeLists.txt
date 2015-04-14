@@ -6,7 +6,8 @@ SET (AGENT_TOOLS
   heartbeat.py
   update_profile.py
   packets_statistic.py
-  mining_engine.py)
+  mining_engine.py
+  breakdown_receiver.py)
 
 INSTALL (
   FILES ${AGENT_TOOLS}

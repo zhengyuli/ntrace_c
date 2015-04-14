@@ -9,7 +9,7 @@
 /* Percent loading brefore splitting */
 #define HASH_TABLE_LOAD_FACTOR 75
 /* Resize factor after splitting */
-#define HASH_TABLE_RESIZE_FACTOR 2       
+#define HASH_TABLE_RESIZE_FACTOR 2
 
 /* ========================================================================== */
 
@@ -228,7 +228,7 @@ hashInsert (hashTablePtr htbl, char *key, void *data, hashItemFreeCB fun) {
     u_int newCapacity, oldCapacity;
     hlistHeadPtr newHeads, oldHeads, head;
 
-    if ((key == NULL) || (data == NULL) || (fun == NULL))
+    if (key == NULL || data == NULL || fun == NULL)
         return -1;
 
     if (htbl->size >= htbl->limit) {
@@ -332,7 +332,7 @@ hashUpdate (hashTablePtr htbl, char *key, void *data, hashItemFreeCB fun) {
     u_int index;
     hashItemPtr item;
 
-    if ((key == NULL) || (data == NULL) || (fun == NULL))
+    if (key == NULL || data == NULL || fun == NULL)
         return -1;
 
     item = hashItemLookup (htbl, key, &index);
@@ -387,7 +387,7 @@ hashRename (hashTablePtr htbl, char *oldKey, char *newKey) {
     u_int index;
     hashItemPtr item;
 
-    if ((oldKey == NULL) || (newKey == NULL))
+    if (oldKey == NULL || newKey == NULL)
         return -1;
 
     item = hashItemLookup (htbl, newKey, &index);

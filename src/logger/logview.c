@@ -138,7 +138,7 @@ main (int argc, char *argv []) {
     while (!zctx_interrupted) {
         logMsg = zstr_recv (subSock);
 
-        if (logMsg && ((logLevel == NULL) ||
+        if (logMsg && (logLevel == NULL ||
                        (logLevel && strstr (logMsg, logLevel)))) {
             if (showInDetail)
                 realLogMsg = logMsg;

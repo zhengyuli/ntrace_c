@@ -18,7 +18,7 @@
 #include "ownership_manager.h"
 #include "netdev.h"
 #include "management_service.h"
-#include "session_breakdown_service.h"
+#include "mining_service.h"
 #include "raw_capture_service.h"
 #include "ip_process_service.h"
 #include "icmp_process_service.h"
@@ -83,9 +83,9 @@ startServices (void) {
         goto stopAllTask;
     }
 
-    ret = newTask (sessionBreakdownService, NULL);
+    ret = newTask (miningService, NULL);
     if (ret < 0) {
-        LOGE ("Create sessionBreakdownService error.\n");
+        LOGE ("Create miningService error.\n");
         goto stopAllTask;
     }
 
@@ -390,14 +390,13 @@ main (int argc, char *argv []) {
         goto destroyProperties;
     }
 
-    /* Show properties detail info */
-    displayPropertiesDetail ();
-
-    /* Run as daemon service */
+    /* Run as daemon or normal process */
     if (getPropertiesDaemonMode ())
         ret = agentDaemon ();
-    else
+    else {
+        displayPropertiesDetail ();
         ret = agentService ();
+    }
 
 destroyProperties:
     destroyProperties ();

@@ -44,7 +44,6 @@ doLog (u_char logLevel, const char *file, u_int line, const char *func, char *ms
     static __thread char tmp [MAX_LOG_MESSAGE_LENGTH];
     static __thread char buf [MAX_LOG_MESSAGE_LENGTH];
     static __thread char logLevelStr [16];
-    zframe_t *frame;
 
     if (logCtxtInstance == NULL) {
         fprintf (stderr, "Log context has not been initialized.\n");
@@ -93,16 +92,9 @@ doLog (u_char logLevel, const char *file, u_int line, const char *func, char *ms
               flag, timeStr, gettid (), logLevelStr, fileName, line, func, tmp);
     buf [MAX_LOG_MESSAGE_LENGTH - 1] = 0;
 
-    frame = zframe_new ((void *) buf, strlen (buf));
-    if (frame == NULL) {
-        fprintf (stderr, "Create zframe for log message error.\n");
-        return;
-    }
-    ret = zframe_send (&frame, logCtxtInstance->logSock, 0);
-    if (ret < 0) {
+    ret = zstr_send (logCtxtInstance->logSock, buf);
+    if (ret < 0)
         fprintf (stderr, "Send log message error.\n");
-        return;
-    }
 }
 
 /*

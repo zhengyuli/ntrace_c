@@ -52,7 +52,7 @@ ipOptionsCompile (u_char *iph) {
         }
 
         optLen = optPtr [1];
-        if ((optLen < 2) || (optLen > leftLen)) {
+        if (optLen < 2 || optLen > leftLen) {
             ppPtr = optPtr;
             goto error;
         }
@@ -77,7 +77,7 @@ ipOptionsCompile (u_char *iph) {
                 }
 
                 if (!skb) {
-                    if ((optPtr [2] != 4) || (optLen < 7) || ((optLen - 3) & 3)) {
+                    if (optPtr [2] != 4 || optLen < 7 || (optLen - 3) & 3) {
                         ppPtr = optPtr + 1;
                         goto error;
                     }

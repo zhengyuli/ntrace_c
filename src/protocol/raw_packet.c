@@ -21,9 +21,9 @@ getIpPacket (u_char *rawPkt, u_int datalinkType) {
 
         case DLT_EN10MB:  /* Ethernet (10Mb, 100Mb, 1000Mb or higher) protocol */
             /* Regular ip frame */
-            if ((rawPkt [12] == 0x08) && (rawPkt [13] == 0x00))
+            if (rawPkt [12] == 0x08 && rawPkt [13] == 0x00)
                 offset = 14;
-            else if ((rawPkt [12] == 0x81) && (rawPkt [13] == 0x00)) {
+            else if (rawPkt [12] == 0x81 && rawPkt [13] == 0x00) {
                 /*
                  * 802.1Q VLAN frame
                  * +----------------------------------------------------------------------+

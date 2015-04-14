@@ -38,7 +38,7 @@ displayIphdr (iphdrPtr iph) {
     flags = offset & ~IP_OFFMASK;
     offset = (offset & IP_OFFMASK) << 3;
 
-    if ((flags & IP_MF) || offset)
+    if (flags & IP_MF || offset)
         LOGD ("Fragment ip packet");
     else
         LOGD ("Defragment ip packet");
@@ -283,7 +283,7 @@ checkIpHeader (iphdrPtr iph) {
     u_short iphLen = iph->iphLen * 4;
     u_short ipLen = ntohs (iph->ipLen);
 
-    if ((ipVer != 4) || (iphLen < sizeof (iphdr)) || (ipLen < iphLen)) {
+    if (ipVer != 4 || iphLen < sizeof (iphdr) || ipLen < iphLen) {
         LOGE ("IpVer: %d, iphLen: %d, ipLen: %d.\n", ipVer, iphLen, ipLen);
         return -1;
     }
@@ -296,7 +296,7 @@ checkIpHeader (iphdrPtr iph) {
     }
 
     /* Check ip options */
-    if ((iphLen > sizeof (iphdr)) && ipOptionsCompile ((u_char *) iph)) {
+    if (iphLen > sizeof (iphdr) && ipOptionsCompile ((u_char *) iph)) {
         LOGE ("IpOptionsCompile error.\n");
         return -1;
     }
@@ -362,7 +362,7 @@ ipDefrag (iphdrPtr iph, timeValPtr tm, iphdrPtr *newIph) {
     ipq = findIpQueue (iph);
 
     /* Not a ip fragment */
-    if (((flags & IP_MF) == 0) && (offset == 0)) {
+    if ((flags & IP_MF) == 0 && offset == 0) {
         if (ipq)
             delIpQueueFromHash (ipq);
         *newIph = iph;
@@ -419,7 +419,7 @@ ipDefrag (iphdrPtr iph, timeValPtr tm, iphdrPtr *newIph) {
     }
 
     /* Check for overlap with preceding fragment */
-    if ((prevEntry != NULL) && (ipf->offset < prevEntry->end)) {
+    if (prevEntry != NULL && ipf->offset < prevEntry->end) {
         gap = prevEntry->end - ipf->offset;
         /* If previous fragment overlap ipf completely, free ipf and return */
         if (gap >= ipf->dataLen) {

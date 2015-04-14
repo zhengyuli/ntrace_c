@@ -200,7 +200,7 @@ pktServerHandshake (mysqlEvent event, u_char *payload, u_int payloadLen,
     char *authPluginName;
     u_char *pkt = payload;
 
-    if ((direction != STREAM_FROM_SERVER) || (currSessionDetail->seqId != 0))
+    if (direction != STREAM_FROM_SERVER || currSessionDetail->seqId != 0)
         return EVENT_HANDLE_ERROR;
 
     LOGD ("\nCli <<----------------<< Server packet seqId:%u\n",
@@ -306,7 +306,7 @@ pktClientHandshake (mysqlEvent event, u_char *payload, u_int payloadLen,
     char attrValue [256] = {0};
     u_char *pkt = payload;
 
-    if ((direction != STREAM_FROM_CLIENT) || (currSessionDetail->seqId != 1))
+    if (direction != STREAM_FROM_CLIENT || currSessionDetail->seqId != 1)
         return EVENT_HANDLE_ERROR;
 
     LOGD ("Cli >>---------------->> Server packet seqId:%u\n",
@@ -338,8 +338,8 @@ pktClientHandshake (mysqlEvent event, u_char *payload, u_int payloadLen,
               MYSQL_INFO_DISPLAY_INDENT1, currSharedInfo->userName);
 
         /* Get auth response */
-        if ((currSharedInfo->cliCaps & CLIENT_PLUGIN_AUTH_LENENC_CLIENT_DATA) ||
-            (currSharedInfo->cliCaps & CLIENT_SECURE_CONNECTION)) {
+        if (currSharedInfo->cliCaps & CLIENT_PLUGIN_AUTH_LENENC_CLIENT_DATA ||
+            currSharedInfo->cliCaps & CLIENT_SECURE_CONNECTION) {
             if (currSharedInfo->cliCaps & CLIENT_PLUGIN_AUTH_LENENC_CLIENT_DATA) {
                 realLen = encLenInt (pkt, &encLen);
                 pkt += encLen;
@@ -450,7 +450,7 @@ pktSecureAuth (mysqlEvent event, u_char *payload, u_int payloadLen,
                streamDirection direction) {
     u_char *pkt = payload;
 
-    if ((direction == STREAM_FROM_SERVER) &&
+    if (direction == STREAM_FROM_SERVER &&
         (MATCH (*pkt, MYSQL_RESPONSE_OK_HEADER) ||
          MATCH (*pkt, MYSQL_RESPONSE_ERROR_HEADER)))
         return EVENT_HANDLE_ERROR;
@@ -477,7 +477,7 @@ pktComX (mysqlEvent event, u_char *payload, u_int payloadLen,
     const char *cmdName;
     u_char *pkt = payload;
 
-    if ((direction != STREAM_FROM_CLIENT) ||
+    if (direction != STREAM_FROM_CLIENT ||
         !(MATCH (*pkt, COM_SLEEP) ||
           MATCH (*pkt, COM_QUIT) ||
           MATCH (*pkt, COM_STATISTICS) ||
@@ -501,7 +501,8 @@ pktComX (mysqlEvent event, u_char *payload, u_int payloadLen,
     LOGD ("%s%s\n", MYSQL_INFO_DISPLAY_INDENT1, cmdName);
 
     /* For COM_QUIT and COM_PING, doesn't do record */
-    if (!MATCH (*pkt, COM_QUIT) && !MATCH (*pkt, COM_PING)) {
+    if (!MATCH (currSessionDetail->cmd, COM_QUIT) &&
+        !MATCH (currSessionDetail->cmd, COM_PING)) {
         currSessionDetail->reqStmt = strdup (cmdName);
         currSessionDetail->state = MYSQL_REQUEST_COMPLETE;
     }
@@ -519,7 +520,7 @@ pktComDB (mysqlEvent event, u_char *payload, u_int payloadLen,
     char com [256];
     u_char *pkt = payload;
 
-    if ((direction != STREAM_FROM_CLIENT) ||
+    if (direction != STREAM_FROM_CLIENT ||
         !(MATCH (*pkt, COM_INIT_DB) ||
           MATCH (*pkt, COM_CREATE_DB) ||
           MATCH (*pkt, COM_DROP_DB)))
@@ -560,7 +561,7 @@ pktQuery (mysqlEvent event, u_char *payload, u_int payloadLen,
     char com [4096];
     u_char *pkt = payload;
 
-    if ((direction != STREAM_FROM_CLIENT) || !MATCH (*pkt, COM_QUERY))
+    if (direction != STREAM_FROM_CLIENT || !MATCH (*pkt, COM_QUERY))
         return EVENT_HANDLE_ERROR;
 
     LOGD ("\nCli >>---------------->> Server packet seqId:%u\n",
@@ -599,7 +600,7 @@ pktFieldList (mysqlEvent event, u_char *payload, u_int payloadLen,
     char com [4096];
     u_char *pkt = payload;
 
-    if ((direction != STREAM_FROM_CLIENT) || !MATCH (*pkt, COM_FIELD_LIST))
+    if (direction != STREAM_FROM_CLIENT || !MATCH (*pkt, COM_FIELD_LIST))
         return EVENT_HANDLE_ERROR;
 
     LOGD ("\nCli >>---------------->> Server packet seqId:%u\n",
@@ -640,7 +641,7 @@ pktRefresh (mysqlEvent event, u_char *payload, u_int payloadLen,
     char com [256];
     u_char *pkt = payload;
 
-    if ((direction != STREAM_FROM_CLIENT) || !MATCH (*pkt, COM_REFRESH))
+    if (direction != STREAM_FROM_CLIENT || !MATCH (*pkt, COM_REFRESH))
         return EVENT_HANDLE_ERROR;
 
     LOGD ("\nCli >>---------------->> Server packet seqId:%u\n",
@@ -672,7 +673,7 @@ pktShutdown (mysqlEvent event, u_char *payload, u_int payloadLen,
     char com [256];
     u_char *pkt = payload;
 
-    if ((direction != STREAM_FROM_CLIENT) || !MATCH (*pkt, COM_SHUTDOWN))
+    if (direction != STREAM_FROM_CLIENT || !MATCH (*pkt, COM_SHUTDOWN))
         return EVENT_HANDLE_ERROR;
 
     LOGD ("\nCli >>---------------->> Server packet seqId:%u\n",
@@ -708,7 +709,7 @@ pktProcessKill (mysqlEvent event, u_char *payload, u_int payloadLen,
     char com [256];
     u_char *pkt = payload;
 
-    if ((direction != STREAM_FROM_CLIENT) || !MATCH (*pkt, COM_PROCESS_KILL))
+    if (direction != STREAM_FROM_CLIENT || !MATCH (*pkt, COM_PROCESS_KILL))
         return EVENT_HANDLE_ERROR;
 
     LOGD ("\nCli >>---------------->> Server packet seqId:%u\n",
@@ -752,7 +753,7 @@ pktChangeUser (mysqlEvent event, u_char *payload, u_int payloadLen,
     char com [256];
     u_char *pkt = payload;
 
-    if ((direction != STREAM_FROM_CLIENT) || !MATCH (*pkt, COM_CHANGE_USER))
+    if (direction != STREAM_FROM_CLIENT || !MATCH (*pkt, COM_CHANGE_USER))
         return EVENT_HANDLE_ERROR;
 
     LOGD ("\nCli >>---------------->> Server packet seqId:%u\n",
@@ -854,7 +855,7 @@ pktRegisterSlave (mysqlEvent event, u_char *payload, u_int payloadLen,
     char com [1024];
     u_char *pkt = payload;
 
-    if ((direction != STREAM_FROM_CLIENT) || !MATCH (*pkt, COM_REGISTER_SLAVE))
+    if (direction != STREAM_FROM_CLIENT || !MATCH (*pkt, COM_REGISTER_SLAVE))
         return EVENT_HANDLE_ERROR;
 
     LOGD ("\nCli >>---------------->> Server packet seqId:%u\n",
@@ -927,7 +928,7 @@ pktStmtPrepare (mysqlEvent event, u_char *payload, u_int payloadLen,
     char com [4096];
     u_char *pkt = payload;
 
-    if ((direction != STREAM_FROM_CLIENT) || !MATCH (*pkt, COM_STMT_PREPARE))
+    if (direction != STREAM_FROM_CLIENT || !MATCH (*pkt, COM_STMT_PREPARE))
         return EVENT_HANDLE_ERROR;
 
     LOGD ("\nCli >>---------------->> Server packet seqId:%u\n",
@@ -965,7 +966,7 @@ pktStmtExec (mysqlEvent event, u_char *payload, u_int payloadLen,
     char com [256];
     u_char *pkt = payload;
 
-    if ((direction != STREAM_FROM_CLIENT) || !MATCH (*pkt, COM_STMT_EXECUTE))
+    if (direction != STREAM_FROM_CLIENT || !MATCH (*pkt, COM_STMT_EXECUTE))
         return EVENT_HANDLE_ERROR;
 
     LOGD ("\nCli >>---------------->> Server packet seqId:%u\n",
@@ -1007,7 +1008,7 @@ pktStmtCloseOrReset (mysqlEvent event, u_char *payload, u_int payloadLen,
     char com [256];
     u_char *pkt = payload;
 
-    if ((direction != STREAM_FROM_CLIENT) ||
+    if (direction != STREAM_FROM_CLIENT ||
         !(MATCH (*pkt, COM_STMT_CLOSE) ||
           MATCH (*pkt, COM_STMT_RESET)))
         return EVENT_HANDLE_ERROR;
@@ -1042,7 +1043,7 @@ pktSetOption (mysqlEvent event, u_char *payload, u_int payloadLen,
     char com [256];
     u_char *pkt = payload;
 
-    if ((direction != STREAM_FROM_CLIENT) || !MATCH (*pkt, COM_SET_OPTION))
+    if (direction != STREAM_FROM_CLIENT || !MATCH (*pkt, COM_SET_OPTION))
         return EVENT_HANDLE_ERROR;
 
     LOGD ("\nCli >>---------------->> Server packet seqId:%u\n",
@@ -1076,7 +1077,7 @@ pktStmtFetch (mysqlEvent event, u_char *payload, u_int payloadLen,
     char com [256];
     u_char *pkt = payload;
 
-    if ((direction != STREAM_FROM_CLIENT) || !MATCH (*pkt, COM_STMT_FETCH))
+    if (direction != STREAM_FROM_CLIENT || !MATCH (*pkt, COM_STMT_FETCH))
         return EVENT_HANDLE_ERROR;
 
     LOGD ("\nCli >>---------------->> Server packet seqId:%u\n",
@@ -1123,7 +1124,7 @@ pktOk (mysqlEvent event, u_char *payload, u_int payloadLen,
     char okInfo [512] = {0};
     u_char *pkt = payload;
 
-    if ((direction != STREAM_FROM_SERVER) || !MATCH (*pkt, MYSQL_RESPONSE_OK_HEADER))
+    if (direction != STREAM_FROM_SERVER || !MATCH (*pkt, MYSQL_RESPONSE_OK_HEADER))
         return EVENT_HANDLE_ERROR;
 
     if (currSessionDetail->showS2CTag) {
@@ -1198,7 +1199,7 @@ pktError (mysqlEvent event, u_char *payload, u_int payloadLen,
     char errMsg [512] = {0};
     u_char *pkt = payload;
 
-    if ((direction != STREAM_FROM_SERVER) || !MATCH (*pkt, MYSQL_RESPONSE_ERROR_HEADER))
+    if (direction != STREAM_FROM_SERVER || !MATCH (*pkt, MYSQL_RESPONSE_ERROR_HEADER))
         return EVENT_HANDLE_ERROR;
 
     if (currSessionDetail->showS2CTag) {
@@ -1259,7 +1260,7 @@ pktEnd (mysqlEvent event, u_char *payload, u_int payloadLen,
     u_short statusFlags = 0;
     u_char *pkt = payload;
 
-    if ((direction != STREAM_FROM_SERVER) || !MATCH (*pkt, MYSQL_RESPONSE_END_HEADER))
+    if (direction != STREAM_FROM_SERVER || !MATCH (*pkt, MYSQL_RESPONSE_END_HEADER))
         return EVENT_HANDLE_ERROR;
 
     pkt += 1;
@@ -1297,11 +1298,11 @@ pktEnd (mysqlEvent event, u_char *payload, u_int payloadLen,
 
     LOGD ("%sEnd response packet\n", MYSQL_INFO_DISPLAY_INDENT1);
 
-    if ((currSessionDetail->mstate == STATE_END_OR_ERROR) ||
-        (currSessionDetail->mstate == STATE_FIELD_LIST) ||
-        (currSessionDetail->mstate == STATE_END) ||
-        (currSessionDetail->mstate == STATE_TXT_ROW) ||
-        (currSessionDetail->mstate == STATE_BIN_ROW)) {
+    if (currSessionDetail->mstate == STATE_END_OR_ERROR ||
+        currSessionDetail->mstate == STATE_FIELD_LIST ||
+        currSessionDetail->mstate == STATE_END ||
+        currSessionDetail->mstate == STATE_TXT_ROW ||
+        currSessionDetail->mstate == STATE_BIN_ROW) {
         currSessionDetail->state = MYSQL_RESPONSE_OK;
         currSessionDetail->respTimeEnd = timeVal2MilliSecond (currTime);
         currSessionState = SESSION_DONE;
@@ -1344,7 +1345,7 @@ pktNFields (mysqlEvent event, u_char *payload, u_int payloadLen,
     u_long_long count;
     u_char *pkt = payload;
 
-    if ((direction != STREAM_FROM_SERVER) ||
+    if (direction != STREAM_FROM_SERVER ||
         MATCH (*pkt, MYSQL_RESPONSE_LOCAL_INFILE_HEADER) ||
         MATCH (*pkt, MYSQL_RESPONSE_OK_HEADER) ||
         MATCH (*pkt, MYSQL_RESPONSE_ERROR_HEADER))
@@ -1374,7 +1375,7 @@ pktLocalINFile (mysqlEvent event, u_char *payload, u_int payloadLen,
     char buf [512] = {0};
     u_char *pkt = payload;
 
-    if ((direction != STREAM_FROM_SERVER) ||
+    if (direction != STREAM_FROM_SERVER ||
         MATCH (*pkt, MYSQL_RESPONSE_OK_HEADER) ||
         MATCH (*pkt, MYSQL_RESPONSE_ERROR_HEADER) ||
         !MATCH (*pkt, MYSQL_RESPONSE_LOCAL_INFILE_HEADER))
@@ -1412,10 +1413,10 @@ pktField (mysqlEvent event, u_char *payload, u_int payloadLen,
     char buf [512] = {0};
     u_char *pkt = payload;
 
-    if ((direction != STREAM_FROM_SERVER) ||
+    if (direction != STREAM_FROM_SERVER ||
         MATCH (*pkt, MYSQL_RESPONSE_END_HEADER) ||
-        ((event == EVENT_TXT_FIELD) &&
-         (currSessionDetail->cmdCtxt.fieldsRecv >= currSessionDetail->cmdCtxt.fieldsCount)))
+        (event == EVENT_TXT_FIELD &&
+         currSessionDetail->cmdCtxt.fieldsRecv >= currSessionDetail->cmdCtxt.fieldsCount))
         return EVENT_HANDLE_ERROR;
 
     if (currSessionDetail->showS2CTag) {
@@ -1581,7 +1582,7 @@ pktTxtRow (mysqlEvent event, u_char *payload, u_int payloadLen,
     char buf [1024] = {0};
     u_char *pkt = payload;
 
-    if ((direction != STREAM_FROM_SERVER) ||
+    if (direction != STREAM_FROM_SERVER ||
         MATCH (*pkt, MYSQL_RESPONSE_END_HEADER) ||
         MATCH (*pkt, MYSQL_RESPONSE_OK_HEADER) ||
         MATCH (*pkt, MYSQL_RESPONSE_ERROR_HEADER))
@@ -1659,7 +1660,7 @@ pktBinRow (mysqlEvent event, u_char *payload, u_int payloadLen,
     char buf [512] = {0};
     u_char *pkt = payload;
 
-    if ((direction != STREAM_FROM_SERVER) ||
+    if (direction != STREAM_FROM_SERVER ||
         MATCH (*pkt, MYSQL_RESPONSE_END_HEADER) ||
         MATCH (*pkt, MYSQL_RESPONSE_ERROR_HEADER))
         return EVENT_HANDLE_ERROR;
@@ -1838,7 +1839,7 @@ pktStmtMeta (mysqlEvent event, u_char *payload, u_int payloadLen,
     u_short warnCount;
     u_char *pkt = payload;
 
-    if ((direction != STREAM_FROM_SERVER) ||
+    if (direction != STREAM_FROM_SERVER ||
         MATCH (*pkt, MYSQL_RESPONSE_ERROR_HEADER))
         return EVENT_HANDLE_ERROR;
 
@@ -1883,7 +1884,7 @@ pktStmtFetchRS (mysqlEvent event, u_char *payload, u_int payloadLen,
                 streamDirection direction) {
     u_char *pkt = payload;
 
-    if ((direction != STREAM_FROM_SERVER) ||
+    if (direction != STREAM_FROM_SERVER ||
         MATCH (*pkt, MYSQL_RESPONSE_OK_HEADER) ||
         MATCH (*pkt, MYSQL_RESPONSE_ERROR_HEADER))
         return EVENT_HANDLE_ERROR;
@@ -1978,23 +1979,22 @@ mysqlParserExecute (u_char *data, u_int dataLen, streamDirection direction) {
     }
 
     /* Mysql packet after handshake  */
-    if ((currSessionDetail->mstate != STATE_NOT_CONNECTED) &&
-        (currSessionDetail->mstate != STATE_CLIENT_HANDSHAKE) &&
-        (currSessionDetail->mstate != STATE_SECURE_AUTH)) {
+    if (currSessionDetail->mstate != STATE_NOT_CONNECTED &&
+        currSessionDetail->mstate != STATE_CLIENT_HANDSHAKE &&
+        currSessionDetail->mstate != STATE_SECURE_AUTH) {
         /* For incomplete mysql packet, return directly */
-        if ((parseLeft < MYSQL_HEADER_SIZE) ||
-            (currSharedInfo->doCompress &&
-             (parseLeft < MYSQL_COMPRESSED_HEADER_SIZE)))
+        if (parseLeft < MYSQL_HEADER_SIZE ||
+            (currSharedInfo->doCompress && parseLeft < MYSQL_COMPRESSED_HEADER_SIZE))
             return 0;
 
-        if ((direction == STREAM_FROM_CLIENT) &&
-            (currSessionDetail->mstate == STATE_SLEEP)) {
+        if (direction == STREAM_FROM_CLIENT &&
+            currSessionDetail->mstate == STATE_SLEEP) {
             /* New mysql request */
             resetMysqlSessionDetail (currSessionDetail);
             currSessionDetail->state = MYSQL_REQUEST_BEGIN;
             currSessionDetail->reqTime = timeVal2MilliSecond (currTime);
-        } else if ((direction == STREAM_FROM_SERVER) &&
-                   (currSessionDetail->state == MYSQL_REQUEST_COMPLETE)) {
+        } else if (direction == STREAM_FROM_SERVER &&
+                   currSessionDetail->state == MYSQL_REQUEST_COMPLETE) {
             /* New mysql response */
             currSessionDetail->state = MYSQL_RESPONSE_BEGIN;
             currSessionDetail->respTimeBegin = timeVal2MilliSecond (currTime);
@@ -2577,7 +2577,7 @@ generateMysqlSessionBreakdown (void *sd, void *sbd) {
     msbd->conId = currSharedInfo->conId;
 
     /* For MYSQL_BREAKDOWN_RESET_TYPE4 case, reqStmt is NULL */
-    if (msd->reqStmt && (msbd->state != MYSQL_BREAKDOWN_RESET_TYPE4)) {
+    if (msd->reqStmt && msbd->state != MYSQL_BREAKDOWN_RESET_TYPE4) {
         msbd->reqStmt = strdup (msd->reqStmt);
         if (msbd->reqStmt == NULL) {
             LOGE ("Strdup mysql request error: %s.\n", strerror (errno));

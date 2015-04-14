@@ -985,15 +985,15 @@ httpSessionProcessReset (streamDirection direction, timeValPtr tm, void *sd) {
 
     currNode = listHeadEntry (&hsd->head, httpSessionDetailNode, node);
     if (currNode) {
-        if ((currNode->state == HTTP_REQUEST_HEADER_BEGIN) ||
-            (currNode->state == HTTP_REQUEST_HEADER_COMPLETE) ||
-            (currNode->state == HTTP_REQUEST_BODY_BEGIN))
+        if (currNode->state == HTTP_REQUEST_HEADER_BEGIN ||
+            currNode->state == HTTP_REQUEST_HEADER_COMPLETE ||
+            currNode->state == HTTP_REQUEST_BODY_BEGIN)
             currNode->state = HTTP_RESET_TYPE1;
         else if (currNode->state == HTTP_REQUEST_BODY_COMPLETE)
             currNode->state = HTTP_RESET_TYPE2;
-        else if ((currNode->state == HTTP_RESPONSE_HEADER_BEGIN) ||
-                 (currNode->state == HTTP_RESPONSE_HEADER_COMPLETE) ||
-                 (currNode->state == HTTP_RESPONSE_BODY_BEGIN))
+        else if (currNode->state == HTTP_RESPONSE_HEADER_BEGIN ||
+                 currNode->state == HTTP_RESPONSE_HEADER_COMPLETE ||
+                 currNode->state == HTTP_RESPONSE_BODY_BEGIN)
             currNode->state = HTTP_RESET_TYPE3;
     } else {
         /*

@@ -21,7 +21,7 @@ publishIcmpBreakdown (char *sessionBreakdown) {
     do {
         ret = zstr_send (icmpBreakdownSendSock, sessionBreakdown);
         retries -= 1;
-    } while ((ret < 0) && retries);
+    } while (ret < 0 && retries);
 
     if (ret < 0)
         LOGE ("Send icmp breakdown error.\n");
@@ -103,9 +103,9 @@ icmpProcess (iphdrPtr iph, timeValPtr tm) {
 
     /* Get icmp header */
     icmph = (icmphdrPtr) ((u_char *) iph + iph->iphLen * 4);
-    if ((icmph->type > NR_ICMP_TYPES) ||
-        (icmph->type != ICMP_DEST_UNREACH) ||
-        (icmph->code > NR_ICMP_UNREACH))
+    if (icmph->type > NR_ICMP_TYPES ||
+        icmph->type != ICMP_DEST_UNREACH ||
+        icmph->code > NR_ICMP_UNREACH)
         return;
 
     len -= sizeof (icmphdr);

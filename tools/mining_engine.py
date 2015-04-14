@@ -4,7 +4,7 @@
 # Name: mining_engine.py
 # Purpose:
 #
-# Time-stamp: <2015-04-10 19:28:58 Friday by lzy>
+# Time-stamp: <2015-04-15 00:49:46 Wednesday by lzy>
 #
 # Author: zhengyu li
 # Created: 24 May 2014
@@ -33,19 +33,18 @@ def createIndex(ip):
     httpConn.close()
 
 if __name__ == '__main__':
-    interrupted = False
     parser = argparse.ArgumentParser()
     parser.add_argument("ip", type=str, help="ElasticSearch ip")
     args = parser.parse_args()
     context = zmq.Context()
     bkdRecvSock = context.socket(zmq.PULL)
-    bkdRecvSock.bind("tcp://127.0.0.1:53001")
+    bkdRecvSock.bind("tcp://127.0.0.1:60002")
 
     createIndex(args.ip)
 
     httpConn = httplib.HTTPConnection(args.ip, 9200)
     headers = {"Connection": "keep-alive"}
-    while not interrupted:
+    while True:
         try:
             data = bkdRecvSock.recv()
             breakdown = json.loads(data)
@@ -63,7 +62,10 @@ if __name__ == '__main__':
             print httpResp.status, httpResp.reason
             page = httpResp.read()
         except KeyboardInterrupt:
-            print "program is interrupted"
-            interrupted = True
-    httpConn.close()
-    print "exit... .. ."
+            print "program is interrupted."
+            exit(0)
+        except BaseException:
+            print "program encounter fatal error."
+            exit(-1)
+        finally:
+            httpConn.close()

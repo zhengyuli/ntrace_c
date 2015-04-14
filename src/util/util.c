@@ -114,7 +114,7 @@ safeRead (int fd, void *buf, size_t count) {
 
     while (count > 0) {
         ssize_t r = read (fd, buf, count);
-        if ((r < 0) && (errno == EINTR))
+        if (r < 0 && errno == EINTR)
             continue;
 
         if (r < 0)
@@ -137,7 +137,7 @@ safeWrite (int fd, void *buf, size_t count) {
 
     while (count > 0) {
         ssize_t r = write (fd, buf, count);
-        if ((r < 0) && (errno == EINTR))
+        if (r < 0 && errno == EINTR)
             continue;
 
         if (r < 0)

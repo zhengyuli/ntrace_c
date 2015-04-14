@@ -1,9 +1,9 @@
-#ifndef __SESSION_BREAKDOWN_SERVICE_H__
-#define __SESSION_BREAKDOWN_SERVICE_H__
+#ifndef __MINING_SERVICE_H__
+#define __MINING_SERVICE_H__
 
 /*========================Interfaces definition============================*/
 void *
-sessionBreakdownService (void *args);
+miningService (void *args);
 /*=======================Interfaces definition end=========================*/
 
-#endif /* __SESSION_BREAKDOWN_SERVICE_H__ */
+#endif /* __MINING_SERVICE_H__ */

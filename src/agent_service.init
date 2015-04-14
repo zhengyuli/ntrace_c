@@ -14,7 +14,7 @@
 source /etc/profile
 
 SERVICE_NAME=wda_agent
-PID_FILE=/var/run/wda_agent.pid
+PID_FILE=/var/run/wda/wda_agent.pid
 
 start () {
     if [ -f $PID_FILE ]
@@ -23,7 +23,7 @@ start () {
     else
         echo -n "Start ${SERVICE_NAME}: "
         ${SERVICE_NAME} -D
-        loop=1
+        loop=10
         while [ $loop -gt 0 ]
         do
             sleep 1

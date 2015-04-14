@@ -39,7 +39,7 @@ getAppServicesFromProfile (json_t *profile) {
 
 /*
  * @brief Sync profile to cache file.
- * 
+ *
  * @param profile profile to sync
  *
  * @return 0 if success else -1
@@ -64,7 +64,7 @@ syncProfileCache (json_t *profile) {
     }
 
     ret = safeWrite (fd, profileStr, strlen (profileStr));
-    if ((ret < 0) || (ret != strlen (profileStr))) {
+    if (ret < 0 || ret != strlen (profileStr)) {
         LOGE ("Write to profile cache error.\n");
         close (fd);
         free (profileStr);
@@ -73,6 +73,6 @@ syncProfileCache (json_t *profile) {
 
     LOGI ("Sync profile cache success:\n%s\n", profileStr);
     close (fd);
-    free (profileStr);    
+    free (profileStr);
     return 0;
 }

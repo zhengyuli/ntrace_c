@@ -91,7 +91,7 @@ loadPropertiesFromConfigFile (char *configFile) {
 
     /* Get mirror interface */
     ret = get_config_item ("MAIN", "mirrorInterface", iniConfig, &item);
-    if (ret || (item == NULL)) {
+    if (ret || item == NULL) {
         fprintf (stderr, "Get_config_item \"mirrorInterface\" error.\n");
         goto freeProperties;
     }
@@ -113,7 +113,7 @@ loadPropertiesFromConfigFile (char *configFile) {
 
     /* Get management service ip */
     ret = get_config_item ("MAIN", "managementServiceIp", iniConfig, &item);
-    if (ret || (item == NULL)) {
+    if (ret || item == NULL) {
         fprintf (stderr, "Get_config_item \"managementServiceIp\" error.\n");
         goto freeProperties;
     }
@@ -125,7 +125,7 @@ loadPropertiesFromConfigFile (char *configFile) {
 
     /* Get management service port */
     ret = get_config_item ("MAIN", "managementServicePort", iniConfig, &item);
-    if (ret || (item == NULL)) {
+    if (ret || item == NULL) {
         fprintf (stderr, "Get_config_item \"managementServicePort\" error.\n");
         goto freeProperties;
     }
@@ -137,7 +137,7 @@ loadPropertiesFromConfigFile (char *configFile) {
 
     /* Get server ip */
     ret = get_config_item ("MAIN", "serverIp", iniConfig, &item);
-    if (ret || (item == NULL)) {
+    if (ret || item == NULL) {
         fprintf (stderr, "Get_config_item \"serverIp\" error.\n");
         goto freeProperties;
     }
@@ -149,7 +149,7 @@ loadPropertiesFromConfigFile (char *configFile) {
 
     /* Get management register port */
     ret = get_config_item ("MAIN", "managementRegisterPort", iniConfig, &item);
-    if (ret || (item == NULL)) {
+    if (ret || item == NULL) {
         fprintf (stderr, "Get_config_item \"managementRegisterPort\" error.\n");
         goto freeProperties;
     }
@@ -161,7 +161,7 @@ loadPropertiesFromConfigFile (char *configFile) {
 
     /* Get breakdown sink port */
     ret = get_config_item ("MAIN", "breakdownSinkPort", iniConfig, &item);
-    if (ret || (item == NULL)) {
+    if (ret || item == NULL) {
         fprintf (stderr, "Get_config_item \"breakdownSinkPort\" error.\n");
         goto freeProperties;
     }
@@ -173,7 +173,7 @@ loadPropertiesFromConfigFile (char *configFile) {
 
     /* Get log dir */
     ret = get_config_item ("LOG", "logDir", iniConfig, &item);
-    if (ret || (item == NULL)) {
+    if (ret || item == NULL) {
         fprintf (stderr, "Get_config_item \"logDir\" error.\n");
         goto freeProperties;
     }
@@ -185,7 +185,7 @@ loadPropertiesFromConfigFile (char *configFile) {
 
     /* Get log file name */
     ret = get_config_item ("LOG", "logFileName", iniConfig, &item);
-    if (ret || (item == NULL)) {
+    if (ret || item == NULL) {
         fprintf (stderr, "Get_config_item \"logFileName\" error.\n");
         goto freeProperties;
     }
@@ -197,7 +197,7 @@ loadPropertiesFromConfigFile (char *configFile) {
 
     /* Get log level */
     ret = get_config_item ("LOG", "logLevel", iniConfig, &item);
-    if (ret || (item == NULL)) {
+    if (ret || item == NULL) {
         fprintf (stderr, "Get_config_item \"logLevel\" error.\n");
         goto freeProperties;
     }

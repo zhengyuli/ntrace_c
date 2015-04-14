@@ -6,6 +6,8 @@
 /* Management register expire interval is 3000ms */
 #define MANAGEMENT_REGISTER_TASK_EXPIRE_INTERVAL 3000
 
+/*=========================================================================*/
+
 /* Management control request json key definitions */
 #define MANAGEMENT_CONTROL_REQUEST_COMMAND "command"
 #define MANAGEMENT_CONTROL_REQUEST_BODY "body"
@@ -30,6 +32,8 @@
 /* Default management control error response */
 #define DEFAULT_MANAGEMENT_CONTROL_ERROR_RESPONSE           \
     "{\"code\":1, \"error_message\":\"internal error\"}"
+
+/*=========================================================================*/
 
 /* Management register request json key definitions */
 #define MANAGEMENT_REGISTER_REQUEST_COMMAND "command"

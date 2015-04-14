@@ -19,7 +19,8 @@
 /* Application service padding filter */
 #define APP_SERVICE_PADDING_BPF_FILTER "icmp"
 /* Application service ip fragment filter */
-#define APP_SERVICE_IP_FRAGMENT_BPF_FILTER "(tcp and (ip[6] & 0x20 != 0 or (ip[6] & 0x20 = 0 and ip[6:2] & 0x1fff != 0)))"
+#define APP_SERVICE_IP_FRAGMENT_BPF_FILTER                              \
+    "(tcp and (ip[6] & 0x20 != 0 or (ip[6] & 0x20 = 0 and ip[6:2] & 0x1fff != 0)))"
 /* Application service filter */
 #define APP_SERVICE_BPF_FILTER "(ip host %s and (tcp port %u or %s)) or "
 /* Application service filter length */
@@ -219,7 +220,7 @@ updateAppServicesFromProfileCache (void) {
     appSvcs = getAppServicesFromProfileCache ();
     if (appSvcs == NULL)
         return 0;
-    
+
     ret = updateAppServicesFromJson (appSvcs);
     if (ret < 0) {
         json_object_clear (appSvcs);
@@ -232,7 +233,7 @@ updateAppServicesFromProfileCache (void) {
         free (out);
     }
 
-    json_object_clear (appSvcs);    
+    json_object_clear (appSvcs);
     return 0;
 }
 

@@ -130,7 +130,7 @@ sendTaskStatus (taskStatus status) {
         ret = zstr_send (getTaskStatusSendSock (), taskStatusMsg);
         pthread_mutex_unlock (&taskStatusSendSockLock);
         retries -= 1;
-    } while ((ret < 0) && retries);
+    } while (ret < 0 && retries);
 
     if (ret < 0)
         LOGE ("Send task status error.\n");

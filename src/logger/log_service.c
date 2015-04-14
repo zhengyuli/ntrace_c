@@ -165,7 +165,7 @@ initLogFile (logDevPtr dev) {
     logFilePtr logfile;
 
     if (!fileExist (getPropertiesLogDir ()) &&
-        (mkdir (getPropertiesLogDir (), 0755) < 0)) {
+        mkdir (getPropertiesLogDir (), 0755) < 0) {
         fprintf (stderr, "Mkdir %s error.\n", getPropertiesLogDir ());
         return -1;
     }
@@ -222,7 +222,7 @@ writeLogFile (char *msg, logDevPtr dev, u_int flag) {
 
     logfile = (logFilePtr) dev->data;
     ret = safeWrite (logfile->fd, msg, strlen (msg));
-    if ((ret < 0) || (ret != strlen (msg))) {
+    if (ret < 0 || ret != strlen (msg)) {
         ret = resetLogFile (dev);
         if (ret < 0)
             fprintf (stderr, "Reset log file error.\n");
@@ -230,7 +230,7 @@ writeLogFile (char *msg, logDevPtr dev, u_int flag) {
     }
 
     logfile->checkCount++;
-    if ((logfile->checkCount >= LOG_FILE_SIZE_CHECK_THRESHOLD) &&
+    if (logfile->checkCount >= LOG_FILE_SIZE_CHECK_THRESHOLD &&
         logFileOversize (logfile->filePath)) {
         ret = logFileUpdate (dev);
         if (ret < 0)
@@ -303,7 +303,7 @@ writeLogNet (char *msg, logDevPtr dev, u_int flag) {
     do {
         ret = zstr_send (lognet->sock, msg);
         retries -= 1;
-    } while ((ret < 0) && retries);
+    } while (ret < 0 && retries);
 
     if (ret < 0)
         LOGE ("Send log message error.\n");
@@ -422,7 +422,7 @@ exit:
         do {
             ret = zstr_send (logServiceCtxtInstance->statusSendSock, exitMsg);
             retries -= 1;
-        } while ((ret < 0) && retries);
+        } while (ret < 0 && retries);
 
         if (ret < 0)
             fprintf (stderr, "Send log service state error.\n");

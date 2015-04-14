@@ -123,10 +123,10 @@ getTcpStreamsFree (void) {
 
 static inline boolean
 tuple4IsEqual (tuple4Ptr addr1, tuple4Ptr addr2) {
-    if ((addr1->saddr.s_addr == addr2->saddr.s_addr) &&
-        (addr1->source == addr2->source) &&
-        (addr1->daddr.s_addr == addr2->daddr.s_addr) &&
-        (addr1->dest == addr2->dest))
+    if (addr1->saddr.s_addr == addr2->saddr.s_addr &&
+        addr1->source == addr2->source &&
+        addr1->daddr.s_addr == addr2->daddr.s_addr &&
+        addr1->dest == addr2->dest)
         return True;
 
     return False;
@@ -531,7 +531,7 @@ publishTcpBreakdown (char *sessionBreakdown) {
     do {
         ret = zstr_send (tcpBreakdownSendSock, sessionBreakdown);
         retries -= 1;
-    } while ((ret < 0) && retries);
+    } while (ret < 0 && retries);
 
     if (ret < 0)
         LOGE ("Send tcp breakdown error.\n");
@@ -632,9 +632,9 @@ tcpBreakdown2Json (tcpStreamPtr stream, tcpBreakdownPtr tbd) {
     json_object_set_new (root, TCP_SKBD_TCP_DUPLICATE_ACKS,
                          json_integer (tbd->dupAcks));
 
-    if ((tbd->state == TCP_BREAKDOWN_DATA_EXCHANGING) ||
-        (tbd->state == TCP_BREAKDOWN_RESET_TYPE3) ||
-        (tbd->state == TCP_BREAKDOWN_RESET_TYPE4))
+    if (tbd->state == TCP_BREAKDOWN_DATA_EXCHANGING ||
+        tbd->state == TCP_BREAKDOWN_RESET_TYPE3 ||
+        tbd->state == TCP_BREAKDOWN_RESET_TYPE4)
         (*stream->analyzer->sessionBreakdown2Json) (root, stream->sessionDetail, tbd->sessionBreakdown);
 
     out = json_dumps (root, JSON_INDENT (4));
@@ -734,9 +734,9 @@ generateSessionBreakdown (tcpStreamPtr stream, timeValPtr tm) {
 
     /* For TCP_BREAKDOWN_DATA_EXCHANGING, TCP_BREAKDOWN_RESET_TYPE3 and TCP_BREAKDOWN_RESET_TYPE4 breakdown,
      * there is application layer breakdown */
-    if ((tbd.state == TCP_BREAKDOWN_DATA_EXCHANGING) ||
-        (tbd.state == TCP_BREAKDOWN_RESET_TYPE3) ||
-        (tbd.state == TCP_BREAKDOWN_RESET_TYPE4)) {
+    if (tbd.state == TCP_BREAKDOWN_DATA_EXCHANGING ||
+        tbd.state == TCP_BREAKDOWN_RESET_TYPE3 ||
+        tbd.state == TCP_BREAKDOWN_RESET_TYPE4) {
         ret = (*stream->analyzer->generateSessionBreakdown) (stream->sessionDetail, tbd.sessionBreakdown);
         if (ret < 0) {
             LOGE ("GenerateSessionBreakdown error.\n");
@@ -1230,14 +1230,15 @@ tcpProcess (iphdrPtr iph, timeValPtr tm) {
         stream->zeroWindows++;
 
     if (tcph->syn) {
-        if ((direction == STREAM_FROM_CLIENT) ||
-            (stream->client.state != TCP_SYN_PKT_SENT) ||
-            (stream->server.state != TCP_CONN_CLOSED) || !tcph->ack) {
+        if (direction == STREAM_FROM_CLIENT ||
+            stream->client.state != TCP_SYN_PKT_SENT ||
+            stream->server.state != TCP_CONN_CLOSED ||
+            !tcph->ack) {
             /* Tcp syn retries */
-            if ((direction == STREAM_FROM_CLIENT) && (stream->client.state == TCP_SYN_PKT_SENT)) {
+            if (direction == STREAM_FROM_CLIENT && stream->client.state == TCP_SYN_PKT_SENT) {
                 stream->retries++;
                 stream->retriesTime = timeVal2MilliSecond (tm);
-            } else if ((direction == STREAM_FROM_SERVER) && (stream->server.state == TCP_SYN_PKT_RECV)) {
+            } else if (direction == STREAM_FROM_SERVER && stream->server.state == TCP_SYN_PKT_RECV) {
                 /* Tcp syn/ack retries */
                 stream->dupSynAcks++;
                 stream->synAckTime = timeVal2MilliSecond (tm);
@@ -1292,7 +1293,7 @@ tcpProcess (iphdrPtr iph, timeValPtr tm) {
     }
 
     /* Filter retransmitted or out of window range packet */
-    if (!(!tcpDataLen && (ntohl (tcph->seq) == rcv->ackSeq)) &&
+    if (!(!tcpDataLen && ntohl (tcph->seq) == rcv->ackSeq) &&
         (before (ntohl (tcph->seq) + tcpDataLen, rcv->ackSeq) ||
          !before (ntohl (tcph->seq), (rcv->ackSeq + rcv->window * rcv->wscale)))) {
         /* Accumulate retransmitted packets */

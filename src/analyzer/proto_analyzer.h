@@ -24,7 +24,7 @@ struct _protoAnalyzerInfo {
     u_int registeredProtoSize;
 };
 
-/*========================Interfaces definition============================*/
+/*=================Proto analyzer callbacks definition=====================*/
 /*
  * @brief Proto analyzer init function.
  *        This callback will be called when proto analyzer module

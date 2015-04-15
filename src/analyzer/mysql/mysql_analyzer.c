@@ -8,7 +8,9 @@
 #include "log.h"
 #include "mysql_analyzer.h"
 
-#define MATCH(a, b) ((a) == (b) ? True : False)
+/* Mysql indention for info display */
+#define MYSQL_INFO_DISPLAY_INDENT1 "    "
+#define MYSQL_INFO_DISPLAY_INDENT2 "        "
 
 /* Mysql response packet header */
 #define MYSQL_RESPONSE_OK_HEADER 0x00
@@ -16,25 +18,7 @@
 #define MYSQL_RESPONSE_END_HEADER 0xFE
 #define MYSQL_RESPONSE_ERROR_HEADER 0xFF
 
-/* Mysql indention for info display */
-#define MYSQL_INFO_DISPLAY_INDENT1 "    "
-#define MYSQL_INFO_DISPLAY_INDENT2 "        "
-
-/* Current timestamp */
-static __thread timeValPtr currTime;
-/* Current session state */
-static __thread sessionState currSessionState;
-/* Current mysql shared info */
-static __thread mysqlSharedInfoPtr currSharedInfo;
-/* Current mysql session detail */
-static __thread mysqlSessionDetailPtr currSessionDetail;
-
-/* Mysql state event matrix */
-static mysqlEventHandleMap mysqlStateEventMatrix [MYSQL_STATE_COUNT];
-/* Mysql proto init once control */
-static pthread_once_t mysqlProtoInitOnceControl = PTHREAD_ONCE_INIT;
-/* Mysql proto destroy once control */
-static pthread_once_t mysqlProtoDestroyOnceControl = PTHREAD_ONCE_INIT;
+#define MATCH(a, b) ((a) == (b) ? True : False)
 
 /* Fixed-Length Integer Types */
 #define FLI1(A) ((u_char) (A) [0])
@@ -67,35 +51,22 @@ static pthread_once_t mysqlProtoDestroyOnceControl = PTHREAD_ONCE_INIT;
                                 (((u_long_long) ((u_char) (A) [3])) << 48) + \
                                 (((u_long_long) ((u_char) (A) [3])) << 56)))
 
-/* Encoded length integer Type */
-static u_long_long
-encLenInt (u_char *pkt, u_int *len) {
-    u_int prefix;
+/* Current timestamp */
+static __thread timeValPtr currTime;
+/* Current session state */
+static __thread sessionState currSessionState;
+/* Current mysql shared info */
+static __thread mysqlSharedInfoPtr currSharedInfo;
+/* Current mysql session detail */
+static __thread mysqlSessionDetailPtr currSessionDetail;
 
-    prefix = (u_int) *pkt;
+/* Mysql state event matrix */
+static mysqlEventHandleMap mysqlStateEventMatrix [MYSQL_STATE_COUNT];
+/* Mysql proto init once control */
+static pthread_once_t mysqlProtoInitOnceControl = PTHREAD_ONCE_INIT;
+/* Mysql proto destroy once control */
+static pthread_once_t mysqlProtoDestroyOnceControl = PTHREAD_ONCE_INIT;
 
-    if (prefix < 0xFB) {
-        *len = 1;
-        return (u_long_long) FLI1 (pkt);
-    } else if (prefix == 0xFB) {
-        *len = 1;
-        return (u_long_long) 0;
-    } else if (prefix == 0xFC) {
-        *len = 3;
-        return (u_long_long) FLI2 (pkt + 1);
-    } else if (prefix == 0xFD) {
-        *len = 4;
-        return (u_long_long) FLI3 (pkt + 1);
-    } else if (prefix == 0xFE) {
-        *len = 9;
-        return (u_long_long) FLI8 (pkt + 1);
-    } else {
-        *len = 0;
-        return 0;
-    }
-}
-
-/* Get field type name */
 static char *
 getFieldTypeName (mysqlFieldType type) {
     switch (type) {
@@ -182,6 +153,164 @@ getFieldTypeName (mysqlFieldType type) {
 
         default:
             return "FIELD_TYPE_UNKNOWN";
+    }
+}
+
+static char *
+getMysqlCmdName (mysqlCmd cmd) {
+    switch (cmd) {
+        case COM_SLEEP:
+            return "COM_SLEEP";
+
+        case COM_QUIT:
+            return "COM_QUIT";
+
+        case COM_INIT_DB:
+            return "COM_INIT_DB";
+
+        case COM_QUERY:
+            return "COM_QUERY";
+
+        case COM_FIELD_LIST:
+            return "COM_FIELD_LIST";
+
+        case COM_CREATE_DB:
+            return "COM_CREATE_DB";
+
+        case COM_DROP_DB:
+            return "COM_DROP_DB";
+
+        case COM_REFRESH:
+            return "COM_REFRESH";
+
+        case COM_SHUTDOWN:
+            return "COM_SHUTDOWN";
+
+        case COM_STATISTICS:
+            return "COM_STATISTICS";
+
+        case COM_PROCESS_INFO:
+            return "COM_PROCESS_INFO";
+
+        case COM_CONNECT:
+            return "COM_CONNECT";
+
+        case COM_PROCESS_KILL:
+            return "COM_PROCESS_KILL";
+
+        case COM_DEBUG:
+            return "COM_DEBUG";
+
+        case COM_PING:
+            return "COM_PING";
+
+        case COM_TIME:
+            return "COM_TIME";
+
+        case COM_DELAYED_INSERT:
+            return "COM_DELAYED_INSERT";
+
+        case COM_CHANGE_USER:
+            return "COM_CHANGE_USER";
+
+        case COM_BINLOG_DUMP:
+            return "COM_BINLOG_DUMP";
+
+        case COM_TABLE_DUMP:
+            return "COM_TABLE_DUMP";
+
+        case COM_CONNECT_OUT:
+            return "COM_CONNECT_OUT";
+
+        case COM_REGISTER_SLAVE:
+            return "COM_REGISTER_SLAVE";
+
+        case COM_STMT_PREPARE:
+            return "COM_STMT_PREPARE";
+
+        case COM_STMT_EXECUTE:
+            return "COM_STMT_EXECUTE";
+
+        case COM_STMT_SEND_LONG_DATA:
+            return "COM_STMT_SEND_LONG_DATA";
+
+        case COM_STMT_CLOSE:
+            return "COM_STMT_CLOSE";
+
+        case COM_STMT_RESET:
+            return "COM_STMT_RESET";
+
+        case COM_SET_OPTION:
+            return "COM_SET_OPTION";
+
+        case COM_STMT_FETCH:
+            return "COM_STMT_FETCH";
+
+        case COM_DAEMON:
+            return "COM_DAEMON";
+
+        case COM_BINLOG_DUMP_GTID:
+            return "COM_BINLOG_DUMP_GTID";
+
+        case COM_RESET_CONNECTION:
+            return "COM_RESET_CONNECTION";
+
+        default:
+            return "COM_UNKNOWN";
+    }
+};
+
+static char *
+getMysqlBreakdownStateName (mysqlBreakdownState state) {
+    switch (state) {
+        case MYSQL_BREAKDOWN_OK:
+            return "MYSQL_OK";
+
+        case MYSQL_BREAKDOWN_ERROR:
+            return "MYSQL_ERROR";
+
+        case MYSQL_BREAKDOWN_RESET_TYPE1:
+            return "MYSQL_RESET_TYPE1";
+
+        case MYSQL_BREAKDOWN_RESET_TYPE2:
+            return "MYSQL_RESET_TYPE2";
+
+        case MYSQL_BREAKDOWN_RESET_TYPE3:
+            return "MYSQL_RESET_TYPE3";
+
+        case MYSQL_BREAKDOWN_RESET_TYPE4:
+            return "MYSQL_RESET_TYPE4";
+
+        default:
+            return "MYSQL_STATE_UNKNOWN";
+    }
+}
+
+/* Encoded length integer Type */
+static u_long_long
+encLenInt (u_char *pkt, u_int *len) {
+    u_int prefix;
+
+    prefix = (u_int) *pkt;
+
+    if (prefix < 0xFB) {
+        *len = 1;
+        return (u_long_long) FLI1 (pkt);
+    } else if (prefix == 0xFB) {
+        *len = 1;
+        return (u_long_long) 0;
+    } else if (prefix == 0xFC) {
+        *len = 3;
+        return (u_long_long) FLI2 (pkt + 1);
+    } else if (prefix == 0xFD) {
+        *len = 4;
+        return (u_long_long) FLI3 (pkt + 1);
+    } else if (prefix == 0xFE) {
+        *len = 9;
+        return (u_long_long) FLI8 (pkt + 1);
+    } else {
+        *len = 0;
+        return 0;
     }
 }
 
@@ -496,7 +625,7 @@ pktComX (mysqlEvent event, u_char *payload, u_int payloadLen,
           currSessionDetail->seqId);
 
     currSessionDetail->cmd = *pkt;
-    cmdName = mysqlCmdName [*pkt];
+    cmdName = getMysqlCmdName (*pkt);
     pkt += 1;
     LOGT ("%s%s\n", MYSQL_INFO_DISPLAY_INDENT1, cmdName);
 
@@ -531,7 +660,7 @@ pktComDB (mysqlEvent event, u_char *payload, u_int payloadLen,
 
     /* Get command name */
     currSessionDetail->cmd = *pkt;
-    cmdName = mysqlCmdName [*pkt];
+    cmdName = getMysqlCmdName (*pkt);
     pkt += 1;
 
     /* Get database name */
@@ -569,7 +698,7 @@ pktQuery (mysqlEvent event, u_char *payload, u_int payloadLen,
 
     /* Get command name */
     currSessionDetail->cmd = *pkt;
-    cmdName = mysqlCmdName [*pkt];
+    cmdName = getMysqlCmdName (*pkt);
     pkt += 1;
 
     /* Get schema */
@@ -608,7 +737,7 @@ pktFieldList (mysqlEvent event, u_char *payload, u_int payloadLen,
 
     /* Get command name */
     currSessionDetail->cmd = *pkt;
-    cmdName = mysqlCmdName [*pkt];
+    cmdName = getMysqlCmdName (*pkt);
     pkt += 1;
 
     /* Get table */
@@ -649,7 +778,7 @@ pktRefresh (mysqlEvent event, u_char *payload, u_int payloadLen,
 
     /* Get command name */
     currSessionDetail->cmd = *pkt;
-    cmdName = mysqlCmdName [*pkt];
+    cmdName = getMysqlCmdName (*pkt);
     pkt += 1;
 
     /* Get sub-command */
@@ -681,7 +810,7 @@ pktShutdown (mysqlEvent event, u_char *payload, u_int payloadLen,
 
     /* Get command name */
     currSessionDetail->cmd = *pkt;
-    cmdName = mysqlCmdName [*pkt];
+    cmdName = getMysqlCmdName (*pkt);
     pkt += 1;
 
     /* Get shutdown type if any */
@@ -717,7 +846,7 @@ pktProcessKill (mysqlEvent event, u_char *payload, u_int payloadLen,
 
     /* Get command name */
     currSessionDetail->cmd = *pkt;
-    cmdName = mysqlCmdName [*pkt];
+    cmdName = getMysqlCmdName (*pkt);
     pkt += 1;
 
     /* Get connection id */
@@ -761,7 +890,7 @@ pktChangeUser (mysqlEvent event, u_char *payload, u_int payloadLen,
 
     /* Get command name */
     currSessionDetail->cmd = *pkt;
-    cmdName = mysqlCmdName [*pkt];
+    cmdName = getMysqlCmdName (*pkt);
     pkt += 1;
 
     /* Get user */
@@ -863,7 +992,7 @@ pktRegisterSlave (mysqlEvent event, u_char *payload, u_int payloadLen,
 
     /* Get command name */
     currSessionDetail->cmd = *pkt;
-    cmdName = mysqlCmdName [*pkt];
+    cmdName = getMysqlCmdName (*pkt);
     pkt += 1;
 
     /* Get server id */
@@ -936,7 +1065,7 @@ pktStmtPrepare (mysqlEvent event, u_char *payload, u_int payloadLen,
 
     /* Get command name */
     currSessionDetail->cmd = *pkt;
-    cmdName = mysqlCmdName [*pkt];
+    cmdName = getMysqlCmdName (*pkt);
     pkt += 1;
 
     /* Get schema */
@@ -974,7 +1103,7 @@ pktStmtExec (mysqlEvent event, u_char *payload, u_int payloadLen,
 
     /* Get command name */
     currSessionDetail->cmd = *pkt;
-    cmdName = mysqlCmdName [*pkt];
+    cmdName = getMysqlCmdName (*pkt);
     pkt += 1;
 
     /* Get stmt-id */
@@ -1018,7 +1147,7 @@ pktStmtCloseOrReset (mysqlEvent event, u_char *payload, u_int payloadLen,
 
     /* Get command name */
     currSessionDetail->cmd = *pkt;
-    cmdName = mysqlCmdName [*pkt];
+    cmdName = getMysqlCmdName (*pkt);
     pkt += 1;
 
     /* Get stmt-id */
@@ -1051,7 +1180,7 @@ pktSetOption (mysqlEvent event, u_char *payload, u_int payloadLen,
 
     /* Get command name */
     currSessionDetail->cmd = *pkt;
-    cmdName = mysqlCmdName [*pkt];
+    cmdName = getMysqlCmdName (*pkt);
     pkt += 1;
 
     /* Get option */
@@ -1085,7 +1214,7 @@ pktStmtFetch (mysqlEvent event, u_char *payload, u_int payloadLen,
 
     /* Get command name */
     currSessionDetail->cmd = *pkt;
-    cmdName = mysqlCmdName [*pkt];
+    cmdName = getMysqlCmdName (*pkt);
     pkt += 1;
 
     /* Get stmt-id */
@@ -2686,7 +2815,7 @@ mysqlSessionBreakdown2Json (json_t *root, void *sd, void *sbd) {
                              json_string (""));
     /* Mysql state */
     json_object_set_new (root, MYSQL_SBKD_STATE,
-                         json_string (mysqlBreakdownStateName [msbd->state]));
+                         json_string (getMysqlBreakdownStateName (msbd->state)));
     /* Mysql error code */
     json_object_set_new (root, MYSQL_SBKD_ERROR_CODE,
                          json_integer (msbd->errCode));

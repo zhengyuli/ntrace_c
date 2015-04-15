@@ -94,26 +94,6 @@ typedef enum {
     COM_UNKNOWN
 } mysqlCmd;
 
-/* Mysql command name */
-static const char *mysqlCmdName [] = {
-    /* 0 */
-    "COM_SLEEP", "COM_QUIT", "COM_INIT_DB", "COM_QUERY", "COM_FIELD_LIST",
-    /* 5 */
-    "COM_CREATE_DB", "COM_DROP_DB", "COM_REFRESH", "COM_SHUTDOWN", "COM_STATISTICS",
-    /* 10 */
-    "COM_PROCESS_INFO", "COM_CONNECT", "COM_PROCESS_KILL", "COM_DEBUG", "COM_PING",
-    /* 15 */
-    "COM_TIME", "COM_DELAYED_INSERT", "COM_CHANGE_USER", "COM_BINLOG_DUMP", "COM_TABLE_DUMP",
-    /* 20 */
-    "COM_CONNECT_OUT", "COM_REGISTER_SLAVE", "COM_STMT_PREPARE", "COM_STMT_EXECUTE", "COM_STMT_SEND_LONG_DATA",
-    /* 25 */
-    "COM_STMT_CLOSE", "COM_STMT_RESET", "COM_SET_OPTION", "COM_STMT_FETCH", "COM_DAEMON",
-    /* 30 */
-    "COM_BINLOG_DUMP_GTID", "COM_RESET_CONNECTION",
-    /* Must be last */
-    "COM_UNKNOWN"
-};
-
 /* Mysql client capabilitie flags */
 #define CLIENT_LONG_PASSWORD                  (1 << 0)
 #define CLIENT_FOUND_ROWS                     (1 << 1)
@@ -292,15 +272,6 @@ typedef enum {
     MYSQL_BREAKDOWN_RESET_TYPE3,        /**< Mysql reset during response */
     MYSQL_BREAKDOWN_RESET_TYPE4         /**< Mysql reset without request */
 } mysqlBreakdownState;
-
-static char *mysqlBreakdownStateName [] = {
-    "MYSQL_OK",
-    "MYSQL_ERROR",
-    "MYSQL_RESET_TYPE1",
-    "MYSQL_RESET_TYPE2",
-    "MYSQL_RESET_TYPE3",
-    "MYSQL_RESET_TYPE4",
-};
 
 typedef struct _mysqlSessionBreakdown mysqlSessionBreakdown;
 typedef mysqlSessionBreakdown *mysqlSessionBreakdownPtr;

@@ -13,6 +13,62 @@
 /* Icmp breakdown send sock */
 static void *icmpBreakdownSendSock;
 
+static char *
+getIcmpDestUnreachCodeName (u_char code) {
+    switch (code) {
+        case ICMP_NET_UNREACH:
+            return "ICMP_NET_UNREACH";
+
+        case ICMP_HOST_UNREACH:
+            return "ICMP_HOST_UNREACH";
+
+        case ICMP_PROT_UNREACH:
+            return "ICMP_PROT_UNREACH";
+
+        case ICMP_PORT_UNREACH:
+            return "ICMP_PORT_UNREACH";
+
+        case ICMP_FRAG_NEEDED:
+            return "ICMP_FRAG_NEEDED";
+
+        case ICMP_SR_FAILED:
+            return "ICMP_SR_FAILED";
+
+        case ICMP_NET_UNKNOWN:
+            return "ICMP_NET_UNKNOWN";
+
+        case ICMP_HOST_UNKNOWN:
+            return "ICMP_HOST_UNKNOWN";
+
+        case ICMP_HOST_ISOLATED:
+            return "ICMP_HOST_ISOLATED";
+
+        case ICMP_NET_ANO:
+            return "ICMP_NET_ANO";
+
+        case ICMP_HOST_ANO:
+            return "ICMP_HOST_ANO";
+
+        case ICMP_NET_UNR_TOS:
+            return "ICMP_NET_UNR_TOS";
+
+        case ICMP_HOST_UNR_TOS:
+            return "ICMP_HOST_UNR_TOS";
+
+        case ICMP_PKT_FILTERED:
+            return "ICMP_PKT_FILTERED";
+
+        case ICMP_PREC_VIOLATION:
+            return "ICMP_PREC_VIOLATION";
+
+        case ICMP_PREC_CUTOFF:
+            return "ICMP_PREC_CUTOFF";
+
+        default:
+            return "ICMP_CODE_UNKNOWN";
+    }
+}
+
 static void
 publishIcmpBreakdown (char *sessionBreakdown) {
     int ret;
@@ -54,7 +110,7 @@ icmpBreakdown2Json (icmpBreakdownPtr ibd) {
                          json_string ("ICMP_DEST_UNREACH"));
     /* Icmp code */
     json_object_set_new (root, ICMP_SKBD_ICMP_CODE,
-                         json_string (icmpDestUnreachCodeName [ibd->code]));
+                         json_string (getIcmpDestUnreachCodeName (ibd->code)));
     /* Icmp dest unreach ip */
     json_object_set_new (root, ICMP_SKBD_ICMP_DEST_UNREACH_IP,
                          json_string (inet_ntoa (ibd->ip)));

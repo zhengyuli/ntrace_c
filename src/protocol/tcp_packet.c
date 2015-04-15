@@ -63,6 +63,35 @@ static __thread void *tcpBreakdownSendSock;
 /* Tcp stream cache */
 static __thread tcpStreamPtr streamCache = NULL;
 
+static char *
+getTcpBreakdownStateName (tcpBreakdownState state) {
+    switch (state) {
+        case TCP_BREAKDOWN_CONNECTED:
+            return "TCP_CONNECTED";
+
+        case TCP_BREAKDOWN_DATA_EXCHANGING:
+            return "TCP_DATA_EXCHANGING";
+
+        case TCP_BREAKDOWN_CLOSED:
+            return "TCP_CLOSED";
+
+        case TCP_BREAKDOWN_RESET_TYPE1:
+            return "TCP_RESET_TYPE1";
+
+        case TCP_BREAKDOWN_RESET_TYPE2:
+            return "TCP_RESET_TYPE2";
+
+        case TCP_BREAKDOWN_RESET_TYPE3:
+            return "TCP_RESET_TYPE3";
+
+        case TCP_BREAKDOWN_RESET_TYPE4:
+            return "TCP_RESET_TYPE4";
+
+        default:
+            return "TCP_STATE_UNKNOWN";
+    }
+}
+
 static inline boolean
 before (u_int seq1, u_int seq2) {
     int ret;
@@ -576,7 +605,7 @@ tcpBreakdown2Json (tcpStreamPtr stream, tcpBreakdownPtr tbd) {
                          json_string (buf));
     /* Tcp state */
     json_object_set_new (root, TCP_SKBD_TCP_STATE,
-                         json_string (tcpBreakdownStateName [tbd->state]));
+                         json_string (getTcpBreakdownStateName (tbd->state)));
     /* Tcp retries */
     json_object_set_new (root, TCP_SKBD_TCP_RETRIES,
                          json_integer (tbd->retries));

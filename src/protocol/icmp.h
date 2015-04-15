@@ -38,25 +38,6 @@
 #define ICMP_PREC_CUTOFF    15  /* Precedence cut off */
 #define NR_ICMP_UNREACH     15  /*instead of hardcoding immediate value */
 
-static char *icmpDestUnreachCodeName [] = {
-    "ICMP_NET_UNREACH",
-    "ICMP_HOST_UNREACH",
-    "ICMP_PROT_UNREACH",
-    "ICMP_PORT_UNREACH",
-    "ICMP_FRAG_NEEDED",
-    "ICMP_SR_FAILED",
-    "ICMP_NET_UNKNOWN",
-    "ICMP_HOST_UNKNOWN",
-    "ICMP_HOST_ISOLATED",
-    "ICMP_NET_ANO",
-    "ICMP_HOST_ANO",
-    "ICMP_NET_UNR_TOS",
-    "ICMP_HOST_UNR_TOS",
-    "ICMP_PKT_FILTERED",
-    "ICMP_PREC_VIOLATION",
-    "ICMP_PREC_CUTOFF",
-};
-
 typedef struct _icmphdr icmphdr;
 typedef icmphdr *icmphdrPtr;
 

@@ -18,9 +18,6 @@
 #include "zmq_hub.h"
 #include "log_service.h"
 
-#define LOG_TO_FILE_MASK (1 << 0)
-#define LOG_TO_NET_MASK (1 << 1)
-
 #define LOG_SERVICE_RESTART_MAX_COUNT 5
 #define LOG_SERVICE_RESTART_MAX_RETRIES 3
 
@@ -45,18 +42,9 @@ struct _logDev {
     void *data;                         /**< Log dev private data */
     int (*init) (logDevPtr dev);        /**< Log dev init operation */
     void (*destroy) (logDevPtr dev);    /**< Log dev destroy operation */
-    void (*write) (char *msg, logDevPtr dev, u_int flag); /**< Log dev write operation */
+    void (*write) (char *msg, logDevPtr dev); /**< Log dev write operation */
     listHead node;                      /**< Log dev list node of global log devices */
 };
-
-/* Flag check */
-static inline boolean
-flagOn (u_int flag, u_int bitMask) {
-    if (flag & bitMask)
-        return True;
-    else
-        return False;
-}
 
 /*===========================Log file dev=================================*/
 
@@ -213,12 +201,9 @@ resetLogFile (logDevPtr dev) {
 }
 
 static void
-writeLogFile (char *msg, logDevPtr dev, u_int flag) {
+writeLogFile (char *msg, logDevPtr dev) {
     int ret;
     logFilePtr logfile;
-
-    if (!flagOn (flag, LOG_TO_FILE_MASK))
-        return;
 
     logfile = (logFilePtr) dev->data;
     ret = safeWrite (logfile->fd, msg, strlen (msg));
@@ -291,13 +276,10 @@ initLogNet (logDevPtr dev) {
 }
 
 static void
-writeLogNet (char *msg, logDevPtr dev, u_int flag) {
+writeLogNet (char *msg, logDevPtr dev) {
     int ret;
     logNetPtr lognet;
     u_int retries = 3;
-
-    if (!flagOn (flag, LOG_TO_NET_MASK))
-        return;
 
     lognet = (logNetPtr) dev->data;
     do {
@@ -306,7 +288,7 @@ writeLogNet (char *msg, logDevPtr dev, u_int flag) {
     } while (ret < 0 && retries);
 
     if (ret < 0)
-        LOGE ("Send log message error.\n");
+        LOGE ("Publish log message error.\n");
 }
 
 static void
@@ -336,25 +318,11 @@ logDevAdd (logDevPtr dev) {
 
 static void
 logDevWrite (listHeadPtr logDevices, char *msg) {
-    u_int flag;
     logDevPtr dev;
     listHeadPtr pos;
 
-    switch (*msg) {
-        case 'a':
-            flag = LOG_TO_FILE_MASK | LOG_TO_NET_MASK;
-            break;
-
-        case 'n':
-            flag = LOG_TO_NET_MASK;
-            break;
-
-        default:
-            return;
-    }
-
     listForEachEntry (dev, pos, logDevices, node) {
-        dev->write (msg + 1, dev, flag);
+        dev->write (msg, dev);
     }
 }
 
@@ -471,10 +439,9 @@ logServiceStatusHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
             if (ret < 0) {
                 fprintf (stderr, "Restart logService failed.\n");
                 ret = -1;
-            } else {
-                fprintf (stdout, "Restart logService successfully.\n");
+            } else
                 ret = 0;
-            }
+
             logServiceRestartCount++;
             break;
 

@@ -38,8 +38,8 @@ doLog (u_char logLevel, const char *file, u_int line, const char *func, char *ms
     struct tm *localTime;
     char timeStr [32];
     va_list va;
-    char flag;
     char *fileName;
+    u_int retries = 3;
     /* Thread local message buffer */
     static __thread char tmp [MAX_LOG_MESSAGE_LENGTH];
     static __thread char buf [MAX_LOG_MESSAGE_LENGTH];
@@ -49,6 +49,9 @@ doLog (u_char logLevel, const char *file, u_int line, const char *func, char *ms
         fprintf (stderr, "Log context has not been initialized.\n");
         return;
     }
+
+    if (logLevel > logCtxtInstance->logLevel)
+        return;
 
     seconds = time (NULL);
     localTime = localtime (&seconds);
@@ -65,7 +68,7 @@ doLog (u_char logLevel, const char *file, u_int line, const char *func, char *ms
             snprintf (logLevelStr, sizeof (logLevelStr), "ERROR");
             break;
 
-        case LOG_WARNING_LEVEL:
+        case LOG_WARN_LEVEL:
             snprintf (logLevelStr, sizeof (logLevelStr), "WARNING");
             break;
 
@@ -77,22 +80,25 @@ doLog (u_char logLevel, const char *file, u_int line, const char *func, char *ms
             snprintf (logLevelStr, sizeof (logLevelStr), "DEBUG");
             break;
 
+        case LOG_TRACE_LEVEL:
+            snprintf (logLevelStr, sizeof (logLevelStr), "TRACE");
+            break;
+
         default:
             fprintf (stderr, "Unknown log level!\n");
             return;
     }
 
-    if (logLevel <= logCtxtInstance->logLevel)
-        flag = 'a';
-    else
-        flag = 'n';
-
     fileName = strrchr (file, '/') + 1;
-    snprintf (buf, sizeof (buf), "%c%s [thread:%u] %s file=%s (line=%u, func=%s): %s",
-              flag, timeStr, gettid (), logLevelStr, fileName, line, func, tmp);
+    snprintf (buf, sizeof (buf), "%s [thread:%u] %s file=%s (line=%u, func=%s): %s",
+              timeStr, gettid (), logLevelStr, fileName, line, func, tmp);
     buf [MAX_LOG_MESSAGE_LENGTH - 1] = 0;
 
-    ret = zstr_send (logCtxtInstance->logSock, buf);
+    do {
+        ret = zstr_send (logCtxtInstance->logSock, buf);
+        retries -= 1;
+    } while (ret < 0 && retries);
+
     if (ret < 0)
         fprintf (stderr, "Send log message error.\n");
 }
@@ -135,8 +141,10 @@ initLogContext (u_int logLevel) {
         return -1;
     }
 
-    if (logLevel > LOG_DEBUG_LEVEL || logLevel < LOG_ERR_LEVEL)
-        logCtxtInstance->logLevel = LOG_DEBUG_LEVEL;
+    if (logLevel > LOG_TRACE_LEVEL)
+        logCtxtInstance->logLevel = LOG_TRACE_LEVEL;
+    else if (logLevel < LOG_ERR_LEVEL)
+        logCtxtInstance->logLevel = LOG_ERR_LEVEL;
     else
         logCtxtInstance->logLevel = logLevel;
 

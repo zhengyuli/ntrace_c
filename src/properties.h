@@ -10,16 +10,15 @@ typedef properties *propertiesPtr;
 struct _properties {
     boolean daemonMode;                 /**< Daemon mode */
 
-    char *mirrorInterface;              /**< Mirror interface */
+    char *managementControlHost;        /**< Management control host ip */
+    u_short managementControlPort;      /**< Management control port */
 
+    char *mirrorInterface;              /**< Mirror interface */
     char *pcapOfflineInput;             /**< Pcap offline input file */
 
-    char *managementServiceIp;          /**< Management service ip */
-    u_short managementServicePort;      /**< Management service port */
-
-    char *serverIp;                     /**< Server ip */
-    u_short managementRegisterPort;     /**< Management register port */
-    u_short breakdownSinkPort;          /**< Breakdown sink port */
+    char *miningEngineHost;             /**< Mining engine host ip */
+    u_short managementRegisterPort;     /**< Management register port of mining engine */
+    u_short breakdownRecvPort;          /**< Breakdown receive port of mining engine */
 
     char *logDir;                       /**< Log dir */
     char *logFileName;                  /**< Log file name */
@@ -32,6 +31,14 @@ getPropertiesDaemonMode (void);
 void
 updatePropertiesDaemonMode (boolean daemonMode);
 char *
+getPropertiesManagementControlHost (void);
+void
+updatePropertiesManagementControlHost (char *ip);
+u_short
+getPropertiesManagementControlPort (void);
+void
+updatePropertiesManagementControlPort (u_short port);
+char *
 getPropertiesMirrorInterface (void);
 void
 updatePropertiesMirrorInterface (char *mirrorInterface);
@@ -40,25 +47,17 @@ getPropertiesPcapOfflineInput (void);
 void
 updatePropertiesPcapOfflineInput (char *fname);
 char *
-getPropertiesManagementServiceIp (void);
+getPropertiesMiningEngineHost (void);
 void
-updatePropertiesManagementServiceIp (char *ip);
-u_short
-getPropertiesManagementServicePort (void);
-void
-updatePropertiesManagementServicePort (u_short port);
-char *
-getPropertiesServerIp (void);
-void
-updatePropertiesServerIp (char *ip);
+updatePropertiesMiningEngineHost (char *ip);
 u_short
 getPropertiesManagementRegisterPort (void);
 void
 updatePropertiesManagementRegisterPort (u_short port);
 u_short
-getPropertiesBreakdownSinkPort (void);
+getPropertiesBreakdownRecvPort (void);
 void
-updatePropertiesBreakdownSinkPort (u_short port);
+updatePropertiesBreakdownRecvPort (u_short port);
 char *
 getPropertiesLogDir (void);
 void

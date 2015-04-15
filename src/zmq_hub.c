@@ -120,9 +120,9 @@ initZmqHub (void) {
         goto destroyZmqCtxt;
     }
     ret = zsocket_bind (zmqHubIntance->managementControlReplySock, "tcp://*:%u",
-                        getPropertiesManagementServicePort ());
+                        getPropertiesManagementControlPort ());
     if (ret < 0) {
-        LOGE ("Bind to tcp://*:%u error.\n", getPropertiesManagementServiceIp ());
+        LOGE ("Bind to tcp://*:%u error.\n", getPropertiesManagementControlPort ());
         goto destroyZmqCtxt;
     }
 
@@ -202,10 +202,10 @@ initZmqHub (void) {
     }
     zsocket_set_sndhwm (zmqHubIntance->sessionBreakdownPushSock, 500000);
     ret = zsocket_connect (zmqHubIntance->sessionBreakdownPushSock, "tcp://%s:%u",
-                           getPropertiesServerIp (), getPropertiesBreakdownSinkPort ());
+                           getPropertiesMiningEngineHost (), getPropertiesBreakdownRecvPort ());
     if (ret < 0) {
         LOGE ("Connect to tcp://%s:%u error.\n",
-              getPropertiesServerIp (), getPropertiesBreakdownSinkPort ());
+              getPropertiesMiningEngineHost (), getPropertiesBreakdownRecvPort ());
         goto destroyZmqCtxt;
     }
 

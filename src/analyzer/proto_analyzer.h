@@ -4,6 +4,8 @@
 #include <jansson.h>
 #include "util.h"
 
+#define MAX_PROTO_ANALYZER_NUM 1024
+
 typedef enum {
     STREAM_FROM_CLIENT = 0,
     STREAM_FROM_SERVER = 1
@@ -14,21 +16,144 @@ typedef enum {
     SESSION_DONE = 1
 } sessionState;
 
-/* Protocol analyzer callback definition */
+typedef struct _protoAnalyzerInfo protoAnalyzerInfo;
+typedef protoAnalyzerInfo *protoAnalyzerInfoPtr;
+
+struct _protoAnalyzerInfo {
+    char protoNames [MAX_PROTO_ANALYZER_NUM][32];
+    u_int registeredProtoSize;
+};
+
+/*========================Interfaces definition============================*/
+/*
+ * @brief Proto analyzer init function.
+ *        This callback will be called when proto analyzer module
+ *        load this proto analyzer and do proto analyzer initialization.
+ *
+ * @return 0 if success else -1
+ */
 typedef int (*initProtoAnalyzerCB) (void);
+
+/*
+ * @brief Proto analyzer destroy function.
+ *        This callback will be called when proto analyzer module exit,
+ *        it will destroy proto analyzer context.
+ */
 typedef void (*destroyProtoAnalyzerCB) (void);
+
+/*
+ * @brief Create new session detail.
+ *        This callback will be called when tcp session is created, it
+ *        will create a new session detail to track the session process.
+ */
 typedef void * (*newSessionDetailCB) (void);
+
+/*
+ * @brief Destroy session detail.
+ *        This callback will be called when tcp session is closed, it
+ *        will destroy the session detail allocated before.
+ */
 typedef void (*freeSessionDetailCB) (void *sd);
+
+/*
+ * @brief Create new session breakdown.
+ *        This callback will be called when tcp session breakdown is created,
+ *        it will create a new session breakdown to hold breakdown information
+ *        of current proto.
+ */
 typedef void * (*newSessionBreakdownCB) (void);
+
+/*
+ * @brief Destroy session breakdown.
+ *        This callback will be called when tcp session breakdown is destroyed,
+ *        it will destroy the session breakdown allocated before.
+ */
 typedef void (*freeSessionBreakdownCB) (void *sbd);
+
+/*
+ * @brief Generate session breakdown.
+ *        This callback will be called when tcp session breakdown is generated,
+ *        it will generate session breakdown by session detail.
+ *
+ * @return 0 if success else -1
+ */
 typedef int (*generateSessionBreakdownCB) (void *sd, void *sbd);
+
+/*
+ * @brief Convert session breakdown to json.
+ *        This callback will be called when tcp session breakdown is generated,
+ *        it will convert session breakdown to json format.
+ *
+ * @param root json root
+ * @param sd session detail
+ * @param sbd session breakdown
+ */
 typedef void (*sessionBreakdown2JsonCB) (json_t *root, void *sd, void *sbd);
+
+/*
+ * @brief Tcp connection establish callback.
+ *        This callback will be called when tcp connection is established.
+ *
+ * @param tm timestamp
+ * @param sd session detail
+ */
 typedef void (*sessionProcessEstbCB) (timeValPtr tm, void *sd);
-typedef void (*sessionProcessUrgeDataCB) (streamDirection direction, char urgData, timeValPtr tm, void *sd);
+
+/*
+ * @brief Tcp urgency data process callback.
+ *        This callback will be called when receive tcp urgency data.
+ *
+ * @param direction data flow direction
+ * @param urgData urgency data
+ * @param tm timestamp
+ * @param sd session detail
+ */
+typedef void (*sessionProcessUrgeDataCB) (streamDirection direction, char urgData,
+                                          timeValPtr tm, void *sd);
+
+/*
+ * @brief Tcp data process callback.
+ *        This callback will be called when receive application proto data, this callback
+ *        will process data and return data length has been processed. if data process is
+ *        done, set state to SESSION_DONE to generate session breakdown, else  set to
+ *        SESSION_ACTIVE.
+ *
+ * @param direction data flow direction
+ * @param data application proto data
+ * @param dataLen application proto data length
+ * @param tm timestamp
+ * @param sd session detail
+ * @param state pointer to get session state
+ *
+ * @return data length has been processed
+ */
 typedef u_int (*sessionProcessDataCB) (streamDirection direction, u_char *data, u_int dataLen,
                                        timeValPtr tm, void *sd, sessionState *state);
+
+/*
+ * @brief Tcp reset process callback.
+ *        This callback will be called when tcp connection is reset.
+ *
+ * @param direction data flow direction
+ * @param tm timestamp
+ * @param sd session detail
+ */
 typedef void (*sessionProcessResetCB) (streamDirection direction, timeValPtr tm, void *sd);
-typedef void (*sessionProcessFinCB) (streamDirection direction, timeValPtr tm, void *sd, sessionState *state);
+
+/*
+ * @brief Tcp finish process callback.
+ *        This callback will be called when tcp fin packet is received.
+ *        If session is complete, set state to SESSION_DONE, else set to
+ *        SESSION_ACTIVE.
+ *
+ * @param direction data flow direction
+ * @param tm timestamp
+ * @param sd session detail
+ * @param state pointer to set session state
+ */
+typedef void (*sessionProcessFinCB) (streamDirection direction, timeValPtr tm, void *sd,
+                                     sessionState *state);
+/*===============Proto analyzer callbacks definition end===================*/
 
 typedef struct _protoAnalyzer protoAnalyzer;
 typedef protoAnalyzer *protoAnalyzerPtr;
@@ -52,6 +177,8 @@ struct _protoAnalyzer {
 };
 
 /*========================Interfaces definition============================*/
+int
+getProtoAnalyzerInfo (protoAnalyzerInfoPtr info);
 protoAnalyzerPtr
 getProtoAnalyzer (char *proto);
 int

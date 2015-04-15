@@ -16,13 +16,13 @@ newProperties (void) {
         return NULL;
 
     tmp->daemonMode = 0;
+    tmp->managementControlHost = NULL;
+    tmp->managementControlPort = 0;
     tmp->mirrorInterface = NULL;
     tmp->pcapOfflineInput = NULL;
-    tmp->managementServiceIp = NULL;
-    tmp->managementServicePort = 0;
-    tmp->serverIp = NULL;
+    tmp->miningEngineHost = NULL;
     tmp->managementRegisterPort = 0;
-    tmp->breakdownSinkPort = 0;
+    tmp->breakdownRecvPort = 0;
     tmp->logDir = NULL;
     tmp->logFileName = NULL;
     tmp->logLevel = LOG_ERR_LEVEL;
@@ -34,14 +34,14 @@ freeProperties (propertiesPtr instance) {
     if (instance == NULL)
         return;
 
+    free (instance->managementControlHost);
+    instance->managementControlHost = NULL;
     free (instance->mirrorInterface);
     instance->mirrorInterface = NULL;
     free (instance->pcapOfflineInput);
     instance->pcapOfflineInput = NULL;
-    free (instance->managementServiceIp);
-    instance->managementServiceIp = NULL;
-    free (instance->serverIp);
-    instance->serverIp = NULL;
+    free (instance->miningEngineHost);
+    instance->miningEngineHost = NULL;
     free (instance->logDir);
     instance->logDir = NULL;
     free (instance->logFileName);
@@ -66,7 +66,7 @@ loadPropertiesFromConfigFile (char *configFile) {
     }
 
     /* Load properties from AGENT_CONFIG_FILE */
-    ret = config_from_file ("Agent", configFile,
+    ret = config_from_file ("Main", configFile,
                             &iniConfig, INI_STOP_ON_ANY, &errorSet);
     if (ret) {
         fprintf (stderr, "Parse config file: %s error.\n", configFile);
@@ -74,12 +74,12 @@ loadPropertiesFromConfigFile (char *configFile) {
     }
 
     /* Get daemon mode */
-    ret = get_config_item ("MAIN", "daemonMode", iniConfig, &item);
+    ret = get_config_item ("Agent", "daemonMode", iniConfig, &item);
     if (ret) {
         fprintf (stderr, "Get_config_item \"daemonMode\" error.\n");
         goto freeProperties;
     }
-    ret = get_int_config_value (item, 1, 0, &error);
+    ret = get_bool_config_value (item, 0, &error);
     if (error && item) {
         fprintf (stderr, "Parse \"daemonMode\" error.\n");
         goto freeProperties;
@@ -89,8 +89,32 @@ loadPropertiesFromConfigFile (char *configFile) {
     else
         tmp->daemonMode = False;
 
+    /* Get management control host */
+    ret = get_config_item ("Agent", "managementControlHost", iniConfig, &item);
+    if (ret || item == NULL) {
+        fprintf (stderr, "Get_config_item \"managementControlHost\" error.\n");
+        goto freeProperties;
+    }
+    tmp->managementControlHost = strdup (get_const_string_config_value (item, &error));
+    if (tmp->managementControlHost == NULL) {
+        fprintf (stderr, "Get \"managementControlHost\" error.\n");
+        goto freeProperties;
+    }
+
+    /* Get management control port */
+    ret = get_config_item ("Agent", "managementControlPort", iniConfig, &item);
+    if (ret || item == NULL) {
+        fprintf (stderr, "Get_config_item \"managementControlPort\" error.\n");
+        goto freeProperties;
+    }
+    tmp->managementControlPort = get_int_config_value (item, 1, 0, &error);
+    if (error) {
+        fprintf (stderr, "Get \"managementControlPort\" error.\n");
+        goto freeProperties;
+    }
+
     /* Get mirror interface */
-    ret = get_config_item ("MAIN", "mirrorInterface", iniConfig, &item);
+    ret = get_config_item ("Interfaces", "mirrorInterface", iniConfig, &item);
     if (ret || item == NULL) {
         fprintf (stderr, "Get_config_item \"mirrorInterface\" error.\n");
         goto freeProperties;
@@ -102,7 +126,7 @@ loadPropertiesFromConfigFile (char *configFile) {
     }
 
     /* Get pcap offline input */
-    ret = get_config_item ("MAIN", "pcapOfflineInput", iniConfig, &item);
+    ret = get_config_item ("Interfaces", "pcapOfflineInput", iniConfig, &item);
     if (!ret && item) {
         tmp->pcapOfflineInput = strdup (get_const_string_config_value (item, &error));
         if (tmp->pcapOfflineInput == NULL) {
@@ -111,44 +135,20 @@ loadPropertiesFromConfigFile (char *configFile) {
         }
     }
 
-    /* Get management service ip */
-    ret = get_config_item ("MAIN", "managementServiceIp", iniConfig, &item);
+    /* Get mining engine host */
+    ret = get_config_item ("MiningEngine", "miningEngineHost", iniConfig, &item);
     if (ret || item == NULL) {
-        fprintf (stderr, "Get_config_item \"managementServiceIp\" error.\n");
+        fprintf (stderr, "Get_config_item \"miningEngineHost\" error.\n");
         goto freeProperties;
     }
-    tmp->managementServiceIp = strdup (get_const_string_config_value (item, &error));
-    if (tmp->managementServiceIp == NULL) {
-        fprintf (stderr, "Get \"managementServiceIp\" error.\n");
-        goto freeProperties;
-    }
-
-    /* Get management service port */
-    ret = get_config_item ("MAIN", "managementServicePort", iniConfig, &item);
-    if (ret || item == NULL) {
-        fprintf (stderr, "Get_config_item \"managementServicePort\" error.\n");
-        goto freeProperties;
-    }
-    tmp->managementServicePort = get_int_config_value (item, 1, 0, &error);
-    if (error) {
-        fprintf (stderr, "Get \"managementServicePort\" error.\n");
-        goto freeProperties;
-    }
-
-    /* Get server ip */
-    ret = get_config_item ("MAIN", "serverIp", iniConfig, &item);
-    if (ret || item == NULL) {
-        fprintf (stderr, "Get_config_item \"serverIp\" error.\n");
-        goto freeProperties;
-    }
-    tmp->serverIp = strdup (get_const_string_config_value (item, &error));
-    if (tmp->serverIp == NULL) {
-        fprintf (stderr, "Get \"serverIp\" error.\n");
+    tmp->miningEngineHost = strdup (get_const_string_config_value (item, &error));
+    if (tmp->miningEngineHost == NULL) {
+        fprintf (stderr, "Get \"miningEngineHost\" error.\n");
         goto freeProperties;
     }
 
     /* Get management register port */
-    ret = get_config_item ("MAIN", "managementRegisterPort", iniConfig, &item);
+    ret = get_config_item ("MiningEngine", "managementRegisterPort", iniConfig, &item);
     if (ret || item == NULL) {
         fprintf (stderr, "Get_config_item \"managementRegisterPort\" error.\n");
         goto freeProperties;
@@ -159,15 +159,15 @@ loadPropertiesFromConfigFile (char *configFile) {
         goto freeProperties;
     }
 
-    /* Get breakdown sink port */
-    ret = get_config_item ("MAIN", "breakdownSinkPort", iniConfig, &item);
+    /* Get breakdown receive port */
+    ret = get_config_item ("MiningEngine", "breakdownRecvPort", iniConfig, &item);
     if (ret || item == NULL) {
-        fprintf (stderr, "Get_config_item \"breakdownSinkPort\" error.\n");
+        fprintf (stderr, "Get_config_item \"breakdownRecvPort\" error.\n");
         goto freeProperties;
     }
-    tmp->breakdownSinkPort = get_int_config_value (item, 1, 0, &error);
+    tmp->breakdownRecvPort = get_int_config_value (item, 1, 0, &error);
     if (error) {
-        fprintf (stderr, "Get \"breakdownSinkPort\" error.\n");
+        fprintf (stderr, "Get \"breakdownRecvPort\" error.\n");
         goto freeProperties;
     }
 
@@ -231,6 +231,27 @@ updatePropertiesDaemonMode (boolean daemonMode) {
 }
 
 char *
+getPropertiesManagementControlHost (void) {
+    return propertiesInstance->managementControlHost;
+}
+
+void
+updatePropertiesManagementControlHost (char *ip) {
+    free (propertiesInstance->managementControlHost);
+    propertiesInstance->managementControlHost = strdup (ip);
+}
+
+u_short
+getPropertiesManagementControlPort (void) {
+    return propertiesInstance->managementControlPort;
+}
+
+void
+updatePropertiesManagementControlPort (u_short port) {
+    propertiesInstance->managementControlPort = port;
+}
+
+char *
 getPropertiesMirrorInterface (void) {
     return propertiesInstance->mirrorInterface;
 }
@@ -253,35 +274,14 @@ updatePropertiesPcapOfflineInput (char *fname) {
 }
 
 char *
-getPropertiesManagementServiceIp (void) {
-    return propertiesInstance->managementServiceIp;
+getPropertiesMiningEngineHost (void) {
+    return propertiesInstance->miningEngineHost;
 }
 
 void
-updatePropertiesManagementServiceIp (char *ip) {
-    free (propertiesInstance->managementServiceIp);
-    propertiesInstance->managementServiceIp = strdup (ip);
-}
-
-u_short
-getPropertiesManagementServicePort (void) {
-    return propertiesInstance->managementServicePort;
-}
-
-void
-updatePropertiesManagementServicePort (u_short port) {
-    propertiesInstance->managementServicePort = port;
-}
-
-char *
-getPropertiesServerIp (void) {
-    return propertiesInstance->serverIp;
-}
-
-void
-updatePropertiesServerIp (char *ip) {
-    free (propertiesInstance->serverIp);
-    propertiesInstance->serverIp = strdup (ip);
+updatePropertiesMiningEngineHost (char *ip) {
+    free (propertiesInstance->miningEngineHost);
+    propertiesInstance->miningEngineHost = strdup (ip);
 }
 
 u_short
@@ -295,13 +295,13 @@ updatePropertiesManagementRegisterPort (u_short port) {
 }
 
 u_short
-getPropertiesBreakdownSinkPort (void) {
-    return propertiesInstance->breakdownSinkPort;
+getPropertiesBreakdownRecvPort (void) {
+    return propertiesInstance->breakdownRecvPort;
 }
 
 void
-updatePropertiesBreakdownSinkPort (u_short port) {
-    propertiesInstance->breakdownSinkPort = port;
+updatePropertiesBreakdownRecvPort (u_short port) {
+    propertiesInstance->breakdownRecvPort = port;
 }
 
 char *
@@ -341,22 +341,22 @@ displayPropertiesDetail (void) {
     fprintf (stdout, "Startup with properties:\n");
     fprintf (stdout, "{\n");
     fprintf (stdout, "    daemonMode: %s\n", propertiesInstance->daemonMode ? "True" : "False");
+    fprintf (stdout, "    managementControlHost: %s\n", propertiesInstance->managementControlHost);
+    fprintf (stdout, "    managementControlPort: %u\n", propertiesInstance->managementControlPort);
     fprintf (stdout, "    mirrorInterface: %s\n", propertiesInstance->mirrorInterface);
     fprintf (stdout, "    pcapOfflineInput: %s\n", propertiesInstance->pcapOfflineInput);
-    fprintf (stdout, "    managementServiceIp: %s\n", propertiesInstance->managementServiceIp);
-    fprintf (stdout, "    managementServicePort: %u\n", propertiesInstance->managementServicePort);
-    fprintf (stdout, "    serverIp: %s\n", propertiesInstance->serverIp);
+    fprintf (stdout, "    miningEngineHost: %s\n", propertiesInstance->miningEngineHost);
     fprintf (stdout, "    managementRegisterPort: %u\n", propertiesInstance->managementRegisterPort);
-    fprintf (stdout, "    breakdownSinkPort: %u\n", propertiesInstance->breakdownSinkPort);
+    fprintf (stdout, "    breakdownRecvPort: %u\n", propertiesInstance->breakdownRecvPort);
     fprintf (stdout, "    logDir: %s\n", propertiesInstance->logDir);
     fprintf (stdout, "    logFileName: %s\n", propertiesInstance->logFileName);
     fprintf (stdout, "    logLevel: ");
     switch (propertiesInstance->logLevel) {
         case LOG_ERR_LEVEL:
-            fprintf (stdout, "ERR\n");
+            fprintf (stdout, "ERROR\n");
             break;
 
-        case LOG_WARNING_LEVEL:
+        case LOG_WARN_LEVEL:
             fprintf (stdout, "WARNING\n");
             break;
 
@@ -366,6 +366,10 @@ displayPropertiesDetail (void) {
 
         case LOG_DEBUG_LEVEL:
             fprintf (stdout, "DEBUG\n");
+            break;
+
+        case LOG_TRACE_LEVEL:
+            fprintf (stdout, "TRACE\n");
             break;
 
         default:
@@ -389,14 +393,14 @@ initProperties (char *configFile) {
 /* Destroy properties */
 void
 destroyProperties (void) {
+    free (propertiesInstance->managementControlHost);
+    propertiesInstance->managementControlHost = NULL;
     free (propertiesInstance->mirrorInterface);
     propertiesInstance->mirrorInterface = NULL;
     free (propertiesInstance->pcapOfflineInput);
     propertiesInstance->pcapOfflineInput = NULL;
-    free (propertiesInstance->managementServiceIp);
-    propertiesInstance->managementServiceIp = NULL;
-    free (propertiesInstance->serverIp);
-    propertiesInstance->serverIp = NULL;
+    free (propertiesInstance->miningEngineHost);
+    propertiesInstance->miningEngineHost = NULL;
     free (propertiesInstance->logDir);
     propertiesInstance->logDir = NULL;
     free (propertiesInstance->logFileName);

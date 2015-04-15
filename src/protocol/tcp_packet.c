@@ -243,7 +243,7 @@ delTcpStreamFromHash (tcpStreamPtr stream) {
         LOGE ("Delete stream from hash table error.\n");
     else {
         incTcpStreamsFree ();
-        LOGD ("tcpStreamsAlloc: %u<------->tcpStreamsFree: %u\n",
+        LOGT ("tcpStreamsAlloc: %u<------->tcpStreamsFree: %u\n",
               getTcpStreamsAlloc (), getTcpStreamsFree ());
     }
 

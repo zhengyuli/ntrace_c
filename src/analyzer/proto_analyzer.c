@@ -23,12 +23,27 @@ extern protoAnalyzer defaultAnalyzer;
 extern protoAnalyzer httpAnalyzer;
 extern protoAnalyzer mysqlAnalyzer;
 
-static protoAnalyzerContext protoAnalyzerContextTable [1024];
+static protoAnalyzerContext protoAnalyzerContextTable [MAX_PROTO_ANALYZER_NUM];
 static u_int registeredProtoSize = 0;
+
+int
+getProtoAnalyzerInfo (protoAnalyzerInfoPtr info) {
+    u_int i;
+    protoAnalyzerPtr analyzer;
+
+    for (i = 0; i < registeredProtoSize; i++) {
+        analyzer = protoAnalyzerContextTable [i].analyzer;
+        snprintf (info->protoNames[i], sizeof (info->protoNames[i]),
+                  "%s", analyzer->proto);
+    }
+    info->registeredProtoSize = registeredProtoSize;
+
+    return 0;
+}
 
 protoAnalyzerPtr
 getProtoAnalyzer (char *proto) {
-    int i;
+    u_int i;
     protoAnalyzerPtr analyzer;
 
     for (i = 0; i < registeredProtoSize; i++) {
@@ -60,7 +75,7 @@ loadAnalyzers (void) {
     protoAnalyzerContextTable [registeredProtoSize].handle = NULL;
     protoAnalyzerContextTable [registeredProtoSize].analyzer = &mysqlAnalyzer;
     registeredProtoSize++;
-    
+
     /* Load proto analyzers in AGENT_ANALYZER_DIR dynamically */
     dir = opendir (AGENT_ANALYZER_DIR);
     if (dir == NULL) {
@@ -70,6 +85,9 @@ loadAnalyzers (void) {
 
     while ((entry = readdir (dir)) != NULL)
     {
+        if (registeredProtoSize >= MAX_PROTO_ANALYZER_NUM)
+            break;
+
         if (strstr (entry->d_name, ".so")) {
             snprintf (filePath, sizeof (filePath), "%s/%s", AGENT_ANALYZER_DIR, entry->d_name);
             handle = dlopen (filePath, RTLD_NOW|RTLD_GLOBAL);
@@ -102,9 +120,10 @@ initProtoAnalyzer (void) {
     protoAnalyzerPtr analyzer;
 
     loadAnalyzers ();
-    
+
     for (i = 0; i < registeredProtoSize; i++) {
         analyzer = protoAnalyzerContextTable [i].analyzer;
+
         if (analyzer->initProtoAnalyzer) {
             ret = (*analyzer->initProtoAnalyzer) ();
             if (ret < 0) {
@@ -127,7 +146,7 @@ initProtoAnalyzer (void) {
             }
         }
     }
-    
+
     return 0;
 }
 

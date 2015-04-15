@@ -16,10 +16,11 @@ static void *subSock = NULL;
 
 static boolean
 checkLogLevel (char *logLevel) {
-    if (strEqual ("ERR", logLevel) ||
+    if (strEqual ("ERROR", logLevel) ||
         strEqual ("WARNING", logLevel) ||
         strEqual ("INFO", logLevel) ||
-        strEqual ("DEBUG", logLevel))
+        strEqual ("DEBUG", logLevel) ||
+        strEqual ("TRACE", logLevel))
         return True;
     else
         return False;
@@ -47,7 +48,7 @@ showHelp (char *cmd) {
             "       %s [-h]\n"
             "Options:\n"
             "  -s|--server <ip>, ip addr of logd server\n"
-            "  -l|--level <logLevel>, optional log level: ERR, WARNING, INFO, DEBUG\n"
+            "  -l|--level <logLevel>, optional log level: ERROR, WARNING, INFO, DEBUG, TRACE\n"
             "  -v|--verbose, display log in detail\n"
             "  -h|--help, help info\n",
             cmdName, cmdName);

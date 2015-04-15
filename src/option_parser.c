@@ -8,13 +8,13 @@
 static struct option options [] = {
     {"config", required_argument, NULL, 'C'},
     {"daemonMode", no_argument, NULL, 'D'},
+    {"managementControlHost", required_argument, NULL, 'I'},
+    {"managementControlPort", required_argument, NULL, 'P'},
     {"mirrorInterface", required_argument, NULL, 'm'},
     {"pcapOfflineInput", required_argument, NULL, 'o'},
-    {"managementServiceIp", required_argument, NULL, 'I'},
-    {"managementServicePort", required_argument, NULL, 'P'},
-    {"serverIp", required_argument, NULL, 'i'},
+    {"miningEngineHost", required_argument, NULL, 'i'},
     {"managementRegisterPort", required_argument, NULL, 'r'},
-    {"breakdownSinkPort", required_argument, NULL, 'p'},
+    {"breakdownRecvPort", required_argument, NULL, 'p'},
     {"logDir", required_argument, NULL, 'd'},
     {"logFileName", required_argument, NULL, 'f'},
     {"logLevel", required_argument, NULL, 'l'},
@@ -34,17 +34,17 @@ showHelpInfo (const char *cmd) {
              "Basic options: \n"
              "  -C|--config, config file\n"
              "  -D|--daemonMode, run as daemon\n"
+             "  -I|--managementControlHost <ip> management control host ip\n"
+             "  -P|--managementControlPort <port> management control port\n"
              "  -m|--mirrorInterface <eth*> interface to collect packets\n"
              "  -o|--pcapOfflineInput <fname> pcap offline input file\n"
-             "  -I|--managementServiceIp <ip> management service ip\n"
-             "  -P|--managementServicePort <port> management service port\n"
-             "  -i|--serverIp <ip> server ip\n"
+             "  -i|--miningEngineHost <ip> mining engine host ip\n"
              "  -r|--managementRegisterPort <port> management register port\n"
-             "  -p|--breakdownSinkPort <port> breakdown sink port\n"
+             "  -p|--breakdownRecvPort <port> breakdown receive port\n"
              "  -d|--logDir <path>, log file directory\n"
              "  -f|--logFileName <name>, log file name\n"
              "  -l|--logLevel <level> log level\n"
-             "       Optional level: 0-ERR 1-WARNING 2-INFO 3-DEBUG\n"
+             "       Optional level: 0-ERROR 1-WARNING 2-INFO 3-DEBUG 4-TRACE\n"
              "  -v|--version, version of %s\n"
              "  -h|--help, help information\n",
              cmdName, cmdName, cmdName);
@@ -81,13 +81,25 @@ parseOptions (int argc, char *argv []) {
     boolean showHelp = False;
 
     optind = 1;
-    while ((option = getopt_long (argc, argv, ":C:Dm:o:I:P:i:r:p:d:f:l:vh?", options, NULL)) != -1) {
+    while ((option = getopt_long (argc, argv, ":C:DI:P:m:o:i:r:p:d:f:l:vh?", options, NULL)) != -1) {
         switch (option) {
             case 'C':
                 break;
 
             case 'D':
                 updatePropertiesDaemonMode (True);
+                break;
+
+            case 'I':
+                updatePropertiesManagementControlHost (optarg);
+                if (getPropertiesManagementControlHost () == NULL) {
+                    fprintf (stderr, "Parse management control host error!\n");
+                    return -1;
+                }
+                break;
+
+            case 'P':
+                updatePropertiesManagementControlPort (atoi (optarg));
                 break;
 
             case 'm':
@@ -106,22 +118,10 @@ parseOptions (int argc, char *argv []) {
                 }
                 break;
 
-            case 'I':
-                updatePropertiesManagementServiceIp (optarg);
-                if (getPropertiesManagementServiceIp () == NULL) {
-                    fprintf (stderr, "Parse management service ip error!\n");
-                    return -1;
-                }
-                break;
-
-            case 'P':
-                updatePropertiesManagementServicePort (atoi (optarg));
-                break;
-
             case 'i':
-                updatePropertiesServerIp (optarg);
-                if (getPropertiesServerIp () == NULL) {
-                    fprintf (stderr, "Parse server ip error!\n");
+                updatePropertiesMiningEngineHost (optarg);
+                if (getPropertiesMiningEngineHost () == NULL) {
+                    fprintf (stderr, "Parse mining engine host error!\n");
                     return -1;
                 }
                 break;
@@ -131,7 +131,7 @@ parseOptions (int argc, char *argv []) {
                 break;
 
             case 'p':
-                updatePropertiesBreakdownSinkPort (atoi (optarg));
+                updatePropertiesBreakdownRecvPort (atoi (optarg));
                 break;
 
             case 'd':

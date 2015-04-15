@@ -18,6 +18,7 @@
 #define MANAGEMENT_CONTROL_REQUEST_COMMAND_HEARTBEAT "heartbeat"
 #define MANAGEMENT_CONTROL_REQUEST_COMMAND_UPDATE_PROFILE "update_profile"
 #define MANAGEMENT_CONTROL_REQUEST_COMMAND_PACKETS_STATISTIC "packets_statistic"
+#define MANAGEMENT_CONTROL_REQUEST_COMMAND_PROTO_INFO "proto_info"
 
 /* Management control response json key definitions */
 #define MANAGEMENT_CONTROL_RESPONSE_CODE "code"
@@ -28,6 +29,9 @@
 #define MANAGEMENT_CONTROL_RESPONSE_BODY_PACKETS_RECEIVE "packets_receive"
 #define MANAGEMENT_CONTROL_RESPONSE_BODY_PACKETS_DROP "packets_drop"
 #define MANAGEMENT_CONTROL_RESPONSE_BODY_PACKETS_DROP_RATE "packets_drop_rate"
+
+#define MANAGEMENT_CONTROL_RESPONSE_BODY_PROTO_NUM "proto_num"
+#define MANAGEMENT_CONTROL_RESPONSE_BODY_PROTO_NAMES "proto_names"
 
 /* Default management control error response */
 #define DEFAULT_MANAGEMENT_CONTROL_ERROR_RESPONSE           \

@@ -31,7 +31,7 @@ newPcapDesc (char *interface) {
 
         LOGE ("Open pcap offline input error %s, will use default network device.\n", errBuf);
     }
-    
+
     /* Check interface exists */
     ret = pcap_findalldevs (&alldevs, errBuf);
     if (ret < 0) {
@@ -44,7 +44,13 @@ newPcapDesc (char *interface) {
             break;
     }
     if (devptr == NULL) {
-        LOGE ("Net interfaces not exists.\n");
+        LOGE ("Interface \"%s\" not found.\nInterfaces possible: ", interface);
+        for (devptr = alldevs; devptr != NULL; devptr = devptr->next) {
+            if (devptr->next)
+                LOGE ("\"%s\", ", devptr->name);
+            else
+                LOGE ("\"%s\"\n", devptr->name);
+        }
         return NULL;
     }
 
@@ -70,7 +76,7 @@ newPcapDesc (char *interface) {
         pcap_close (pcapDesc);
         return NULL;
     }
-    
+
     /* Set pcap timeout */
     ret = pcap_set_timeout (pcapDesc, PCAP_CAPTURE_TIMEOUT);
     if (ret < 0) {

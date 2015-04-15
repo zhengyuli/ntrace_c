@@ -203,32 +203,32 @@ pktServerHandshake (mysqlEvent event, u_char *payload, u_int payloadLen,
     if (direction != STREAM_FROM_SERVER || currSessionDetail->seqId != 0)
         return EVENT_HANDLE_ERROR;
 
-    LOGD ("\nCli <<----------------<< Server packet seqId:%u\n",
+    LOGT ("\nCli <<----------------<< Server packet seqId:%u\n",
           currSessionDetail->seqId);
-    LOGD ("%sInitial handshake packet\n", MYSQL_INFO_DISPLAY_INDENT1);
+    LOGT ("%sInitial handshake packet\n", MYSQL_INFO_DISPLAY_INDENT1);
 
     /* Only support v10 protocol */
     if (!MATCH (*pkt, 0x0A)) {
-        LOGE ("%sOnly support v10 protocol\n", MYSQL_INFO_DISPLAY_INDENT1);
+        LOGE ("Only support v10 protocol\n", MYSQL_INFO_DISPLAY_INDENT1);
         return EVENT_HANDLE_ERROR;
     }
 
     /* Get proto version */
     currSharedInfo->protoVer = (u_int) FLI1 (pkt);
     pkt += 1;
-    LOGD ("%sProto version:%d\n", MYSQL_INFO_DISPLAY_INDENT1,
+    LOGT ("%sProto version:%d\n", MYSQL_INFO_DISPLAY_INDENT1,
           (u_char) currSharedInfo->protoVer);
 
     /* Get server version, example:4.1.1 ........ */
     currSharedInfo->serverVer = strdup ((const char *) pkt);
     pkt += strlen ((const char *) pkt) + 1;
-    LOGD ("%sServer_version:%s\n", MYSQL_INFO_DISPLAY_INDENT1,
+    LOGT ("%sServer_version:%s\n", MYSQL_INFO_DISPLAY_INDENT1,
           currSharedInfo->serverVer);
 
     /* Get connection id */
     currSharedInfo->conId = FLI4 (pkt);
     pkt += 4;
-    LOGD ("%sConnection_id:%u\n", MYSQL_INFO_DISPLAY_INDENT1, currSharedInfo->conId);
+    LOGT ("%sConnection_id:%u\n", MYSQL_INFO_DISPLAY_INDENT1, currSharedInfo->conId);
 
     /* Get 8 bytes auth-plugin-data-part-1 */
     memcpy (authPluginData, pkt, 8);
@@ -245,7 +245,7 @@ pktServerHandshake (mysqlEvent event, u_char *payload, u_int payloadLen,
     else
         currSharedInfo->cliProtoIsV41 = False;
     pkt += 2;
-    LOGD ("%sCLIENT_PROTOCOL_41:%s\n",
+    LOGT ("%sCLIENT_PROTOCOL_41:%s\n",
           MYSQL_INFO_DISPLAY_INDENT1, currSharedInfo->cliProtoIsV41 ? "YES" : "NO");
 
     /* Has more data */
@@ -309,9 +309,9 @@ pktClientHandshake (mysqlEvent event, u_char *payload, u_int payloadLen,
     if (direction != STREAM_FROM_CLIENT || currSessionDetail->seqId != 1)
         return EVENT_HANDLE_ERROR;
 
-    LOGD ("Cli >>---------------->> Server packet seqId:%u\n",
+    LOGT ("Cli >>---------------->> Server packet seqId:%u\n",
           currSessionDetail->seqId);
-    LOGD ("%sClient handshake packet\n", MYSQL_INFO_DISPLAY_INDENT1);
+    LOGT ("%sClient handshake packet\n", MYSQL_INFO_DISPLAY_INDENT1);
 
     if (currSharedInfo->cliProtoIsV41) {
         /* Get capability flags */
@@ -321,7 +321,7 @@ pktClientHandshake (mysqlEvent event, u_char *payload, u_int payloadLen,
         /* Get max packet size */
         currSharedInfo->maxPktSize = FLI4 (pkt);
         pkt += 4;
-        LOGD ("%sMax_packet_size:%u\n",
+        LOGT ("%sMax_packet_size:%u\n",
               MYSQL_INFO_DISPLAY_INDENT1, currSharedInfo->maxPktSize);
 
         /* Get character set */
@@ -334,7 +334,7 @@ pktClientHandshake (mysqlEvent event, u_char *payload, u_int payloadLen,
         /* Get user name */
         currSharedInfo->userName = strdup ((const char *) pkt);
         pkt += strlen ((const char *) pkt) + 1;
-        LOGD ("%sUser_name:%s\n",
+        LOGT ("%sUser_name:%s\n",
               MYSQL_INFO_DISPLAY_INDENT1, currSharedInfo->userName);
 
         /* Get auth response */
@@ -364,7 +364,7 @@ pktClientHandshake (mysqlEvent event, u_char *payload, u_int payloadLen,
         if (currSharedInfo->cliCaps & CLIENT_CONNECT_WITH_DB) {
             dataBase = (char *) pkt;
             pkt += strlen ((const char *) pkt) + 1;
-            LOGD ("%sDatabase:%s\n", MYSQL_INFO_DISPLAY_INDENT1, dataBase);
+            LOGT ("%sDatabase:%s\n", MYSQL_INFO_DISPLAY_INDENT1, dataBase);
         }
 
         /* Get auth plugin name */
@@ -379,7 +379,7 @@ pktClientHandshake (mysqlEvent event, u_char *payload, u_int payloadLen,
             attrsEnd = pkt + realLen;
             pkt += encLen;
 
-            LOGD ("%sAttributes\n", MYSQL_INFO_DISPLAY_INDENT1);
+            LOGT ("%sAttributes\n", MYSQL_INFO_DISPLAY_INDENT1);
             while (pkt < attrsEnd) {
                 realLen = encLenInt (pkt, &encLen);
                 pkt += encLen;
@@ -395,7 +395,7 @@ pktClientHandshake (mysqlEvent event, u_char *payload, u_int payloadLen,
                 attrValue [toCopyLen] = 0;
                 pkt += realLen;
 
-                LOGD ("%s%s:%s\n", MYSQL_INFO_DISPLAY_INDENT2, attrKey, attrValue);
+                LOGT ("%s%s:%s\n", MYSQL_INFO_DISPLAY_INDENT2, attrKey, attrValue);
             }
         }
     } else {
@@ -406,13 +406,13 @@ pktClientHandshake (mysqlEvent event, u_char *payload, u_int payloadLen,
         /* Get max packet size */
         currSharedInfo->maxPktSize = FLI3 (pkt);
         pkt += 3;
-        LOGD ("%sMax_packet_size:%u\n",
+        LOGT ("%sMax_packet_size:%u\n",
               MYSQL_INFO_DISPLAY_INDENT1, currSharedInfo->maxPktSize);
 
         /* Get user name */
         currSharedInfo->userName = strdup ((const char *) pkt);
         pkt += strlen ((const char *) pkt) + 1;
-        LOGD ("%sUser_name:%s\n",
+        LOGT ("%sUser_name:%s\n",
               MYSQL_INFO_DISPLAY_INDENT1, currSharedInfo->userName);
 
         if (currSharedInfo->cliCaps & CLIENT_CONNECT_WITH_DB) {
@@ -426,7 +426,7 @@ pktClientHandshake (mysqlEvent event, u_char *payload, u_int payloadLen,
             /* Get database */
             dataBase = (char *) pkt;
             pkt += strlen ((const char *) pkt) + 1;
-            LOGD ("%sDatabase:%s\n", MYSQL_INFO_DISPLAY_INDENT1, dataBase);
+            LOGT ("%sDatabase:%s\n", MYSQL_INFO_DISPLAY_INDENT1, dataBase);
         } else {
             realLen = payload + payloadLen - pkt;
             toCopyLen = MIN_NUM (realLen, (sizeof (authResp) - 1));
@@ -438,7 +438,7 @@ pktClientHandshake (mysqlEvent event, u_char *payload, u_int payloadLen,
 
     currSharedInfo->doSSL = ((currSharedInfo->cliCaps & CLIENT_SSL) ? True : False);
     currSharedInfo->doCompress = ((currSharedInfo->cliCaps & CLIENT_COMPRESS) ? True : False);
-    LOGD ("%sConnection doSSL:%s, doCompress:%s\n",
+    LOGT ("%sConnection doSSL:%s, doCompress:%s\n",
           MYSQL_INFO_DISPLAY_INDENT1,
           currSharedInfo->doSSL ? "Yes" : "No", currSharedInfo->doCompress ? "Yes" : "No");
 
@@ -456,13 +456,13 @@ pktSecureAuth (mysqlEvent event, u_char *payload, u_int payloadLen,
         return EVENT_HANDLE_ERROR;
 
     if (direction == STREAM_FROM_CLIENT) {
-        LOGD ("Cli >>---------------->> Server packet seqId:%u\n",
+        LOGT ("Cli >>---------------->> Server packet seqId:%u\n",
               currSessionDetail->seqId);
-        LOGD ("%sSecure authentication...\n", MYSQL_INFO_DISPLAY_INDENT1);
+        LOGT ("%sSecure authentication...\n", MYSQL_INFO_DISPLAY_INDENT1);
     } else {
-        LOGD ("Cli <<----------------<< Server packet seqId:%u\n",
+        LOGT ("Cli <<----------------<< Server packet seqId:%u\n",
               currSessionDetail->seqId);
-        LOGD ("%sSecure authentication...\n", MYSQL_INFO_DISPLAY_INDENT1);
+        LOGT ("%sSecure authentication...\n", MYSQL_INFO_DISPLAY_INDENT1);
     }
 
     return EVENT_HANDLE_OK;
@@ -492,13 +492,13 @@ pktComX (mysqlEvent event, u_char *payload, u_int payloadLen,
           MATCH (*pkt, COM_RESET_CONNECTION)))
         return EVENT_HANDLE_ERROR;
 
-    LOGD ("\nCli >>---------------->> Server packet seqId:%u\n",
+    LOGT ("\nCli >>---------------->> Server packet seqId:%u\n",
           currSessionDetail->seqId);
 
     currSessionDetail->cmd = *pkt;
     cmdName = mysqlCmdName [*pkt];
     pkt += 1;
-    LOGD ("%s%s\n", MYSQL_INFO_DISPLAY_INDENT1, cmdName);
+    LOGT ("%s%s\n", MYSQL_INFO_DISPLAY_INDENT1, cmdName);
 
     /* For COM_QUIT and COM_PING, doesn't do record */
     if (!MATCH (currSessionDetail->cmd, COM_QUIT) &&
@@ -526,7 +526,7 @@ pktComDB (mysqlEvent event, u_char *payload, u_int payloadLen,
           MATCH (*pkt, COM_DROP_DB)))
         return EVENT_HANDLE_ERROR;
 
-    LOGD ("\nCli >>---------------->> Server packet seqId:%u\n",
+    LOGT ("\nCli >>---------------->> Server packet seqId:%u\n",
           currSessionDetail->seqId);
 
     /* Get command name */
@@ -543,7 +543,7 @@ pktComDB (mysqlEvent event, u_char *payload, u_int payloadLen,
 
     /* Construct command */
     snprintf (com, sizeof (com), "%s db_name:%s", cmdName, database);
-    LOGD ("%s%s\n", MYSQL_INFO_DISPLAY_INDENT1, com);
+    LOGT ("%s%s\n", MYSQL_INFO_DISPLAY_INDENT1, com);
 
     currSessionDetail->reqStmt = strdup (com);
     currSessionDetail->state = MYSQL_REQUEST_COMPLETE;
@@ -564,7 +564,7 @@ pktQuery (mysqlEvent event, u_char *payload, u_int payloadLen,
     if (direction != STREAM_FROM_CLIENT || !MATCH (*pkt, COM_QUERY))
         return EVENT_HANDLE_ERROR;
 
-    LOGD ("\nCli >>---------------->> Server packet seqId:%u\n",
+    LOGT ("\nCli >>---------------->> Server packet seqId:%u\n",
           currSessionDetail->seqId);
 
     /* Get command name */
@@ -581,7 +581,7 @@ pktQuery (mysqlEvent event, u_char *payload, u_int payloadLen,
 
     /* Construct command */
     snprintf (com, sizeof (com), "%s schema:%s", cmdName, schema);
-    LOGD ("%s%s\n", MYSQL_INFO_DISPLAY_INDENT1, com);
+    LOGT ("%s%s\n", MYSQL_INFO_DISPLAY_INDENT1, com);
 
     currSessionDetail->reqStmt = strdup (com);
     currSessionDetail->state = MYSQL_REQUEST_COMPLETE;
@@ -603,7 +603,7 @@ pktFieldList (mysqlEvent event, u_char *payload, u_int payloadLen,
     if (direction != STREAM_FROM_CLIENT || !MATCH (*pkt, COM_FIELD_LIST))
         return EVENT_HANDLE_ERROR;
 
-    LOGD ("\nCli >>---------------->> Server packet seqId:%u\n",
+    LOGT ("\nCli >>---------------->> Server packet seqId:%u\n",
           currSessionDetail->seqId);
 
     /* Get command name */
@@ -625,7 +625,7 @@ pktFieldList (mysqlEvent event, u_char *payload, u_int payloadLen,
     /* Construct command */
     snprintf (com, sizeof (com), "%s table:%s, field_wildcard:%s",
               cmdName, table, fieldWildcard);
-    LOGD ("%s%s\n", MYSQL_INFO_DISPLAY_INDENT1, com);
+    LOGT ("%s%s\n", MYSQL_INFO_DISPLAY_INDENT1, com);
 
     currSessionDetail->reqStmt = strdup (com);
     currSessionDetail->state = MYSQL_REQUEST_COMPLETE;
@@ -644,7 +644,7 @@ pktRefresh (mysqlEvent event, u_char *payload, u_int payloadLen,
     if (direction != STREAM_FROM_CLIENT || !MATCH (*pkt, COM_REFRESH))
         return EVENT_HANDLE_ERROR;
 
-    LOGD ("\nCli >>---------------->> Server packet seqId:%u\n",
+    LOGT ("\nCli >>---------------->> Server packet seqId:%u\n",
           currSessionDetail->seqId);
 
     /* Get command name */
@@ -658,7 +658,7 @@ pktRefresh (mysqlEvent event, u_char *payload, u_int payloadLen,
 
     /* Construct command */
     snprintf (com, sizeof (com), "%s sub_command:%u", cmdName, subCmd);
-    LOGD ("%s%s\n", MYSQL_INFO_DISPLAY_INDENT1, com);
+    LOGT ("%s%s\n", MYSQL_INFO_DISPLAY_INDENT1, com);
 
     currSessionDetail->reqStmt = strdup (com);
     currSessionDetail->state = MYSQL_REQUEST_COMPLETE;
@@ -676,7 +676,7 @@ pktShutdown (mysqlEvent event, u_char *payload, u_int payloadLen,
     if (direction != STREAM_FROM_CLIENT || !MATCH (*pkt, COM_SHUTDOWN))
         return EVENT_HANDLE_ERROR;
 
-    LOGD ("\nCli >>---------------->> Server packet seqId:%u\n",
+    LOGT ("\nCli >>---------------->> Server packet seqId:%u\n",
           currSessionDetail->seqId);
 
     /* Get command name */
@@ -693,7 +693,7 @@ pktShutdown (mysqlEvent event, u_char *payload, u_int payloadLen,
                   cmdName, (u_int) FLI1 (pkt));
         pkt += 1;
     }
-    LOGD ("%s%s\n", MYSQL_INFO_DISPLAY_INDENT1, com);
+    LOGT ("%s%s\n", MYSQL_INFO_DISPLAY_INDENT1, com);
 
     currSessionDetail->reqStmt = strdup (com);
     currSessionDetail->state = MYSQL_REQUEST_COMPLETE;
@@ -712,7 +712,7 @@ pktProcessKill (mysqlEvent event, u_char *payload, u_int payloadLen,
     if (direction != STREAM_FROM_CLIENT || !MATCH (*pkt, COM_PROCESS_KILL))
         return EVENT_HANDLE_ERROR;
 
-    LOGD ("\nCli >>---------------->> Server packet seqId:%u\n",
+    LOGT ("\nCli >>---------------->> Server packet seqId:%u\n",
           currSessionDetail->seqId);
 
     /* Get command name */
@@ -727,7 +727,7 @@ pktProcessKill (mysqlEvent event, u_char *payload, u_int payloadLen,
     /* Construct command */
     snprintf (com, sizeof (com), "%s connection_id:%u",
               cmdName, connectionId);
-    LOGD ("%s%s\n", MYSQL_INFO_DISPLAY_INDENT1, com);
+    LOGT ("%s%s\n", MYSQL_INFO_DISPLAY_INDENT1, com);
 
     currSessionDetail->reqStmt = strdup (com);
     currSessionDetail->state = MYSQL_REQUEST_COMPLETE;
@@ -756,7 +756,7 @@ pktChangeUser (mysqlEvent event, u_char *payload, u_int payloadLen,
     if (direction != STREAM_FROM_CLIENT || !MATCH (*pkt, COM_CHANGE_USER))
         return EVENT_HANDLE_ERROR;
 
-    LOGD ("\nCli >>---------------->> Server packet seqId:%u\n",
+    LOGT ("\nCli >>---------------->> Server packet seqId:%u\n",
           currSessionDetail->seqId);
 
     /* Get command name */
@@ -791,7 +791,7 @@ pktChangeUser (mysqlEvent event, u_char *payload, u_int payloadLen,
     /* Construct command */
     snprintf (com, sizeof (com), "%s user_name:%s, auth_response:%s, schema_name:%s",
               cmdName, user, authResp, schemaName);
-    LOGD ("%s%s\n", MYSQL_INFO_DISPLAY_INDENT1, com);
+    LOGT ("%s%s\n", MYSQL_INFO_DISPLAY_INDENT1, com);
 
     /* If more data */
     if (pkt < (payload + payloadLen)) {
@@ -803,7 +803,7 @@ pktChangeUser (mysqlEvent event, u_char *payload, u_int payloadLen,
         if (currSharedInfo->cliCaps & CLIENT_PLUGIN_AUTH) {
             pluginName = (char *) pkt;
             pkt += strlen ((const char *) pkt) + 1;
-            LOGD ("plugin_name:%s\n", pluginName);
+            LOGT ("plugin_name:%s\n", pluginName);
         }
 
         /* Get attributes */
@@ -812,7 +812,7 @@ pktChangeUser (mysqlEvent event, u_char *payload, u_int payloadLen,
             attrsEnd = pkt + realLen;
             pkt += encLen;
 
-            LOGD ("%sAttributes\n", MYSQL_INFO_DISPLAY_INDENT1);
+            LOGT ("%sAttributes\n", MYSQL_INFO_DISPLAY_INDENT1);
             while (pkt < attrsEnd) {
                 realLen = encLenInt (pkt, &encLen);
                 pkt += encLen;
@@ -828,7 +828,7 @@ pktChangeUser (mysqlEvent event, u_char *payload, u_int payloadLen,
                 attrValue [toCopyLen] = 0;
                 pkt += realLen;
 
-                LOGD ("%s%s:%s\n", MYSQL_INFO_DISPLAY_INDENT2, attrKey, attrValue);
+                LOGT ("%s%s:%s\n", MYSQL_INFO_DISPLAY_INDENT2, attrKey, attrValue);
             }
         }
     }
@@ -858,7 +858,7 @@ pktRegisterSlave (mysqlEvent event, u_char *payload, u_int payloadLen,
     if (direction != STREAM_FROM_CLIENT || !MATCH (*pkt, COM_REGISTER_SLAVE))
         return EVENT_HANDLE_ERROR;
 
-    LOGD ("\nCli >>---------------->> Server packet seqId:%u\n",
+    LOGT ("\nCli >>---------------->> Server packet seqId:%u\n",
           currSessionDetail->seqId);
 
     /* Get command name */
@@ -910,7 +910,7 @@ pktRegisterSlave (mysqlEvent event, u_char *payload, u_int payloadLen,
     snprintf (com, sizeof (com),
               "%s server_id:%u, host_name:%s, user:%s, password:%s, mysql_port:%u, replication_rank:%u, master_id:%u",
               cmdName, serverId, hostName, user, passwd, mysqlPort, repRank, masterId);
-    LOGD ("%s%s\n", MYSQL_INFO_DISPLAY_INDENT1, com);
+    LOGT ("%s%s\n", MYSQL_INFO_DISPLAY_INDENT1, com);
 
     currSessionDetail->reqStmt = strdup (com);
     currSessionDetail->state = MYSQL_REQUEST_COMPLETE;
@@ -931,7 +931,7 @@ pktStmtPrepare (mysqlEvent event, u_char *payload, u_int payloadLen,
     if (direction != STREAM_FROM_CLIENT || !MATCH (*pkt, COM_STMT_PREPARE))
         return EVENT_HANDLE_ERROR;
 
-    LOGD ("\nCli >>---------------->> Server packet seqId:%u\n",
+    LOGT ("\nCli >>---------------->> Server packet seqId:%u\n",
           currSessionDetail->seqId);
 
     /* Get command name */
@@ -948,7 +948,7 @@ pktStmtPrepare (mysqlEvent event, u_char *payload, u_int payloadLen,
 
     /* Construct command */
     snprintf (com, sizeof (com), "%s schema:%s", cmdName, schema);
-    LOGD ("%s%s\n", MYSQL_INFO_DISPLAY_INDENT1, com);
+    LOGT ("%s%s\n", MYSQL_INFO_DISPLAY_INDENT1, com);
 
     currSessionDetail->reqStmt = strdup (com);
     currSessionDetail->state = MYSQL_REQUEST_COMPLETE;
@@ -969,7 +969,7 @@ pktStmtExec (mysqlEvent event, u_char *payload, u_int payloadLen,
     if (direction != STREAM_FROM_CLIENT || !MATCH (*pkt, COM_STMT_EXECUTE))
         return EVENT_HANDLE_ERROR;
 
-    LOGD ("\nCli >>---------------->> Server packet seqId:%u\n",
+    LOGT ("\nCli >>---------------->> Server packet seqId:%u\n",
           currSessionDetail->seqId);
 
     /* Get command name */
@@ -992,7 +992,7 @@ pktStmtExec (mysqlEvent event, u_char *payload, u_int payloadLen,
     /* Construct command */
     snprintf (com, sizeof (com), "%s stmt_id:%d, flags:%u, iteration_count:%u",
               cmdName, stmtId, flags, iterCount);
-    LOGD ("%s%s\n", MYSQL_INFO_DISPLAY_INDENT1, com);
+    LOGT ("%s%s\n", MYSQL_INFO_DISPLAY_INDENT1, com);
 
     currSessionDetail->reqStmt = strdup (com);
     currSessionDetail->state = MYSQL_REQUEST_COMPLETE;
@@ -1013,7 +1013,7 @@ pktStmtCloseOrReset (mysqlEvent event, u_char *payload, u_int payloadLen,
           MATCH (*pkt, COM_STMT_RESET)))
         return EVENT_HANDLE_ERROR;
 
-    LOGD ("\nCli >>---------------->> Server packet seqId:%u\n",
+    LOGT ("\nCli >>---------------->> Server packet seqId:%u\n",
           currSessionDetail->seqId);
 
     /* Get command name */
@@ -1027,7 +1027,7 @@ pktStmtCloseOrReset (mysqlEvent event, u_char *payload, u_int payloadLen,
 
     /* Construct command */
     snprintf (com, sizeof (com), "%s stmt_id:%d", cmdName, stmtId);
-    LOGD ("%s%s\n", MYSQL_INFO_DISPLAY_INDENT1, com);
+    LOGT ("%s%s\n", MYSQL_INFO_DISPLAY_INDENT1, com);
 
     currSessionDetail->reqStmt = strdup (com);
     currSessionDetail->state = MYSQL_REQUEST_COMPLETE;
@@ -1046,7 +1046,7 @@ pktSetOption (mysqlEvent event, u_char *payload, u_int payloadLen,
     if (direction != STREAM_FROM_CLIENT || !MATCH (*pkt, COM_SET_OPTION))
         return EVENT_HANDLE_ERROR;
 
-    LOGD ("\nCli >>---------------->> Server packet seqId:%u\n",
+    LOGT ("\nCli >>---------------->> Server packet seqId:%u\n",
           currSessionDetail->seqId);
 
     /* Get command name */
@@ -1060,7 +1060,7 @@ pktSetOption (mysqlEvent event, u_char *payload, u_int payloadLen,
 
     /* Construct command */
     snprintf (com, sizeof (com), "%s option:%u", cmdName, option);
-    LOGD ("%s%s\n", MYSQL_INFO_DISPLAY_INDENT1, com);
+    LOGT ("%s%s\n", MYSQL_INFO_DISPLAY_INDENT1, com);
 
     currSessionDetail->reqStmt = strdup (com);
     currSessionDetail->state = MYSQL_REQUEST_COMPLETE;
@@ -1080,7 +1080,7 @@ pktStmtFetch (mysqlEvent event, u_char *payload, u_int payloadLen,
     if (direction != STREAM_FROM_CLIENT || !MATCH (*pkt, COM_STMT_FETCH))
         return EVENT_HANDLE_ERROR;
 
-    LOGD ("\nCli >>---------------->> Server packet seqId:%u\n",
+    LOGT ("\nCli >>---------------->> Server packet seqId:%u\n",
           currSessionDetail->seqId);
 
     /* Get command name */
@@ -1099,7 +1099,7 @@ pktStmtFetch (mysqlEvent event, u_char *payload, u_int payloadLen,
     /* Construct command */
     snprintf (com, sizeof (com), "%s stmt_id:%u, num_rows:%u",
               cmdName, stmtId, numRows);
-    LOGD ("%s%s\n", MYSQL_INFO_DISPLAY_INDENT1, com);
+    LOGT ("%s%s\n", MYSQL_INFO_DISPLAY_INDENT1, com);
 
     currSessionDetail->reqStmt = strdup (com);
     currSessionDetail->state = MYSQL_REQUEST_COMPLETE;
@@ -1129,22 +1129,22 @@ pktOk (mysqlEvent event, u_char *payload, u_int payloadLen,
 
     if (currSessionDetail->showS2CTag) {
         currSessionDetail->showS2CTag = False;
-        LOGD ("Cli <<----------------<< Server packet seqId:%u\n",
+        LOGT ("Cli <<----------------<< Server packet seqId:%u\n",
               currSessionDetail->seqId);
     }
 
-    LOGD ("%sOk response packet\n", MYSQL_INFO_DISPLAY_INDENT1);
+    LOGT ("%sOk response packet\n", MYSQL_INFO_DISPLAY_INDENT1);
     pkt += 1;
 
     /* Get affected rows */
     rows = encLenInt (pkt, &encLen);
     pkt += encLen;
-    LOGD ("%sAffected_rows:%llu, ", MYSQL_INFO_DISPLAY_INDENT1, rows);
+    LOGT ("%sAffected_rows:%llu, ", MYSQL_INFO_DISPLAY_INDENT1, rows);
 
     /* Get last insert id */
     insertId = encLenInt (pkt, &encLen);
     pkt += encLen;
-    LOGD ("last_insert_id:%llu, ", insertId);
+    LOGT ("last_insert_id:%llu, ", insertId);
 
     /* Get status and Warning */
     if (currSharedInfo->cliProtoIsV41) {
@@ -1173,7 +1173,7 @@ pktOk (mysqlEvent event, u_char *payload, u_int payloadLen,
     memcpy (okInfo, pkt, toCopyLen);
     okInfo [toCopyLen] = 0;
     pkt += realLen;
-    LOGD ("info:%s\n", okInfo);
+    LOGT ("info:%s\n", okInfo);
 
     /*
      * For mysql handshake, COM_QUIT and COM_PING packet, there is no request
@@ -1204,17 +1204,17 @@ pktError (mysqlEvent event, u_char *payload, u_int payloadLen,
 
     if (currSessionDetail->showS2CTag) {
         currSessionDetail->showS2CTag = False;
-        LOGD ("Cli <<----------------<< Server packet seqId:%u\n",
+        LOGT ("Cli <<----------------<< Server packet seqId:%u\n",
               currSessionDetail->seqId);
     }
 
-    LOGD ("%sError response packet\n", MYSQL_INFO_DISPLAY_INDENT1);
+    LOGT ("%sError response packet\n", MYSQL_INFO_DISPLAY_INDENT1);
     pkt += 1;
 
     /* Error code */
     errCode = FLI2 (pkt);
     pkt += 2;
-    LOGD ("%sError_code:%u, ", MYSQL_INFO_DISPLAY_INDENT1, errCode);
+    LOGT ("%sError_code:%u, ", MYSQL_INFO_DISPLAY_INDENT1, errCode);
 
     if (currSharedInfo->cliProtoIsV41) {
         /* SQL State marker */
@@ -1224,7 +1224,7 @@ pktError (mysqlEvent event, u_char *payload, u_int payloadLen,
         /* SQL State */
         memcpy (sqlState, pkt, 5);
         pkt += 5;
-        LOGD ("sql_state_marker:%u, sql_state:%u\n",
+        LOGT ("sql_state_marker:%u, sql_state:%u\n",
               sqlStateMarker, atoi (sqlState));
     }
 
@@ -1234,7 +1234,7 @@ pktError (mysqlEvent event, u_char *payload, u_int payloadLen,
     memcpy (errMsg, pkt, toCopyLen);
     errMsg [toCopyLen] = 0;
     pkt += realLen;
-    LOGD ("%sError_message:%s\n", MYSQL_INFO_DISPLAY_INDENT1, errMsg);
+    LOGT ("%sError_message:%s\n", MYSQL_INFO_DISPLAY_INDENT1, errMsg);
 
     /*
      * For mysql handshake, COM_QUIT and COM_PING packet, there is no request
@@ -1279,11 +1279,11 @@ pktEnd (mysqlEvent event, u_char *payload, u_int payloadLen,
         if (statusFlags & SERVER_MORE_RESULTS_EXISTS) {
             if (currSessionDetail->showS2CTag) {
                 currSessionDetail->showS2CTag = False;
-                LOGD ("Cli <<----------------<< Server packet seqId:%u\n",
+                LOGT ("Cli <<----------------<< Server packet seqId:%u\n",
                       currSessionDetail->seqId);
             }
 
-            LOGD ("%sEnd response packet with more results\n",
+            LOGT ("%sEnd response packet with more results\n",
                   MYSQL_INFO_DISPLAY_INDENT1);
             return EVENT_HANDLE_OK;
         } else
@@ -1292,11 +1292,11 @@ pktEnd (mysqlEvent event, u_char *payload, u_int payloadLen,
 
     if (currSessionDetail->showS2CTag) {
         currSessionDetail->showS2CTag = False;
-        LOGD ("Cli <<----------------<< Server packet seqId:%u\n",
+        LOGT ("Cli <<----------------<< Server packet seqId:%u\n",
               currSessionDetail->seqId);
     }
 
-    LOGD ("%sEnd response packet\n", MYSQL_INFO_DISPLAY_INDENT1);
+    LOGT ("%sEnd response packet\n", MYSQL_INFO_DISPLAY_INDENT1);
 
     if (currSessionDetail->mstate == STATE_END_OR_ERROR ||
         currSessionDetail->mstate == STATE_FIELD_LIST ||
@@ -1320,7 +1320,7 @@ pktStatistics (mysqlEvent event, u_char *payload, u_int payloadLen,
 
     if (currSessionDetail->showS2CTag) {
         currSessionDetail->showS2CTag = False;
-        LOGD ("Cli <<----------------<< Server packet seqId:%u\n",
+        LOGT ("Cli <<----------------<< Server packet seqId:%u\n",
               currSessionDetail->seqId);
     }
 
@@ -1329,7 +1329,7 @@ pktStatistics (mysqlEvent event, u_char *payload, u_int payloadLen,
     memcpy (statistics, payload, toCopyLen);
     statistics [toCopyLen] = 0;
     pkt += payloadLen;
-    LOGD ("%sStatistics:%s\n", MYSQL_INFO_DISPLAY_INDENT1, statistics);
+    LOGT ("%sStatistics:%s\n", MYSQL_INFO_DISPLAY_INDENT1, statistics);
 
     currSessionDetail->respTimeEnd = timeVal2MilliSecond (currTime);
     currSessionDetail->state = MYSQL_RESPONSE_OK;
@@ -1353,7 +1353,7 @@ pktNFields (mysqlEvent event, u_char *payload, u_int payloadLen,
 
     if (currSessionDetail->showS2CTag) {
         currSessionDetail->showS2CTag = False;
-        LOGD ("Cli <<----------------<< Server packet seqId:%u\n",
+        LOGT ("Cli <<----------------<< Server packet seqId:%u\n",
               currSessionDetail->seqId);
     }
 
@@ -1362,7 +1362,7 @@ pktNFields (mysqlEvent event, u_char *payload, u_int payloadLen,
     currSessionDetail->cmdCtxt.fieldsCount = count;
     currSessionDetail->cmdCtxt.fieldsRecv = 0;
     pkt += encLen;
-    LOGD ("%sField_count:%u\n", MYSQL_INFO_DISPLAY_INDENT1, (u_int) count);
+    LOGT ("%sField_count:%u\n", MYSQL_INFO_DISPLAY_INDENT1, (u_int) count);
 
     return EVENT_HANDLE_OK;
 }
@@ -1382,11 +1382,11 @@ pktLocalINFile (mysqlEvent event, u_char *payload, u_int payloadLen,
         return EVENT_HANDLE_ERROR;
 
     if (currSessionDetail->showS2CTag) {
-        LOGD ("Cli <<----------------<< Server packet seqId:%u\n",
+        LOGT ("Cli <<----------------<< Server packet seqId:%u\n",
               currSessionDetail->seqId);
     }
 
-    LOGD ("%sLocal file request packet\n", MYSQL_INFO_DISPLAY_INDENT1);
+    LOGT ("%sLocal file request packet\n", MYSQL_INFO_DISPLAY_INDENT1);
     pkt += 1;
 
     realLen = payload + payloadLen - pkt;
@@ -1394,7 +1394,7 @@ pktLocalINFile (mysqlEvent event, u_char *payload, u_int payloadLen,
     memcpy (buf, pkt, toCopyLen);
     buf [toCopyLen] = 0;
     pkt += realLen;
-    LOGD ("%sFile_name:%s\n", MYSQL_INFO_DISPLAY_INDENT1, buf);
+    LOGT ("%sFile_name:%s\n", MYSQL_INFO_DISPLAY_INDENT1, buf);
 
     return EVENT_HANDLE_OK;
 }
@@ -1421,12 +1421,12 @@ pktField (mysqlEvent event, u_char *payload, u_int payloadLen,
 
     if (currSessionDetail->showS2CTag) {
         currSessionDetail->showS2CTag = False;
-        LOGD ("Cli <<----------------<< Server packet seqId:%u\n",
+        LOGT ("Cli <<----------------<< Server packet seqId:%u\n",
               currSessionDetail->seqId);
     }
 
     currSessionDetail->cmdCtxt.fieldsRecv++;
-    LOGD ("%sField definition: ", MYSQL_INFO_DISPLAY_INDENT1);
+    LOGT ("%sField definition: ", MYSQL_INFO_DISPLAY_INDENT1);
 
     if (currSharedInfo->cliProtoIsV41) {
         /* Get catalog */
@@ -1436,7 +1436,7 @@ pktField (mysqlEvent event, u_char *payload, u_int payloadLen,
         memcpy (buf, pkt, toCopyLen);
         buf [toCopyLen] = 0;
         pkt += realLen;
-        LOGD ("catalog:%s, ", buf);
+        LOGT ("catalog:%s, ", buf);
 
         /* Get schema */
         realLen = encLenInt (pkt, &encLen);
@@ -1445,7 +1445,7 @@ pktField (mysqlEvent event, u_char *payload, u_int payloadLen,
         memcpy (buf, pkt, toCopyLen);
         buf [toCopyLen] = 0;
         pkt += realLen;
-        LOGD ("schema:%s, ", buf);
+        LOGT ("schema:%s, ", buf);
 
         /* Get table */
         realLen = encLenInt (pkt, &encLen);
@@ -1454,7 +1454,7 @@ pktField (mysqlEvent event, u_char *payload, u_int payloadLen,
         memcpy (buf, pkt, toCopyLen);
         buf [toCopyLen] = 0;
         pkt += realLen;
-        LOGD ("table:%s, ", buf);
+        LOGT ("table:%s, ", buf);
 
         /* Get org_table */
         realLen = encLenInt (pkt, &encLen);
@@ -1463,7 +1463,7 @@ pktField (mysqlEvent event, u_char *payload, u_int payloadLen,
         memcpy (buf, pkt, toCopyLen);
         buf [toCopyLen] = 0;
         pkt += realLen;
-        LOGD ("org_table:%s, ", buf);
+        LOGT ("org_table:%s, ", buf);
 
         /* Get name */
         realLen = encLenInt (pkt, &encLen);
@@ -1472,7 +1472,7 @@ pktField (mysqlEvent event, u_char *payload, u_int payloadLen,
         memcpy (buf, pkt, toCopyLen);
         buf [toCopyLen] = 0;
         pkt += realLen;
-        LOGD ("name:%s, ", buf);
+        LOGT ("name:%s, ", buf);
 
         /* Get org_name */
         realLen = encLenInt (pkt, &encLen);
@@ -1481,7 +1481,7 @@ pktField (mysqlEvent event, u_char *payload, u_int payloadLen,
         memcpy (buf, pkt, toCopyLen);
         buf [toCopyLen] = 0;
         pkt += realLen;
-        LOGD ("org_name:%s, ", buf);
+        LOGT ("org_name:%s, ", buf);
 
         /* Get length of fixed-length fields */
         realLen = encLenInt (pkt, &encLen);
@@ -1500,7 +1500,7 @@ pktField (mysqlEvent event, u_char *payload, u_int payloadLen,
         if (currSessionDetail->cmdCtxt.fieldsRecv <= sizeof (currSessionDetail->cmdCtxt.fieldsType))
             currSessionDetail->cmdCtxt.fieldsType [currSessionDetail->cmdCtxt.fieldsRecv - 1] = type;
         pkt += 1;
-        LOGD ("type:%s\n", getFieldTypeName (type));
+        LOGT ("type:%s\n", getFieldTypeName (type));
 
         /* Get flags */
         flags = FLI2 (pkt);
@@ -1517,7 +1517,7 @@ pktField (mysqlEvent event, u_char *payload, u_int payloadLen,
         memcpy (buf, pkt, toCopyLen);
         buf [toCopyLen] = 0;
         pkt += realLen;
-        LOGD ("table:%s, ", buf);
+        LOGT ("table:%s, ", buf);
 
         /* Get name */
         realLen = encLenInt (pkt, &encLen);
@@ -1526,7 +1526,7 @@ pktField (mysqlEvent event, u_char *payload, u_int payloadLen,
         memcpy (buf, pkt, toCopyLen);
         buf [toCopyLen] = 0;
         pkt += realLen;
-        LOGD ("name:%s, ", buf);
+        LOGT ("name:%s, ", buf);
 
         /* Get length of fixed-length fields */
         encLen = 1;
@@ -1541,7 +1541,7 @@ pktField (mysqlEvent event, u_char *payload, u_int payloadLen,
         if (currSessionDetail->cmdCtxt.fieldsRecv <= sizeof (currSessionDetail->cmdCtxt.fieldsType))
             currSessionDetail->cmdCtxt.fieldsType [currSessionDetail->cmdCtxt.fieldsRecv - 1] = type;
         pkt += 1;
-        LOGD ("type:%s\n", getFieldTypeName (type));
+        LOGT ("type:%s\n", getFieldTypeName (type));
 
         /* Skip length of flags+decimals fields */
         encLen = 1;
@@ -1590,11 +1590,11 @@ pktTxtRow (mysqlEvent event, u_char *payload, u_int payloadLen,
 
     if (currSessionDetail->showS2CTag) {
         currSessionDetail->showS2CTag = False;
-        LOGD ("Cli <<----------------<< Server packet seqId:%u\n",
+        LOGT ("Cli <<----------------<< Server packet seqId:%u\n",
               currSessionDetail->seqId);
     }
 
-    LOGD ("%s||", MYSQL_INFO_DISPLAY_INDENT1);
+    LOGT ("%s||", MYSQL_INFO_DISPLAY_INDENT1);
     while (pkt < (payload + payloadLen)) {
         realLen = encLenInt (pkt, &encLen);
         pkt += encLen;
@@ -1607,9 +1607,9 @@ pktTxtRow (mysqlEvent event, u_char *payload, u_int payloadLen,
             snprintf (buf, sizeof (buf), "NULL");
 
         pkt += realLen;
-        LOGD (" %s |", buf);
+        LOGT (" %s |", buf);
     }
-    LOGD ("|\n");
+    LOGT ("|\n");
 
     return EVENT_HANDLE_OK;
 }
@@ -1627,9 +1627,9 @@ pktLocalINFileData (mysqlEvent event, u_char *payload, u_int payloadLen,
 
     if (currSessionDetail->showC2STag) {
         currSessionDetail->showC2STag = False;
-        LOGD ("Cli >>---------------->> Server packet seqId:%u\n",
+        LOGT ("Cli >>---------------->> Server packet seqId:%u\n",
               currSessionDetail->seqId);
-        LOGD ("%sLocal infile data:\n", MYSQL_INFO_DISPLAY_INDENT1);
+        LOGT ("%sLocal infile data:\n", MYSQL_INFO_DISPLAY_INDENT1);
     }
 
     realLen = payloadLen;
@@ -1637,7 +1637,7 @@ pktLocalINFileData (mysqlEvent event, u_char *payload, u_int payloadLen,
     memcpy (buf, payload, toCopyLen);
     buf [toCopyLen] = 0;
     pkt += realLen;
-    LOGD ("%s%s\n", MYSQL_INFO_DISPLAY_INDENT1, buf);
+    LOGT ("%s%s\n", MYSQL_INFO_DISPLAY_INDENT1, buf);
 
     return EVENT_HANDLE_OK;
 }
@@ -1667,7 +1667,7 @@ pktBinRow (mysqlEvent event, u_char *payload, u_int payloadLen,
 
     if (currSessionDetail->showS2CTag) {
         currSessionDetail->showS2CTag = False;
-        LOGD ("Cli <<----------------<< Server packet seqId:%u\n",
+        LOGT ("Cli <<----------------<< Server packet seqId:%u\n",
               currSessionDetail->seqId);
     }
 
@@ -1680,53 +1680,53 @@ pktBinRow (mysqlEvent event, u_char *payload, u_int payloadLen,
 
     columnEnd = MIN_NUM (currSessionDetail->cmdCtxt.fieldsCount,
                          sizeof (currSessionDetail->cmdCtxt.fieldsType));
-    LOGD ("%s||", MYSQL_INFO_DISPLAY_INDENT1);
+    LOGT ("%s||", MYSQL_INFO_DISPLAY_INDENT1);
     for (column = 0; column < columnEnd; column ++) {
         nullBitmapByte = (column + 2) / 8;
         nullBitmapByteBit = (column + 2) % 8;
 
         /* Colum is null */
         if (nullBitmap [nullBitmapByte] & (1 << nullBitmapByteBit)) {
-            LOGD (" NULL |");
+            LOGT (" NULL |");
             continue;
         } else {
             switch (currSessionDetail->cmdCtxt.fieldsType [column]) {
                 case FIELD_TYPE_TINY:
                     intNum = FLI1 (pkt);
                     pkt += 1;
-                    LOGD (" %llu |", intNum);
+                    LOGT (" %llu |", intNum);
                     break;
 
                 case FIELD_TYPE_SHORT:
                 case FIELD_TYPE_YEAR:
                     intNum = FLI2 (pkt);
                     pkt += 2;
-                    LOGD (" %llu |", intNum);
+                    LOGT (" %llu |", intNum);
                     break;
 
                 case FIELD_TYPE_LONG:
                 case FIELD_TYPE_INT24:
                     intNum = FLI4 (pkt);
                     pkt += 4;
-                    LOGD (" %llu |", intNum);
+                    LOGT (" %llu |", intNum);
                     break;
 
                 case FIELD_TYPE_FLOAT:
                     floatNum = *((float *) pkt);
                     pkt += 4;
-                    LOGD (" %f |", floatNum);
+                    LOGT (" %f |", floatNum);
                     break;
 
                 case FIELD_TYPE_DOUBLE:
                     doubleNum = *((double *) pkt);
                     pkt += 8;
-                    LOGD (" %lf |", doubleNum);
+                    LOGT (" %lf |", doubleNum);
                     break;
 
                 case FIELD_TYPE_LONGLONG:
                     intNum = FLI8 (pkt);
                     pkt += 8;
-                    LOGD (" %llu |", intNum);
+                    LOGT (" %llu |", intNum);
                     break;
 
                 case FIELD_TYPE_DATE:
@@ -1743,7 +1743,7 @@ pktBinRow (mysqlEvent event, u_char *payload, u_int payloadLen,
                     }
                     snprintf (buf, sizeof (buf), "%04u-%02u-%02u",
                               years, months, days);
-                    LOGD (" %s |", buf);
+                    LOGT (" %s |", buf);
                     break;
 
                 case FIELD_TYPE_TIME:
@@ -1768,7 +1768,7 @@ pktBinRow (mysqlEvent event, u_char *payload, u_int payloadLen,
                     }
                     snprintf (buf, sizeof (buf), "%s%06u-%02u:%02u:%02u.%06u",
                               (sign ? "-" : ""), days, hours, mins, secs, microSecs);
-                    LOGD (" %s |", buf);
+                    LOGT (" %s |", buf);
                     break;
 
                 case FIELD_TYPE_DATETIME:
@@ -1797,7 +1797,7 @@ pktBinRow (mysqlEvent event, u_char *payload, u_int payloadLen,
                     }
                     snprintf (buf, sizeof (buf), "%04u-%02u-%02u %02u:%02u:%02u.%06u",
                               years, months, days, hours, mins, secs, microSecs);
-                    LOGD (" %s |", buf);
+                    LOGT (" %s |", buf);
                     break;
 
                 case FIELD_TYPE_VARCHAR:
@@ -1813,17 +1813,17 @@ pktBinRow (mysqlEvent event, u_char *payload, u_int payloadLen,
                     memcpy (buf, pkt, toCopyLen);
                     buf [toCopyLen] = 0;
                     pkt += realLen;
-                    LOGD (" %s |", buf);
+                    LOGT (" %s |", buf);
                     break;
 
                 default:
-                    LOGD (" %s ||\n",
+                    LOGT (" %s ||\n",
                           getFieldTypeName (currSessionDetail->cmdCtxt.fieldsType [column]));
                     return EVENT_HANDLE_OK;
             }
         }
     }
-    LOGD ("|\n");
+    LOGT ("|\n");
 
     return EVENT_HANDLE_OK;
 }
@@ -1845,7 +1845,7 @@ pktStmtMeta (mysqlEvent event, u_char *payload, u_int payloadLen,
 
     if (currSessionDetail->showS2CTag) {
         currSessionDetail->showS2CTag = False;
-        LOGD ("Cli <<----------------<< Server packet seqId:%u\n",
+        LOGT ("Cli <<----------------<< Server packet seqId:%u\n",
               currSessionDetail->seqId);
     }
 
@@ -1873,7 +1873,7 @@ pktStmtMeta (mysqlEvent event, u_char *payload, u_int payloadLen,
     warnCount = FLI2 (pkt);
     pkt += 2;
 
-    LOGD ("%sStatus:%u, statement_id:%u, num_columns:%u, num_params:%u, warning_count:%u\n",
+    LOGT ("%sStatus:%u, statement_id:%u, num_columns:%u, num_params:%u, warning_count:%u\n",
           MYSQL_INFO_DISPLAY_INDENT1, status, stmtId, numColumns, numParams, warnCount);
 
     return EVENT_HANDLE_OK;
@@ -1891,11 +1891,11 @@ pktStmtFetchRS (mysqlEvent event, u_char *payload, u_int payloadLen,
 
     if (currSessionDetail->showS2CTag) {
         currSessionDetail->showS2CTag = False;
-        LOGD ("Cli <<----------------<< Server packet seqId:%u\n",
+        LOGT ("Cli <<----------------<< Server packet seqId:%u\n",
               currSessionDetail->seqId);
     }
 
-    LOGD ("%sStatement fetch result ... .. .\n",
+    LOGT ("%sStatement fetch result ... .. .\n",
           MYSQL_INFO_DISPLAY_INDENT1);
 
     return EVENT_HANDLE_OK;

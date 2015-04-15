@@ -8,6 +8,7 @@
 #include "app_service_manager.h"
 #include "profile_cache.h"
 #include "netdev.h"
+#include "proto_analyzer.h"
 #include "management_service.h"
 
 static boolean managementRegisterSuccess = False;
@@ -21,6 +22,9 @@ static zmq_pollitem_t managementRegisterResponsePollItem;
 /* Packets statistic related variables */
 static u_int packetsStatisticPktsReceive = 0;
 static u_int packetsStatisticPktsDrop = 0;
+
+/* Proto analyzer information */
+static protoAnalyzerInfo protoAnalyzerInformation;
 
 /*
  * @brief resume request handler
@@ -175,6 +179,26 @@ handlePacketsStatisticRequest (json_t *body) {
 }
 
 /*
+ * @brief get proto information handler
+ *
+ * @param body data to handle
+ *
+ * @return 0 if success else -1
+ */
+static int
+handleGetProtoInfoRequest (json_t *body) {
+    int ret;
+
+    ret = getProtoAnalyzerInfo (&protoAnalyzerInformation);
+    if (ret < 0) {
+        LOGE ("Get proto analyzer information error.\n");
+        return -1;
+    }
+
+    return 0;
+}
+
+/*
  * @brief Build management control response based on command
  *
  * @param cmd command for response
@@ -183,8 +207,9 @@ handlePacketsStatisticRequest (json_t *body) {
  */
 static char *
 buildManagementControlResponse (char *cmd, int code) {
+    u_int i;
     char *response;
-    json_t *root, *body;
+    json_t *root, *body, *protoNames;
 
     root = json_object ();
     if (root == NULL) {
@@ -208,6 +233,22 @@ buildManagementControlResponse (char *cmd, int code) {
             json_object_set_new (body, MANAGEMENT_CONTROL_RESPONSE_BODY_PACKETS_DROP_RATE,
                                  json_real (((double) packetsStatisticPktsDrop /
                                              (double) packetsStatisticPktsReceive) * 100));
+        } else if (strEqual (cmd, MANAGEMENT_CONTROL_REQUEST_COMMAND_PROTO_INFO)) {
+            protoNames = json_array ();
+            if (protoNames == NULL) {
+                LOGE ("Create json array protoNames error.\n");
+                json_object_clear (body);
+                json_object_clear (root);
+                return NULL;
+            }
+
+            json_object_set_new (body, MANAGEMENT_CONTROL_RESPONSE_BODY_PROTO_NUM,
+                                 json_integer (protoAnalyzerInformation.registeredProtoSize));
+
+            for (i = 0; i < protoAnalyzerInformation.registeredProtoSize; i++)
+                json_array_append_new (protoNames, json_string (protoAnalyzerInformation.protoNames [i]));
+
+            json_object_set_new (body, MANAGEMENT_CONTROL_RESPONSE_BODY_PROTO_NAMES, protoNames);
         }
 
         json_object_set_new (root, MANAGEMENT_CONTROL_RESPONSE_CODE, json_integer (0));
@@ -271,8 +312,10 @@ managementControlRequestHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg)
         ret = handleHeartbeatRequest (body);
     else if (strEqual (MANAGEMENT_CONTROL_REQUEST_COMMAND_UPDATE_PROFILE, cmdStr))
         ret = handleUpdateProfileRequest (body);
-    else if (strEqual (MANAGEMENT_CONTROL_REQUEST_COMMAND_PACKETS_STATISTIC, cmdStr), cmdStr)
+    else if (strEqual (MANAGEMENT_CONTROL_REQUEST_COMMAND_PACKETS_STATISTIC, cmdStr))
         ret = handlePacketsStatisticRequest (body);
+    else if (strEqual (MANAGEMENT_CONTROL_REQUEST_COMMAND_PROTO_INFO, cmdStr))
+        ret = handleGetProtoInfoRequest (body);
     else {
         LOGE ("Unknown management control request command: %s.\n", cmdStr);
         ret = -1;
@@ -361,9 +404,9 @@ buildManagementRegisterRequest (void) {
                          json_string (MANAGEMENT_REGISTER_REQUEST_COMMAND_REGISTER));
 
     json_object_set_new (body, MANAGEMENT_REGISTER_REQUEST_BODY_MANAGEMENT_IP,
-                         json_string (getPropertiesManagementServiceIp ()));
+                         json_string (getPropertiesManagementControlHost ()));
     json_object_set_new (body, MANAGEMENT_REGISTER_REQUEST_BODY_MANAGEMENT_PORT,
-                         json_integer (getPropertiesManagementServicePort ()));
+                         json_integer (getPropertiesManagementControlPort ()));
 
     json_object_set_new (root, MANAGEMENT_REGISTER_REQUEST_BODY, body);
 
@@ -385,11 +428,11 @@ startManagementRegisterTask (zloop_t *loop) {
         return;
     }
     ret = zsocket_connect (requestSock, "tcp://%s:%u",
-                           getPropertiesServerIp (),
+                           getPropertiesMiningEngineHost (),
                            getPropertiesManagementRegisterPort ());
     if (ret < 0) {
         LOGE ("Bind to tcp://%s:%u error.\n",
-              getPropertiesServerIp (),
+              getPropertiesMiningEngineHost (),
               getPropertiesManagementRegisterPort ());
         zsocket_destroy (managmentServiceZmqCtxt, requestSock);
     }

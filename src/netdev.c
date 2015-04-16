@@ -16,21 +16,23 @@ static pcap_t *pcapDescInstance = NULL;
 static int datalinkType = -1;
 
 static pcap_t *
-newPcapDesc (char *interface) {
+newPcapOfflineDesc (char *pcapFile) {
+    pcap_t *pcapDesc;
+    char errBuf [PCAP_ERRBUF_SIZE] = {0};
+
+    pcapDesc = pcap_open_offline (pcapFile, errBuf);
+    if (pcapDesc == NULL)
+        LOGE ("Open pcap offline input error: %s\n", errBuf);
+
+    return pcapDesc;
+}
+
+static pcap_t *
+newPcapMirroInterfaceDesc (char *interface) {
     int ret;
     pcap_t *pcapDesc;
     pcap_if_t *alldevs, *devptr;
     char errBuf [PCAP_ERRBUF_SIZE] = {0};
-
-    if (getPropertiesPcapOfflineInput ()) {
-        pcapDesc = pcap_open_offline (getPropertiesPcapOfflineInput(), errBuf);
-        if (pcapDesc) {
-            LOGI ("Use pcap offline input: %s.\n", getPropertiesPcapOfflineInput ());
-            return pcapDesc;
-        }
-
-        LOGE ("Open pcap offline input error %s, will use default network device.\n", errBuf);
-    }
 
     /* Check interface exists */
     ret = pcap_findalldevs (&alldevs, errBuf);
@@ -104,6 +106,27 @@ newPcapDesc (char *interface) {
     return pcapDesc;
 }
 
+static pcap_t *
+newPcapDesc (void) {
+    pcap_t *pcapDesc;
+
+    if (getPropertiesPcapOfflineInput ()) {
+        pcapDesc = newPcapOfflineDesc (getPropertiesPcapOfflineInput ());
+        if (pcapDesc) {
+            LOGI ("Use pcap offline input: %s.\n", getPropertiesPcapOfflineInput ());
+            return pcapDesc;
+        }
+
+        LOGE ("Open pcap offline input error, will use default mirror interface.\n");
+    }
+
+    pcapDesc = newPcapMirroInterfaceDesc (getPropertiesMirrorInterface ());
+    if (pcapDesc == NULL)
+        LOGE ("Open pcap mirror interface: %s error.\n", getPropertiesMirrorInterface ());
+
+    return pcapDesc;
+}
+
 pcap_t *
 getNetDev (void) {
     return pcapDescInstance;
@@ -150,7 +173,7 @@ updateFilter (char *filter) {
 int
 initNetDev (void) {
     /* Create pcap descriptor instance */
-    pcapDescInstance = newPcapDesc (getPropertiesMirrorInterface ());
+    pcapDescInstance = newPcapDesc ();
     if (pcapDescInstance == NULL) {
         LOGE ("Create pcap descriptor instance error.\n");
         return -1;

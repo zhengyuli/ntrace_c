@@ -1,4 +1,7 @@
 #include <stdlib.h>
+#define _GNU_SOURCE
+#include <sched.h>
+#include <pthread.h>
 #include "util.h"
 #include "properties.h"
 #include "signals.h"
@@ -18,6 +21,7 @@ void *
 tcpProcessService (void *args) {
     int ret;
     u_int dispatchIndex;
+    cpu_set_t cpuset;
     void *tcpPktRecvSock;
     void *tcpBreakdownSendSock;
     zframe_t *tmFrame = NULL;
@@ -38,6 +42,16 @@ tcpProcessService (void *args) {
         fprintf (stderr, "Init log context error.\n");
         goto exit;
     }
+
+    /* Bind tcpProcessService to CPU# */
+    CPU_ZERO (&cpuset);
+    CPU_SET (dispatchIndex, &cpuset);
+    ret = pthread_setaffinity_np (pthread_self (), sizeof (cpu_set_t), &cpuset);
+    if (ret < 0) {
+        LOGE ("Binding tcpProcessService:%u to CPU%u error.\n", dispatchIndex, dispatchIndex);
+        goto destroyLogContext;
+    }
+    LOGI ("Binding tcpProcessService:%u to CPU%u success.\n", dispatchIndex, dispatchIndex);
 
     /* Init tcp context */
     ret = initTcp (tcpBreakdownSendSock);

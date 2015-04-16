@@ -265,7 +265,7 @@ initZmqHub (void) {
     }
 
     /* Get tcp process threads number */
-    zmqHubIntance->tcpProcessThreadsNum = getCpuCoresNum () + 1;
+    zmqHubIntance->tcpProcessThreadsNum = getCpuCoresNum ();
 
     /* Alloc tcpProcessThreadIDsHolder */
     zmqHubIntance->tcpProcessThreadIDsHolder =

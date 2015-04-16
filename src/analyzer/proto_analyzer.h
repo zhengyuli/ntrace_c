@@ -25,7 +25,7 @@ struct _protoAnalyzerInfo {
 };
 
 /*=================Proto analyzer callbacks definition=====================*/
-/*
+/**
  * @brief Proto analyzer init function.
  *        This callback will be called when proto analyzer module
  *        load this proto analyzer and do proto analyzer initialization.
@@ -34,28 +34,28 @@ struct _protoAnalyzerInfo {
  */
 typedef int (*initProtoAnalyzerCB) (void);
 
-/*
+/**
  * @brief Proto analyzer destroy function.
  *        This callback will be called when proto analyzer module exit,
  *        it will destroy proto analyzer context.
  */
 typedef void (*destroyProtoAnalyzerCB) (void);
 
-/*
+/**
  * @brief Create new session detail.
  *        This callback will be called when tcp session is created, it
  *        will create a new session detail to track the session process.
  */
 typedef void * (*newSessionDetailCB) (void);
 
-/*
+/**
  * @brief Destroy session detail.
  *        This callback will be called when tcp session is closed, it
  *        will destroy the session detail allocated before.
  */
 typedef void (*freeSessionDetailCB) (void *sd);
 
-/*
+/**
  * @brief Create new session breakdown.
  *        This callback will be called when tcp session breakdown is created,
  *        it will create a new session breakdown to hold breakdown information
@@ -63,14 +63,14 @@ typedef void (*freeSessionDetailCB) (void *sd);
  */
 typedef void * (*newSessionBreakdownCB) (void);
 
-/*
+/**
  * @brief Destroy session breakdown.
  *        This callback will be called when tcp session breakdown is destroyed,
  *        it will destroy the session breakdown allocated before.
  */
 typedef void (*freeSessionBreakdownCB) (void *sbd);
 
-/*
+/**
  * @brief Generate session breakdown.
  *        This callback will be called when tcp session breakdown is generated,
  *        it will generate session breakdown by session detail.
@@ -79,7 +79,7 @@ typedef void (*freeSessionBreakdownCB) (void *sbd);
  */
 typedef int (*generateSessionBreakdownCB) (void *sd, void *sbd);
 
-/*
+/**
  * @brief Convert session breakdown to json.
  *        This callback will be called when tcp session breakdown is generated,
  *        it will convert session breakdown to json format.
@@ -90,7 +90,7 @@ typedef int (*generateSessionBreakdownCB) (void *sd, void *sbd);
  */
 typedef void (*sessionBreakdown2JsonCB) (json_t *root, void *sd, void *sbd);
 
-/*
+/**
  * @brief Tcp connection establish callback.
  *        This callback will be called when tcp connection is established.
  *
@@ -99,7 +99,7 @@ typedef void (*sessionBreakdown2JsonCB) (json_t *root, void *sd, void *sbd);
  */
 typedef void (*sessionProcessEstbCB) (timeValPtr tm, void *sd);
 
-/*
+/**
  * @brief Tcp urgency data process callback.
  *        This callback will be called when receive tcp urgency data.
  *
@@ -111,7 +111,7 @@ typedef void (*sessionProcessEstbCB) (timeValPtr tm, void *sd);
 typedef void (*sessionProcessUrgeDataCB) (streamDirection direction, char urgData,
                                           timeValPtr tm, void *sd);
 
-/*
+/**
  * @brief Tcp data process callback.
  *        This callback will be called when receive application proto data, this callback
  *        will process data and return data length has been processed. if data process is
@@ -130,7 +130,7 @@ typedef void (*sessionProcessUrgeDataCB) (streamDirection direction, char urgDat
 typedef u_int (*sessionProcessDataCB) (streamDirection direction, u_char *data, u_int dataLen,
                                        timeValPtr tm, void *sd, sessionState *state);
 
-/*
+/**
  * @brief Tcp reset process callback.
  *        This callback will be called when tcp connection is reset.
  *
@@ -140,7 +140,7 @@ typedef u_int (*sessionProcessDataCB) (streamDirection direction, u_char *data, 
  */
 typedef void (*sessionProcessResetCB) (streamDirection direction, timeValPtr tm, void *sd);
 
-/*
+/**
  * @brief Tcp finish process callback.
  *        This callback will be called when tcp fin packet is received.
  *        If session is complete, set state to SESSION_DONE, else set to

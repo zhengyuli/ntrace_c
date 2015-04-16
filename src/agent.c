@@ -116,7 +116,7 @@ startServices (void) {
     for (i = 0; i < getTcpProcessThreadsNum (); i++) {
         ret = newTask (tcpProcessService, getTcpProcessThreadIDHolder (i));
         if (ret < 0) {
-            LOGE ("Create tcpProcessService %u error.\n", i);
+            LOGE ("Create tcpProcessService:%u error.\n", i);
             goto stopAllTask;
         }
     }

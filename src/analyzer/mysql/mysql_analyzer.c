@@ -2078,8 +2078,6 @@ sqlParse (u_char *data, u_int dataLen, streamDirection direction) {
                 } else
                     handler = NULL;
             }
-            if (handler == NULL)
-                LOGW ("Warning: has no proper handler.\n");
         }
 
         parseCount += pktLen;

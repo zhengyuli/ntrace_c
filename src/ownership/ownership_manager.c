@@ -30,7 +30,7 @@ swapOwnershipMap (void) {
     ownershipMapSlave = tmp;
 }
 
-/*
+/**
  * @brief Get ownership packet dispatch sock.
  *
  * @param hash packet hash

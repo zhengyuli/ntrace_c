@@ -9,7 +9,8 @@ typedef void * (*taskRoutine) (void *args);
 
 typedef enum {
     TASK_STATUS_READY,
-    TASK_STATUS_EXIT
+    TASK_STATUS_EXIT_NORMALLY,
+    TASK_STATUS_EXIT_ABNORMALLY
 } taskStatus;
 
 typedef struct _taskItem taskItem;

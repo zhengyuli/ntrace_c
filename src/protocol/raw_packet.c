@@ -2,7 +2,7 @@
 #include <pcap.h>
 #include "log.h"
 
-/*
+/**
  * @brief Extract ip packet from raw packet
  *
  * @param rawPkt raw packet captured by pcap

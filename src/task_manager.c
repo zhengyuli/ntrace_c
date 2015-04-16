@@ -113,7 +113,7 @@ stopTaskForEachHashItem (void *data, void *args) {
 void
 stopAllTask (void) {
     hashLoopCheckToRemove (taskManagerHashTable, stopTaskForEachHashItem, NULL);
-    usleep (100000);
+    usleep (1000000);
 }
 
 void
@@ -152,7 +152,11 @@ taskStatusHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
 
     sscanf (taskStatusMsg, TASK_STATUS_MESSAGE_FORMAT_STRING, &taskStatus, &tid);
     switch (taskStatus) {
-        case TASK_STATUS_EXIT:
+        case TASK_STATUS_EXIT_NORMALLY:
+            LOGI ("Task %lu exit normally.\n", tid);
+            pthread_kill (pthread_self (), SIGINT);
+
+        case TASK_STATUS_EXIT_ABNORMALLY:
             LOGE ("Task %lu exit abnormally.\n",  tid);
             retries = 1;
             while (retries <= TASK_RESTART_MAX_RETRIES) {

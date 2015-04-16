@@ -40,7 +40,7 @@ dispatchHash (const char *key1, const char *key2) {
     return hash;
 }
 
-/*
+/**
  * @brief Dispatch timestamp and ip packet to local or remote
  *        tcp packet dispatch service.
  *
@@ -92,7 +92,7 @@ tcpPacketDispatch (iphdrPtr iph, timeValPtr tm) {
     }
 }
 
-/*
+/**
  * @brief Dispatch timestamp and ip packet to icmp
  *        packet process service.
  *
@@ -231,7 +231,7 @@ destroyLogContext:
     destroyLogContext ();
 exit:
     if (!SIGUSR1IsInterrupted ())
-        sendTaskStatus (TASK_STATUS_EXIT);
+        sendTaskStatus (TASK_STATUS_EXIT_ABNORMALLY);
 
     return NULL;
 }

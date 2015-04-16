@@ -1,5 +1,5 @@
-#include <stdlib.h>
 #define _GNU_SOURCE
+#include <stdlib.h>
 #include <sched.h>
 #include <pthread.h>
 #include "util.h"
@@ -105,7 +105,7 @@ destroyLogContext:
     destroyLogContext ();
 exit:
     if (!SIGUSR1IsInterrupted ())
-        sendTaskStatus (TASK_STATUS_EXIT);
+        sendTaskStatus (TASK_STATUS_EXIT_ABNORMALLY);
 
     return NULL;
 }

@@ -37,7 +37,7 @@ getAppServicesFromProfile (json_t *profile) {
     return json_object_get (profile, PROFILE_APP_SERVICES);
 }
 
-/*
+/**
  * @brief Sync profile to cache file.
  *
  * @param profile profile to sync

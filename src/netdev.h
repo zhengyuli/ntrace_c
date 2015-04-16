@@ -5,13 +5,15 @@
 
 /*========================Interfaces definition============================*/
 pcap_t *
-getNetDev (void);
+getNetDevPcapDesc (void);
 int
 getNetDevDatalinkType (void);
 int
 getNetDevPakcetsStatistic (u_int *pktsRecv, u_int *pktsDrop);
 int
-updateFilter (char *filter);
+updateNetDevFilter (char *filter);
+int
+reloadNetDev (void);
 int
 initNetDev (void);
 void

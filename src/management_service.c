@@ -26,7 +26,7 @@ static u_int packetsStatisticPktsDrop = 0;
 /* Proto analyzer information */
 static protoAnalyzerInfo protoAnalyzerInformation;
 
-/*
+/**
  * @brief resume request handler
  *
  * @param body data to handle
@@ -46,7 +46,7 @@ handleResumeRequest (json_t *body) {
     }
 
     /* Update application services filter */
-    ret = updateFilter (filter);
+    ret = updateNetDevFilter (filter);
     if (ret < 0)
         LOGE ("Update application services filter error.\n");
     else
@@ -56,7 +56,7 @@ handleResumeRequest (json_t *body) {
     return ret;
 }
 
-/*
+/**
  * @brief pause request handler
  *
  * @param body data to handle
@@ -76,7 +76,7 @@ handlePauseRequest (json_t *body) {
     }
 
     /* Update application services filter */
-    ret = updateFilter (filter);
+    ret = updateNetDevFilter (filter);
     if (ret < 0)
         LOGE ("Update application services filter error.\n");
     else
@@ -86,7 +86,7 @@ handlePauseRequest (json_t *body) {
     return ret;
 }
 
-/*
+/**
  * @brief heartbeat request handler
  *
  * @param body data to handle
@@ -98,7 +98,7 @@ handleHeartbeatRequest (json_t *body) {
     return 0;
 }
 
-/*
+/**
  * @brief update_profile request handler
  *
  * @param  body data to handle
@@ -137,7 +137,7 @@ handleUpdateProfileRequest (json_t *body) {
     }
 
     /* Update application services filter */
-    ret = updateFilter (filter);
+    ret = updateNetDevFilter (filter);
     if (ret < 0) {
         LOGE ("Update application services filter error.\n");
         free (filter);
@@ -157,7 +157,7 @@ handleUpdateProfileRequest (json_t *body) {
     return 0;
 }
 
-/*
+/**
  * @brief packets_statistic request handler
  *
  * @param  body data to handle
@@ -178,7 +178,7 @@ handlePacketsStatisticRequest (json_t *body) {
     return 0;
 }
 
-/*
+/**
  * @brief get proto information handler
  *
  * @param body data to handle
@@ -198,7 +198,7 @@ handleGetProtoInfoRequest (json_t *body) {
     return 0;
 }
 
-/*
+/**
  * @brief Build management control response based on command
  *
  * @param cmd command for response
@@ -549,7 +549,7 @@ destroyLogContext:
     destroyLogContext ();
 exit:
     if (!SIGUSR1IsInterrupted ())
-        sendTaskStatus (TASK_STATUS_EXIT);
+        sendTaskStatus (TASK_STATUS_EXIT_ABNORMALLY);
 
     return NULL;
 }

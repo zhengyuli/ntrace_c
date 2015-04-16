@@ -234,7 +234,7 @@ ipQueueDone (ipQueuePtr ipq) {
     return True;
 }
 
-/*
+/**
  * @brief Glue ip fragments of ipQueue
  *
  * @param ipq ipQueue to glue
@@ -325,7 +325,7 @@ ipPktShouldDrop (iphdrPtr iph) {
         return True;
 }
 
-/*
+/**
  * @brief Ip packet defragment processor
  *
  * @param iph ip packet header

@@ -38,7 +38,7 @@ dispatchHash (const char *key1, const char *key2) {
     return hash;
 }
 
-/*
+/**
  * @brief Dispatch timestamp and ip packet to specific tcp
  *        packet process service thread.
  *
@@ -62,7 +62,7 @@ tcpPacketDispatch (iphdrPtr iph, timeValPtr tm) {
     snprintf (key1, sizeof (key1), "%s:%d", inet_ntoa (iph->ipSrc), ntohs (tcph->source));
     snprintf (key2, sizeof (key2), "%s:%d", inet_ntoa (iph->ipDest), ntohs (tcph->dest));
 
-    hash = dispatchHash (key1, key2);    
+    hash = dispatchHash (key1, key2);
     tcpPktSendSock = getTcpPktSendSock (hash % getTcpProcessThreadsNum ());
 
     /* Send tm zframe*/
@@ -164,7 +164,7 @@ tcpDispatchService (void *args) {
     destroyLogContext ();
 exit:
     if (!SIGUSR1IsInterrupted ())
-        sendTaskStatus (TASK_STATUS_EXIT);
+        sendTaskStatus (TASK_STATUS_EXIT_ABNORMALLY);
 
     return NULL;
 }

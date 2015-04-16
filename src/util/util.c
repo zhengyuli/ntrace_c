@@ -183,7 +183,7 @@ gettid () {
     return syscall (SYS_gettid);
 }
 
-/*
+/**
  * @brief Get ip address of interface.
  *
  * @param interface interface name, like eth0

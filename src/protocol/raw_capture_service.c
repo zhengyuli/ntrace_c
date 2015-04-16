@@ -45,7 +45,7 @@ rawCaptureService (void *args) {
     }
 
     /* Get net device pcap descriptor */
-    pcapDev = getNetDev ();
+    pcapDev = getNetDevPcapDesc ();
     /* Get net device datalink type */
     datalinkType = getNetDevDatalinkType ();
     /* Get ipPktSendSock */
@@ -57,7 +57,7 @@ rawCaptureService (void *args) {
         LOGE ("Get application services filter error.\n");
         goto destroyLogContext;
     }
-    ret = updateFilter (filter);
+    ret = updateNetDevFilter (filter);
     if (ret < 0) {
         LOGE ("Update application services filter error.\n");
         free (filter);
@@ -114,15 +114,47 @@ rawCaptureService (void *args) {
             LOGE ("Capture raw packets with fatal error.\n");
             break;
         } else if (ret == -2) {
-            LOGI ("Capture raw packets from offline file complete.\n");
-            pthread_kill (pthread_self (), SIGUSR1);
-            break;
+            ret = reloadNetDev ();
+            if (ret < 0) {
+                LOGE ("Reload net device error.\n");
+                break;
+            }
+
+            if (ret == 1) {
+                rawPktCaptureEndTime = getSysTime ();
+                /* Show raw packets capture statistics info of pcap offline file */
+                LOGI ("Capture raw packets from pcap offline file complete.\n"
+                      "--size: %lf KB\n--interval: %llu ms\n--rate: %lf MB/s\n",
+                      ((double) rawPktCaptureSize / 1024),
+                      (rawPktCaptureEndTime - rawPktCaptureStartTime),
+                      (((double) rawPktCaptureSize / (128 * 1024)) /
+                       ((double) (rawPktCaptureEndTime - rawPktCaptureStartTime) / 1000)));
+
+                rawPktCaptureSize = 0;
+                rawPktCaptureStartTime = rawPktCaptureEndTime;
+            }
+
+            filter = getAppServicesFilter ();
+            if (filter == NULL) {
+                LOGE ("Get application service filter error.\n");
+                break;
+            }
+
+            ret = updateNetDevFilter (filter);
+            free (filter);
+            if (ret < 0) {
+                LOGE ("Update net device filter error.\n");
+                break;
+            }
+
+            pcapDev = getNetDevPcapDesc ();
         }
     }
 
     rawPktCaptureEndTime = getSysTime ();
-    /* Show raw packets capture statistics info */
-    LOGI ("Capture raw packets with size: %lf KB, interval: %llu ms, rate: %lf MB/s\n",
+    /* Show raw packets capture statistics info of network interface */
+    LOGI ("Capture raw packets from interface complete.\n"
+          "--size: %lf KB\n--interval: %llu ms\n--rate: %lf MB/s\n",
           ((double) rawPktCaptureSize / 1024),
           (rawPktCaptureEndTime - rawPktCaptureStartTime),
           (((double) rawPktCaptureSize / (128 * 1024)) /
@@ -133,7 +165,7 @@ destroyLogContext:
     destroyLogContext ();
 exit:
     if (!SIGUSR1IsInterrupted ())
-        sendTaskStatus (TASK_STATUS_EXIT);
+        sendTaskStatus (TASK_STATUS_EXIT_ABNORMALLY);
 
     return NULL;
 }

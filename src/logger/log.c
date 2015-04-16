@@ -23,7 +23,7 @@ struct _logContext {
 /* Thread local log context */
 static __thread logContextPtr logCtxtInstance = NULL;
 
-/*
+/**
  * @brief Format log message and send log message to log service.
  *
  * @param file Source file name
@@ -94,6 +94,10 @@ doLog (u_char logLevel, const char *file, u_int line, const char *func, char *ms
               timeStr, gettid (), logLevelStr, fileName, line, func, tmp);
     buf [MAX_LOG_MESSAGE_LENGTH - 1] = 0;
 
+    /* For log level <= LOG_ERR_LEVEL message, send to console also */
+    if (logLevel <= LOG_ERR_LEVEL)
+        fprintf (stdout, "%s", tmp);
+
     do {
         ret = zstr_send (logCtxtInstance->logSock, buf);
         retries -= 1;
@@ -103,7 +107,7 @@ doLog (u_char logLevel, const char *file, u_int line, const char *func, char *ms
         fprintf (stderr, "Send log message error.\n");
 }
 
-/*
+/**
  * @brief Init log context.
  *        It will create a thread local log context, every thread want to
  *        use log function must init log context first.
@@ -154,8 +158,6 @@ initLogContext (u_int logLevel) {
 /* Destroy log context */
 void
 destroyLogContext (void) {
-    /* Wait for log send out completely */
-    usleep (100000);
     zctx_destroy (&logCtxtInstance->zmqCtxt);
     free (logCtxtInstance);
     logCtxtInstance = NULL;

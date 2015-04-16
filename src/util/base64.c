@@ -5,7 +5,7 @@
 
 static u_char base64String [] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-/*
+/**
  * @brief Encode binary data to base64
  *
  * @param to dest addr to store encoded data
@@ -67,7 +67,7 @@ base64Encode (u_char *to, u_char *from, u_int len) {
     return top - to;
 }
 
-/*
+/**
  * @brief Decode base64 data
  *
  * @param to addr to store decode data

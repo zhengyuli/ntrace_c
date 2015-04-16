@@ -424,7 +424,7 @@ logServiceStatusHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
                 return -1;
 
             if (logServiceRestartCount)
-                sleep (1);
+                usleep (1000000);
 
             retries = 0;
             while (retries < LOG_SERVICE_RESTART_MAX_RETRIES) {
@@ -529,7 +529,6 @@ freeLogServiceCtxtInstance:
 void
 destroyLogService (void) {
     pthread_kill (logServiceCtxtInstance->tid, SIGUSR1);
-    usleep (100000);
     zctx_destroy (&logServiceCtxtInstance->zmqCtxt);
     free (logServiceCtxtInstance);
     logServiceCtxtInstance = NULL;

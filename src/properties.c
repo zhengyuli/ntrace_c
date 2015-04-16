@@ -18,8 +18,9 @@ newProperties (void) {
     tmp->daemonMode = 0;
     tmp->managementControlHost = NULL;
     tmp->managementControlPort = 0;
-    tmp->mirrorInterface = NULL;
-    tmp->pcapOfflineInput = NULL;
+    tmp->interface = NULL;
+    tmp->pcapFile = NULL;
+    tmp->loopCount = 0;
     tmp->miningEngineHost = NULL;
     tmp->managementRegisterPort = 0;
     tmp->breakdownRecvPort = 0;
@@ -36,10 +37,10 @@ freeProperties (propertiesPtr instance) {
 
     free (instance->managementControlHost);
     instance->managementControlHost = NULL;
-    free (instance->mirrorInterface);
-    instance->mirrorInterface = NULL;
-    free (instance->pcapOfflineInput);
-    instance->pcapOfflineInput = NULL;
+    free (instance->interface);
+    instance->interface = NULL;
+    free (instance->pcapFile);
+    instance->pcapFile = NULL;
     free (instance->miningEngineHost);
     instance->miningEngineHost = NULL;
     free (instance->logDir);
@@ -113,24 +114,32 @@ loadPropertiesFromConfigFile (char *configFile) {
         goto freeProperties;
     }
 
-    /* Get mirror interface */
-    ret = get_config_item ("Interfaces", "mirrorInterface", iniConfig, &item);
-    if (ret || item == NULL) {
-        fprintf (stderr, "Get_config_item \"mirrorInterface\" error.\n");
-        goto freeProperties;
-    }
-    tmp->mirrorInterface = strdup (get_const_string_config_value (item, &error));
-    if (tmp->mirrorInterface == NULL) {
-        fprintf (stderr, "Get \"mirrorInterface\" error.\n");
-        goto freeProperties;
+    /* Get interface */
+    ret = get_config_item ("Input.Interface", "interface", iniConfig, &item);
+    if (!ret && item) {
+        tmp->interface = strdup (get_const_string_config_value (item, &error));
+        if (tmp->interface == NULL) {
+            fprintf (stderr, "Get \"interface\" error.\n");
+            goto freeProperties;
+        }
     }
 
-    /* Get pcap offline input */
-    ret = get_config_item ("Interfaces", "pcapOfflineInput", iniConfig, &item);
+    /* Get pcap file */
+    ret = get_config_item ("Input.PcapOffline", "pcapFile", iniConfig, &item);
     if (!ret && item) {
-        tmp->pcapOfflineInput = strdup (get_const_string_config_value (item, &error));
-        if (tmp->pcapOfflineInput == NULL) {
-            fprintf (stderr, "Get \"pcapOfflineInput\" error.\n");
+        tmp->pcapFile = strdup (get_const_string_config_value (item, &error));
+        if (tmp->pcapFile == NULL) {
+            fprintf (stderr, "Get \"pcapFile\" error.\n");
+            goto freeProperties;
+        }
+    }
+
+    /* Get loop count */
+    ret = get_config_item ("Input.PcapOffline", "loopCount", iniConfig, &item);
+    if (!ret && item) {
+        tmp->loopCount = get_int_config_value (item, 1, 0, &error);
+        if (error) {
+            fprintf (stderr, "Get \"loopCount\" error.\n");
             goto freeProperties;
         }
     }
@@ -252,25 +261,35 @@ updatePropertiesManagementControlPort (u_short port) {
 }
 
 char *
-getPropertiesMirrorInterface (void) {
-    return propertiesInstance->mirrorInterface;
+getPropertiesInterface (void) {
+    return propertiesInstance->interface;
 }
 
 void
-updatePropertiesMirrorInterface (char *mirrorInterface) {
-    free (propertiesInstance->mirrorInterface);
-    propertiesInstance->mirrorInterface = strdup (mirrorInterface);
+updatePropertiesInterface (char *interface) {
+    free (propertiesInstance->interface);
+    propertiesInstance->interface = strdup (interface);
 }
 
 char *
-getPropertiesPcapOfflineInput (void) {
-    return propertiesInstance->pcapOfflineInput;
+getPropertiesPcapFile (void) {
+    return propertiesInstance->pcapFile;
 }
 
 void
-updatePropertiesPcapOfflineInput (char *fname) {
-    free (propertiesInstance->pcapOfflineInput);
-    propertiesInstance->pcapOfflineInput = strdup (fname);
+updatePropertiesPcapFile (char *fname) {
+    free (propertiesInstance->pcapFile);
+    propertiesInstance->pcapFile = strdup (fname);
+}
+
+u_int
+getPropertiesLoopCount (void) {
+    return propertiesInstance->loopCount;
+}
+
+void
+updatePropertiesLoopCount (u_int loopCount) {
+    propertiesInstance->loopCount = loopCount;
 }
 
 char *
@@ -343,8 +362,9 @@ displayPropertiesDetail (void) {
     fprintf (stdout, "    daemonMode: %s\n", propertiesInstance->daemonMode ? "True" : "False");
     fprintf (stdout, "    managementControlHost: %s\n", propertiesInstance->managementControlHost);
     fprintf (stdout, "    managementControlPort: %u\n", propertiesInstance->managementControlPort);
-    fprintf (stdout, "    mirrorInterface: %s\n", propertiesInstance->mirrorInterface);
-    fprintf (stdout, "    pcapOfflineInput: %s\n", propertiesInstance->pcapOfflineInput);
+    fprintf (stdout, "    interface: %s\n", propertiesInstance->interface);
+    fprintf (stdout, "    pcapFile: %s\n", propertiesInstance->pcapFile);
+    fprintf (stdout, "    loopCount: %u\n", propertiesInstance->loopCount);
     fprintf (stdout, "    miningEngineHost: %s\n", propertiesInstance->miningEngineHost);
     fprintf (stdout, "    managementRegisterPort: %u\n", propertiesInstance->managementRegisterPort);
     fprintf (stdout, "    breakdownRecvPort: %u\n", propertiesInstance->breakdownRecvPort);
@@ -395,10 +415,10 @@ void
 destroyProperties (void) {
     free (propertiesInstance->managementControlHost);
     propertiesInstance->managementControlHost = NULL;
-    free (propertiesInstance->mirrorInterface);
-    propertiesInstance->mirrorInterface = NULL;
-    free (propertiesInstance->pcapOfflineInput);
-    propertiesInstance->pcapOfflineInput = NULL;
+    free (propertiesInstance->interface);
+    propertiesInstance->interface = NULL;
+    free (propertiesInstance->pcapFile);
+    propertiesInstance->pcapFile = NULL;
     free (propertiesInstance->miningEngineHost);
     propertiesInstance->miningEngineHost = NULL;
     free (propertiesInstance->logDir);

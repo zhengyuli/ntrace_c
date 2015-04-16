@@ -10,8 +10,9 @@ static struct option options [] = {
     {"daemonMode", no_argument, NULL, 'D'},
     {"managementControlHost", required_argument, NULL, 'I'},
     {"managementControlPort", required_argument, NULL, 'P'},
-    {"mirrorInterface", required_argument, NULL, 'm'},
-    {"pcapOfflineInput", required_argument, NULL, 'o'},
+    {"interface", required_argument, NULL, 'm'},
+    {"pcapFile", required_argument, NULL, 'o'},
+    {"loopCount", required_argument, NULL, 'n'},
     {"miningEngineHost", required_argument, NULL, 'i'},
     {"managementRegisterPort", required_argument, NULL, 'r'},
     {"breakdownRecvPort", required_argument, NULL, 'p'},
@@ -36,8 +37,9 @@ showHelpInfo (const char *cmd) {
              "  -D|--daemonMode, run as daemon\n"
              "  -I|--managementControlHost <ip> management control host ip\n"
              "  -P|--managementControlPort <port> management control port\n"
-             "  -m|--mirrorInterface <eth*> interface to collect packets\n"
-             "  -o|--pcapOfflineInput <fname> pcap offline input file\n"
+             "  -m|--interface <eth*> interface to monitor\n"
+             "  -o|--pcapFile <fname> pcap offline input file\n"
+             "  -n|--loopCount <count> Loop read pcap file some times, 0 for loop forever\n"
              "  -i|--miningEngineHost <ip> mining engine host ip\n"
              "  -r|--managementRegisterPort <port> management register port\n"
              "  -p|--breakdownRecvPort <port> breakdown receive port\n"
@@ -81,7 +83,7 @@ parseOptions (int argc, char *argv []) {
     boolean showHelp = False;
 
     optind = 1;
-    while ((option = getopt_long (argc, argv, ":C:DI:P:m:o:i:r:p:d:f:l:vh?", options, NULL)) != -1) {
+    while ((option = getopt_long (argc, argv, ":C:DI:P:m:o:n:i:r:p:d:f:l:vh?", options, NULL)) != -1) {
         switch (option) {
             case 'C':
                 break;
@@ -103,19 +105,23 @@ parseOptions (int argc, char *argv []) {
                 break;
 
             case 'm':
-                updatePropertiesMirrorInterface (optarg);
-                if (getPropertiesMirrorInterface () == NULL) {
+                updatePropertiesInterface (optarg);
+                if (getPropertiesInterface () == NULL) {
                     fprintf (stderr, "Parse mirroring interface error!\n");
                     return -1;
                 }
                 break;
 
             case 'o':
-                updatePropertiesPcapOfflineInput (optarg);
-                if (getPropertiesPcapOfflineInput () == NULL) {
+                updatePropertiesPcapFile (optarg);
+                if (getPropertiesPcapFile () == NULL) {
                     fprintf (stderr, "Parse pcap offline input error!\n");
                     return -1;
                 }
+                break;
+
+            case 'n':
+                updatePropertiesLoopCount (atoi (optarg));
                 break;
 
             case 'i':

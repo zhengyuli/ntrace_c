@@ -5,7 +5,7 @@
 #include "tcp.h"
 #include "tcp_options.h"
 
-/*
+/**
  * @brief Get tcp timestamp option
  *
  * @param tcph tcp header
@@ -47,7 +47,7 @@ getTimeStampOption (tcphdrPtr tcph, u_int *ts) {
     return False;
 }
 
-/*
+/**
  * @brief Get tcp window scale option
  *
  * @param tcph tcp header
@@ -92,7 +92,7 @@ getTcpWindowScaleOption (tcphdrPtr tcph, u_short *ws) {
     return False;
 }
 
-/*
+/**
  * @brief Get tcp MSS option
  *
  * @param tcph tcp header

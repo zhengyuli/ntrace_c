@@ -15,6 +15,9 @@ static pcap_t *pcapDescInstance = NULL;
 /* Datalink type */
 static int datalinkType = -1;
 
+/* Pcap offline file load count */
+static u_int pcapOfflineLoadCount = 0;
+
 static pcap_t *
 newPcapOfflineDesc (char *pcapFile) {
     pcap_t *pcapDesc;
@@ -22,13 +25,13 @@ newPcapOfflineDesc (char *pcapFile) {
 
     pcapDesc = pcap_open_offline (pcapFile, errBuf);
     if (pcapDesc == NULL)
-        LOGE ("Open pcap offline input error: %s\n", errBuf);
+        LOGE ("%s\n", errBuf);
 
     return pcapDesc;
 }
 
 static pcap_t *
-newPcapMirroInterfaceDesc (char *interface) {
+newPcapInterfaceDesc (char *interface) {
     int ret;
     pcap_t *pcapDesc;
     pcap_if_t *alldevs, *devptr;
@@ -106,32 +109,41 @@ newPcapMirroInterfaceDesc (char *interface) {
     return pcapDesc;
 }
 
-static pcap_t *
-newPcapDesc (void) {
-    pcap_t *pcapDesc;
-
-    if (getPropertiesPcapOfflineInput ()) {
-        pcapDesc = newPcapOfflineDesc (getPropertiesPcapOfflineInput ());
-        if (pcapDesc) {
-            LOGI ("Use pcap offline input: %s.\n", getPropertiesPcapOfflineInput ());
-            return pcapDesc;
+static int
+initPcapDesc (void) {
+    if (getPropertiesPcapFile ()) {
+        pcapDescInstance = newPcapOfflineDesc (getPropertiesPcapFile ());
+        if (pcapDescInstance) {
+            LOGI ("Use pcap file: %s as input.\n", getPropertiesPcapFile ());
+            pcapOfflineLoadCount++;
+            return 0;
         }
 
-        LOGE ("Open pcap offline input error, will use default mirror interface.\n");
+        LOGE ("Open pcap offline file error, will use default network interface.\n");
     }
 
-    pcapDesc = newPcapMirroInterfaceDesc (getPropertiesMirrorInterface ());
-    if (pcapDesc == NULL)
-        LOGE ("Open pcap mirror interface: %s error.\n", getPropertiesMirrorInterface ());
+    if (getPropertiesInterface ()) {
+        pcapDescInstance = newPcapInterfaceDesc (getPropertiesInterface ());
+        if (pcapDescInstance == NULL) {
+            LOGE ("Open interface: %s error.\n", getPropertiesInterface ());
+            return -1;
+        } else {
+            LOGI ("Use interface: %s as input.\n", getPropertiesInterface ());
+            return 0;
+        }
+    }
 
-    return pcapDesc;
+    LOGE ("Input \"Input.Interface\" and \"Input.PcapOffline\" are all empty, at least set one.");
+    return -1;
 }
 
+/* Get net dev descriptor */
 pcap_t *
-getNetDev (void) {
+getNetDevPcapDesc (void) {
     return pcapDescInstance;
 }
 
+/* Get net dev data link type */
 int
 getNetDevDatalinkType (void) {
     return datalinkType;
@@ -154,7 +166,7 @@ getNetDevPakcetsStatistic (u_int *pktsRecv, u_int *pktsDrop) {
 
 /* Update filter of net device */
 int
-updateFilter (char *filter) {
+updateNetDevFilter (char *filter) {
     int ret;
     struct bpf_program pcapFilter;
 
@@ -169,13 +181,51 @@ updateFilter (char *filter) {
     return ret;
 }
 
+/* Reload net device */
+int
+reloadNetDev (void) {
+    if (pcapDescInstance) {
+        pcap_close (pcapDescInstance);
+        pcapDescInstance = NULL;
+    }
+
+    if (getPropertiesPcapFile () && (getPropertiesLoopCount () == 0 ||
+                                     pcapOfflineLoadCount < getPropertiesLoopCount ())) {
+        pcapDescInstance = newPcapOfflineDesc (getPropertiesPcapFile ());
+        if (pcapDescInstance == NULL) {
+            LOGE ("Reload pcap offline file error.\n");
+            return -1;
+        }
+
+        pcapOfflineLoadCount++;
+        return 0;
+    }
+
+    if (getPropertiesInterface ()) {
+        pcapDescInstance = newPcapInterfaceDesc (getPropertiesInterface ());
+        if (pcapDescInstance == NULL) {
+            LOGE ("Reload interface: %s error.\n", getPropertiesInterface ());
+            return -1;
+        }
+
+        if (pcapOfflineLoadCount >= getPropertiesLoopCount ())
+            return 1;
+        else
+            return 0;
+    }
+
+    return -1;
+}
+
 /* Init net device */
 int
 initNetDev (void) {
+    int ret;
+
     /* Create pcap descriptor instance */
-    pcapDescInstance = newPcapDesc ();
-    if (pcapDescInstance == NULL) {
-        LOGE ("Create pcap descriptor instance error.\n");
+    ret = initPcapDesc ();
+    if (ret < 0) {
+        LOGE ("Init pcap descriptor instance error.\n");
         return -1;
     }
 
@@ -194,7 +244,8 @@ initNetDev (void) {
 /* Destroy net device */
 void
 destroyNetDev (void) {
-    pcap_close (pcapDescInstance);
-    pcapDescInstance = NULL;
-    datalinkType = -1;
+    if (pcapDescInstance) {
+        pcap_close (pcapDescInstance);
+        pcapDescInstance = NULL;
+    }
 }

@@ -161,7 +161,7 @@ tuple4IsEqual (tuple4Ptr addr1, tuple4Ptr addr2) {
     return False;
 }
 
-/*
+/**
  * @brief Add tcp stream to global tcp stream timeout list
  *
  * @param stream tcp stream to add
@@ -187,7 +187,7 @@ addTcpStreamToClosingTimeoutList (tcpStreamPtr stream, timeValPtr tm) {
     listAddTail (&tst->node, &tcpStreamTimoutList);
 }
 
-/*
+/**
  * @brief Delete tcp stream from closing timeout list
  *
  * @param stream tcp stream to Delete
@@ -209,7 +209,7 @@ delTcpStreamFromClosingTimeoutList (tcpStreamPtr stream) {
     }
 }
 
-/*
+/**
  * @brief Lookup tcp stream from global tcp stream hash table
  *
  * @param addr tcp stream 4 tuple address
@@ -226,7 +226,7 @@ lookupTcpStreamFromHash (tuple4Ptr addr) {
     return (tcpStreamPtr) hashLookup (tcpStreamHashTable, key);
 }
 
-/*
+/**
  * @brief Add tcp stream to global hash table
  *
  * @param stream tcp stream to add
@@ -252,7 +252,7 @@ addTcpStreamToHash (tcpStreamPtr stream, hashItemFreeCB freeFun) {
         return 0;
 }
 
-/*
+/**
  * @brief Remove tcp stream from hash table
  *
  * @param stream tcp stream to remove
@@ -281,7 +281,7 @@ delTcpStreamFromHash (tcpStreamPtr stream) {
         streamCache = NULL;
 }
 
-/*
+/**
  * @brief Find tcp stream from global hash table
  *
  * @param tcph tcp header
@@ -475,7 +475,7 @@ freeTcpStreamForHash (void *data) {
     freeTcpStream (stream);
 }
 
-/*
+/**
  * @brief Alloc new tcp stream and add it to tcp stream hash table
  *
  * @param tcph tcp header for current packet
@@ -799,7 +799,7 @@ generateSessionBreakdown (tcpStreamPtr stream, timeValPtr tm) {
     stream->dupAcks = 0;
 }
 
-/*
+/**
  * @brief Check tcp stream timeout list and remove timeout
  *        tcp stream.
  *
@@ -925,7 +925,7 @@ handleClose (tcpStreamPtr stream, timeValPtr tm) {
     delTcpStreamFromHash (stream);
 }
 
-/*
+/**
  * @brief Add data to halfStream receive buffer
  *
  * @param rcv halfStream to receive
@@ -988,7 +988,7 @@ add2buf (halfStreamPtr rcv, u_char *data, u_int dataLen) {
     return ret;
 }
 
-/*
+/**
  * @brief Tcp data defragment, merge data from skbuff to receiver's receive
  *        buffer. If data contains urgData, it needs to update receiver's urg
  *        data and pointer first else merge data directly.
@@ -1080,7 +1080,7 @@ addFromSkb (tcpStreamPtr stream,
         handleFin (stream, snd, tm);
 }
 
-/*
+/**
  * @brief Tcp queue process, for expected data merge it to receiver's
  *        receive buffer directly else store it to skbuff and link it
  *        to receiver's skbuff list.
@@ -1171,7 +1171,7 @@ tcpQueue (tcpStreamPtr stream,
     }
 }
 
-/*
+/**
  * @brief Tcp packet processor
  *
  * @param iph ip packet header

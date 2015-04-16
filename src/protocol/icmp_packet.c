@@ -136,7 +136,7 @@ icmpPktShouldDrop (iphdrPtr iph, tcphdrPtr tcph) {
         return True;
 }
 
-/*
+/**
  * @brief Icmp pakcet processor
  *
  * @param iph ip packet header

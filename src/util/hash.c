@@ -206,7 +206,7 @@ hashItemDetach (hashTablePtr htbl, hashItemPtr item) {
     htbl->size--;
 }
 
-/*
+/**
  * @brief Insert new item.
  *        If current size is exceed limit size then recreate a new hash
  *        table and attach all items to new hash table.
@@ -290,7 +290,7 @@ hashInsert (hashTablePtr htbl, char *key, void *data, hashItemFreeCB fun) {
     return 0;
 }
 
-/*
+/**
  * @brief Remove hash item.
  *        Lookup item with key and delete it from hash table.
  *
@@ -315,7 +315,7 @@ hashRemove (hashTablePtr htbl, char *key) {
     return 0;
 }
 
-/*
+/**
  * @brief Update item specified key.
  *        Lookup item with key, if key is present then destroy
  *        the old item and insert the new one.
@@ -346,7 +346,7 @@ hashUpdate (hashTablePtr htbl, char *key, void *data, hashItemFreeCB fun) {
     return 0;
 }
 
-/*
+/**
  * @brief Lookup hash item.
  *        Lookup hash item with key, if exists return opaque data of it
  *        else return NULL.
@@ -371,7 +371,7 @@ hashLookup (hashTablePtr htbl, char *key) {
         return NULL;
 }
 
-/*
+/**
  * @brief Rename hash item key.
  *        Lookup hash item with old key and replace old key with new one.
  *
@@ -420,7 +420,7 @@ hashRename (hashTablePtr htbl, char *oldKey, char *newKey) {
     return 0;
 }
 
-/*
+/**
  * @brief Iterate each item and apply fun to it.
  *
  * @param htbl hash table
@@ -452,7 +452,7 @@ hashLoopDo (hashTablePtr htbl, hashLoopDoCB fun, void *args) {
     return 0;
 }
 
-/*
+/**
  * @brief Iterate each item and remove it when check return ture.
  *        Iterate each item and do remove check, if check return ture then
  *        remove it from hash table else do nothing.
@@ -490,7 +490,7 @@ hashLimit (hashTablePtr htbl) {
     return htbl->limit;
 }
 
-/*
+/**
  * @brief Create hash table.
  *        If capacity is 0 then use default hash table size,
  *        else use capacity instead.

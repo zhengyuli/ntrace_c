@@ -102,7 +102,7 @@ getAppServicesFilter (void) {
     return filter;
 }
 
-/*
+/**
  * @brief Get application services from json.
  *
  * @param root json object of application services

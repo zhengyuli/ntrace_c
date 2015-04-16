@@ -13,8 +13,10 @@ struct _properties {
     char *managementControlHost;        /**< Management control host ip */
     u_short managementControlPort;      /**< Management control port */
 
-    char *mirrorInterface;              /**< Mirror interface */
-    char *pcapOfflineInput;             /**< Pcap offline input file */
+    char *interface;                    /**< Mirror interface */
+
+    char *pcapFile;                     /**< Pcap offline input file */
+    u_int loopCount;                    /**< Pcap offline file loop read count */
 
     char *miningEngineHost;             /**< Mining engine host ip */
     u_short managementRegisterPort;     /**< Management register port of mining engine */
@@ -39,13 +41,17 @@ getPropertiesManagementControlPort (void);
 void
 updatePropertiesManagementControlPort (u_short port);
 char *
-getPropertiesMirrorInterface (void);
+getPropertiesInterface (void);
 void
-updatePropertiesMirrorInterface (char *mirrorInterface);
+updatePropertiesInterface (char *interface);
 char *
-getPropertiesPcapOfflineInput (void);
+getPropertiesPcapFile (void);
 void
-updatePropertiesPcapOfflineInput (char *fname);
+updatePropertiesPcapFile (char *fname);
+u_int
+getPropertiesLoopCount (void);
+void
+updatePropertiesLoopCount (u_int loopCount);
 char *
 getPropertiesMiningEngineHost (void);
 void

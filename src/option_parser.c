@@ -38,7 +38,7 @@ showHelpInfo (const char *cmd) {
              "  -I|--managementControlHost <ip> management control host ip\n"
              "  -P|--managementControlPort <port> management control port\n"
              "  -m|--interface <eth*> interface to monitor\n"
-             "  -o|--pcapFile <fname> pcap offline input file\n"
+             "  -o|--pcapFile <fname> pcap file\n"
              "  -n|--loopCount <count> Loop read pcap file some times, 0 for loop forever\n"
              "  -i|--miningEngineHost <ip> mining engine host ip\n"
              "  -r|--managementRegisterPort <port> management register port\n"
@@ -115,7 +115,7 @@ parseOptions (int argc, char *argv []) {
             case 'o':
                 updatePropertiesPcapFile (optarg);
                 if (getPropertiesPcapFile () == NULL) {
-                    fprintf (stderr, "Parse pcap offline input error!\n");
+                    fprintf (stderr, "Parse pcap file error!\n");
                     return -1;
                 }
                 break;

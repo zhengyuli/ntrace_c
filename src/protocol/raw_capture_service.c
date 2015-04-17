@@ -13,6 +13,45 @@
 #include "raw_packet.h"
 #include "raw_capture_service.h"
 
+static pcap_t *pcapDev = NULL;
+static int datalinkType = -1;
+
+static u_long_long rawPktCaptureSize = 0;
+static u_long_long rawPktCaptureStartTime = 0;
+static u_long_long rawPktCaptureEndTime = 0;
+
+static int
+loopPcapDev (void) {
+    int ret;
+    char *filter;
+
+    ret = loopNetDev ();
+    if (ret < 0) {
+        LOGE ("Loop netDev error.\n");
+        return -1;
+    } else if (ret == 1) {
+        LOGI ("Loop netDev complete.\n");
+        return 1;
+    }
+
+    filter = getAppServicesFilter ();
+    if (filter == NULL) {
+        LOGE ("Get application service filter error.\n");
+        return -1;
+    }
+
+    ret = updateNetDevFilter (filter);
+    free (filter);
+    if (ret < 0) {
+        LOGE ("Update net device filter error.\n");
+        return -1;
+    }
+
+    pcapDev = getNetDevPcapDesc ();
+    datalinkType = getNetDevDatalinkType ();
+    return 0;
+}
+
 /*
  * Raw packet capture service.
  * Capture raw packet from mirror interface, then extract ip packet
@@ -21,8 +60,6 @@
 void *
 rawCaptureService (void *args) {
     int ret;
-    pcap_t *pcapDev;
-    int datalinkType;
     void *ipPktSendSock;
     char *filter;
     struct pcap_pkthdr *capPktHdr;
@@ -30,9 +67,7 @@ rawCaptureService (void *args) {
     iphdrPtr iph;
     timeVal captureTime;
     zframe_t *frame;
-    u_long_long rawPktCaptureSize;
-    u_long_long rawPktCaptureStartTime;
-    u_long_long rawPktCaptureEndTime;
+    boolean loopComplete = false;
 
     /* Reset signals flag */
     resetSignalsFlag ();
@@ -114,46 +149,17 @@ rawCaptureService (void *args) {
             LOGE ("Capture raw packets with fatal error.\n");
             break;
         } else if (ret == -2) {
-            ret = reloadNetDev ();
-            if (ret < 0) {
-                LOGE ("Reload net device error.\n");
+            ret = loopPcapDev ();
+            if (ret) {
+                loopComplete = true;
                 break;
             }
-
-            if (ret == 1) {
-                rawPktCaptureEndTime = getSysTime ();
-                /* Show raw packets capture statistics info of pcap offline file */
-                LOGI ("Capture raw packets from pcap offline file complete.\n"
-                      "--size: %lf KB\n--interval: %llu ms\n--rate: %lf MB/s\n",
-                      ((double) rawPktCaptureSize / 1024),
-                      (rawPktCaptureEndTime - rawPktCaptureStartTime),
-                      (((double) rawPktCaptureSize / (128 * 1024)) /
-                       ((double) (rawPktCaptureEndTime - rawPktCaptureStartTime) / 1000)));
-
-                rawPktCaptureSize = 0;
-                rawPktCaptureStartTime = rawPktCaptureEndTime;
-            }
-
-            filter = getAppServicesFilter ();
-            if (filter == NULL) {
-                LOGE ("Get application service filter error.\n");
-                break;
-            }
-
-            ret = updateNetDevFilter (filter);
-            free (filter);
-            if (ret < 0) {
-                LOGE ("Update net device filter error.\n");
-                break;
-            }
-
-            pcapDev = getNetDevPcapDesc ();
         }
     }
 
     rawPktCaptureEndTime = getSysTime ();
-    /* Show raw packets capture statistics info of network interface */
-    LOGI ("Capture raw packets from interface complete.\n"
+    /* Show raw packets capture statistics info */
+    LOGI ("==Capture raw packets complete==\n"
           "--size: %lf KB\n--interval: %llu ms\n--rate: %lf MB/s\n",
           ((double) rawPktCaptureSize / 1024),
           (rawPktCaptureEndTime - rawPktCaptureStartTime),
@@ -164,7 +170,9 @@ rawCaptureService (void *args) {
 destroyLogContext:
     destroyLogContext ();
 exit:
-    if (!SIGUSR1IsInterrupted ())
+    if (loopComplete)
+        sendTaskStatus (TASK_STATUS_EXIT_NORMALLY);
+    else if (!SIGUSR1IsInterrupted ())
         sendTaskStatus (TASK_STATUS_EXIT_ABNORMALLY);
 
     return NULL;

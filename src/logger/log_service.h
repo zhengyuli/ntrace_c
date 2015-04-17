@@ -8,7 +8,8 @@
 
 typedef enum {
     LOG_SERVICE_STATUS_READY,
-    LOG_SERVICE_STATUS_EXIT
+    LOG_SERVICE_STATUS_EXIT_NORMALLY,
+    LOG_SERVICE_STATUS_EXIT_ABNORMALLY
 } logServiceStatus;
 
 typedef struct _logServiceCtxt logServiceCtxt;

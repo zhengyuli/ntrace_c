@@ -106,6 +106,7 @@ stopTaskForEachHashItem (void *data, void *args) {
 
     tsk = (taskItemPtr) data;
     pthread_kill (tsk->tid, SIGUSR1);
+    pthread_join (tsk->tid, NULL);
 
     return True;
 }
@@ -113,21 +114,21 @@ stopTaskForEachHashItem (void *data, void *args) {
 void
 stopAllTask (void) {
     hashLoopCheckToRemove (taskManagerHashTable, stopTaskForEachHashItem, NULL);
-    usleep (1000000);
+    usleep (500000);
 }
 
 void
 sendTaskStatus (taskStatus status) {
     int ret;
     u_int retries = 3;
-    char taskStatusMsg [128];
+    char statusMsg [128];
 
-    snprintf (taskStatusMsg, sizeof (taskStatusMsg),
+    snprintf (statusMsg, sizeof (statusMsg),
               TASK_STATUS_MESSAGE_FORMAT_STRING, status, pthread_self ());
 
     do {
         pthread_mutex_lock (&taskStatusSendSockLock);
-        ret = zstr_send (getTaskStatusSendSock (), taskStatusMsg);
+        ret = zstr_send (getTaskStatusSendSock (), statusMsg);
         pthread_mutex_unlock (&taskStatusSendSockLock);
         retries -= 1;
     } while (ret < 0 && retries);
@@ -155,6 +156,7 @@ taskStatusHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
         case TASK_STATUS_EXIT_NORMALLY:
             LOGI ("Task %lu exit normally.\n", tid);
             pthread_kill (pthread_self (), SIGINT);
+            break;
 
         case TASK_STATUS_EXIT_ABNORMALLY:
             LOGE ("Task %lu exit abnormally.\n",  tid);

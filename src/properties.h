@@ -15,8 +15,8 @@ struct _properties {
 
     char *interface;                    /**< Mirror interface */
 
-    char *pcapFile;                     /**< Pcap offline input file */
-    u_int loopCount;                    /**< Pcap offline file loop read count */
+    char *pcapFile;                     /**< Pcap file */
+    u_int loopCount;                    /**< Pcap file loop read count */
 
     char *miningEngineHost;             /**< Mining engine host ip */
     u_short managementRegisterPort;     /**< Management register port of mining engine */

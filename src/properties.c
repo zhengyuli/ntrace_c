@@ -125,7 +125,7 @@ loadPropertiesFromConfigFile (char *configFile) {
     }
 
     /* Get pcap file */
-    ret = get_config_item ("Input.PcapOffline", "pcapFile", iniConfig, &item);
+    ret = get_config_item ("Input.PcapFile", "pcapFile", iniConfig, &item);
     if (!ret && item) {
         tmp->pcapFile = strdup (get_const_string_config_value (item, &error));
         if (tmp->pcapFile == NULL) {
@@ -135,7 +135,7 @@ loadPropertiesFromConfigFile (char *configFile) {
     }
 
     /* Get loop count */
-    ret = get_config_item ("Input.PcapOffline", "loopCount", iniConfig, &item);
+    ret = get_config_item ("Input.PcapFile", "loopCount", iniConfig, &item);
     if (!ret && item) {
         tmp->loopCount = get_int_config_value (item, 1, 0, &error);
         if (error) {

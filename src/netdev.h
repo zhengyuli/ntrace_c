@@ -13,7 +13,7 @@ getNetDevPakcetsStatistic (u_int *pktsRecv, u_int *pktsDrop);
 int
 updateNetDevFilter (char *filter);
 int
-reloadNetDev (void);
+loopNetDev (void);
 int
 initNetDev (void);
 void

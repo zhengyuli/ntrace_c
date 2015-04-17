@@ -18,6 +18,7 @@
 #include "zmq_hub.h"
 #include "log_service.h"
 
+#define LOG_SERVICE_STATUS_MESSAGE_FORMAT_STRING "%u:%lu"
 #define LOG_SERVICE_RESTART_MAX_COUNT 5
 #define LOG_SERVICE_RESTART_MAX_RETRIES 3
 
@@ -337,12 +338,28 @@ logDevDestroy (void) {
     }
 }
 
+static void
+sendLogServiceStatus (logServiceStatus status) {
+    int ret;
+    u_int retries = 3;
+    char statusMsg [128];
+
+    snprintf (statusMsg, sizeof (statusMsg),
+              LOG_SERVICE_STATUS_MESSAGE_FORMAT_STRING, status, pthread_self ());
+
+    do {
+        ret = zstr_send (logServiceCtxtInstance->statusSendSock, statusMsg);
+        retries -= 1;
+    } while (ret < 0 && retries);
+
+    if (ret < 0)
+        fprintf (stderr, "Send log service state error.\n");
+}
+
 static void *
 logService (void *args) {
     int ret;
-    u_int retries = 3;
     char *logMsg;
-    char exitMsg [128];
 
     /* Reset signals flag */
     resetSignalsFlag ();
@@ -385,16 +402,8 @@ logService (void *args) {
 destroyDev:
     logDevDestroy ();
 exit:
-    if (!SIGUSR1IsInterrupted ()) {
-        snprintf (exitMsg, sizeof (exitMsg), "%u:%lu", LOG_SERVICE_STATUS_EXIT, pthread_self ());
-        do {
-            ret = zstr_send (logServiceCtxtInstance->statusSendSock, exitMsg);
-            retries -= 1;
-        } while (ret < 0 && retries);
-
-        if (ret < 0)
-            fprintf (stderr, "Send log service state error.\n");
-    }
+    if (!SIGUSR1IsInterrupted ())
+        sendLogServiceStatus (LOG_SERVICE_STATUS_EXIT_ABNORMALLY);
 
     return NULL;
 }
@@ -416,9 +425,14 @@ logServiceStatusHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
     if (statusMsg == NULL)
         return 0;
 
-    sscanf (statusMsg, "%u:%lu", &status, &tid);
+    sscanf (statusMsg, LOG_SERVICE_STATUS_MESSAGE_FORMAT_STRING, &status, &tid);
     switch (status) {
-        case LOG_SERVICE_STATUS_EXIT:
+        case LOG_SERVICE_STATUS_EXIT_NORMALLY:
+            LOGI ("LogService %lu exit normally.\n", logServiceCtxtInstance->tid);
+            pthread_kill (pthread_self (), SIGINT);
+            break;
+
+        case LOG_SERVICE_STATUS_EXIT_ABNORMALLY:
             fprintf (stderr, "Task %lu exit abnormally.\n", tid);
             if (logServiceRestartCount >= LOG_SERVICE_RESTART_MAX_COUNT)
                 return -1;
@@ -529,6 +543,7 @@ freeLogServiceCtxtInstance:
 void
 destroyLogService (void) {
     pthread_kill (logServiceCtxtInstance->tid, SIGUSR1);
+    pthread_join (logServiceCtxtInstance->tid, NULL);
     zctx_destroy (&logServiceCtxtInstance->zmqCtxt);
     free (logServiceCtxtInstance);
     logServiceCtxtInstance = NULL;

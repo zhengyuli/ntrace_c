@@ -15,7 +15,6 @@ newAppService (void) {
     if (svc == NULL)
         return NULL;
 
-    svc->id = 0;
     svc->proto = NULL;
     svc->analyzer = NULL;
     svc->ip = NULL;
@@ -41,7 +40,6 @@ copyAppService (appServicePtr appService) {
     if (tmp == NULL)
         return NULL;
 
-    tmp->id = appService->id;
     tmp->proto = appService->proto;
     tmp->analyzer = appService->analyzer;
     tmp->ip = strdup (appService->ip);
@@ -69,8 +67,6 @@ appService2Json (appServicePtr svc) {
         return NULL;
     }
 
-    /* Application service id */
-    json_object_set_new (root, APP_SERVICE_ID, json_integer (svc->id));
     /* Application service proto */
     json_object_set_new (root, APP_SERVICE_PROTO, json_string (svc->proto));
     /* Application service ip */
@@ -93,15 +89,6 @@ json2AppService (json_t *json) {
         LOGE ("Alloc appService error.\n");
         return NULL;
     }
-
-    /* Get application service id */
-    tmp = json_object_get (json, APP_SERVICE_ID);
-    if (tmp == NULL) {
-        LOGE ("Has no %s item.\n", APP_SERVICE_ID);
-        freeAppService (svc);
-        return NULL;
-    }
-    svc->id = json_integer_value (tmp);
 
     /* Get application service proto and analyzer */
     tmp = json_object_get (json, APP_SERVICE_PROTO);

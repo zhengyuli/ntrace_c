@@ -20,15 +20,20 @@ struct _taskItem {
     pthread_t tid;                      /**< Task thread id */
     taskRoutine routine;                /**< Task routine */
     void *args;                         /**< Task routine arguments */
+    pthread_attr_t attr;                /**< Thread creation attribute */
 };
 
 /*========================Interfaces definition============================*/
 int
-newTask (taskRoutine routine, void *args);
+newNormalTask (taskRoutine routine, void *args);
+int
+newRealTask (taskRoutine routine, void *args);
 void
 stopAllTask (void);
 void
-sendTaskStatus (taskStatus status);
+sendTaskStatus (char *taskName, taskStatus status);
+void
+displayTaskSchedPolicyInfo (char *taskName);
 int
 taskStatusHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg);
 int

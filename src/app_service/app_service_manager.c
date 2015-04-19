@@ -158,7 +158,7 @@ addAppServiceToSlave (appServicePtr svc) {
     snprintf (key, sizeof (key), "%s:%d", svc->ip, svc->port);
     ret = hashInsert (appServiceHashTableSlave, key, svc, freeAppServiceForHash);
     if (ret < 0) {
-        LOGE ("Insert new appService: %u error\n", svc->id);
+        LOGE ("Insert new appService ip:%s-port:%u error\n", svc->ip, svc->port);
         return -1;
     }
 
@@ -196,7 +196,8 @@ updateAppServicesFromJson (json_t *root) {
     for (i = 0; i < appServicesNum; i ++) {
         ret = addAppServiceToSlave (appServices [i]);
         if (ret < 0) {
-            LOGE ("Add appService: %u error.\n", appServices [i]->id);
+            LOGE ("Add appService ip:%s-port:%u error.\n",
+                  appServices [i]->ip, appServices [i]->port);
             for (n = i + 1; n < appServicesNum; n++)
                 freeAppService (appServices [n]);
             ret = -1;

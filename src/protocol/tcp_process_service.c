@@ -53,6 +53,9 @@ tcpProcessService (void *args) {
     }
     LOGI ("Binding tcpProcessService:%u to CPU%u success.\n", dispatchIndex, dispatchIndex);
 
+    /* Display task schedule policy info */
+    displayTaskSchedPolicyInfo ("TcpProcessService");
+
     /* Init tcp context */
     ret = initTcp (tcpBreakdownSendSock);
     if (ret < 0) {
@@ -60,7 +63,7 @@ tcpProcessService (void *args) {
         goto destroyLogContext;
     }
 
-    while (!SIGUSR1IsInterrupted () && !zctx_interrupted) {
+    while (!SIGUSR1IsInterrupted ()) {
         /* Receive timestamp zframe */
         if (tmFrame == NULL) {
             tmFrame = zframe_recv (tcpPktRecvSock);
@@ -105,7 +108,7 @@ destroyLogContext:
     destroyLogContext ();
 exit:
     if (!SIGUSR1IsInterrupted ())
-        sendTaskStatus (TASK_STATUS_EXIT_ABNORMALLY);
+        sendTaskStatus ("TcpProcessService", TASK_STATUS_EXIT_ABNORMALLY);
 
     return NULL;
 }

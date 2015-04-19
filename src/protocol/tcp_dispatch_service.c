@@ -116,7 +116,7 @@ tcpDispatchService (void *args) {
     /* Get tcpPktDispatchRecvSock */
     tcpPktDispatchRecvSock = getTcpPktDispatchRecvSock ();
 
-    while (!SIGUSR1IsInterrupted () && !zctx_interrupted) {
+    while (!SIGUSR1IsInterrupted ()) {
         /* Receive timestamp zframe */
         if (tmFrame == NULL) {
             tmFrame = zframe_recv (tcpPktDispatchRecvSock);
@@ -160,11 +160,11 @@ tcpDispatchService (void *args) {
         zframe_destroy (&pktFrame);
     }
 
-    LOGI ("tcpDispatchService will exit ... .. .\n");
+    LOGI ("TcpDispatchService will exit ... .. .\n");
     destroyLogContext ();
 exit:
     if (!SIGUSR1IsInterrupted ())
-        sendTaskStatus (TASK_STATUS_EXIT_ABNORMALLY);
+        sendTaskStatus ("TcpDispatchService", TASK_STATUS_EXIT_ABNORMALLY);
 
     return NULL;
 }

@@ -20,12 +20,27 @@ static u_long_long rawPktCaptureSize = 0;
 static u_long_long rawPktCaptureStartTime = 0;
 static u_long_long rawPktCaptureEndTime = 0;
 
+static void
+displayRawCaptureStatisticInfo (void) {
+    rawPktCaptureEndTime = getSysTime ();
+
+    LOGI ("\n"
+          "==Capture raw packets complete==\n"
+          "--size: %lf KB\n"
+          "--interval: %llu ms\n"
+          "--rate: %lf MB/s\n\n",
+          ((double) rawPktCaptureSize / 1024),
+          (rawPktCaptureEndTime - rawPktCaptureStartTime),
+          (((double) rawPktCaptureSize / (128 * 1024)) /
+           ((double) (rawPktCaptureEndTime - rawPktCaptureStartTime) / 1000)));
+}
+
 static int
 loopPcapDev (void) {
     int ret;
     char *filter;
 
-    ret = loopNetDev ();
+    ret = loopNetDevForSniff ();
     if (ret < 0) {
         LOGE ("Loop netDev error.\n");
         return -1;
@@ -40,22 +55,23 @@ loopPcapDev (void) {
         return -1;
     }
 
-    ret = updateNetDevFilter (filter);
+    ret = updateNetDevFilterForSniff (filter);
     free (filter);
     if (ret < 0) {
         LOGE ("Update net device filter error.\n");
         return -1;
     }
 
-    pcapDev = getNetDevPcapDesc ();
-    datalinkType = getNetDevDatalinkType ();
+    pcapDev = getNetDevPcapDescForSniff ();
+    datalinkType = getNetDevDatalinkTypeForSniff ();
     return 0;
 }
 
 /*
  * Raw packet capture service.
- * Capture raw packet from mirror interface, then extract ip packet
- * from raw packet and send it to ip packet process service.
+ * Capture raw packet from pcap file or mirror interface,
+ * then extract ip packet from raw packet and send it to
+ * ip packet process service.
  */
 void *
 rawCaptureService (void *args) {
@@ -80,9 +96,9 @@ rawCaptureService (void *args) {
     }
 
     /* Get net device pcap descriptor */
-    pcapDev = getNetDevPcapDesc ();
+    pcapDev = getNetDevPcapDescForSniff ();
     /* Get net device datalink type */
-    datalinkType = getNetDevDatalinkType ();
+    datalinkType = getNetDevDatalinkTypeForSniff ();
     /* Get ipPktSendSock */
     ipPktSendSock = getIpPktSendSock ();
 
@@ -92,20 +108,20 @@ rawCaptureService (void *args) {
         LOGE ("Get application services filter error.\n");
         goto destroyLogContext;
     }
-    ret = updateNetDevFilter (filter);
+    ret = updateNetDevFilterForSniff (filter);
     if (ret < 0) {
         LOGE ("Update application services filter error.\n");
         free (filter);
         goto destroyLogContext;
     }
-    LOGI ("Update BPF filter with: %s\n", filter);
+    LOGI ("Update application services filter with: %s\n", filter);
     free (filter);
 
     /* Init rawPktCaptureSize and rawPktCaptureStartTime */
     rawPktCaptureSize = 0;
     rawPktCaptureStartTime = getSysTime ();
 
-    while (!SIGUSR1IsInterrupted () && !zctx_interrupted) {
+    while (!SIGUSR1IsInterrupted ()) {
         ret = pcap_next_ex (pcapDev, &capPktHdr, (const u_char **) &rawPkt);
         if (ret == 1) {
             /* Filter out incomplete raw packet */
@@ -157,23 +173,17 @@ rawCaptureService (void *args) {
         }
     }
 
-    rawPktCaptureEndTime = getSysTime ();
     /* Show raw packets capture statistics info */
-    LOGI ("==Capture raw packets complete==\n"
-          "--size: %lf KB\n--interval: %llu ms\n--rate: %lf MB/s\n",
-          ((double) rawPktCaptureSize / 1024),
-          (rawPktCaptureEndTime - rawPktCaptureStartTime),
-          (((double) rawPktCaptureSize / (128 * 1024)) /
-           ((double) (rawPktCaptureEndTime - rawPktCaptureStartTime) / 1000)));
+    displayRawCaptureStatisticInfo ();
 
     LOGI ("RawCaptureService will exit ... .. .\n");
 destroyLogContext:
     destroyLogContext ();
 exit:
     if (loopComplete)
-        sendTaskStatus (TASK_STATUS_EXIT_NORMALLY);
+        sendTaskStatus ("RawCaptureService", TASK_STATUS_EXIT_NORMALLY);
     else if (!SIGUSR1IsInterrupted ())
-        sendTaskStatus (TASK_STATUS_EXIT_ABNORMALLY);
+        sendTaskStatus ("RawCaptureService", TASK_STATUS_EXIT_ABNORMALLY);
 
     return NULL;
 }

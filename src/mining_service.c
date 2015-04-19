@@ -31,7 +31,7 @@ miningService (void *args) {
     /* Get sessionBreakdownPushSock */
     sessionBreakdownPushSock = getSessionBreakdownPushSock ();
 
-    while (!SIGUSR1IsInterrupted () && !zctx_interrupted) {
+    while (!SIGUSR1IsInterrupted ()) {
         /* Receive session breakdown */
         sessionBreakdown = zstr_recv (sessionBreakdownRecvSock);
         if (sessionBreakdown == NULL) {
@@ -48,7 +48,7 @@ miningService (void *args) {
     destroyLogContext ();
 exit:
     if (!SIGUSR1IsInterrupted ())
-        sendTaskStatus (TASK_STATUS_EXIT_ABNORMALLY);
+        sendTaskStatus ("MiningService", TASK_STATUS_EXIT_ABNORMALLY);
 
     return NULL;
 }

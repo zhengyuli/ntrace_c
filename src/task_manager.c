@@ -9,7 +9,7 @@
 #include "zmq_hub.h"
 #include "task_manager.h"
 
-#define TASK_STATUS_MESSAGE_FORMAT_STRING "%u:%lu"
+#define TASK_STATUS_MESSAGE_FORMAT_STRING "%u:%lu:%s"
 #define TASK_RESTART_MAX_RETRIES 3
 
 /* Task manager hash table */
@@ -35,6 +35,7 @@ newTaskItem (void) {
 
 static void
 freeTaskItem (taskItemPtr item) {
+    pthread_attr_destroy (&item->attr);
     free (item);
 }
 
@@ -43,34 +44,83 @@ freeTaskItemForHash (void *data) {
     freeTaskItem ((taskItemPtr) data);
 }
 
-int
-newTask (taskRoutine routine, void *args) {
+static int
+newTask (taskRoutine routine, void *args, int schedPolicy) {
     int ret;
     taskItemPtr tsk;
-    pthread_t tid;
     char key [64];
 
     tsk = newTaskItem ();
     if (tsk == NULL)
         return -1;
 
-    ret = pthread_create (&tid, NULL, routine, args);
+    ret = pthread_attr_init (&tsk->attr);
     if (ret < 0) {
+        LOGE ("Init pthread attribute error.\n");
         freeTaskItem (tsk);
         return -1;
     }
 
-    tsk->tid = tid;
+    ret = pthread_attr_setschedpolicy (&tsk->attr, schedPolicy);
+    if (ret < 0) {
+        LOGE ("Set pthread setschedulepolicy error.\n");
+        pthread_attr_destroy (&tsk->attr);
+        freeTaskItem (tsk);
+        return -1;
+    }
+
+    ret = pthread_attr_setinheritsched (&tsk->attr, PTHREAD_EXPLICIT_SCHED);
+    if (ret < 0) {
+        LOGE ("Set pthread setinheritsched error.\n");
+        pthread_attr_destroy (&tsk->attr);
+        freeTaskItem (tsk);
+        return -1;
+    }
+
+    ret = pthread_create (&tsk->tid, &tsk->attr, routine, args);
+    if (ret < 0) {
+        pthread_attr_destroy (&tsk->attr);
+        freeTaskItem (tsk);
+        return -1;
+    }
+
     tsk->routine = routine;
     tsk->args = args;
-    snprintf (key, sizeof (key), "%lu", tid);
+    snprintf (key, sizeof (key), "%lu", tsk->tid);
     ret = hashInsert (taskManagerHashTable, key, tsk, freeTaskItemForHash);
     if (ret < 0) {
-        pthread_kill (tid, SIGUSR1);
+        pthread_kill (tsk->tid, SIGUSR1);
         return -1;
     }
 
     return 0;
+}
+
+int
+newNormalTask (taskRoutine routine, void *args) {
+    return newTask (routine, args, SCHED_OTHER);
+}
+
+int
+newRealTask (taskRoutine routine, void *args) {
+    return newTask (routine, args, SCHED_RR);
+}
+
+static boolean
+stopTaskForEachHashItem (void *data, void *args) {
+    taskItemPtr tsk;
+
+    tsk = (taskItemPtr) data;
+    pthread_kill (tsk->tid, SIGUSR1);
+    pthread_join (tsk->tid, NULL);
+
+    return True;
+}
+
+void
+stopAllTask (void) {
+    hashLoopCheckToRemove (taskManagerHashTable, stopTaskForEachHashItem, NULL);
+    usleep (500000);
 }
 
 static int
@@ -100,31 +150,14 @@ restartTask (pthread_t oldTid) {
     return 0;
 }
 
-static boolean
-stopTaskForEachHashItem (void *data, void *args) {
-    taskItemPtr tsk;
-
-    tsk = (taskItemPtr) data;
-    pthread_kill (tsk->tid, SIGUSR1);
-    pthread_join (tsk->tid, NULL);
-
-    return True;
-}
-
 void
-stopAllTask (void) {
-    hashLoopCheckToRemove (taskManagerHashTable, stopTaskForEachHashItem, NULL);
-    usleep (500000);
-}
-
-void
-sendTaskStatus (taskStatus status) {
+sendTaskStatus (char *taskName, taskStatus status) {
     int ret;
     u_int retries = 3;
     char statusMsg [128];
 
     snprintf (statusMsg, sizeof (statusMsg),
-              TASK_STATUS_MESSAGE_FORMAT_STRING, status, pthread_self ());
+              TASK_STATUS_MESSAGE_FORMAT_STRING, status, pthread_self (), taskName);
 
     do {
         pthread_mutex_lock (&taskStatusSendSockLock);
@@ -137,11 +170,47 @@ sendTaskStatus (taskStatus status) {
         LOGE ("Send task status error.\n");
 }
 
+void
+displayTaskSchedPolicyInfo (char *taskName) {
+    int ret;
+    int policy;
+    char *policyName;
+    struct sched_param param;
+
+    ret = pthread_getschedparam (pthread_self(), &policy, &param);
+    if (ret < 0) {
+        LOGE ("Pthread getschedparam error.\n");
+        return;
+    }
+
+    switch (policy) {
+        case SCHED_OTHER:
+            policyName = "SCHED_OTHER";
+            break;
+
+        case SCHED_RR:
+            policyName = "SCHED_RR";
+            break;
+
+        case SCHED_FIFO:
+            policyName = "SCHED_FIFO";
+            break;
+
+        default:
+            policyName = "SCHED_UNKNOWN";
+            break;
+    }
+
+    LOGI ("Task: %s schedule with policy: %s, priority: %d\n",
+          taskName, policyName, param.sched_priority);
+}
+
 int
 taskStatusHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
     int ret;
     u_int retries;
     char *taskStatusMsg;
+    char taskName [64];
     u_int taskStatus;
     pthread_t tid;
 
@@ -151,18 +220,19 @@ taskStatusHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
     if (taskStatusMsg == NULL)
         return 0;
 
-    sscanf (taskStatusMsg, TASK_STATUS_MESSAGE_FORMAT_STRING, &taskStatus, &tid);
+    sscanf (taskStatusMsg, TASK_STATUS_MESSAGE_FORMAT_STRING,
+            &taskStatus, &tid, taskName);
     switch (taskStatus) {
         case TASK_STATUS_EXIT_NORMALLY:
-            LOGI ("Task %lu exit normally.\n", tid);
+            LOGE ("%s:%lu exit normally.\n",  taskName, tid);
             pthread_kill (pthread_self (), SIGINT);
             break;
 
         case TASK_STATUS_EXIT_ABNORMALLY:
-            LOGE ("Task %lu exit abnormally.\n",  tid);
+            LOGE ("%s:%lu exit abnormally.\n",  taskName, tid);
             retries = 1;
             while (retries <= TASK_RESTART_MAX_RETRIES) {
-                LOGI ("Try to restart task with retries: %u\n", retries);
+                LOGI ("Try to restart %s with retries: %u\n", taskName, retries);
                 ret = restartTask (tid);
                 if (!ret)
                     break;
@@ -171,16 +241,16 @@ taskStatusHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
             }
 
             if (ret < 0) {
-                LOGE ("Restart task failed.\n");
+                LOGE ("Restart %s failed.\n", taskName);
                 ret = -1;
             } else {
-                LOGI ("Restart task successfully.\n");
+                LOGI ("Restart %s successfully.\n", taskName);
                 ret = 0;
             }
             break;
 
         default:
-            LOGE ("Unknown task status.\n");
+            LOGE ("Unknown task status for %s.\n", taskName);
             ret = 0;
             break;
     }

@@ -8,13 +8,13 @@
 
 static int
 initTemplateAnalyzer (void) {
-    LOGI ("Init template analyzer.\n");
+    LOGI ("Init template analyzer success.\n");
     return 0;
 }
 
 static void
 destroyTemplateAnalyzer (void) {
-    LOGI ("Destroy template analyzer.\n");
+    LOGI ("Destroy template analyzer success.\n");
     return;
 }
 

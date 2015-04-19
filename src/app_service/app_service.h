@@ -10,7 +10,6 @@ typedef appService *appServicePtr;
 
 /* Application service definition */
 struct _appService {
-    u_int id;                           /**< Application service id */
     char *proto;                        /**< Application service proto name */
     protoAnalyzerPtr analyzer;          /**< Application service proto analyzer */
     char *ip;                           /**< Application service ip */
@@ -18,7 +17,6 @@ struct _appService {
 };
 
 /* Application service json key definitions */
-#define APP_SERVICE_ID "id"
 #define APP_SERVICE_PROTO "proto"
 #define APP_SERVICE_IP "ip"
 #define APP_SERVICE_PORT "port"

@@ -169,7 +169,7 @@ ipProcessService (void *args) {
         goto destroyLogContext;
     }
 
-    while (!SIGUSR1IsInterrupted () && !zctx_interrupted) {
+    while (!SIGUSR1IsInterrupted ()) {
         /* Receive timestamp zframe */
         if (tmFrame == NULL) {
             tmFrame = zframe_recv (ipPktRecvSock);
@@ -231,7 +231,7 @@ destroyLogContext:
     destroyLogContext ();
 exit:
     if (!SIGUSR1IsInterrupted ())
-        sendTaskStatus (TASK_STATUS_EXIT_ABNORMALLY);
+        sendTaskStatus ("IpProcessService", TASK_STATUS_EXIT_ABNORMALLY);
 
     return NULL;
 }

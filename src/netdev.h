@@ -5,15 +5,23 @@
 
 /*========================Interfaces definition============================*/
 pcap_t *
-getNetDevPcapDesc (void);
+getNetDevPcapDescForSniff (void);
+pcap_t *
+getNetDevPcapDescForProtoDetection (void);
 int
-getNetDevDatalinkType (void);
+getNetDevDatalinkTypeForSniff (void);
 int
-getNetDevPakcetsStatistic (u_int *pktsRecv, u_int *pktsDrop);
+getNetDevDatalinkTypeForProtoDetection (void);
 int
-updateNetDevFilter (char *filter);
+getNetDevStatisticInfoForSniff (u_int *pktsRecv, u_int *pktsDrop);
 int
-loopNetDev (void);
+getNetDevStatisticInfoForProtoDetection (u_int *pktsRecv, u_int *pktsDrop);
+int
+updateNetDevFilterForSniff (char *filter);
+int
+updateNetDevFilterForSniff (char *filter);
+int
+loopNetDevForSniff (void);
 int
 initNetDev (void);
 void

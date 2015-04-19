@@ -4,6 +4,9 @@
 #include <stdlib.h>
 #include <czmq.h>
 
+#define LOG_RECV_PORT 50001
+#define LOG_PUB_PORT 50002
+
 #define TCP_PACKET_DISPATCH_RECV_PORT 51001
 
 typedef struct _zmqHub zmqHub;
@@ -11,6 +14,9 @@ typedef zmqHub *zmqHubPtr;
 
 struct _zmqHub {
     zctx_t *zmqCtxt;                    /**< Zmq context */
+
+    void *logRecvSock;                  /**< Log recv sock */
+    void *logPubSock;                   /**< Log pub sock */
 
     void *managementControlReplySock;   /**< Management reply sock */
 
@@ -37,6 +43,10 @@ struct _zmqHub {
 };
 
 /*========================Interfaces definition============================*/
+void *
+getLogRecvSock (void);
+void *
+getLogPubSock (void);
 void *
 getManagementControlReplySock (void);
 void *

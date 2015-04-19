@@ -31,6 +31,9 @@ getProtoAnalyzerInfo (protoAnalyzerInfoPtr info) {
     u_int i;
     protoAnalyzerPtr analyzer;
 
+    if (info == NULL)
+        return -1;
+
     for (i = 0; i < registeredProtoSize; i++) {
         analyzer = protoAnalyzerContextTable [i].analyzer;
         snprintf (info->protoNames[i], sizeof (info->protoNames[i]),

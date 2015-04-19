@@ -5,7 +5,6 @@
 #include <sys/types.h>
 #include <czmq.h>
 #include "util.h"
-#include "log_service.h"
 #include "zmq_hub.h"
 #include "log.h"
 
@@ -95,7 +94,7 @@ doLog (u_char logLevel, const char *file, u_int line, const char *func, char *ms
     buf [MAX_LOG_MESSAGE_LENGTH - 1] = 0;
 
     /* For log level <= LOG_ERR_LEVEL message, send to console also */
-    if (logLevel <= LOG_ERR_LEVEL)
+    if (logLevel <= LOG_INFO_LEVEL)
         fprintf (stdout, "%s", tmp);
 
     do {
@@ -138,7 +137,7 @@ initLogContext (u_int logLevel) {
     }
 
     ret = zsocket_connect (logCtxtInstance->logSock,
-                           "tcp://localhost:%u", LOG_SERVICE_LOG_RECV_PORT);
+                           "tcp://localhost:%u", LOG_RECV_PORT);
     if (ret < 0) {
         zctx_destroy (&logCtxtInstance->zmqCtxt);
         free (logCtxtInstance);

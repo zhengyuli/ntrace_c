@@ -16,19 +16,8 @@
 #include "signals.h"
 #include "log.h"
 #include "zmq_hub.h"
+#include "task_manager.h"
 #include "log_service.h"
-
-#define LOG_SERVICE_STATUS_MESSAGE_FORMAT_STRING "%u:%lu"
-#define LOG_SERVICE_RESTART_MAX_COUNT 5
-#define LOG_SERVICE_RESTART_MAX_RETRIES 3
-
-#define LOG_SERVICE_STATUS_EXCHANGE_CHANNEL "inproc://logServiceStatusExchangeChannel"
-
-/* Log service restart count */
-static u_int logServiceRestartCount = 0;
-
-/* Log service instance */
-static logServiceCtxtPtr logServiceCtxtInstance = NULL;
 
 /* Log devices list */
 static listHead logDevices;
@@ -232,13 +221,11 @@ typedef struct _logNet logNet;
 typedef logNet *logNetPtr;
 
 struct _logNet {
-    zctx_t *zmqCtxt;
-    void *sock;
+    void *pubSock;
 };
 
 static int
 initLogNet (logDevPtr dev) {
-    int ret;
     logNetPtr lognet;
 
     lognet = (logNetPtr) malloc (sizeof (logNet));
@@ -247,30 +234,7 @@ initLogNet (logDevPtr dev) {
         return -1;
     }
 
-    lognet->zmqCtxt = zctx_new ();
-    if (lognet->zmqCtxt == NULL) {
-        fprintf (stderr, "Create zmqCtxt error.\n");
-        free (lognet);
-        return -1;
-    }
-
-    lognet->sock = zsocket_new (lognet->zmqCtxt, ZMQ_PUB);
-    if (lognet->sock == NULL) {
-        fprintf (stderr, "Create log net socket error.\n");
-        zctx_destroy (&lognet->zmqCtxt);
-        free (lognet);
-        return -1;
-    }
-
-    ret = zsocket_bind (lognet->sock, "tcp://*:%u",
-                        LOG_SERVICE_LOG_PUBLISH_PORT);
-    if (ret < 0) {
-        fprintf (stderr, "Bind log net socket to %u error.\n",
-                 LOG_SERVICE_LOG_PUBLISH_PORT);
-        zctx_destroy (&lognet->zmqCtxt);
-        free (lognet);
-        return -1;
-    }
+    lognet->pubSock = getLogPubSock ();
 
     dev->data = lognet;
     return 0;
@@ -284,20 +248,17 @@ writeLogNet (char *msg, logDevPtr dev) {
 
     lognet = (logNetPtr) dev->data;
     do {
-        ret = zstr_send (lognet->sock, msg);
+        ret = zstr_send (lognet->pubSock, msg);
         retries -= 1;
     } while (ret < 0 && retries);
 
     if (ret < 0)
-        LOGE ("Publish log message error.\n");
+        fprintf (stderr, "Publish log message error.\n");
 }
 
 static void
 destroyLogNet (logDevPtr dev) {
-    logNetPtr lognet = (logNetPtr) dev->data;
-
-    zctx_destroy (&lognet->zmqCtxt);
-    free (lognet);
+    return;
 }
 
 /*============================log dev=================================*/
@@ -338,27 +299,10 @@ logDevDestroy (void) {
     }
 }
 
-static void
-sendLogServiceStatus (logServiceStatus status) {
-    int ret;
-    u_int retries = 3;
-    char statusMsg [128];
-
-    snprintf (statusMsg, sizeof (statusMsg),
-              LOG_SERVICE_STATUS_MESSAGE_FORMAT_STRING, status, pthread_self ());
-
-    do {
-        ret = zstr_send (logServiceCtxtInstance->statusSendSock, statusMsg);
-        retries -= 1;
-    } while (ret < 0 && retries);
-
-    if (ret < 0)
-        fprintf (stderr, "Send log service state error.\n");
-}
-
-static void *
+void *
 logService (void *args) {
     int ret;
+    void *logRecvSock;
     char *logMsg;
 
     /* Reset signals flag */
@@ -391,160 +335,22 @@ logService (void *args) {
     if (ret < 0)
         goto destroyDev;
 
+    logRecvSock = getLogRecvSock ();
     while (!SIGUSR1IsInterrupted ()) {
-        logMsg = zstr_recv (logServiceCtxtInstance->logRecvSock);
+        logMsg = zstr_recv (logRecvSock);
         if (logMsg == NULL)
             break;
+
         logDevWrite (&logDevices, logMsg);
         free (logMsg);
     }
 
+    fprintf (stdout, "LogService will exit... .. .\n");
 destroyDev:
     logDevDestroy ();
 exit:
     if (!SIGUSR1IsInterrupted ())
-        sendLogServiceStatus (LOG_SERVICE_STATUS_EXIT_ABNORMALLY);
+        sendTaskStatus ("LogService", TASK_STATUS_EXIT_ABNORMALLY);
 
     return NULL;
-}
-
-void *
-getLogServiceStatusRecvSock (void) {
-    return logServiceCtxtInstance->statusRecvSock;
-}
-
-int
-logServiceStatusHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
-    int ret;
-    u_int retries;
-    char *statusMsg;
-    u_int status;
-    pthread_t tid;
-
-    statusMsg =  zstr_recv_nowait (logServiceCtxtInstance->statusRecvSock);
-    if (statusMsg == NULL)
-        return 0;
-
-    sscanf (statusMsg, LOG_SERVICE_STATUS_MESSAGE_FORMAT_STRING, &status, &tid);
-    switch (status) {
-        case LOG_SERVICE_STATUS_EXIT_NORMALLY:
-            LOGI ("LogService %lu exit normally.\n", logServiceCtxtInstance->tid);
-            pthread_kill (pthread_self (), SIGINT);
-            break;
-
-        case LOG_SERVICE_STATUS_EXIT_ABNORMALLY:
-            fprintf (stderr, "Task %lu exit abnormally.\n", tid);
-            if (logServiceRestartCount >= LOG_SERVICE_RESTART_MAX_COUNT)
-                return -1;
-
-            if (logServiceRestartCount)
-                usleep (1000000);
-
-            retries = 0;
-            while (retries < LOG_SERVICE_RESTART_MAX_RETRIES) {
-                fprintf (stdout, "Try to restart logService with retries: %u.\n", retries);
-                ret = pthread_create (&logServiceCtxtInstance->tid, NULL, logService, NULL);
-                if (!ret)
-                    break;
-
-                retries++;
-            }
-
-            if (ret < 0) {
-                fprintf (stderr, "Restart logService failed.\n");
-                ret = -1;
-            } else
-                ret = 0;
-
-            logServiceRestartCount++;
-            break;
-
-        default:
-            fprintf (stderr, "Unknown logService status.\n");
-            ret = 0;
-            break;
-    }
-
-    free (statusMsg);
-    return ret;
-}
-
-/* Init log service */
-int
-initLogService (void) {
-    int ret;
-
-    logServiceCtxtInstance = (logServiceCtxtPtr) malloc (sizeof (logServiceCtxt));
-    if (logServiceCtxtInstance == NULL) {
-        fprintf (stderr, "Alloc logServiceCtxtInstance error.\n");
-        return -1;
-    }
-
-    logServiceCtxtInstance->zmqCtxt = zctx_new ();
-    if (logServiceCtxtInstance->zmqCtxt == NULL) {
-        fprintf (stderr, "Create zmq context error");
-        goto freeLogServiceCtxtInstance;
-    }
-    zctx_set_linger (logServiceCtxtInstance->zmqCtxt, 0);
-
-    /* Create statusSendSock */
-    logServiceCtxtInstance->statusSendSock = zsocket_new (logServiceCtxtInstance->zmqCtxt, ZMQ_PUSH);
-    if (logServiceCtxtInstance->statusSendSock == NULL) {
-        fprintf (stderr, "Create statusSendSock error.\n");
-        goto destroyZmqCtxt;
-    }
-    ret = zsocket_bind (logServiceCtxtInstance->statusSendSock, LOG_SERVICE_STATUS_EXCHANGE_CHANNEL);
-    if (ret < 0) {
-        fprintf (stderr, "Bind to %s error.\n", LOG_SERVICE_STATUS_EXCHANGE_CHANNEL);
-        goto destroyZmqCtxt;
-    }
-
-    /* Create statusRecvSock */
-    logServiceCtxtInstance->statusRecvSock = zsocket_new (logServiceCtxtInstance->zmqCtxt, ZMQ_PULL);
-    if (logServiceCtxtInstance->statusRecvSock == NULL) {
-        fprintf (stderr, "Create statusRecvSock error.\n");
-        goto destroyZmqCtxt;
-    }
-    ret = zsocket_connect (logServiceCtxtInstance->statusRecvSock, LOG_SERVICE_STATUS_EXCHANGE_CHANNEL);
-    if (ret < 0) {
-        fprintf (stderr, "Connect to %s error.\n", LOG_SERVICE_STATUS_EXCHANGE_CHANNEL);
-        goto destroyZmqCtxt;
-    }
-
-    /* Create logRecvSock */
-    logServiceCtxtInstance->logRecvSock = zsocket_new (logServiceCtxtInstance->zmqCtxt, ZMQ_PULL);
-    if (logServiceCtxtInstance->logRecvSock == NULL) {
-        fprintf (stderr, "Create logRecvSock error.\n");
-        goto destroyZmqCtxt;
-    }
-    ret = zsocket_bind (logServiceCtxtInstance->logRecvSock, "tcp://*:%u", LOG_SERVICE_LOG_RECV_PORT);
-    if (ret < 0) {
-        fprintf (stderr, "Bind to \"tcp://*:%u\" error.\n", LOG_SERVICE_LOG_RECV_PORT);
-        goto destroyZmqCtxt;
-    }
-
-    ret = pthread_create (&logServiceCtxtInstance->tid, NULL, logService, NULL);
-    if (ret < 0) {
-        fprintf (stderr, "Start logService error.\n");
-        goto destroyZmqCtxt;
-    }
-
-    return 0;
-
-destroyZmqCtxt:
-    zctx_destroy (&logServiceCtxtInstance->zmqCtxt);
-freeLogServiceCtxtInstance:
-    free (logServiceCtxtInstance);
-    logServiceCtxtInstance = NULL;
-    return -1;
-}
-
-/* Destroy log service */
-void
-destroyLogService (void) {
-    pthread_kill (logServiceCtxtInstance->tid, SIGUSR1);
-    pthread_join (logServiceCtxtInstance->tid, NULL);
-    zctx_destroy (&logServiceCtxtInstance->zmqCtxt);
-    free (logServiceCtxtInstance);
-    logServiceCtxtInstance = NULL;
 }

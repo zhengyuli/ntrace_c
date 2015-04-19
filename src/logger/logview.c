@@ -5,7 +5,6 @@
 #include <string.h>
 #include "util.h"
 #include "log.h"
-#include "log_service.h"
 
 static char *logServerIp = NULL;
 static boolean showInDetail  = False;
@@ -127,8 +126,7 @@ main (int argc, char *argv []) {
         return -1;
     }
     ret = zsocket_connect (subSock, "tcp://%s:%d",
-                           logServerIp ? logServerIp : "localhost",
-                           LOG_SERVICE_LOG_PUBLISH_PORT);
+                           logServerIp ? logServerIp : "localhost", 50002);
     if (ret < 0) {
         zctx_destroy (&zmqContext);
         freeCmdlineArgs ();

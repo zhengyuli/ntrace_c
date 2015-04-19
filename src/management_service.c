@@ -46,7 +46,7 @@ handleResumeRequest (json_t *body) {
     }
 
     /* Update application services filter */
-    ret = updateNetDevFilter (filter);
+    ret = updateNetDevFilterForSniff (filter);
     if (ret < 0)
         LOGE ("Update application services filter error.\n");
     else
@@ -76,7 +76,7 @@ handlePauseRequest (json_t *body) {
     }
 
     /* Update application services filter */
-    ret = updateNetDevFilter (filter);
+    ret = updateNetDevFilterForSniff (filter);
     if (ret < 0)
         LOGE ("Update application services filter error.\n");
     else
@@ -137,14 +137,14 @@ handleUpdateProfileRequest (json_t *body) {
     }
 
     /* Update application services filter */
-    ret = updateNetDevFilter (filter);
+    ret = updateNetDevFilterForSniff (filter);
     if (ret < 0) {
         LOGE ("Update application services filter error.\n");
         free (filter);
         return -1;
     }
 
-    LOGI ("Update application services filter: %s\n", filter);
+    LOGI ("Update application services filter with: %s\n", filter);
     free (filter);
 
     /* Sync profile cache */
@@ -168,8 +168,8 @@ static int
 handlePacketsStatisticRequest (json_t *body) {
     int ret;
 
-    ret = getNetDevPakcetsStatistic (&packetsStatisticPktsReceive,
-                                     &packetsStatisticPktsDrop);
+    ret = getNetDevStatisticInfoForSniff (&packetsStatisticPktsReceive,
+                                          &packetsStatisticPktsDrop);
     if (ret < 0) {
         LOGE ("Get packets statistic info error.\n");
         return -1;
@@ -549,7 +549,7 @@ destroyLogContext:
     destroyLogContext ();
 exit:
     if (!SIGUSR1IsInterrupted ())
-        sendTaskStatus (TASK_STATUS_EXIT_ABNORMALLY);
+        sendTaskStatus ("ManagementService", TASK_STATUS_EXIT_ABNORMALLY);
 
     return NULL;
 }

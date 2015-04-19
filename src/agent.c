@@ -77,48 +77,54 @@ startServices (void) {
     int ret;
     u_int i;
 
-    ret = newTask (managementService, NULL);
+    ret = newNormalTask (logService, NULL);
+    if (ret < 0) {
+        LOGE ("Create logService error.\n");
+        goto stopAllTask;
+    }
+
+    ret = newNormalTask (managementService, NULL);
     if (ret < 0) {
         LOGE ("Create managementService error.\n");
         goto stopAllTask;
     }
 
-    ret = newTask (miningService, NULL);
-    if (ret < 0) {
-        LOGE ("Create miningService error.\n");
-        goto stopAllTask;
-    }
-
-    ret = newTask (rawCaptureService, NULL);
+    ret = newNormalTask (rawCaptureService, NULL);
     if (ret < 0) {
         LOGE ("Create rawCaptureService error.\n");
         goto stopAllTask;
     }
 
-    ret = newTask (ipProcessService, NULL);
+    ret = newNormalTask (ipProcessService, NULL);
     if (ret < 0) {
         LOGE ("Create ipProcessService error.\n");
         goto stopAllTask;
     }
 
-    ret = newTask (icmpProcessService, NULL);
+    ret = newNormalTask (icmpProcessService, NULL);
     if (ret < 0) {
         LOGE ("Create icmpProcessService error.\n");
         goto stopAllTask;
     }
 
-    ret = newTask (tcpDispatchService, NULL);
+    ret = newNormalTask (tcpDispatchService, NULL);
     if (ret < 0) {
         LOGE ("Create tcpDispatchService error.\n");
         goto stopAllTask;
     }
 
     for (i = 0; i < getTcpProcessThreadsNum (); i++) {
-        ret = newTask (tcpProcessService, getTcpProcessThreadIDHolder (i));
+        ret = newNormalTask (tcpProcessService, getTcpProcessThreadIDHolder (i));
         if (ret < 0) {
             LOGE ("Create tcpProcessService:%u error.\n", i);
             goto stopAllTask;
         }
+    }
+
+    ret = newNormalTask (miningService, NULL);
+    if (ret < 0) {
+        LOGE ("Create miningService error.\n");
+        goto stopAllTask;
     }
 
     return 0;
@@ -137,7 +143,7 @@ static int
 agentService (void) {
     int ret;
     zloop_t *loop;
-    zmq_pollitem_t pollItems [2];
+    zmq_pollitem_t pollItems [1];
 
     /* Check Permission */
     if (getuid () != 0) {
@@ -155,20 +161,12 @@ agentService (void) {
     /* Setup signal */
     setupSignals ();
 
-    /* Init log service */
-    ret = initLogService ();
-    if (ret < 0) {
-        fprintf (stderr, "Init log service error.\n");
-        ret = -1;
-        goto unlockPidFile;
-    }
-
     /* Init log context */
     ret = initLogContext (getPropertiesLogLevel ());
     if (ret < 0) {
         fprintf (stderr, "Init log context error.\n");
         ret = -1;
-        goto destroyLogService;
+        goto unlockPidFile;
     }
 
     /* Init zmq hub */
@@ -231,24 +229,12 @@ agentService (void) {
         goto stopServices;
     }
 
-    /* Init poll item 0 */
-    pollItems [0].socket = getLogServiceStatusRecvSock ();
+    /* Init poll item 1 */
+    pollItems [0].socket = getTaskStatusRecvSock ();
     pollItems [0].fd = 0;
     pollItems [0].events = ZMQ_POLLIN;
-    /* Register poll item 0 */
-    ret = zloop_poller (loop, &pollItems [0], logServiceStatusHandler, NULL);
-    if (ret < 0) {
-        LOGE ("Register poll items [0] error.\n");
-        ret = -1;
-        goto destroyZloop;
-    }
-
-    /* Init poll item 1 */
-    pollItems [1].socket = getTaskStatusRecvSock ();
-    pollItems [1].fd = 0;
-    pollItems [1].events = ZMQ_POLLIN;
     /* Register poll item 1 */
-    ret = zloop_poller (loop, &pollItems [1], taskStatusHandler, NULL);
+    ret = zloop_poller (loop, &pollItems [0], taskStatusHandler, NULL);
     if (ret < 0) {
         LOGE ("Register poll items [1] error.\n");
         ret = -1;
@@ -258,9 +244,9 @@ agentService (void) {
     /* Start zloop */
     ret = zloop_start (loop);
     if (ret < 0)
-        LOGE ("Agent exit abnormally.\n");
+        LOGE ("Agent will exit abnormally ... .. .\n");
     else
-        LOGI ("Agent exit normally.\n");
+        LOGI ("Agent will exit normally ... .. .\n");
 
 destroyZloop:
     zloop_destroy (&loop);
@@ -280,8 +266,6 @@ destroyZmqHub:
     destroyZmqHub ();
 destroyLogContext:
     destroyLogContext ();
-destroyLogService:
-    destroyLogService ();
 unlockPidFile:
     unlockPidFile ();
     return ret;

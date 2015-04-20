@@ -246,24 +246,27 @@ updateNetDevFilterForProtoDetection (char *filter) {
  */
 int
 loopNetDevForSniff (void) {
+    pcap_t * tmp;
+
     if (getPropertiesPcapFile () == NULL) {
         LOGE ("Has no pcap file config.\n");
         return -1;
     }
 
-    if (pcapDescForSniffInstance) {
-        pcap_close (pcapDescForSniffInstance);
-        pcapDescForSniffInstance = NULL;
-    }
-
     if (getPropertiesLoopCount () == 0 ||
         pcapFileLoadCount < getPropertiesLoopCount ()) {
-        pcapDescForSniffInstance = newPcapFileDesc (getPropertiesPcapFile ());
-        if (pcapDescForSniffInstance == NULL) {
+        tmp = newPcapFileDesc (getPropertiesPcapFile ());
+        if (tmp == NULL) {
             LOGE ("Create pcap file descriptor: %s error.\n", getPropertiesPcapFile ());
             return -1;
         }
 
+        if (pcapDescForSniffInstance) {
+            pcap_close (pcapDescForSniffInstance);
+            pcapDescForSniffInstance = NULL;
+        }
+
+        pcapDescForSniffInstance = tmp;
         pcapFileLoadCount++;
         return 0;
     } else {

@@ -4,9 +4,14 @@
 #include <stdlib.h>
 #include <czmq.h>
 
+#define TASK_STATUS_EXCHANGE_CHANNEL "inproc://taskStatusExchangeChannel"
+#define IP_PACKET_EXCHANGE_CHANNEL "inproc://ipPacketExchangeChannel"
+#define ICMP_PACKET_EXCHANGE_CHANNEL "inproc://icmpPacketExchangeChannel"
+#define TCP_PACKET_EXCHANGE_CHANNEL "inproc://tcpPacketExchangeChannel"
+#define SESSION_BREAKDOWN_EXCHANGE_CHANNEL "inproc://sessionBreakdownExchangeChannel"
+
 #define LOG_RECV_PORT 50001
 #define LOG_PUB_PORT 50002
-
 #define TCP_PACKET_DISPATCH_RECV_PORT 51001
 
 typedef struct _zmqHub zmqHub;
@@ -23,11 +28,11 @@ struct _zmqHub {
     void *taskStatusSendSock;           /**< Task status send sock */
     void *taskStatusRecvSock;           /**< Task status recv sock */
 
-    void *ipPktSendSock;                /**< Ip packet send sock */
-    void *ipPktRecvSock;                /**< Ip packet recv sock */
-
     void *sessionBreakdownRecvSock;     /**< Session breakdown recv sock */
     void *sessionBreakdownPushSock;     /**< Session breakdown push sock */
+
+    void *ipPktSendSock;                /**< Ip packet send sock */
+    void *ipPktRecvSock;                /**< Ip packet recv sock */
 
     void *icmpPktSendSock;              /**< Icmp packet send sock */
     void *icmpPktRecvSock;              /**< Icmp packet recv sock */
@@ -54,13 +59,13 @@ getTaskStatusSendSock (void);
 void *
 getTaskStatusRecvSock (void);
 void *
-getIpPktSendSock (void);
-void *
-getIpPktRecvSock (void);
-void *
 getSessionBreakdownRecvSock (void);
 void *
 getSessionBreakdownPushSock (void);
+void *
+getIpPktSendSock (void);
+void *
+getIpPktRecvSock (void);
 void *
 getIcmpPktSendSock (void);
 void *

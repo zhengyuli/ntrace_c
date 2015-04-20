@@ -6,15 +6,16 @@
 #include "log.h"
 #include "zmq_hub.h"
 #include "task_manager.h"
-#include "mining_service.h"
+#include "session_breakdown_service.h"
 
-/* Session breakdown mining service */
+/* Session breakdown service */
 void *
-miningService (void *args) {
+sessionBreakdownService (void *args) {
     int ret;
     void *sessionBreakdownRecvSock;
     void *sessionBreakdownPushSock;
     char *sessionBreakdown;
+    u_long_long sessionBreakdownCount = 0;
 
     /* Reset signals flag */
     resetSignalsFlag ();
@@ -41,14 +42,18 @@ miningService (void *args) {
         }
 
         zstr_send (sessionBreakdownPushSock, sessionBreakdown);
+        sessionBreakdownCount++;
         free (sessionBreakdown);
     }
 
-    LOGI ("MiningService will exit ... .. .\n");
+    /* Display session breakdown statistic info */
+    LOGI ("SessionBreakdownCount: %llu\n", sessionBreakdownCount);
+
+    LOGI ("SessionBreakdownService will exit ... .. .\n");
     destroyLogContext ();
 exit:
     if (!SIGUSR1IsInterrupted ())
-        sendTaskStatus ("MiningService", TASK_STATUS_EXIT_ABNORMALLY);
+        sendTaskStatus ("SessionBreakdownService", TASK_STATUS_EXIT_ABNORMALLY);
 
     return NULL;
 }

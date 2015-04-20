@@ -19,7 +19,7 @@ getNetDevStatisticInfoForProtoDetection (u_int *pktsRecv, u_int *pktsDrop);
 int
 updateNetDevFilterForSniff (char *filter);
 int
-updateNetDevFilterForSniff (char *filter);
+updateNetDevFilterForProtoDetection (char *filter);
 int
 loopNetDevForSniff (void);
 int

@@ -20,7 +20,7 @@ struct _taskItem {
     pthread_t tid;                      /**< Task thread id */
     taskRoutine routine;                /**< Task routine */
     void *args;                         /**< Task routine arguments */
-    pthread_attr_t attr;                /**< Thread creation attribute */
+    pthread_attr_t attr;                /**< Task thread attribute */
 };
 
 /*========================Interfaces definition============================*/

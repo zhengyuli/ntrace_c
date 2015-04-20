@@ -13,27 +13,15 @@
 #include "raw_packet.h"
 #include "raw_capture_service.h"
 
+/* NetDev pcap descriptor and datalink type */
 static pcap_t *pcapDev = NULL;
 static int datalinkType = -1;
+/* NetDev loop complete flag */
+static boolean loopComplete = False;
 
 static u_long_long rawPktCaptureSize = 0;
 static u_long_long rawPktCaptureStartTime = 0;
 static u_long_long rawPktCaptureEndTime = 0;
-
-static void
-displayRawCaptureStatisticInfo (void) {
-    rawPktCaptureEndTime = getSysTime ();
-
-    LOGI ("\n"
-          "==Capture raw packets complete==\n"
-          "--size: %lf KB\n"
-          "--interval: %llu ms\n"
-          "--rate: %lf MB/s\n\n",
-          ((double) rawPktCaptureSize / 1024),
-          (rawPktCaptureEndTime - rawPktCaptureStartTime),
-          (((double) rawPktCaptureSize / (128 * 1024)) /
-           ((double) (rawPktCaptureEndTime - rawPktCaptureStartTime) / 1000)));
-}
 
 static int
 loopPcapDev (void) {
@@ -46,6 +34,7 @@ loopPcapDev (void) {
         return -1;
     } else if (ret == 1) {
         LOGI ("Loop netDev complete.\n");
+        loopComplete = True;
         return 1;
     }
 
@@ -67,6 +56,21 @@ loopPcapDev (void) {
     return 0;
 }
 
+static void
+displayRawCaptureStatisticInfo (void) {
+    rawPktCaptureEndTime = getSysTime ();
+
+    LOGI ("\n"
+          "==Capture raw packets complete==\n"
+          "--size: %lf KB\n"
+          "--interval: %llu ms\n"
+          "--rate: %lf MB/s\n\n",
+          ((double) rawPktCaptureSize / 1024),
+          (rawPktCaptureEndTime - rawPktCaptureStartTime),
+          (((double) rawPktCaptureSize / (128 * 1024)) /
+           ((double) (rawPktCaptureEndTime - rawPktCaptureStartTime) / 1000)));
+}
+
 /*
  * Raw packet capture service.
  * Capture raw packet from pcap file or mirror interface,
@@ -83,7 +87,6 @@ rawCaptureService (void *args) {
     iphdrPtr iph;
     timeVal captureTime;
     zframe_t *frame;
-    boolean loopComplete = false;
 
     /* Reset signals flag */
     resetSignalsFlag ();
@@ -164,13 +167,8 @@ rawCaptureService (void *args) {
         } else if (ret == -1) {
             LOGE ("Capture raw packets with fatal error.\n");
             break;
-        } else if (ret == -2) {
-            ret = loopPcapDev ();
-            if (ret) {
-                loopComplete = true;
-                break;
-            }
-        }
+        } else if (ret == -2 && loopPcapDev ())
+            break;
     }
 
     /* Show raw packets capture statistics info */
@@ -180,9 +178,7 @@ rawCaptureService (void *args) {
 destroyLogContext:
     destroyLogContext ();
 exit:
-    if (loopComplete)
-        sendTaskStatus ("RawCaptureService", TASK_STATUS_EXIT_NORMALLY);
-    else if (!SIGUSR1IsInterrupted ())
+    if (!loopComplete && !SIGUSR1IsInterrupted ())
         sendTaskStatus ("RawCaptureService", TASK_STATUS_EXIT_ABNORMALLY);
 
     return NULL;

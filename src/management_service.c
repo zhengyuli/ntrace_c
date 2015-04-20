@@ -488,7 +488,7 @@ managementTimerHandler (zloop_t *loop, zmq_pollitem_t * timerId, void *arg) {
 void *
 managementService (void *args) {
     int ret;
-    zmq_pollitem_t pollItems [1];
+    zmq_pollitem_t pollItem;
     zloop_t *loop;
 
     /* Reset signals flag */
@@ -517,14 +517,14 @@ managementService (void *args) {
         goto destroyManagementServiceZmqCtxt;
     }
 
-    /* Init poll item 0 */
-    pollItems [0].socket = getManagementControlReplySock ();
-    pollItems [0].fd = 0;
-    pollItems [0].events = ZMQ_POLLIN;
+    /* Init pollItem */
+    pollItem.socket = getManagementControlReplySock ();
+    pollItem.fd = 0;
+    pollItem.events = ZMQ_POLLIN;
     /* Register poll item 0 */
-    ret = zloop_poller (loop, &pollItems [0], managementControlRequestHandler, NULL);
+    ret = zloop_poller (loop, &pollItem, managementControlRequestHandler, NULL);
     if (ret < 0) {
-        LOGE ("Register poll items [0] error.\n");
+        LOGE ("Register pollItem error.\n");
         goto destroyZloop;
     }
 
@@ -535,12 +535,9 @@ managementService (void *args) {
     }
 
     /* Start zloop */
-    ret = zloop_start (loop);
-    if (ret < 0)
-        LOGE ("ManagementService exit abnormally... .. .\n");
-    else
-        LOGI ("ManagementService will exit... .. .\n");
+    zloop_start (loop);
 
+    LOGI ("ManagementService will exit... .. .\n");
 destroyZloop:
     zloop_destroy (&loop);
 destroyManagementServiceZmqCtxt:

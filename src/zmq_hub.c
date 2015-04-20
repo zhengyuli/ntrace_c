@@ -5,12 +5,6 @@
 #include "log.h"
 #include "zmq_hub.h"
 
-#define TASK_STATUS_EXCHANGE_CHANNEL "inproc://taskStatusExchangeChannel"
-#define IP_PACKET_EXCHANGE_CHANNEL "inproc://ipPacketExchangeChannel"
-#define ICMP_PACKET_EXCHANGE_CHANNEL "inproc://icmpPacketExchangeChannel"
-#define TCP_PACKET_EXCHANGE_CHANNEL "inproc://tcpPacketExchangeChannel"
-#define SESSION_BREAKDOWN_EXCHANGE_CHANNEL "inproc://sessionBreakdownExchangeChannel"
-
 /* Zmq hub instance */
 static zmqHubPtr zmqHubIntance = NULL;
 
@@ -40,16 +34,6 @@ getTaskStatusRecvSock (void) {
 }
 
 void *
-getIpPktSendSock (void) {
-    return zmqHubIntance->ipPktSendSock;
-}
-
-void *
-getIpPktRecvSock (void) {
-    return zmqHubIntance->ipPktRecvSock;
-}
-
-void *
 getSessionBreakdownRecvSock (void) {
     return zmqHubIntance->sessionBreakdownRecvSock;
 }
@@ -57,6 +41,16 @@ getSessionBreakdownRecvSock (void) {
 void *
 getSessionBreakdownPushSock (void) {
     return zmqHubIntance->sessionBreakdownPushSock;
+}
+
+void *
+getIpPktSendSock (void) {
+    return zmqHubIntance->ipPktSendSock;
+}
+
+void *
+getIpPktRecvSock (void) {
+    return zmqHubIntance->ipPktRecvSock;
 }
 
 void *
@@ -131,7 +125,7 @@ initZmqHub (void) {
     }
     ret = zsocket_bind (zmqHubIntance->logRecvSock, "tcp://*:%u", LOG_RECV_PORT);
     if (ret < 0) {
-        LOGE ("Bind to tcp://*:%u error.\n", LOG_RECV_PORT);
+        LOGE ("Bind logRecvSock to tcp://*:%u error.\n", LOG_RECV_PORT);
         goto destroyZmqCtxt;
     }
 
@@ -143,12 +137,13 @@ initZmqHub (void) {
     }
     ret = zsocket_bind (zmqHubIntance->logPubSock, "tcp://*:%u", LOG_PUB_PORT);
     if (ret < 0) {
-        LOGE ("Bind to tcp://*:%u error.\n", LOG_PUB_PORT);
+        LOGE ("Bind logPubSock to tcp://*:%u error.\n", LOG_PUB_PORT);
         goto destroyZmqCtxt;
     }
 
     /* Create managementControlReplySock */
-    zmqHubIntance->managementControlReplySock = zsocket_new (zmqHubIntance->zmqCtxt, ZMQ_REP);
+    zmqHubIntance->managementControlReplySock = zsocket_new (zmqHubIntance->zmqCtxt,
+                                                             ZMQ_REP);
     if (zmqHubIntance->managementControlReplySock == NULL) {
         fprintf (stderr, "Create managementControlReplySock error.\n");
         goto destroyZmqCtxt;
@@ -156,7 +151,8 @@ initZmqHub (void) {
     ret = zsocket_bind (zmqHubIntance->managementControlReplySock, "tcp://*:%u",
                         getPropertiesManagementControlPort ());
     if (ret < 0) {
-        fprintf (stderr, "Bind to tcp://*:%u error.\n", getPropertiesManagementControlPort ());
+        fprintf (stderr, "Bind managementControlReplySock to tcp://*:%u error.\n",
+                 getPropertiesManagementControlPort ());
         goto destroyZmqCtxt;
     }
 
@@ -166,9 +162,11 @@ initZmqHub (void) {
         fprintf (stderr, "Create taskStatusSendSock error.\n");
         goto destroyZmqCtxt;
     }
-    ret = zsocket_bind (zmqHubIntance->taskStatusSendSock, TASK_STATUS_EXCHANGE_CHANNEL);
+    ret = zsocket_bind (zmqHubIntance->taskStatusSendSock,
+                        TASK_STATUS_EXCHANGE_CHANNEL);
     if (ret < 0) {
-        fprintf (stderr, "Bind to %s error.\n", TASK_STATUS_EXCHANGE_CHANNEL);
+        fprintf (stderr, "Bind taskStatusSendSock to %s error.\n",
+                 TASK_STATUS_EXCHANGE_CHANNEL);
         goto destroyZmqCtxt;
     }
 
@@ -178,42 +176,16 @@ initZmqHub (void) {
         fprintf (stderr, "Create taskStatusRecvSock error.\n");
         goto destroyZmqCtxt;
     }
-    ret = zsocket_connect (zmqHubIntance->taskStatusRecvSock, TASK_STATUS_EXCHANGE_CHANNEL);
+    ret = zsocket_connect (zmqHubIntance->taskStatusRecvSock,
+                           TASK_STATUS_EXCHANGE_CHANNEL);
     if (ret < 0) {
-        fprintf (stderr, "Connect to %s error.\n", TASK_STATUS_EXCHANGE_CHANNEL);
+        fprintf (stderr, "Connect taskStatusRecvSock to %s error.\n",
+                 TASK_STATUS_EXCHANGE_CHANNEL);
         goto destroyZmqCtxt;
     }
 
     /* Set zmq context io threads */
     zctx_set_iothreads (zmqHubIntance->zmqCtxt, 3);
-
-    /* Create ipPktSendSock */
-    zmqHubIntance->ipPktSendSock = zsocket_new (zmqHubIntance->zmqCtxt, ZMQ_PUSH);
-    if (zmqHubIntance->ipPktSendSock == NULL) {
-        fprintf (stderr, "Create ipPktSendSock error.\n");
-        goto destroyZmqCtxt;
-    }
-    /* Set ipPktSendSock sndhwm to 500,000 */
-    zsocket_set_sndhwm (zmqHubIntance->ipPktSendSock, 500000);
-    ret = zsocket_bind (zmqHubIntance->ipPktSendSock, IP_PACKET_EXCHANGE_CHANNEL);
-    if (ret < 0) {
-        fprintf (stderr, "Bind to %s error.\n", IP_PACKET_EXCHANGE_CHANNEL);
-        goto destroyZmqCtxt;
-    }
-
-    /* Create ipPktRecvSock */
-    zmqHubIntance->ipPktRecvSock = zsocket_new (zmqHubIntance->zmqCtxt, ZMQ_PULL);
-    if (zmqHubIntance->ipPktRecvSock == NULL) {
-        fprintf (stderr, "Create ipPktRecvSock error.\n");
-        goto destroyZmqCtxt;
-    }
-    /* Set ipPktRecvSock rcvhwm to 500,000 */
-    zsocket_set_rcvhwm (zmqHubIntance->ipPktRecvSock, 500000);
-    ret = zsocket_connect (zmqHubIntance->ipPktRecvSock, IP_PACKET_EXCHANGE_CHANNEL);
-    if (ret < 0) {
-        fprintf (stderr, "Connect to %s error.\n", IP_PACKET_EXCHANGE_CHANNEL);
-        goto destroyZmqCtxt;
-    }
 
     /* Create session breakdown recv sock */
     zmqHubIntance->sessionBreakdownRecvSock = zsocket_new (zmqHubIntance->zmqCtxt, ZMQ_PULL);
@@ -222,9 +194,11 @@ initZmqHub (void) {
         goto destroyZmqCtxt;
     }
     zsocket_set_rcvhwm (zmqHubIntance->sessionBreakdownRecvSock, 500000);
-    ret = zsocket_bind (zmqHubIntance->sessionBreakdownRecvSock, SESSION_BREAKDOWN_EXCHANGE_CHANNEL);
+    ret = zsocket_bind (zmqHubIntance->sessionBreakdownRecvSock,
+                        SESSION_BREAKDOWN_EXCHANGE_CHANNEL);
     if (ret < 0) {
-        fprintf (stderr, "Bind to %s error.\n", SESSION_BREAKDOWN_EXCHANGE_CHANNEL);
+        fprintf (stderr, "Bind sessionBreakdownRecvSock to %s error.\n",
+                 SESSION_BREAKDOWN_EXCHANGE_CHANNEL);
         goto destroyZmqCtxt;
     }
 
@@ -238,8 +212,38 @@ initZmqHub (void) {
     ret = zsocket_connect (zmqHubIntance->sessionBreakdownPushSock, "tcp://%s:%u",
                            getPropertiesMiningEngineHost (), getPropertiesBreakdownRecvPort ());
     if (ret < 0) {
-        fprintf (stderr, "Connect to tcp://%s:%u error.\n",
+        fprintf (stderr, "Connect sessionBreakdownPushSock to tcp://%s:%u error.\n",
                  getPropertiesMiningEngineHost (), getPropertiesBreakdownRecvPort ());
+        goto destroyZmqCtxt;
+    }
+
+    /* Create ipPktSendSock */
+    zmqHubIntance->ipPktSendSock = zsocket_new (zmqHubIntance->zmqCtxt, ZMQ_PUSH);
+    if (zmqHubIntance->ipPktSendSock == NULL) {
+        fprintf (stderr, "Create ipPktSendSock error.\n");
+        goto destroyZmqCtxt;
+    }
+    /* Set ipPktSendSock sndhwm to 500,000 */
+    zsocket_set_sndhwm (zmqHubIntance->ipPktSendSock, 500000);
+    ret = zsocket_bind (zmqHubIntance->ipPktSendSock, IP_PACKET_EXCHANGE_CHANNEL);
+    if (ret < 0) {
+        fprintf (stderr, "Bind ipPktSendSock to %s error.\n",
+                 IP_PACKET_EXCHANGE_CHANNEL);
+        goto destroyZmqCtxt;
+    }
+
+    /* Create ipPktRecvSock */
+    zmqHubIntance->ipPktRecvSock = zsocket_new (zmqHubIntance->zmqCtxt, ZMQ_PULL);
+    if (zmqHubIntance->ipPktRecvSock == NULL) {
+        fprintf (stderr, "Create ipPktRecvSock error.\n");
+        goto destroyZmqCtxt;
+    }
+    /* Set ipPktRecvSock rcvhwm to 500,000 */
+    zsocket_set_rcvhwm (zmqHubIntance->ipPktRecvSock, 500000);
+    ret = zsocket_connect (zmqHubIntance->ipPktRecvSock, IP_PACKET_EXCHANGE_CHANNEL);
+    if (ret < 0) {
+        fprintf (stderr, "Connect ipPktRecvSock to %s error.\n",
+                 IP_PACKET_EXCHANGE_CHANNEL);
         goto destroyZmqCtxt;
     }
 
@@ -253,7 +257,8 @@ initZmqHub (void) {
     zsocket_set_sndhwm (zmqHubIntance->icmpPktSendSock, 500000);
     ret = zsocket_bind (zmqHubIntance->icmpPktSendSock, ICMP_PACKET_EXCHANGE_CHANNEL);
     if (ret < 0) {
-        fprintf (stderr, "Bind to %s error.\n", ICMP_PACKET_EXCHANGE_CHANNEL);
+        fprintf (stderr, "Bind icmpPktSendSock to %s error.\n",
+                 ICMP_PACKET_EXCHANGE_CHANNEL);
         goto destroyZmqCtxt;
     }
 
@@ -267,11 +272,12 @@ initZmqHub (void) {
     zsocket_set_rcvhwm (zmqHubIntance->icmpPktRecvSock, 500000);
     ret = zsocket_connect (zmqHubIntance->icmpPktRecvSock, ICMP_PACKET_EXCHANGE_CHANNEL);
     if (ret < 0) {
-        fprintf (stderr, "Connect to %s error.\n", ICMP_PACKET_EXCHANGE_CHANNEL);
+        fprintf (stderr, "Connect icmpPktRecvSock to %s error.\n",
+                 ICMP_PACKET_EXCHANGE_CHANNEL);
         goto destroyZmqCtxt;
     }
 
-    /* Alloc icmpBreakdownSendSock */
+    /* Create icmpBreakdownSendSock */
     zmqHubIntance->icmpBreakdownSendSock = zsocket_new (zmqHubIntance->zmqCtxt, ZMQ_PUSH);
     if (zmqHubIntance->icmpBreakdownSendSock == NULL) {
         fprintf (stderr, "Create icmpBreakdownSendSock error.\n");
@@ -280,7 +286,8 @@ initZmqHub (void) {
     zsocket_set_sndhwm (zmqHubIntance->icmpBreakdownSendSock, 500000);
     ret = zsocket_connect (zmqHubIntance->icmpBreakdownSendSock, SESSION_BREAKDOWN_EXCHANGE_CHANNEL);
     if (ret < 0) {
-        fprintf (stderr, "Connect to %s error.\n", SESSION_BREAKDOWN_EXCHANGE_CHANNEL);
+        fprintf (stderr, "Connect icmpBreakdownSendSock to %s error.\n",
+                 SESSION_BREAKDOWN_EXCHANGE_CHANNEL);
         goto destroyZmqCtxt;
     }
 
@@ -292,9 +299,11 @@ initZmqHub (void) {
     }
     /* Set tcpPktDispatchRecvSock rcvhwm to 500,000 */
     zsocket_set_rcvhwm (zmqHubIntance->tcpPktDispatchRecvSock, 500000);
-    ret = zsocket_bind (zmqHubIntance->tcpPktDispatchRecvSock, "tcp://*:%u", TCP_PACKET_DISPATCH_RECV_PORT);
+    ret = zsocket_bind (zmqHubIntance->tcpPktDispatchRecvSock, "tcp://*:%u",
+                        TCP_PACKET_DISPATCH_RECV_PORT);
     if (ret < 0) {
-        fprintf (stderr, "Bind to tcp://*:%u error.\n", TCP_PACKET_DISPATCH_RECV_PORT);
+        fprintf (stderr, "Bind tcpPktDispatchRecvSock to tcp://*:%u error.\n",
+                 TCP_PACKET_DISPATCH_RECV_PORT);
         goto destroyZmqCtxt;
     }
 
@@ -328,7 +337,8 @@ initZmqHub (void) {
         zsocket_set_sndhwm (zmqHubIntance->tcpPktSendSocks [i], 500000);
         ret = zsocket_bind (zmqHubIntance->tcpPktSendSocks [i], "%s%u", TCP_PACKET_EXCHANGE_CHANNEL, i);
         if (ret < 0) {
-            fprintf (stderr, "Bind to %s%u error.\n", TCP_PACKET_EXCHANGE_CHANNEL, i);
+            fprintf (stderr, "Bind tcpPktSendSocks [%u] to %s%u error.\n",
+                     i, TCP_PACKET_EXCHANGE_CHANNEL, i);
             goto freeTcpPktSendSocks;
         }
     }
@@ -348,7 +358,8 @@ initZmqHub (void) {
         zsocket_set_rcvhwm (zmqHubIntance->tcpPktRecvSocks [i], 500000);
         ret = zsocket_connect (zmqHubIntance->tcpPktRecvSocks [i], "%s%u", TCP_PACKET_EXCHANGE_CHANNEL, i);
         if (ret < 0) {
-            fprintf (stderr, "Connect to %s%u error.\n", TCP_PACKET_EXCHANGE_CHANNEL, i);
+            fprintf (stderr, "Connect tcpPktRecvSocks [%u] to %s%u error.\n",
+                     i, TCP_PACKET_EXCHANGE_CHANNEL, i);
             goto freeTcpPktRecvSocks;
         }
     }
@@ -362,13 +373,14 @@ initZmqHub (void) {
     for (i = 0; i < zmqHubIntance->tcpProcessThreadsNum; i++) {
         zmqHubIntance->tcpBreakdownSendSocks [i] = zsocket_new (zmqHubIntance->zmqCtxt, ZMQ_PUSH);
         if (zmqHubIntance->tcpBreakdownSendSocks [i] == NULL) {
-            fprintf (stderr, "Create tcpBreakdownSendSocks [%d] error.\n", i);
+            fprintf (stderr, "Create tcpBreakdownSendSocks [%u] error.\n", i);
             goto freeTcpBreakdownSendSocks;
         }
         zsocket_set_sndhwm (zmqHubIntance->tcpBreakdownSendSocks [i], 500000);
         ret = zsocket_connect (zmqHubIntance->tcpBreakdownSendSocks [i], SESSION_BREAKDOWN_EXCHANGE_CHANNEL);
         if (ret < 0) {
-            fprintf (stderr, "Connect to %s error.\n", SESSION_BREAKDOWN_EXCHANGE_CHANNEL);
+            fprintf (stderr, "Connect tcpBreakdownSendSocks [%u] to %s error.\n",
+                     i, SESSION_BREAKDOWN_EXCHANGE_CHANNEL);
             goto freeTcpBreakdownSendSocks;
         }
     }

@@ -1,9 +1,9 @@
-#ifndef __MINING_SERVICE_H__
-#define __MINING_SERVICE_H__
+#ifndef __STARTUP_INFO_H__
+#define __STARTUP_INFO_H__
 
 /*========================Interfaces definition============================*/
-void *
-miningService (void *args);
+void
+displayStartupInfo (void);
 /*=======================Interfaces definition end=========================*/
 
-#endif /* __MINING_SERVICE_H__ */
+#endif /* __STARTUP_INFO_H__ */

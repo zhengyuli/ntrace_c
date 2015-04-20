@@ -6,28 +6,30 @@
 #include <locale.h>
 #include "config.h"
 #include "util.h"
+#include "signals.h"
 #include "properties.h"
 #include "option_parser.h"
-#include "signals.h"
-#include "log_service.h"
 #include "log.h"
+#include "startup_info.h"
 #include "zmq_hub.h"
 #include "task_manager.h"
 #include "proto_analyzer.h"
 #include "app_service_manager.h"
 #include "ownership_manager.h"
 #include "netdev.h"
+#include "log_service.h"
 #include "management_service.h"
-#include "mining_service.h"
 #include "raw_capture_service.h"
 #include "ip_process_service.h"
 #include "icmp_process_service.h"
 #include "tcp_dispatch_service.h"
 #include "tcp_process_service.h"
+#include "session_breakdown_service.h"
 
 /* Agent pid file fd */
 static int agentPidFd = -1;
 
+/* Lock pid file for daemon mode */
 static int
 lockPidFile (void) {
     int ret;
@@ -59,6 +61,7 @@ lockPidFile (void) {
     return 0;
 }
 
+/* Unlock pid file for daemon mode */
 static void
 unlockPidFile (void) {
     if (!getPropertiesDaemonMode ())
@@ -72,47 +75,55 @@ unlockPidFile (void) {
     remove (AGENT_PID_FILE);
 }
 
+/* Start service tasks */
 static int
 startServices (void) {
     int ret;
     u_int i;
 
+    /* Start logService */
     ret = newNormalTask (logService, NULL);
     if (ret < 0) {
         LOGE ("Create logService error.\n");
         goto stopAllTask;
     }
 
+    /* Start managementService */
     ret = newNormalTask (managementService, NULL);
     if (ret < 0) {
         LOGE ("Create managementService error.\n");
         goto stopAllTask;
     }
 
+    /* Start rawCaptureService */
     ret = newNormalTask (rawCaptureService, NULL);
     if (ret < 0) {
         LOGE ("Create rawCaptureService error.\n");
         goto stopAllTask;
     }
 
+    /* Start ipProcessService */
     ret = newNormalTask (ipProcessService, NULL);
     if (ret < 0) {
         LOGE ("Create ipProcessService error.\n");
         goto stopAllTask;
     }
 
+    /* Start icmpProcessService */
     ret = newNormalTask (icmpProcessService, NULL);
     if (ret < 0) {
         LOGE ("Create icmpProcessService error.\n");
         goto stopAllTask;
     }
 
+    /* Start tcpDispatchService */
     ret = newNormalTask (tcpDispatchService, NULL);
     if (ret < 0) {
         LOGE ("Create tcpDispatchService error.\n");
         goto stopAllTask;
     }
 
+    /* Start tcpProcessServices */
     for (i = 0; i < getTcpProcessThreadsNum (); i++) {
         ret = newNormalTask (tcpProcessService, getTcpProcessThreadIDHolder (i));
         if (ret < 0) {
@@ -121,9 +132,10 @@ startServices (void) {
         }
     }
 
-    ret = newNormalTask (miningService, NULL);
+    /* Start sessionBreakdownService */
+    ret = newNormalTask (sessionBreakdownService, NULL);
     if (ret < 0) {
-        LOGE ("Create miningService error.\n");
+        LOGE ("Create sessionBreakdownService error.\n");
         goto stopAllTask;
     }
 
@@ -134,16 +146,18 @@ stopAllTask:
     return -1;
 }
 
+/* Stop all service tasks */
 static void
 stopServices (void) {
     stopAllTask ();
 }
 
+/* Agent service entry */
 static int
 agentService (void) {
     int ret;
     zloop_t *loop;
-    zmq_pollitem_t pollItems [1];
+    zmq_pollitem_t pollItem;
 
     /* Check Permission */
     if (getuid () != 0) {
@@ -168,6 +182,12 @@ agentService (void) {
         ret = -1;
         goto unlockPidFile;
     }
+
+    /* Display startup info */
+    displayStartupInfo ();
+
+    /* Display properties info */
+    displayPropertiesDetail ();
 
     /* Init zmq hub */
     ret = initZmqHub ();
@@ -200,6 +220,7 @@ agentService (void) {
         goto destroyProtoAnalyzer;
     }
 
+    /* Init ownership manager */
     ret = initOwnershipManager ();
     if (ret < 0) {
         LOGE ("Init packetOwnership error.\n");
@@ -207,6 +228,7 @@ agentService (void) {
         goto destroyAppServiceManager;
     }
 
+    /* Init netDev */
     ret = initNetDev ();
     if (ret < 0) {
         LOGE ("Init net device error.\n");
@@ -214,6 +236,7 @@ agentService (void) {
         goto destroyOwnershipManager;
     }
 
+    /* Start service tasks */
     ret = startServices ();
     if (ret < 0) {
         LOGE ("Start services error.\n");
@@ -229,25 +252,22 @@ agentService (void) {
         goto stopServices;
     }
 
-    /* Init poll item 1 */
-    pollItems [0].socket = getTaskStatusRecvSock ();
-    pollItems [0].fd = 0;
-    pollItems [0].events = ZMQ_POLLIN;
+    /* Init pollItem */
+    pollItem.socket = getTaskStatusRecvSock ();
+    pollItem.fd = 0;
+    pollItem.events = ZMQ_POLLIN;
     /* Register poll item 1 */
-    ret = zloop_poller (loop, &pollItems [0], taskStatusHandler, NULL);
+    ret = zloop_poller (loop, &pollItem, taskStatusHandler, NULL);
     if (ret < 0) {
-        LOGE ("Register poll items [1] error.\n");
+        LOGE ("Register pollItem for task status handle error.\n");
         ret = -1;
         goto destroyZloop;
     }
 
     /* Start zloop */
-    ret = zloop_start (loop);
-    if (ret < 0)
-        LOGE ("Agent will exit abnormally ... .. .\n");
-    else
-        LOGI ("Agent will exit normally ... .. .\n");
+    zloop_start (loop);
 
+    LOGI ("AgentService will exit normally ... .. .\n");
 destroyZloop:
     zloop_destroy (&loop);
 stopServices:
@@ -271,6 +291,7 @@ unlockPidFile:
     return ret;
 }
 
+/* Agent daemon service entry */
 static int
 agentDaemon (void) {
     pid_t pid, next_pid;
@@ -350,7 +371,7 @@ main (int argc, char *argv []) {
     char *configFile;
 
     /* Set locale */
-    setlocale (LC_COLLATE,"");
+    setlocale (LC_COLLATE, "");
 
     /* Get config file */
     configFile = getConfigFile (argc, argv);
@@ -377,10 +398,8 @@ main (int argc, char *argv []) {
     /* Run as daemon or normal process */
     if (getPropertiesDaemonMode ())
         ret = agentDaemon ();
-    else {
-        displayPropertiesDetail ();
+    else
         ret = agentService ();
-    }
 
 destroyProperties:
     destroyProperties ();

@@ -30,6 +30,7 @@ INCLUDE_DIRECTORIES (
   ownership/
   protocol/
   analyzer/
+  session_breakdown/
   3rd_party/http_parser/
   ${PROJECT_BINARY_DIR})
 
@@ -43,6 +44,7 @@ SET (AGENT_SOURCE_FILES
   signals.c
   logger/log_service.c
   logger/log.c
+  startup_info.c
   zmq_hub.c
   task_manager.c
   app_service/app_service.c
@@ -50,7 +52,6 @@ SET (AGENT_SOURCE_FILES
   profile_cache.c
   netdev.c
   management_service.c
-  mining_service.c
   ownership/ownership.c
   ownership/ownership_manager.c
   protocol/raw_capture_service.c
@@ -69,7 +70,8 @@ SET (AGENT_SOURCE_FILES
   analyzer/default/default_analyzer.c
   analyzer/http/http_analyzer.c
   3rd_party/http_parser/http_parser.c
-  analyzer/mysql/mysql_analyzer.c)
+  analyzer/mysql/mysql_analyzer.c
+  session_breakdown/session_breakdown_service.c)
 
 ADD_EXECUTABLE (${ROOT_PROJECT_LOWER}_agent ${AGENT_SOURCE_FILES})
 TARGET_LINK_LIBRARIES (${ROOT_PROJECT_LOWER}_agent pcap czmq pthread ini_config z jansson dl uuid)

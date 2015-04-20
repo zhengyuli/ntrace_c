@@ -108,11 +108,13 @@ newRealTask (taskRoutine routine, void *args) {
 
 static boolean
 stopTaskForEachHashItem (void *data, void *args) {
+    int ret;
     taskItemPtr tsk;
 
     tsk = (taskItemPtr) data;
-    pthread_kill (tsk->tid, SIGUSR1);
-    pthread_join (tsk->tid, NULL);
+    ret = pthread_kill (tsk->tid, SIGUSR1);
+    if (!ret)
+        pthread_join (tsk->tid, NULL);
 
     return True;
 }
@@ -120,7 +122,6 @@ stopTaskForEachHashItem (void *data, void *args) {
 void
 stopAllTask (void) {
     hashLoopCheckToRemove (taskManagerHashTable, stopTaskForEachHashItem, NULL);
-    usleep (500000);
 }
 
 static int

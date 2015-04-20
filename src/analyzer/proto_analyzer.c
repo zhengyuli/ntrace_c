@@ -5,8 +5,8 @@
 #include <dirent.h>
 #include <jansson.h>
 #include "config.h"
-#include "util.h"
-#include "hash.h"
+#include "util/util.h"
+#include "util/hash.h"
 #include "log.h"
 #include "proto_analyzer.h"
 
@@ -86,8 +86,7 @@ loadAnalyzers (void) {
         return;
     }
 
-    while ((entry = readdir (dir)) != NULL)
-    {
+    while ((entry = readdir (dir)) != NULL) {
         if (registeredProtoSize >= MAX_PROTO_ANALYZER_NUM)
             break;
 
@@ -149,6 +148,11 @@ initProtoAnalyzer (void) {
             }
         }
     }
+
+    LOGI ("Registered proto analyzers:{\n");
+    for (i = 0; i < registeredProtoSize; i++)
+        LOGI ("    %s\n", protoAnalyzerContextTable [i].analyzer->proto);
+    LOGI ("}\n");
 
     return 0;
 }

@@ -1,5 +1,8 @@
-#ifndef __CAT_ANALYZER_H__
-#define __CAT_ANALYZER_H__
+#ifndef __TEMPLATE_ANALYZER_H__
+#define __TEMPLATE_ANALYZER_H__
+
+#include <stdlib.h>
+#include <wda/util/util.h>
 
 typedef struct _templateSessionDetail templateSessionDetail;
 typedef templateSessionDetail *templateSessionDetailPtr;

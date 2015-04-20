@@ -25,9 +25,9 @@ struct _taskItem {
 
 /*========================Interfaces definition============================*/
 int
-newNormalTask (taskRoutine routine, void *args);
+newNormalTask (char *taskName, taskRoutine routine, void *args);
 int
-newRealTask (taskRoutine routine, void *args);
+newRealTask (char *taskName, taskRoutine routine, void *args);
 void
 stopAllTask (void);
 void

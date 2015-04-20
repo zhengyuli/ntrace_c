@@ -4,7 +4,7 @@
 # Name: post_install.sh
 # Purpose:
 #
-# Time-stamp: <2015-02-10 10:52:02 Tuesday by lzy>
+# Time-stamp: <2015-04-20 20:02:55 Monday by lzy>
 #
 # Author: zhengyu li
 # Created: 2014-03-27
@@ -24,8 +24,3 @@ toLower() {
 toUpper() {
     echo "$(echo ${1}|tr '[:lower:]' '[:upper:]')"
 }
-
-rm -rf /var/run/$(toLower ${PROJECT_NAME})
-rm -rf /var/log/$(toLower ${PROJECT_NAME})
-rm -rf /etc/$(toLower ${PROJECT_NAME})
-rm -rf /usr/share/$(toLower ${PROJECT_NAME})

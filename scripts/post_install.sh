@@ -4,7 +4,7 @@
 # Name: post_install.sh
 # Purpose:
 #
-# Time-stamp: <2015-01-21 14:07:26 Wednesday by lzy>
+# Time-stamp: <2015-04-20 20:02:00 Monday by lzy>
 #
 # Author: zhengyu li
 # Created: 2014-03-27
@@ -27,3 +27,4 @@ toUpper() {
 
 mkdir -p /var/run/$(toLower ${PROJECT_NAME})
 mkdir -p /var/log/$(toLower ${PROJECT_NAME})
+mkdir -p /usr/share/$(toLower ${PROJECT_NAME})/analyzers

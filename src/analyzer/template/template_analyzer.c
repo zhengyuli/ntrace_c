@@ -1,9 +1,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <jansson.h>
-#include "util.h"
-#include "log.h"
-#include "proto_analyzer.h"
+#include <wda/util/util.h>
+#include <wda/log.h>
+#include <wda/proto_analyzer.h>
 #include "template_analyzer.h"
 
 static int

@@ -1,10 +1,11 @@
 #ifndef __PROTOCOL_H__
 #define __PROTOCOL_H__
 
+#include <stdlib.h>
 #include <jansson.h>
-#include "util.h"
+#include "util/util.h"
 
-#define MAX_PROTO_ANALYZER_NUM 1024
+#define MAX_PROTO_ANALYZER_NUM 256
 
 typedef enum {
     STREAM_FROM_CLIENT = 0,

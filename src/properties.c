@@ -357,45 +357,44 @@ updatePropertiesLogLevel (u_int logLevel) {
 
 void
 displayPropertiesDetail (void) {
-    fprintf (stdout, "Startup with properties:\n");
-    fprintf (stdout, "{\n");
-    fprintf (stdout, "    daemonMode: %s\n", propertiesInstance->daemonMode ? "True" : "False");
-    fprintf (stdout, "    managementControlHost: %s\n", propertiesInstance->managementControlHost);
-    fprintf (stdout, "    managementControlPort: %u\n", propertiesInstance->managementControlPort);
-    fprintf (stdout, "    interface: %s\n", propertiesInstance->interface);
-    fprintf (stdout, "    pcapFile: %s\n", propertiesInstance->pcapFile);
-    fprintf (stdout, "    loopCount: %u\n", propertiesInstance->loopCount);
-    fprintf (stdout, "    miningEngineHost: %s\n", propertiesInstance->miningEngineHost);
-    fprintf (stdout, "    managementRegisterPort: %u\n", propertiesInstance->managementRegisterPort);
-    fprintf (stdout, "    breakdownRecvPort: %u\n", propertiesInstance->breakdownRecvPort);
-    fprintf (stdout, "    logDir: %s\n", propertiesInstance->logDir);
-    fprintf (stdout, "    logFileName: %s\n", propertiesInstance->logFileName);
-    fprintf (stdout, "    logLevel: ");
+    LOGI("Startup with properties:{\n");
+    LOGI("    daemonMode: %s\n", propertiesInstance->daemonMode ? "True" : "False");
+    LOGI("    managementControlHost: %s\n", propertiesInstance->managementControlHost);
+    LOGI("    managementControlPort: %u\n", propertiesInstance->managementControlPort);
+    LOGI("    interface: %s\n", propertiesInstance->interface);
+    LOGI("    pcapFile: %s\n", propertiesInstance->pcapFile);
+    LOGI("    loopCount: %u\n", propertiesInstance->loopCount);
+    LOGI("    miningEngineHost: %s\n", propertiesInstance->miningEngineHost);
+    LOGI("    managementRegisterPort: %u\n", propertiesInstance->managementRegisterPort);
+    LOGI("    breakdownRecvPort: %u\n", propertiesInstance->breakdownRecvPort);
+    LOGI("    logDir: %s\n", propertiesInstance->logDir);
+    LOGI("    logFileName: %s\n", propertiesInstance->logFileName);
+    LOGI("    logLevel: ");
     switch (propertiesInstance->logLevel) {
         case LOG_ERR_LEVEL:
-            fprintf (stdout, "ERROR\n");
+            LOGI("ERROR\n");
             break;
 
         case LOG_WARN_LEVEL:
-            fprintf (stdout, "WARNING\n");
+            LOGI("WARNING\n");
             break;
 
         case LOG_INFO_LEVEL:
-            fprintf (stdout, "INFO\n");
+            LOGI("INFO\n");
             break;
 
         case LOG_DEBUG_LEVEL:
-            fprintf (stdout, "DEBUG\n");
+            LOGI("DEBUG\n");
             break;
 
         case LOG_TRACE_LEVEL:
-            fprintf (stdout, "TRACE\n");
+            LOGI("TRACE\n");
             break;
 
         default:
-            fprintf (stdout, "Unknown\n");
+            LOGI("Unknown\n");
     }
-    fprintf (stdout, "}\n");
+    LOGI("}\n");
 }
 
 /* Init properties form configFile */

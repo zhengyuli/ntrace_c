@@ -45,8 +45,9 @@ freeTaskItemForHash (void *data) {
 }
 
 static int
-newTask (taskRoutine routine, void *args, int schedPolicy) {
+newTask (char *taskName, taskRoutine routine, void *args, int schedPolicy) {
     int ret;
+    struct sched_param param;
     taskItemPtr tsk;
     char key [64];
 
@@ -54,31 +55,52 @@ newTask (taskRoutine routine, void *args, int schedPolicy) {
     if (tsk == NULL)
         return -1;
 
+
     ret = pthread_attr_init (&tsk->attr);
     if (ret < 0) {
-        LOGE ("Init pthread attribute error.\n");
+        LOGE ("Init thread attribute error.\n");
         freeTaskItem (tsk);
         return -1;
     }
 
-    ret = pthread_attr_setschedpolicy (&tsk->attr, schedPolicy);
-    if (ret < 0) {
-        LOGE ("Set pthread setschedulepolicy error.\n");
-        pthread_attr_destroy (&tsk->attr);
-        freeTaskItem (tsk);
-        return -1;
-    }
+    if (schedPolicy == SCHED_RR) {
+        ret = pthread_attr_setschedpolicy (&tsk->attr, schedPolicy);
+        if (ret < 0) {
+            LOGE ("Set thread schedule policy error.\n");
+            pthread_attr_destroy (&tsk->attr);
+            freeTaskItem (tsk);
+            return -1;
+        }
 
-    ret = pthread_attr_setinheritsched (&tsk->attr, PTHREAD_EXPLICIT_SCHED);
-    if (ret < 0) {
-        LOGE ("Set pthread setinheritsched error.\n");
-        pthread_attr_destroy (&tsk->attr);
-        freeTaskItem (tsk);
-        return -1;
+        ret = pthread_attr_setinheritsched (&tsk->attr, PTHREAD_EXPLICIT_SCHED);
+        if (ret < 0) {
+            LOGE ("Set thread inherit schedule error.\n");
+            pthread_attr_destroy (&tsk->attr);
+            freeTaskItem (tsk);
+            return -1;
+        }
+
+        param.sched_priority = 60;
+        ret = pthread_attr_setschedparam (&tsk->attr, &param);
+        if (ret < 0) {
+            LOGE ("Set thread schedule param error.\n");
+            pthread_attr_destroy (&tsk->attr);
+            freeTaskItem (tsk);
+            return -1;
+        }
     }
 
     ret = pthread_create (&tsk->tid, &tsk->attr, routine, args);
-    if (ret < 0) {
+    if (ret) {
+        if (ret == EAGAIN)
+            LOGE ("Insufficient resources to create thread for task: %s.\n", taskName);
+        else if (ret == EINVAL)
+            LOGE ("Invalid attribute settings to create thread for task: %s.\n", taskName);
+        else if (ret == EPERM)
+            LOGE ("No permission to create thread for task: %s.\n", taskName);
+        else
+            LOGE ("Error to create thread for task: %s.\n", taskName);
+
         pthread_attr_destroy (&tsk->attr);
         freeTaskItem (tsk);
         return -1;
@@ -97,13 +119,13 @@ newTask (taskRoutine routine, void *args, int schedPolicy) {
 }
 
 int
-newNormalTask (taskRoutine routine, void *args) {
-    return newTask (routine, args, SCHED_OTHER);
+newNormalTask (char *taskName, taskRoutine routine, void *args) {
+    return newTask (taskName, routine, args, SCHED_OTHER);
 }
 
 int
-newRealTask (taskRoutine routine, void *args) {
-    return newTask (routine, args, SCHED_RR);
+newRealTask (char *taskName, taskRoutine routine, void *args) {
+    return newTask (taskName, routine, args, SCHED_RR);
 }
 
 static boolean

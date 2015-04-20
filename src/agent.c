@@ -82,42 +82,42 @@ startServices (void) {
     u_int i;
 
     /* Start logService */
-    ret = newNormalTask (logService, NULL);
+    ret = newNormalTask ("LogService", logService, NULL);
     if (ret < 0) {
         LOGE ("Create logService error.\n");
         goto stopAllTask;
     }
 
     /* Start managementService */
-    ret = newNormalTask (managementService, NULL);
+    ret = newNormalTask ("ManagementService", managementService, NULL);
     if (ret < 0) {
         LOGE ("Create managementService error.\n");
         goto stopAllTask;
     }
 
     /* Start rawCaptureService */
-    ret = newNormalTask (rawCaptureService, NULL);
+    ret = newNormalTask ("RawCaptureService", rawCaptureService, NULL);
     if (ret < 0) {
         LOGE ("Create rawCaptureService error.\n");
         goto stopAllTask;
     }
 
     /* Start ipProcessService */
-    ret = newNormalTask (ipProcessService, NULL);
+    ret = newNormalTask ("IpProcessService", ipProcessService, NULL);
     if (ret < 0) {
         LOGE ("Create ipProcessService error.\n");
         goto stopAllTask;
     }
 
     /* Start icmpProcessService */
-    ret = newNormalTask (icmpProcessService, NULL);
+    ret = newNormalTask ("IcmpProcessService", icmpProcessService, NULL);
     if (ret < 0) {
         LOGE ("Create icmpProcessService error.\n");
         goto stopAllTask;
     }
 
     /* Start tcpDispatchService */
-    ret = newNormalTask (tcpDispatchService, NULL);
+    ret = newNormalTask ("TcpDispatchService", tcpDispatchService, NULL);
     if (ret < 0) {
         LOGE ("Create tcpDispatchService error.\n");
         goto stopAllTask;
@@ -125,7 +125,8 @@ startServices (void) {
 
     /* Start tcpProcessServices */
     for (i = 0; i < getTcpProcessThreadsNum (); i++) {
-        ret = newNormalTask (tcpProcessService, getTcpProcessThreadIDHolder (i));
+        ret = newRealTask ("TcpProcessService", tcpProcessService,
+                           getTcpProcessThreadIDHolder (i));
         if (ret < 0) {
             LOGE ("Create tcpProcessService:%u error.\n", i);
             goto stopAllTask;
@@ -133,7 +134,7 @@ startServices (void) {
     }
 
     /* Start sessionBreakdownService */
-    ret = newNormalTask (sessionBreakdownService, NULL);
+    ret = newNormalTask ("SessionBreakdownService", sessionBreakdownService, NULL);
     if (ret < 0) {
         LOGE ("Create sessionBreakdownService error.\n");
         goto stopAllTask;

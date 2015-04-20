@@ -1,20 +1,5 @@
 CMAKE_MINIMUM_REQUIRED (VERSION 2.8.0)
 
-INCLUDE_DIRECTORIES (
-  ../
-  ./template
-  util
-  log)
-
-SET (TEMPLATE_ANALYZER_FILES
-  template/template_analyzer.c)
-
-ADD_LIBRARY (template_analyzer SHARED ${TEMPLATE_ANALYZER_FILES})
-TARGET_LINK_LIBRARIES (template_analyzer jansson)
-INSTALL (
-  TARGETS template_analyzer
-  DESTINATION ${AGENT_ANALYZER_DIR})
-
 INSTALL (
   FILES proto_analyzer.h
   DESTINATION ${PROJECT_INCLUDE_DIR}
@@ -23,4 +8,3 @@ INSTALL (
 INSTALL (
   DIRECTORY template
   DESTINATION ${PROJECT_DATA_DIR})
-

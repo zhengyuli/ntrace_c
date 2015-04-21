@@ -228,7 +228,7 @@ updateAppServicesFromProfileCache (void) {
         return -1;
     }
 
-    out = json_dumps (appSvcs, JSON_INDENT (4));
+    out = json_dumps (appSvcs, JSON_INDENT (4) | JSON_PRESERVE_ORDER);
     if (out) {
         LOGI ("Get appServices from profile cache success:\n%s\n", out);
         free (out);

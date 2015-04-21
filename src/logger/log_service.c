@@ -1,12 +1,12 @@
 #include <stdio.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <signal.h>
 #include <time.h>
 #include <string.h>
-#include <unistd.h>
 #include <errno.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/prctl.h>
 #include <pthread.h>
 #include <czmq.h>
 #include <locale.h>
@@ -25,18 +25,26 @@ static listHead logDevices;
 typedef struct _logDev logDev;
 typedef logDev *logDevPtr;
 /*
- * Log service append dev, every dev has three interfaces,
- * you can add new log dev into log service with log_dev_add
+ * Log service output dev, every dev has three interfaces,
+ * you can add new log dev to logDevices list with logDevAdd
+ * interface.
  */
 struct _logDev {
-    void *data;                         /**< Log dev private data */
-    int (*init) (logDevPtr dev);        /**< Log dev init operation */
-    void (*destroy) (logDevPtr dev);    /**< Log dev destroy operation */
-    void (*write) (char *msg, logDevPtr dev); /**< Log dev write operation */
-    listHead node;                      /**< Log dev list node of global log devices */
+    /* Log dev private data */
+    void *data;
+
+    /* Log dev init operation */
+    int (*init) (logDevPtr dev);
+    /* Log dev destroy operation */
+    void (*destroy) (logDevPtr dev);
+    /* Log dev write operation */
+    void (*write) (char *logMsg, logDevPtr dev);
+
+    /* Log dev list node of global log devices */
+    listHead node;
 };
 
-/*===========================Log file dev=================================*/
+/*=================================Log file dev=================================*/
 
 #define LOG_FILE_MAX_SIZE (512 << 20)
 #define LOG_FILE_ROTATION_COUNT 16
@@ -191,13 +199,13 @@ resetLogFile (logDevPtr dev) {
 }
 
 static void
-writeLogFile (char *msg, logDevPtr dev) {
+writeLogFile (char *logMsg, logDevPtr dev) {
     int ret;
     logFilePtr logfile;
 
     logfile = (logFilePtr) dev->data;
-    ret = safeWrite (logfile->fd, msg, strlen (msg));
-    if (ret < 0 || ret != strlen (msg)) {
+    ret = safeWrite (logfile->fd, logMsg, strlen (logMsg));
+    if (ret < 0 || ret != strlen (logMsg)) {
         ret = resetLogFile (dev);
         if (ret < 0)
             fprintf (stderr, "Reset log file error.\n");
@@ -213,9 +221,10 @@ writeLogFile (char *msg, logDevPtr dev) {
     }
     sync ();
 }
-/*===========================Log file dev=================================*/
 
-/*===========================Log net dev==================================*/
+/*=================================Log file dev=================================*/
+
+/*=================================Log net dev==================================*/
 
 typedef struct _logNet logNet;
 typedef logNet *logNetPtr;
@@ -241,14 +250,19 @@ initLogNet (logDevPtr dev) {
 }
 
 static void
-writeLogNet (char *msg, logDevPtr dev) {
+destroyLogNet (logDevPtr dev) {
+    return;
+}
+
+static void
+writeLogNet (char *logMsg, logDevPtr dev) {
     int ret;
     logNetPtr lognet;
     u_int retries = 3;
 
     lognet = (logNetPtr) dev->data;
     do {
-        ret = zstr_send (lognet->pubSock, msg);
+        ret = zstr_send (lognet->pubSock, logMsg);
         retries -= 1;
     } while (ret < 0 && retries);
 
@@ -256,12 +270,7 @@ writeLogNet (char *msg, logDevPtr dev) {
         fprintf (stderr, "Publish log message error.\n");
 }
 
-static void
-destroyLogNet (logDevPtr dev) {
-    return;
-}
-
-/*============================log dev=================================*/
+/*=================================Log net dev==================================*/
 
 static int
 logDevAdd (logDevPtr dev) {
@@ -279,16 +288,6 @@ logDevAdd (logDevPtr dev) {
 }
 
 static void
-logDevWrite (listHeadPtr logDevices, char *msg) {
-    logDevPtr dev;
-    listHeadPtr pos;
-
-    listForEachEntry (dev, pos, logDevices, node) {
-        dev->write (msg, dev);
-    }
-}
-
-static void
 logDevDestroy (void) {
     logDevPtr entry;
     listHeadPtr pos, npos;
@@ -296,6 +295,16 @@ logDevDestroy (void) {
     listForEachEntrySafe (entry, pos, npos, &logDevices, node) {
         entry->destroy (entry);
         listDel (&entry->node);
+    }
+}
+
+static void
+logDevWrite (listHeadPtr logDevices, char *logMsg) {
+    logDevPtr dev;
+    listHeadPtr pos;
+
+    listForEachEntry (dev, pos, logDevices, node) {
+        dev->write (logMsg, dev);
     }
 }
 
@@ -325,30 +334,33 @@ logService (void *args) {
     };
 
     initListHead (&logDevices);
+
     /* Add file log dev */
     ret = logDevAdd (&logFileDev);
     if (ret < 0)
-        goto exit;
+        goto destroyLogDev;
 
     /* Add net log dev */
     ret = logDevAdd (&logNetDev);
     if (ret < 0)
-        goto destroyDev;
+        goto destroyLogDev;
 
     logRecvSock = getLogRecvSock ();
     while (!SIGUSR1IsInterrupted ()) {
         logMsg = zstr_recv (logRecvSock);
-        if (logMsg == NULL)
+        if (logMsg == NULL) {
+            if (!SIGUSR1IsInterrupted ())
+                LOGE ("Receive log message fatal error.\n");
             break;
+        }
 
         logDevWrite (&logDevices, logMsg);
         free (logMsg);
     }
 
     fprintf (stdout, "LogService will exit... .. .\n");
-destroyDev:
+destroyLogDev:
     logDevDestroy ();
-exit:
     if (!SIGUSR1IsInterrupted ())
         sendTaskStatus ("LogService", TASK_STATUS_EXIT_ABNORMALLY);
 

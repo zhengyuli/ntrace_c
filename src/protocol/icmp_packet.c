@@ -119,7 +119,7 @@ icmpBreakdown2Json (icmpBreakdownPtr ibd) {
         json_object_set_new (root, ICMP_SKBD_ICMP_DEST_UNREACH_PORT,
                              json_integer (ibd->port));
 
-    out = json_dumps (root, JSON_INDENT (4));
+    out = json_dumps (root, JSON_COMPACT | JSON_PRESERVE_ORDER);
     json_object_clear (root);
 
     return out;

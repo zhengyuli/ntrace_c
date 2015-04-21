@@ -50,7 +50,7 @@ syncProfileCache (json_t *profile) {
     char *profileStr;
     int ret;
 
-    profileStr = json_dumps (profile, JSON_INDENT (4));
+    profileStr = json_dumps (profile, JSON_INDENT (4) | JSON_PRESERVE_ORDER);
     if (profileStr == NULL) {
         LOGE ("Json dump profile error.\n");
         return -1;

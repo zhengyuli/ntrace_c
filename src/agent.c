@@ -268,7 +268,7 @@ agentService (void) {
     /* Start zloop */
     zloop_start (loop);
 
-    LOGI ("AgentService will exit normally ... .. .\n");
+    LOGI ("AgentService will exit ... .. .\n");
 destroyZloop:
     zloop_destroy (&loop);
 stopServices:

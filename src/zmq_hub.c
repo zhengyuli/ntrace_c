@@ -210,10 +210,10 @@ initZmqHub (void) {
     }
     zsocket_set_sndhwm (zmqHubIntance->sessionBreakdownPushSock, 500000);
     ret = zsocket_connect (zmqHubIntance->sessionBreakdownPushSock, "tcp://%s:%u",
-                           getPropertiesMiningEngineHost (), getPropertiesBreakdownRecvPort ());
+                           getPropertiesMiningEngineHost (), getPropertiesSessionBreakdownRecvPort ());
     if (ret < 0) {
         fprintf (stderr, "Connect sessionBreakdownPushSock to tcp://%s:%u error.\n",
-                 getPropertiesMiningEngineHost (), getPropertiesBreakdownRecvPort ());
+                 getPropertiesMiningEngineHost (), getPropertiesSessionBreakdownRecvPort ());
         goto destroyZmqCtxt;
     }
 

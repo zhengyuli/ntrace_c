@@ -28,8 +28,10 @@ INCLUDE_DIRECTORIES (
   logger
   app_service/
   ownership/
+  management/
   protocol/
   analyzer/
+  proto_detection/
   session_breakdown/
   3rd_party/http_parser/
   ${PROJECT_BINARY_DIR})
@@ -51,7 +53,7 @@ SET (AGENT_SOURCE_FILES
   app_service/app_service_manager.c
   profile_cache.c
   netdev.c
-  management_service.c
+  management/management_service.c
   ownership/ownership.c
   ownership/ownership_manager.c
   protocol/raw_capture_service.c

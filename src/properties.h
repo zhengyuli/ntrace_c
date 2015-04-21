@@ -21,9 +21,11 @@ struct _properties {
     char *pcapFile;                     /**< Pcap file */
     u_int loopCount;                    /**< Pcap file loop read count */
 
+    char *outputFile;                   /**< Output file */
+
     char *miningEngineHost;             /**< Mining engine host ip */
     u_short managementRegisterPort;     /**< Management register port of mining engine */
-    u_short breakdownRecvPort;          /**< Breakdown receive port of mining engine */
+    u_short sessionBreakdownRecvPort;   /**< session breakdown receive port of mining engine */
 
     char *logDir;                       /**< Log dir */
     char *logFileName;                  /**< Log file name */
@@ -62,6 +64,10 @@ getPropertiesLoopCount (void);
 void
 updatePropertiesLoopCount (u_int loopCount);
 char *
+getPropertiesOutputFile (void);
+void
+updatePropertiesOutputFile (char *fname);
+char *
 getPropertiesMiningEngineHost (void);
 void
 updatePropertiesMiningEngineHost (char *ip);
@@ -70,9 +76,9 @@ getPropertiesManagementRegisterPort (void);
 void
 updatePropertiesManagementRegisterPort (u_short port);
 u_short
-getPropertiesBreakdownRecvPort (void);
+getPropertiesSessionBreakdownRecvPort (void);
 void
-updatePropertiesBreakdownRecvPort (u_short port);
+updatePropertiesSessionBreakdownRecvPort (u_short port);
 char *
 getPropertiesLogDir (void);
 void

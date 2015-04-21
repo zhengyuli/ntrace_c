@@ -24,9 +24,10 @@ newProperties (void) {
     tmp->interface = NULL;
     tmp->pcapFile = NULL;
     tmp->loopCount = 0;
+    tmp->outputFile = NULL;
     tmp->miningEngineHost = NULL;
     tmp->managementRegisterPort = 0;
-    tmp->breakdownRecvPort = 0;
+    tmp->sessionBreakdownRecvPort = 0;
     tmp->logDir = NULL;
     tmp->logFileName = NULL;
     tmp->logLevel = LOG_ERR_LEVEL;
@@ -44,6 +45,8 @@ freeProperties (propertiesPtr instance) {
     instance->interface = NULL;
     free (instance->pcapFile);
     instance->pcapFile = NULL;
+    free (instance->outputFile);
+    instance->outputFile = NULL;
     free (instance->miningEngineHost);
     instance->miningEngineHost = NULL;
     free (instance->logDir);
@@ -96,7 +99,7 @@ loadPropertiesFromConfigFile (char *configFile) {
         tmp->daemonMode = False;
 
     /* Get schedule priority */
-    ret = get_config_item ("ScheduleRealtime", "schedPriority", iniConfig, &item);
+    ret = get_config_item ("SchedulePolicy", "schedPriority", iniConfig, &item);
     if (!ret && item) {
         tmp->schedPriority = get_int_config_value (item, 1, 0, &error);
         if (error) {
@@ -170,6 +173,16 @@ loadPropertiesFromConfigFile (char *configFile) {
         }
     }
 
+    /* Get output file */
+    ret = get_config_item ("Output.File", "outputFile", iniConfig, &item);
+    if (!ret && item) {
+        tmp->outputFile = strdup (get_const_string_config_value (item, &error));
+        if (tmp->outputFile == NULL) {
+            fprintf (stderr, "Get \"outputFile\" error.\n");
+            goto freeProperties;
+        }
+    }
+
     /* Get mining engine host */
     ret = get_config_item ("MiningEngine", "miningEngineHost", iniConfig, &item);
     if (ret || item == NULL) {
@@ -195,14 +208,14 @@ loadPropertiesFromConfigFile (char *configFile) {
     }
 
     /* Get breakdown receive port */
-    ret = get_config_item ("MiningEngine", "breakdownRecvPort", iniConfig, &item);
+    ret = get_config_item ("MiningEngine", "sessionBreakdownRecvPort", iniConfig, &item);
     if (ret || item == NULL) {
-        fprintf (stderr, "Get_config_item \"breakdownRecvPort\" error.\n");
+        fprintf (stderr, "Get_config_item \"sessionBreakdownRecvPort\" error.\n");
         goto freeProperties;
     }
-    tmp->breakdownRecvPort = get_int_config_value (item, 1, 0, &error);
+    tmp->sessionBreakdownRecvPort = get_int_config_value (item, 1, 0, &error);
     if (error) {
-        fprintf (stderr, "Get \"breakdownRecvPort\" error.\n");
+        fprintf (stderr, "Get \"sessionBreakdownRecvPort\" error.\n");
         goto freeProperties;
     }
 
@@ -347,6 +360,17 @@ updatePropertiesLoopCount (u_int loopCount) {
 }
 
 char *
+getPropertiesOutputFile (void) {
+    return propertiesInstance->outputFile;
+}
+
+void
+updatePropertiesOutputFile (char *fname) {
+    free (propertiesInstance->outputFile);
+    propertiesInstance->outputFile = strdup (fname);
+}
+
+char *
 getPropertiesMiningEngineHost (void) {
     return propertiesInstance->miningEngineHost;
 }
@@ -368,13 +392,13 @@ updatePropertiesManagementRegisterPort (u_short port) {
 }
 
 u_short
-getPropertiesBreakdownRecvPort (void) {
-    return propertiesInstance->breakdownRecvPort;
+getPropertiesSessionBreakdownRecvPort (void) {
+    return propertiesInstance->sessionBreakdownRecvPort;
 }
 
 void
-updatePropertiesBreakdownRecvPort (u_short port) {
-    propertiesInstance->breakdownRecvPort = port;
+updatePropertiesSessionBreakdownRecvPort (u_short port) {
+    propertiesInstance->sessionBreakdownRecvPort = port;
 }
 
 char *
@@ -426,9 +450,10 @@ displayPropertiesDetail (void) {
     LOGI("    interface: %s\n", propertiesInstance->interface);
     LOGI("    pcapFile: %s\n", propertiesInstance->pcapFile);
     LOGI("    loopCount: %u\n", propertiesInstance->loopCount);
+    LOGI("    outputFile: %s\n", propertiesInstance->outputFile);
     LOGI("    miningEngineHost: %s\n", propertiesInstance->miningEngineHost);
     LOGI("    managementRegisterPort: %u\n", propertiesInstance->managementRegisterPort);
-    LOGI("    breakdownRecvPort: %u\n", propertiesInstance->breakdownRecvPort);
+    LOGI("    sessionBreakdownRecvPort: %u\n", propertiesInstance->sessionBreakdownRecvPort);
     LOGI("    logDir: %s\n", propertiesInstance->logDir);
     LOGI("    logFileName: %s\n", propertiesInstance->logFileName);
     LOGI("    logLevel: ");
@@ -474,18 +499,6 @@ initProperties (char *configFile) {
 /* Destroy properties */
 void
 destroyProperties (void) {
-    free (propertiesInstance->managementControlHost);
-    propertiesInstance->managementControlHost = NULL;
-    free (propertiesInstance->interface);
-    propertiesInstance->interface = NULL;
-    free (propertiesInstance->pcapFile);
-    propertiesInstance->pcapFile = NULL;
-    free (propertiesInstance->miningEngineHost);
-    propertiesInstance->miningEngineHost = NULL;
-    free (propertiesInstance->logDir);
-    propertiesInstance->logDir = NULL;
-    free (propertiesInstance->logFileName);
-    propertiesInstance->logFileName = NULL;
     freeProperties (propertiesInstance);
     propertiesInstance = NULL;
 }

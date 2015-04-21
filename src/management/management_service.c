@@ -259,7 +259,7 @@ buildManagementControlResponse (char *cmd, int code) {
                              json_string ("Internal error."));
     }
 
-    response = json_dumps (root, JSON_INDENT (4));
+    response = json_dumps (root, JSON_INDENT (4) | JSON_PRESERVE_ORDER);
 
     json_object_clear (root);
     return response;
@@ -410,7 +410,7 @@ buildManagementRegisterRequest (void) {
 
     json_object_set_new (root, MANAGEMENT_REGISTER_REQUEST_BODY, body);
 
-    request = json_dumps (root, JSON_INDENT (4));
+    request = json_dumps (root, JSON_INDENT (4) | JSON_PRESERVE_ORDER);
 
     json_object_clear (root);
     return request;

@@ -12,11 +12,12 @@ static struct option options [] = {
     {"managementControlHost", required_argument, NULL, 'I'},
     {"managementControlPort", required_argument, NULL, 'P'},
     {"interface", required_argument, NULL, 'm'},
-    {"pcapFile", required_argument, NULL, 'o'},
+    {"pcapFile", required_argument, NULL, 'F'},
     {"loopCount", required_argument, NULL, 'n'},
+    {"outputFile", required_argument, NULL, 'O'},
     {"miningEngineHost", required_argument, NULL, 'i'},
     {"managementRegisterPort", required_argument, NULL, 'r'},
-    {"breakdownRecvPort", required_argument, NULL, 'p'},
+    {"sessionBreakdownRecvPort", required_argument, NULL, 'p'},
     {"logDir", required_argument, NULL, 'd'},
     {"logFileName", required_argument, NULL, 'f'},
     {"logLevel", required_argument, NULL, 'l'},
@@ -40,11 +41,12 @@ showHelpInfo (const char *cmd) {
              "  -I|--managementControlHost <ip> management control host ip\n"
              "  -P|--managementControlPort <port> management control port\n"
              "  -m|--interface <eth*> interface to monitor\n"
-             "  -o|--pcapFile <fname> pcap file\n"
+             "  -F|--pcapFile <fname> pcap file\n"
              "  -n|--loopCount <count> Loop read pcap file some times, 0 for loop forever\n"
+             "  -O|--outputFile <fname> output file\n"
              "  -i|--miningEngineHost <ip> mining engine host ip\n"
              "  -r|--managementRegisterPort <port> management register port\n"
-             "  -p|--breakdownRecvPort <port> breakdown receive port\n"
+             "  -p|--sessionBreakdownRecvPort <port> session breakdown receive port\n"
              "  -d|--logDir <path>, log file directory\n"
              "  -f|--logFileName <name>, log file name\n"
              "  -l|--logLevel <level> log level\n"
@@ -85,7 +87,7 @@ parseOptions (int argc, char *argv []) {
     boolean showHelp = False;
 
     optind = 1;
-    while ((option = getopt_long (argc, argv, ":C:DS:I:P:m:o:n:i:r:p:d:f:l:vh?", options, NULL)) != -1) {
+    while ((option = getopt_long (argc, argv, ":C:DS:I:P:m:F:n:O:i:r:p:d:f:l:vh?", options, NULL)) != -1) {
         switch (option) {
             case 'C':
                 break;
@@ -118,7 +120,7 @@ parseOptions (int argc, char *argv []) {
                 }
                 break;
 
-            case 'o':
+            case 'F':
                 updatePropertiesPcapFile (optarg);
                 if (getPropertiesPcapFile () == NULL) {
                     fprintf (stderr, "Parse pcap file error!\n");
@@ -128,6 +130,14 @@ parseOptions (int argc, char *argv []) {
 
             case 'n':
                 updatePropertiesLoopCount (atoi (optarg));
+                break;
+
+            case 'O':
+                updatePropertiesOutputFile (optarg);
+                if (getPropertiesOutputFile () == NULL) {
+                    fprintf(stderr, "Parse output file error!\n");
+                    return -1;
+                }
                 break;
 
             case 'i':
@@ -143,7 +153,7 @@ parseOptions (int argc, char *argv []) {
                 break;
 
             case 'p':
-                updatePropertiesBreakdownRecvPort (atoi (optarg));
+                updatePropertiesSessionBreakdownRecvPort (atoi (optarg));
                 break;
 
             case 'd':

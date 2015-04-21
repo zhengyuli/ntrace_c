@@ -666,7 +666,7 @@ tcpBreakdown2Json (tcpStreamPtr stream, tcpBreakdownPtr tbd) {
         tbd->state == TCP_BREAKDOWN_RESET_TYPE4)
         (*stream->analyzer->sessionBreakdown2Json) (root, stream->sessionDetail, tbd->sessionBreakdown);
 
-    out = json_dumps (root, JSON_INDENT (4));
+    out = json_dumps (root, JSON_COMPACT | JSON_PRESERVE_ORDER);
     json_object_clear (root);
 
     return out;

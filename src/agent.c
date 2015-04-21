@@ -96,28 +96,28 @@ startServices (void) {
     }
 
     /* Start rawCaptureService */
-    ret = newNormalTask ("RawCaptureService", rawCaptureService, NULL);
+    ret = newRealTask ("RawCaptureService", rawCaptureService, NULL);
     if (ret < 0) {
         LOGE ("Create rawCaptureService error.\n");
         goto stopAllTask;
     }
 
     /* Start ipProcessService */
-    ret = newNormalTask ("IpProcessService", ipProcessService, NULL);
+    ret = newRealTask ("IpProcessService", ipProcessService, NULL);
     if (ret < 0) {
         LOGE ("Create ipProcessService error.\n");
         goto stopAllTask;
     }
 
     /* Start icmpProcessService */
-    ret = newNormalTask ("IcmpProcessService", icmpProcessService, NULL);
+    ret = newRealTask ("IcmpProcessService", icmpProcessService, NULL);
     if (ret < 0) {
         LOGE ("Create icmpProcessService error.\n");
         goto stopAllTask;
     }
 
     /* Start tcpDispatchService */
-    ret = newNormalTask ("TcpDispatchService", tcpDispatchService, NULL);
+    ret = newRealTask ("TcpDispatchService", tcpDispatchService, NULL);
     if (ret < 0) {
         LOGE ("Create tcpDispatchService error.\n");
         goto stopAllTask;
@@ -134,7 +134,7 @@ startServices (void) {
     }
 
     /* Start sessionBreakdownService */
-    ret = newNormalTask ("SessionBreakdownService", sessionBreakdownService, NULL);
+    ret = newRealTask ("SessionBreakdownService", sessionBreakdownService, NULL);
     if (ret < 0) {
         LOGE ("Create sessionBreakdownService error.\n");
         goto stopAllTask;

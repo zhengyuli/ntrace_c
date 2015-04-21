@@ -6,6 +6,7 @@
 #include "util.h"
 #include "hash.h"
 #include "log.h"
+#include "properties.h"
 #include "zmq_hub.h"
 #include "task_manager.h"
 
@@ -80,7 +81,7 @@ newTask (char *taskName, taskRoutine routine, void *args, int schedPolicy) {
             return -1;
         }
 
-        param.sched_priority = 60;
+        param.sched_priority = getPropertiesSchedPriority ();
         ret = pthread_attr_setschedparam (&tsk->attr, &param);
         if (ret < 0) {
             LOGE ("Set thread schedule param error.\n");
@@ -125,7 +126,10 @@ newNormalTask (char *taskName, taskRoutine routine, void *args) {
 
 int
 newRealTask (char *taskName, taskRoutine routine, void *args) {
-    return newTask (taskName, routine, args, SCHED_RR);
+    if (getPropertiesSchedRealtime ())
+        return newTask (taskName, routine, args, SCHED_RR);
+    else
+        return newTask (taskName, routine, args, SCHED_OTHER);
 }
 
 static boolean
@@ -220,11 +224,11 @@ displayTaskSchedPolicyInfo (char *taskName) {
             break;
 
         default:
-            policyName = "SCHED_UNKNOWN";
-            break;
+            LOGE ("Unknown schedule policy.\n");
+            return;
     }
 
-    LOGI ("Task: %s schedule with policy: %s, priority: %d\n",
+    LOGI ("Task: %s schedule with policy: %s, static priority: %d\n",
           taskName, policyName, param.sched_priority);
 }
 

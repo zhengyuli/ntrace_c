@@ -10,6 +10,9 @@ typedef properties *propertiesPtr;
 struct _properties {
     boolean daemonMode;                 /**< Daemon mode */
 
+    boolean schedRealtime;              /**< Realtime schedule flag */
+    u_int schedPriority;                /**< Realtime schedule priority */
+
     char *managementControlHost;        /**< Management control host ip */
     u_short managementControlPort;      /**< Management control port */
 
@@ -32,6 +35,12 @@ boolean
 getPropertiesDaemonMode (void);
 void
 updatePropertiesDaemonMode (boolean daemonMode);
+boolean
+getPropertiesSchedRealtime (void);
+u_int
+getPropertiesSchedPriority (void);
+void
+updatePropertiesSchedPriority (u_int schedPriority);
 char *
 getPropertiesManagementControlHost (void);
 void

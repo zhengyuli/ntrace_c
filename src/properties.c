@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <sched.h>
 #include <ini_config.h>
 #include "config.h"
 #include "log.h"
@@ -16,6 +17,8 @@ newProperties (void) {
         return NULL;
 
     tmp->daemonMode = 0;
+    tmp->schedRealtime = False;
+    tmp->schedPriority = 0;
     tmp->managementControlHost = NULL;
     tmp->managementControlPort = 0;
     tmp->interface = NULL;
@@ -54,6 +57,8 @@ freeProperties (propertiesPtr instance) {
 static propertiesPtr
 loadPropertiesFromConfigFile (char *configFile) {
     int ret, error;
+    int minPriority;
+    int maxPriority;
     struct collection_item *iniConfig = NULL;
     struct collection_item *errorSet = NULL;
     struct collection_item *item;
@@ -90,8 +95,29 @@ loadPropertiesFromConfigFile (char *configFile) {
     else
         tmp->daemonMode = False;
 
+    /* Get schedule priority */
+    ret = get_config_item ("ScheduleRealtime", "schedPriority", iniConfig, &item);
+    if (!ret && item) {
+        tmp->schedPriority = get_int_config_value (item, 1, 0, &error);
+        if (error) {
+            fprintf (stderr, "Get \"schedPriority\" error.\n");
+            goto freeProperties;
+        }
+
+        minPriority = sched_get_priority_min (SCHED_RR);
+        maxPriority = sched_get_priority_max (SCHED_RR);
+
+        if (tmp->schedPriority >= minPriority &&
+            tmp->schedPriority <= maxPriority)
+            tmp->schedRealtime = True;
+        else {
+            tmp->schedRealtime = False;
+            tmp->schedPriority = 0;
+        }
+    }
+
     /* Get management control host */
-    ret = get_config_item ("Agent", "managementControlHost", iniConfig, &item);
+    ret = get_config_item ("ManagementControl", "managementControlHost", iniConfig, &item);
     if (ret || item == NULL) {
         fprintf (stderr, "Get_config_item \"managementControlHost\" error.\n");
         goto freeProperties;
@@ -103,7 +129,7 @@ loadPropertiesFromConfigFile (char *configFile) {
     }
 
     /* Get management control port */
-    ret = get_config_item ("Agent", "managementControlPort", iniConfig, &item);
+    ret = get_config_item ("ManagementControl", "managementControlPort", iniConfig, &item);
     if (ret || item == NULL) {
         fprintf (stderr, "Get_config_item \"managementControlPort\" error.\n");
         goto freeProperties;
@@ -234,9 +260,37 @@ getPropertiesDaemonMode (void) {
     return propertiesInstance->daemonMode;
 }
 
+boolean
+getPropertiesSchedRealtime (void) {
+    return propertiesInstance->schedRealtime;
+}
+
 void
 updatePropertiesDaemonMode (boolean daemonMode) {
     propertiesInstance->daemonMode = daemonMode;
+}
+
+u_int
+getPropertiesSchedPriority (void) {
+    return propertiesInstance->schedPriority;
+}
+
+void
+updatePropertiesSchedPriority (u_int schedPriority) {
+    int minPriority;
+    int maxPriority;
+
+    minPriority = sched_get_priority_min (SCHED_RR);
+    maxPriority = sched_get_priority_max (SCHED_RR);
+
+    if (schedPriority >= minPriority &&
+        schedPriority <= maxPriority) {
+        propertiesInstance->schedRealtime = True;
+        propertiesInstance->schedPriority = schedPriority;
+    } else {
+        propertiesInstance->schedRealtime = False;
+        propertiesInstance->schedPriority = 0;
+    }
 }
 
 char *
@@ -357,8 +411,16 @@ updatePropertiesLogLevel (u_int logLevel) {
 
 void
 displayPropertiesDetail (void) {
+    int minPriority;
+    int maxPriority;
+
+    minPriority = sched_get_priority_min (SCHED_RR);
+    maxPriority = sched_get_priority_max (SCHED_RR);
+
     LOGI("Startup with properties:{\n");
     LOGI("    daemonMode: %s\n", propertiesInstance->daemonMode ? "True" : "False");
+    LOGI("    ScheduleRealtime: %s\n", propertiesInstance->schedRealtime ? "True" : "False");
+    LOGI("    SchedulePriority: %u\n", propertiesInstance->schedPriority);
     LOGI("    managementControlHost: %s\n", propertiesInstance->managementControlHost);
     LOGI("    managementControlPort: %u\n", propertiesInstance->managementControlPort);
     LOGI("    interface: %s\n", propertiesInstance->interface);

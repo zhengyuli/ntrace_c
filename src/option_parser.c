@@ -8,6 +8,7 @@
 static struct option options [] = {
     {"config", required_argument, NULL, 'C'},
     {"daemonMode", no_argument, NULL, 'D'},
+    {"schedPriority", required_argument, NULL, 'S'},
     {"managementControlHost", required_argument, NULL, 'I'},
     {"managementControlPort", required_argument, NULL, 'P'},
     {"interface", required_argument, NULL, 'm'},
@@ -35,6 +36,7 @@ showHelpInfo (const char *cmd) {
              "Basic options: \n"
              "  -C|--config, config file\n"
              "  -D|--daemonMode, run as daemon\n"
+             "  -S|--schedPriority <priority> schedule priority\n"
              "  -I|--managementControlHost <ip> management control host ip\n"
              "  -P|--managementControlPort <port> management control port\n"
              "  -m|--interface <eth*> interface to monitor\n"
@@ -83,13 +85,17 @@ parseOptions (int argc, char *argv []) {
     boolean showHelp = False;
 
     optind = 1;
-    while ((option = getopt_long (argc, argv, ":C:DI:P:m:o:n:i:r:p:d:f:l:vh?", options, NULL)) != -1) {
+    while ((option = getopt_long (argc, argv, ":C:DS:I:P:m:o:n:i:r:p:d:f:l:vh?", options, NULL)) != -1) {
         switch (option) {
             case 'C':
                 break;
 
             case 'D':
                 updatePropertiesDaemonMode (True);
+                break;
+
+            case 'S':
+                updatePropertiesSchedPriority (atoi (optarg));
                 break;
 
             case 'I':

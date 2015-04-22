@@ -113,6 +113,9 @@ tcpDispatchService (void *args) {
         goto exit;
     }
 
+    /* Display task schedule policy info */
+    displayTaskSchedPolicyInfo ("TcpDispatchService");
+
     /* Get tcpPktDispatchRecvSock */
     tcpPktDispatchRecvSock = getTcpPktDispatchRecvSock ();
 

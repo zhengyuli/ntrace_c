@@ -37,6 +37,9 @@ icmpProcessService (void *args) {
         goto exit;
     }
 
+    /* Display task schedule policy info */
+    displayTaskSchedPolicyInfo ("IcmpProcessService");
+
     /* Init icmp context */
     ret = initIcmp (icmpBreakdownSendSock);
     if (ret < 0) {

@@ -47,7 +47,7 @@ loopPcapDev (void) {
     ret = updateNetDevFilterForSniff (filter);
     free (filter);
     if (ret < 0) {
-        LOGE ("Update net device filter error.\n");
+        LOGE ("Update application services filter error.\n");
         return -1;
     }
 
@@ -98,9 +98,12 @@ rawCaptureService (void *args) {
         goto exit;
     }
 
-    /* Get net device pcap descriptor */
+    /* Display task schedule policy info */
+    displayTaskSchedPolicyInfo ("RawCaptureService");
+
+    /* Get net device pcap descriptor for sniff */
     pcapDev = getNetDevPcapDescForSniff ();
-    /* Get net device datalink type */
+    /* Get net device datalink type for sniff */
     datalinkType = getNetDevDatalinkTypeForSniff ();
     /* Get ipPktSendSock */
     ipPktSendSock = getIpPktSendSock ();

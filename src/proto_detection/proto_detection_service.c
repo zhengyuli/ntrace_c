@@ -2,54 +2,14 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <pcap.h>
-#include <libndpi-1.5.2/libndpi/ndpi_api.h>
 #include "config.h"
 #include "properties.h"
 #include "signals.h"
 #include "log.h"
+#include "netdev.h"
+#include "ip.h"
+#include "raw_packet.h"
 #include "proto_detection_service.h"
-
-#define DETECTION_TICK_RESOLUTION 1000
-
-static struct ndpi_detection_module_struct *ndpiModule = NULL;
-static u_int idStructSize = 0;
-static u_int flowStructSize = 0;
-
-static pcap_t * pcapDev = NULL;
-static int datalinkType = -1;
-
-static void *
-mallocWrapper(unsigned long size) {
-return malloc (size);
-}
-
-static void freeWrapper(void *freeable) {
-    free (freeable);
-}
-
-static int
-setupDetection (void) {
-    NDPI_PROTOCOL_BITMASK protoBitmap;
-
-    ndpiModule = ndpi_init_detection_module (
-        DETECTION_TICK_RESOLUTION, mallocWrapper, freeWrapper, NULL);
-    if (ndpiModule == NULL) {
-        LOGE ("Init ndpi detection module error.\n");
-        return -1;
-    }
-
-    NDPI_BITMASK_RESET (protoBitmap);
-    NDPI_BITMASK_ADD (protoBitmap, NDPI_PROTOCOL_HTTP);
-    NDPI_BITMASK_ADD (protoBitmap, NDPI_PROTOCOL_MYSQL);
-    ndpi_set_protocol_detection_bitmask2 (ndpiModule, &protoBitmap);
-
-    idStructSize = ndpi_detection_get_sizeof_ndpi_id_struct ();
-    flowStructSize = ndpi_detection_get_sizeof_ndpi_flow_struct ();
-
-    return 0;
-}
-
-
 
 /*
  * Proto detection service.
@@ -57,6 +17,12 @@ setupDetection (void) {
 void *
 protoDetectionService (void *args) {
     int ret;
+    pcap_t * pcapDev;
+    int datalinkType;
+    struct pcap_pkthdr *capPktHdr;
+    u_char *rawPkt;
+    timeVal captureTime;
+    iphdrPtr iph, newIphdr;
 
     /* Reset signals flag */
     resetSignalsFlag ();
@@ -68,7 +34,71 @@ protoDetectionService (void *args) {
         goto exit;
     }
 
+    /* Get net device pcap descriptor for proto detection */
+    pcapDev = getNetDevPcapDescForProtoDetection ();
+    /* Get net device datalink type for proto detection */
+    datalinkType = getNetDevDatalinkTypeForProtoDetection ();
+
+    /* Update proto detection filter */
+    ret = updateNetDevFilterForProtoDetection ("tcp");
+    if (ret < 0) {
+        LOGE ("Update application services filter error.\n");
+        goto destroyLogContext;
+    }
+
+    /* Init ip context */
+    ret = initIp ();
+    if (ret < 0) {
+        LOGE ("Init ip context error.\n");
+        goto destroyLogContext;
+    }
+
+    while (!SIGUSR1IsInterrupted ()) {
+        ret = pcap_next_ex (pcapDev, &capPktHdr, (const u_char **) &rawPkt);
+        if (ret == 1) {
+            /* Filter out incomplete raw packet */
+            if (capPktHdr->caplen != capPktHdr->len)
+                continue;
+
+            /* Get ip packet and filter non-tcp packets */
+            iph = (iphdrPtr) getIpPacket (rawPkt, datalinkType);
+            if (iph == NULL || iph->ipProto != IPPROTO_TCP)
+                continue;
+
+            /* Get packet capture timestamp */
+            captureTime.tvSec = htonll (capPktHdr->ts.tv_sec);
+            captureTime.tvUsec = htonll (capPktHdr->ts.tv_usec);
+
+            ret = ipDefrag (iph, captureTime, &newIphdr);
+            if (ret < 0)
+                LOGE ("Ip packet defragment error.\n");
+
+            if (newIphdr) {
+                switch (newIphdr->ipProto) {
+                    case IPPROTO_TCP:
+                        tcpPacketDispatch (newIphdr, (timeValPtr) zframe_data (tmFrame));
+                        break;
+
+                    default:
+                        break;
+                }
+
+                /* Free new ip packet after defragment */
+                if (newIphdr != iph)
+                    free (newIphdr);
+            }
+        } else if (ret == -1) {
+            LOGE ("Capture raw packets with fatal error.\n");
+            break;
+        } else if (ret == -2) {
+            LOGI ("Capture raw packets complete.\n");
+            break;
+        }
+    }
+
     LOGI ("ProtoDetectionService will exit ... .. .\n");
+destroyIp:
+    destroyIp ();
 destroyLogContext:
     destroyLogContext ();
 exit:

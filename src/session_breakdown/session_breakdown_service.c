@@ -221,6 +221,9 @@ sessionBreakdownService (void *args) {
         goto exit;
     }
 
+    /* Display task schedule policy info */
+    displayTaskSchedPolicyInfo ("SessionBreakdownService");
+
     /* Init session breakdown output file dev */
     sessionBreakdownOutputDev sessionBreakdownOutputFileDev = {
         .data = NULL,

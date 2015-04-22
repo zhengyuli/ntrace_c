@@ -211,7 +211,7 @@ updatePcapFilter (pcap_t *pcapDev, char *filter) {
             return -1;
         }
     } else
-        net = 0xffffffff;
+        net = 0xFFFFFF00;
 
     ret = pcap_compile (pcapDev, &pcapFilter, filter, 1, net);
     if (ret < 0) {

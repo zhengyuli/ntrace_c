@@ -19,9 +19,9 @@
 #include "app_service_manager.h"
 #include "ip.h"
 #include "tcp.h"
+#include "proto_analyzer.h"
 #include "tcp_options.h"
 #include "tcp_packet.h"
-#include "proto_analyzer.h"
 
 /* Default closing timeout of tcp stream */
 #define DEFAULT_TCP_STREAM_CLOSING_TIMEOUT 30
@@ -351,7 +351,9 @@ newTcpStream (protoAnalyzerPtr analyzer) {
     stream->addr.source = 0;
     stream->addr.daddr.s_addr = 0;
     stream->addr.dest = 0;
+    /* Generate connection id */
     uuid_generate (stream->connId);
+    /* Set stream init state */
     stream->state = STREAM_INIT;
 
     /* Init client halfStream */
@@ -1015,7 +1017,7 @@ addFromSkb (tcpStreamPtr stream,
     u_int toCopy1, toCopy2;
     u_int lost = EXP_SEQ - curSeq;
 
-    if (urg && after (urgPtr, EXP_SEQ - 1) && (!rcv->urgSeen || after (urgPtr, rcv->urgPtr))) {
+    if (urg && !before (urgPtr, EXP_SEQ) && (!rcv->urgSeen || after (urgPtr, rcv->urgPtr))) {
         rcv->urgPtr = urgPtr;
         rcv->urgSeen = 1;
     }

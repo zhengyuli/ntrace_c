@@ -159,6 +159,9 @@ ipProcessService (void *args) {
         goto exit;
     }
 
+    /* Display task schedule policy info */
+    displayTaskSchedPolicyInfo ("IpProcessService");
+
     /* Get ipPktRecvSock */
     ipPktRecvSock = getIpPktRecvSock ();
 
@@ -215,7 +218,7 @@ ipProcessService (void *args) {
                     break;
             }
 
-            /* New ip packet after defragment */
+            /* Free new ip packet after defragment */
             if (newIphdr != (iphdrPtr) zframe_data (pktFrame))
                 free (newIphdr);
         }

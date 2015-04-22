@@ -405,12 +405,16 @@ addFromSkb (tcpStreamPtr stream,
     u_int toCopy1, toCopy2;
     u_int lost = EXP_SEQ - curSeq;
 
-    if (urg && !before (urgPtr, EXP_SEQ) && (!rcv->urgSeen || after (urgPtr, rcv->urgPtr))) {
+    if (urg &&
+        !before (urgPtr, EXP_SEQ)
+        && (!rcv->urgSeen || after (urgPtr, rcv->urgPtr))) {
         rcv->urgPtr = urgPtr;
         rcv->urgSeen = 1;
     }
 
-    if (rcv->urgSeen && !before (rcv->urgPtr, EXP_SEQ) && before (rcv->urgPtr, curSeq + dataLen)) {
+    if (rcv->urgSeen
+        && !before (rcv->urgPtr, EXP_SEQ)
+        && before (rcv->urgPtr, curSeq + dataLen)) {
         /* Hanlde data before urgData */
         toCopy1 = rcv->urgPtr - EXP_SEQ;
         if (toCopy1 > 0) {
@@ -419,10 +423,12 @@ addFromSkb (tcpStreamPtr stream,
                 LOGE ("Add data to receive buffer error.\n");
                 rcv->offset = rcv->count;
             } else {
-                parseCount = handleData (stream, snd, rcv->rcvBuf, rcv->count - rcv->offset);
+                parseCount = handleData (stream, snd, rcv->rcvBuf,
+                                         rcv->count - rcv->offset);
                 rcv->offset += parseCount;
                 if (parseCount)
-                    memmove (rcv->rcvBuf, rcv->rcvBuf + parseCount,  rcv->count - rcv->offset);
+                    memmove (rcv->rcvBuf, rcv->rcvBuf + parseCount,
+                             rcv->count - rcv->offset);
             }
         }
 
@@ -437,10 +443,12 @@ addFromSkb (tcpStreamPtr stream,
                 LOGE ("Add data to receive buffer error.\n");
                 rcv->offset = rcv->count;
             } else {
-                parseCount = handleData (stream, snd, rcv->rcvBuf, rcv->count - rcv->offset);
+                parseCount = handleData (stream, snd, rcv->rcvBuf,
+                                         rcv->count - rcv->offset);
                 rcv->offset += parseCount;
                 if (parseCount)
-                    memmove (rcv->rcvBuf, rcv->rcvBuf + parseCount,  rcv->count - rcv->offset);
+                    memmove (rcv->rcvBuf, rcv->rcvBuf + parseCount,
+                             rcv->count - rcv->offset);
             }
         }
     } else {
@@ -450,12 +458,21 @@ addFromSkb (tcpStreamPtr stream,
                 LOGE ("Add data to receive buffer error.\n");
                 rcv->offset = rcv->count;
             } else {
-                parseCount = handleData (stream, snd, rcv->rcvBuf, rcv->count - rcv->offset);
+                parseCount = handleData (stream, snd, rcv->rcvBuf,
+                                         rcv->count - rcv->offset);
                 rcv->offset += parseCount;
                 if (parseCount)
-                    memmove (rcv->rcvBuf, rcv->rcvBuf + parseCount,  rcv->count - rcv->offset);
+                    memmove (rcv->rcvBuf, rcv->rcvBuf + parseCount,
+                             rcv->count - rcv->offset);
             }
         }
+    }
+
+    if (tcph->fin) {
+        stream->client.state = TCP_CONN_CLOSED;
+        stream->server.state = TCP_CONN_CLOSED;
+        stream->state = STREAM_CLOSED;
+        delTcpStreamFromHash (stream);
     }
 }
 
@@ -475,7 +492,7 @@ static void
 tcpQueue (tcpStreamPtr stream,
           tcphdrPtr tcph,
           halfStreamPtr snd, halfStreamPtr rcv,
-          u_char *data, u_int dataLen, timeValPtr tm) {
+          u_char *data, u_int dataLen) {
     u_int curSeq;
     skbuffPtr skbuf, entry;
     listHeadPtr pos, ppos, npos;
@@ -490,6 +507,7 @@ tcpQueue (tcpStreamPtr stream,
             listForEachEntrySafe (entry, pos, npos, &rcv->head, node) {
                 if (after (entry->seq, EXP_SEQ))
                     break;
+
                 listDel (&entry->node);
                 if (after (entry->seq + entry->len + entry->fin, EXP_SEQ)) {
                     addFromSkb (stream, snd, rcv,
@@ -642,13 +660,6 @@ tcpProcess (iphdrPtr iph) {
         if (tcpDataLen == 1)
             stream->tinyPkts++;
         tcpQueue (stream, tcph, snd, rcv, tcpData, tcpDataLen);
-    }
-
-    if (tcph->fin) {
-        stream->client.state = TCP_CONN_CLOSED;
-        stream->server.state = TCP_CONN_CLOSED;
-        stream->state = STREAM_CLOSED;
-        delTcpStreamFromHash (stream);
     }
 }
 

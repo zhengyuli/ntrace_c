@@ -666,7 +666,8 @@ tcpBreakdown2Json (tcpStreamPtr stream, tcpBreakdownPtr tbd) {
     if (tbd->state == TCP_BREAKDOWN_DATA_EXCHANGING ||
         tbd->state == TCP_BREAKDOWN_RESET_TYPE3 ||
         tbd->state == TCP_BREAKDOWN_RESET_TYPE4)
-        (*stream->analyzer->sessionBreakdown2Json) (root, stream->sessionDetail, tbd->sessionBreakdown);
+        (*stream->analyzer->sessionBreakdown2Json) (root, stream->sessionDetail,
+                                                    tbd->sessionBreakdown);
 
     out = json_dumps (root, JSON_COMPACT | JSON_PRESERVE_ORDER);
     json_object_clear (root);
@@ -763,12 +764,14 @@ generateSessionBreakdown (tcpStreamPtr stream, timeValPtr tm) {
     tbd.zeroWindows = stream->zeroWindows;
     tbd.dupAcks = stream->dupAcks;
 
-    /* For TCP_BREAKDOWN_DATA_EXCHANGING, TCP_BREAKDOWN_RESET_TYPE3 and TCP_BREAKDOWN_RESET_TYPE4 breakdown,
-     * there is application layer breakdown */
+    /* For TCP_BREAKDOWN_DATA_EXCHANGING, TCP_BREAKDOWN_RESET_TYPE3 and
+     * TCP_BREAKDOWN_RESET_TYPE4 breakdown, there is application layer
+     * breakdown */
     if (tbd.state == TCP_BREAKDOWN_DATA_EXCHANGING ||
         tbd.state == TCP_BREAKDOWN_RESET_TYPE3 ||
         tbd.state == TCP_BREAKDOWN_RESET_TYPE4) {
-        ret = (*stream->analyzer->generateSessionBreakdown) (stream->sessionDetail, tbd.sessionBreakdown);
+        ret = (*stream->analyzer->generateSessionBreakdown) (stream->sessionDetail,
+                                                             tbd.sessionBreakdown);
         if (ret < 0) {
             LOGE ("GenerateSessionBreakdown error.\n");
             (*stream->analyzer->freeSessionBreakdown) (tbd.sessionBreakdown);
@@ -840,7 +843,8 @@ handleEstb (tcpStreamPtr stream, timeValPtr tm) {
 
 /* Tcp urgency data handler callback */
 static void
-handleUrgData (tcpStreamPtr stream, halfStreamPtr snd, u_char urgData, timeValPtr tm) {
+handleUrgData (tcpStreamPtr stream, halfStreamPtr snd,
+               u_char urgData, timeValPtr tm) {
     streamDirection direction;
 
     if (snd == &stream->client)
@@ -848,12 +852,14 @@ handleUrgData (tcpStreamPtr stream, halfStreamPtr snd, u_char urgData, timeValPt
     else
         direction = STREAM_FROM_SERVER;
 
-    (*stream->analyzer->sessionProcessUrgData) (direction, urgData, tm, stream->sessionDetail);
+    (*stream->analyzer->sessionProcessUrgData) (direction, urgData,
+                                                tm, stream->sessionDetail);
 }
 
 /* Tcp data handler callback */
 static u_int
-handleData (tcpStreamPtr stream, halfStreamPtr snd, u_char *data, u_int dataLen, timeValPtr tm) {
+handleData (tcpStreamPtr stream, halfStreamPtr snd,
+            u_char *data, u_int dataLen, timeValPtr tm) {
     streamDirection direction;
     u_int parseCount;
     sessionState state = SESSION_ACTIVE;
@@ -863,7 +869,8 @@ handleData (tcpStreamPtr stream, halfStreamPtr snd, u_char *data, u_int dataLen,
     else
         direction = STREAM_FROM_SERVER;
 
-    parseCount = (*stream->analyzer->sessionProcessData) (direction, data, dataLen, tm, stream->sessionDetail, &state);
+    parseCount = (*stream->analyzer->sessionProcessData) (direction, data, dataLen,
+                                                          tm, stream->sessionDetail, &state);
     if (state == SESSION_DONE)
         generateSessionBreakdown (stream, tm);
 
@@ -890,7 +897,8 @@ handleReset (tcpStreamPtr stream, halfStreamPtr snd, timeValPtr tm) {
             stream->state = STREAM_RESET_TYPE3;
         else
             stream->state = STREAM_RESET_TYPE4;
-        (*stream->analyzer->sessionProcessReset) (direction, tm, stream->sessionDetail);
+        (*stream->analyzer->sessionProcessReset) (direction, tm,
+                                                  stream->sessionDetail);
     }
 
     stream->closeTime = timeVal2MilliSecond (tm);
@@ -909,7 +917,8 @@ handleFin (tcpStreamPtr stream, halfStreamPtr snd, timeValPtr tm) {
     else
         direction = STREAM_FROM_SERVER;
 
-    (*stream->analyzer->sessionProcessFin) (direction, tm, stream->sessionDetail, &state);
+    (*stream->analyzer->sessionProcessFin) (direction, tm,
+                                            stream->sessionDetail, &state);
     if (state == SESSION_DONE)
         generateSessionBreakdown (stream, tm);
 
@@ -950,7 +959,8 @@ add2buf (halfStreamPtr rcv, u_char *data, u_int dataLen) {
 
             rcv->rcvBuf = (u_char *) malloc (toAlloc);
             if (rcv->rcvBuf == NULL) {
-                LOGE ("Alloc memory for halfStream rcvBuf error: %s.\n", strerror (errno));
+                LOGE ("Alloc memory for halfStream rcvBuf error: %s.\n",
+                      strerror (errno));
                 ret = -1;
             }
         } else {
@@ -971,7 +981,8 @@ add2buf (halfStreamPtr rcv, u_char *data, u_int dataLen) {
 
                 rcv->rcvBuf = (u_char *) realloc (rcv->rcvBuf, toAlloc);
                 if (rcv->rcvBuf == NULL) {
-                    LOGE ("Alloc memory for halfStream rcvBuf error: %s.\n", strerror (errno));
+                    LOGE ("Alloc memory for halfStream rcvBuf error: %s.\n",
+                          strerror (errno));
                     ret = -1;
                 }
             }
@@ -1017,12 +1028,16 @@ addFromSkb (tcpStreamPtr stream,
     u_int toCopy1, toCopy2;
     u_int lost = EXP_SEQ - curSeq;
 
-    if (urg && !before (urgPtr, EXP_SEQ) && (!rcv->urgSeen || after (urgPtr, rcv->urgPtr))) {
+    if (urg &&
+        !before (urgPtr, EXP_SEQ) &&
+        (!rcv->urgSeen || after (urgPtr, rcv->urgPtr))) {
         rcv->urgPtr = urgPtr;
         rcv->urgSeen = 1;
     }
 
-    if (rcv->urgSeen && !before (rcv->urgPtr, EXP_SEQ) && before (rcv->urgPtr, curSeq + dataLen)) {
+    if (rcv->urgSeen &&
+        !before (rcv->urgPtr, EXP_SEQ) &&
+        before (rcv->urgPtr, curSeq + dataLen)) {
         /* Hanlde data before urgData */
         toCopy1 = rcv->urgPtr - EXP_SEQ;
         if (toCopy1 > 0) {
@@ -1031,10 +1046,12 @@ addFromSkb (tcpStreamPtr stream,
                 LOGE ("Add data to receive buffer error.\n");
                 rcv->offset = rcv->count;
             } else {
-                parseCount = handleData (stream, snd, rcv->rcvBuf, rcv->count - rcv->offset, tm);
+                parseCount = handleData (stream, snd, rcv->rcvBuf,
+                                         rcv->count - rcv->offset, tm);
                 rcv->offset += parseCount;
                 if (parseCount)
-                    memmove (rcv->rcvBuf, rcv->rcvBuf + parseCount,  rcv->count - rcv->offset);
+                    memmove (rcv->rcvBuf, rcv->rcvBuf + parseCount,
+                             rcv->count - rcv->offset);
             }
             rcv->countNew = 0;
         }
@@ -1055,10 +1072,12 @@ addFromSkb (tcpStreamPtr stream,
                 LOGE ("Add data to receive buffer error.\n");
                 rcv->offset = rcv->count;
             } else {
-                parseCount = handleData (stream, snd, rcv->rcvBuf, rcv->count - rcv->offset, tm);
+                parseCount = handleData (stream, snd, rcv->rcvBuf,
+                                         rcv->count - rcv->offset, tm);
                 rcv->offset += parseCount;
                 if (parseCount)
-                    memmove (rcv->rcvBuf, rcv->rcvBuf + parseCount,  rcv->count - rcv->offset);
+                    memmove (rcv->rcvBuf, rcv->rcvBuf + parseCount,
+                             rcv->count - rcv->offset);
             }
             rcv->countNew = 0;
         }
@@ -1069,10 +1088,12 @@ addFromSkb (tcpStreamPtr stream,
                 LOGE ("Add data to receive buffer error.\n");
                 rcv->offset = rcv->count;
             } else {
-                parseCount = handleData (stream, snd, rcv->rcvBuf, rcv->count - rcv->offset, tm);
+                parseCount = handleData (stream, snd, rcv->rcvBuf,
+                                         rcv->count - rcv->offset, tm);
                 rcv->offset += parseCount;
                 if (parseCount)
-                    memmove (rcv->rcvBuf, rcv->rcvBuf + parseCount,  rcv->count - rcv->offset);
+                    memmove (rcv->rcvBuf, rcv->rcvBuf + parseCount,
+                             rcv->count - rcv->offset);
             }
             rcv->countNew = 0;
         }
@@ -1115,7 +1136,8 @@ tcpQueue (tcpStreamPtr stream,
             getTimeStampOption (tcph, &snd->currTs);
             addFromSkb (stream, snd, rcv,
                         (u_char *) data, dataLen, curSeq,
-                        tcph->fin, tcph->urg, curSeq + ntohs (tcph->urgPtr) - 1, tcph->psh, tm);
+                        tcph->fin, tcph->urg, curSeq + ntohs (tcph->urgPtr) - 1,
+                        tcph->psh, tm);
 
             listForEachEntrySafe (entry, pos, npos, &rcv->head, node) {
                 if (after (entry->seq, EXP_SEQ))
@@ -1124,7 +1146,8 @@ tcpQueue (tcpStreamPtr stream,
                 if (after (entry->seq + entry->len + entry->fin, EXP_SEQ)) {
                     addFromSkb (stream, snd, rcv,
                                 entry->data, entry->len, entry->seq,
-                                entry->fin, entry->urg, entry->seq + entry->urgPtr - 1, entry->psh, tm);
+                                entry->fin, entry->urg, entry->seq + entry->urgPtr - 1,
+                                entry->psh, tm);
                 }
                 rcv->rmemAlloc -= entry->len;
                 free (entry->data);
@@ -1209,7 +1232,8 @@ tcpProcess (iphdrPtr iph, timeValPtr tm) {
     }
 
     if (tcpDataLen < 0) {
-        LOGE ("Invalid tcp data length, ipLen: %u, tcpLen: %u, tcpHeaderLen: %u, tcpDataLen: %u.\n",
+        LOGE ("Invalid tcp data length, ipLen: %u, tcpLen: %u, "
+              "tcpHeaderLen: %u, tcpDataLen: %u.\n",
               ipLen, tcpLen, (tcph->doff * 4), tcpDataLen);
         return;
     }
@@ -1221,8 +1245,10 @@ tcpProcess (iphdrPtr iph, timeValPtr tm) {
 
 #ifdef DO_STRICT_CHECK
     /* Tcp checksum validation */
-    if (tcpFastCheckSum ((u_char *) tcph, tcpLen, iph->ipSrc.s_addr, iph->ipDest.s_addr)) {
-        LOGE ("Tcp fast checksum error, ipLen: %u, tcpLen: %u, tcpHeaderLen: %u, tcpDataLen: %u.\n",
+    if (tcpFastCheckSum ((u_char *) tcph, tcpLen,
+                         iph->ipSrc.s_addr, iph->ipDest.s_addr)) {
+        LOGE ("Tcp fast checksum error, ipLen: %u, tcpLen: %u, "
+              "tcpHeaderLen: %u, tcpDataLen: %u.\n",
               ipLen, tcpLen, (tcph->doff * 4), tcpDataLen);
         return;
     }
@@ -1266,10 +1292,12 @@ tcpProcess (iphdrPtr iph, timeValPtr tm) {
             stream->server.state != TCP_CONN_CLOSED ||
             !tcph->ack) {
             /* Tcp syn retries */
-            if (direction == STREAM_FROM_CLIENT && stream->client.state == TCP_SYN_PKT_SENT) {
+            if (direction == STREAM_FROM_CLIENT &&
+                stream->client.state == TCP_SYN_PKT_SENT) {
                 stream->retries++;
                 stream->retriesTime = timeVal2MilliSecond (tm);
-            } else if (direction == STREAM_FROM_SERVER && stream->server.state == TCP_SYN_PKT_RECV) {
+            } else if (direction == STREAM_FROM_SERVER &&
+                       stream->server.state == TCP_SYN_PKT_RECV) {
                 /* Tcp syn/ack retries */
                 stream->dupSynAcks++;
                 stream->synAckTime = timeVal2MilliSecond (tm);
@@ -1291,14 +1319,16 @@ tcpProcess (iphdrPtr iph, timeValPtr tm) {
             stream->server.ackSeq = ntohl (tcph->ackSeq);
 
             if (stream->client.tsOn) {
-                stream->server.tsOn = getTimeStampOption (tcph, &stream->server.currTs);
+                stream->server.tsOn =
+                        getTimeStampOption (tcph, &stream->server.currTs);
                 if (!stream->server.tsOn)
                     stream->client.tsOn = False;
             } else
                 stream->server.tsOn = False;
 
             if (stream->client.wscaleOn) {
-                stream->server.wscaleOn = getTcpWindowScaleOption (tcph, &stream->server.wscale);
+                stream->server.wscaleOn =
+                        getTcpWindowScaleOption (tcph, &stream->server.wscale);
                 if (!stream->server.wscaleOn) {
                     stream->client.wscaleOn = False;
                     stream->client.wscale  = 1;
@@ -1334,7 +1364,9 @@ tcpProcess (iphdrPtr iph, timeValPtr tm) {
     }
 
     /* PAWS (Protect Against Wrapped Sequence numbers) check */
-    if (rcv->tsOn && getTimeStampOption (tcph, &tmOption) && before (tmOption, snd->currTs)) {
+    if (rcv->tsOn &&
+        getTimeStampOption (tcph, &tmOption) &&
+        before (tmOption, snd->currTs)) {
         stream->pawsPkts++;
         return;
     }
@@ -1342,7 +1374,8 @@ tcpProcess (iphdrPtr iph, timeValPtr tm) {
     if (tcph->ack) {
         if (direction == STREAM_FROM_CLIENT) {
             /* The last packet of tcp three handshakes */
-            if (stream->client.state == TCP_SYN_PKT_SENT && stream->server.state == TCP_SYN_PKT_RECV) {
+            if (stream->client.state == TCP_SYN_PKT_SENT &&
+                stream->server.state == TCP_SYN_PKT_RECV) {
                 if (ntohl (tcph->ackSeq) == stream->server.seq) {
                     handleEstb (stream, tm);
                     stream->state = STREAM_DATA_EXCHANGING;
@@ -1362,7 +1395,9 @@ tcpProcess (iphdrPtr iph, timeValPtr tm) {
 
         if (rcv->state == TCP_FIN_PKT_SENT)
             rcv->state = TCP_FIN_PKT_CONFIRMED;
-        if (rcv->state == TCP_FIN_PKT_CONFIRMED && snd->state == TCP_FIN_PKT_CONFIRMED) {
+
+        if (rcv->state == TCP_FIN_PKT_CONFIRMED &&
+            snd->state == TCP_FIN_PKT_CONFIRMED) {
             handleClose (stream, tm);
             return;
         }

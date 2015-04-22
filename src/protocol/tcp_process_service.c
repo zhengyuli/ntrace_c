@@ -57,7 +57,7 @@ tcpProcessService (void *args) {
     displayTaskSchedPolicyInfo ("TcpProcessService");
 
     /* Init tcp context */
-    ret = initTcp (tcpBreakdownSendSock);
+    ret = initTcpContext (tcpBreakdownSendSock);
     if (ret < 0) {
         LOGE ("Init tcp context error.\n");
         goto destroyLogContext;
@@ -103,7 +103,7 @@ tcpProcessService (void *args) {
     }
 
     LOGI ("TcpProcessService will exit ... .. .\n");
-    destroyTcp ();
+    destroyTcpContext ();
 destroyLogContext:
     destroyLogContext ();
 exit:

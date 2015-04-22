@@ -25,6 +25,7 @@
 #include "tcp_dispatch_service.h"
 #include "tcp_process_service.h"
 #include "session_breakdown_service.h"
+#include "proto_detection_service.h"
 
 /* Agent pid file fd */
 static int agentPidFd = -1;
@@ -137,6 +138,13 @@ startServices (void) {
     ret = newRealTask ("SessionBreakdownService", sessionBreakdownService, NULL);
     if (ret < 0) {
         LOGE ("Create sessionBreakdownService error.\n");
+        goto stopAllTask;
+    }
+
+    /* Start protoDetectionService */
+    ret = newNormalTask ("ProtoDetectionService", protoDetectionService, NULL);
+    if (ret < 0) {
+        LOGE ("Create ProtoDetectionService error.\n");
         goto stopAllTask;
     }
 

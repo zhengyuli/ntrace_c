@@ -10,6 +10,7 @@ ADD_DEFINITIONS (-DHAVE_PF_RING)
 SET (AGENT_CONFIG_FILE  ${PROJECT_CONFIG_DIR}/${SUB_PROJECT_LOWER}.conf)
 SET (AGENT_PID_FILE ${PROJECT_RUN_DIR}/${ROOT_PROJECT_LOWER}_${SUB_PROJECT_LOWER}.pid)
 SET (AGENT_ANALYZER_DIR ${PROJECT_DATA_DIR}/analyzers)
+SET (AGENT_DETECTOR_DIR ${PROJECT_DATA_DIR}/detectors)
 SET (AGENT_PROFILE_CACHE ${PROJECT_RUN_DIR}/profile.cache)
 
 # Configuration header file
@@ -32,6 +33,7 @@ INCLUDE_DIRECTORIES (
   protocol/
   analyzer/
   proto_detection/
+  proto_detection/detector/
   session_breakdown/
   3rd_party/http_parser/
   ${PROJECT_BINARY_DIR})
@@ -73,7 +75,12 @@ SET (AGENT_SOURCE_FILES
   analyzer/http/http_analyzer.c
   3rd_party/http_parser/http_parser.c
   analyzer/mysql/mysql_analyzer.c
-  session_breakdown/session_breakdown_service.c)
+  session_breakdown/session_breakdown_service.c
+  proto_detection/detector/http/http_detector.c
+  proto_detection/detector/mysql/mysql_detector.c
+  proto_detection/detector/proto_detector.c
+  proto_detection/proto_detection_packet.c
+  proto_detection/proto_detection_service.c)
 
 ADD_EXECUTABLE (${ROOT_PROJECT_LOWER}_agent ${AGENT_SOURCE_FILES})
 TARGET_LINK_LIBRARIES (${ROOT_PROJECT_LOWER}_agent pcap czmq pthread ini_config z jansson dl uuid)
@@ -90,3 +97,4 @@ INSTALL (
 ADD_SUBDIRECTORY (util)
 ADD_SUBDIRECTORY (logger)
 ADD_SUBDIRECTORY (analyzer)
+ADD_SUBDIRECTORY (proto_detection)

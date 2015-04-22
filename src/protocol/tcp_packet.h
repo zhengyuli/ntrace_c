@@ -3,7 +3,6 @@
 
 #include <stdlib.h>
 #include <uuid/uuid.h>
-#include <time.h>
 #include "util.h"
 #include "list.h"
 #include "ip.h"
@@ -62,6 +61,16 @@ struct _halfStream {
     u_int rmemAlloc;                    /**< Tcp half stream memory allocated for skbuff */
 };
 
+typedef struct _tuple4 tuple4;
+typedef tuple4 *tuple4Ptr;
+
+struct _tuple4 {
+    struct in_addr saddr;               /**< Source ip */
+    u_short source;                     /**< Source tcp port */
+    struct in_addr daddr;               /**< Dest ip */
+    u_short dest;                       /**< Dest tcp port */
+};
+
 typedef enum {
     STREAM_INIT,
     STREAM_CONNECTED,
@@ -75,22 +84,12 @@ typedef enum {
     STREAM_RESET_TYPE4,                 /**< Tcp connection reset type4 (from server and after connected) */
 } tcpStreamState;
 
-typedef struct _tuple4 tuple4;
-typedef tuple4 *tuple4Ptr;
-
-struct _tuple4 {
-    struct in_addr saddr;               /**< Source ip */
-    u_short source;                     /**< Source tcp port */
-    struct in_addr daddr;               /**< Dest ip */
-    u_short dest;                       /**< Dest tcp port */
-};
-
 typedef struct _tcpStream tcpStream;
 typedef tcpStream *tcpStreamPtr;
 
 /* Tcp stream */
 struct _tcpStream {
-    char *proto;                        /**< Tcp application level proto type */
+    char *proto;                        /**< Tcp application level proto name */
     protoAnalyzerPtr analyzer;          /**< Tcp Appliction level proto analyzer */
     tuple4 addr;                        /**< Tcp stream 4-tuple address */
     uuid_t connId;                      /**< Global tcp connection id */
@@ -207,9 +206,9 @@ struct _tcpBreakdown {
 void
 tcpProcess (iphdrPtr iph, timeValPtr tm);
 int
-initTcp (void *sock);
+initTcpContext (void *sock);
 void
-destroyTcp (void);
+destroyTcpContext (void);
 /*=======================Interfaces definition end=========================*/
 
 #endif /* __TCP_PACKET_H__ */

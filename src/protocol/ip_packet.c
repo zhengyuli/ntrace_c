@@ -25,10 +25,10 @@
 #define IPQUEUE_HASH_KEY_FORMAT "%s:%s:%u"
 
 /* IpQueue expire timeout list */
-static listHead ipQueueExpireTimeoutList;
+static __thread listHead ipQueueExpireTimeoutList;
 
 /* Ip host fragment hash table */
-static hashTablePtr ipQueueHashTable = NULL;
+static __thread hashTablePtr ipQueueHashTable = NULL;
 
 static void
 displayIphdr (iphdrPtr iph) {
@@ -480,7 +480,7 @@ ipDefrag (iphdrPtr iph, timeValPtr tm, iphdrPtr *newIph) {
 
 /* Init ip context */
 int
-initIp (void) {
+initIpContext (void) {
     initListHead (&ipQueueExpireTimeoutList);
 
     ipQueueHashTable = hashNew (DEFAULT_IPQUEUE_HASH_TABLE_SIZE);
@@ -492,7 +492,7 @@ initIp (void) {
 
 /* Destroy ip context */
 void
-destroyIp (void) {
+destroyIpContext (void) {
     hashDestroy (ipQueueHashTable);
     ipQueueHashTable = NULL;
 }

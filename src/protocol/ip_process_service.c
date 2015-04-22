@@ -166,7 +166,7 @@ ipProcessService (void *args) {
     ipPktRecvSock = getIpPktRecvSock ();
 
     /* Init ip context */
-    ret = initIp ();
+    ret = initIpContext ();
     if (ret < 0) {
         LOGE ("Init ip context error.\n");
         goto destroyLogContext;
@@ -229,7 +229,7 @@ ipProcessService (void *args) {
     }
 
     LOGI ("IpProcessService will exit ... .. .\n");
-    destroyIp ();
+    destroyIpContext ();
 destroyLogContext:
     destroyLogContext ();
 exit:

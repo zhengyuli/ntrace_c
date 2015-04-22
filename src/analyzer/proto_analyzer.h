@@ -22,7 +22,7 @@ typedef protoAnalyzerInfo *protoAnalyzerInfoPtr;
 
 struct _protoAnalyzerInfo {
     char protoNames [MAX_PROTO_ANALYZER_NUM][32];
-    u_int registeredProtoSize;
+    u_int registeredAnalyzerSize;
 };
 
 /*=================Proto analyzer callbacks definition=====================*/
@@ -161,7 +161,7 @@ typedef protoAnalyzer *protoAnalyzerPtr;
 
 /* Proto analyzer callback */
 struct _protoAnalyzer {
-    char proto [32];                                     /**< Protocol type */
+    char proto [32];                                     /**< Protocol name */
     initProtoAnalyzerCB initProtoAnalyzer;               /**< Protocol init callback */
     destroyProtoAnalyzerCB destroyProtoAnalyzer;         /**< Protocol destroy callback */
     newSessionDetailCB newSessionDetail;                 /**< Create new session detail callback */

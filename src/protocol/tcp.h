@@ -2,6 +2,7 @@
 #define __TCP_H__
 
 #include <stdint.h>
+#include <arpa/inet.h>
 
 typedef struct _tcphdr tcphdr;
 typedef tcphdr *tcphdrPtr;

@@ -243,9 +243,9 @@ buildManagementControlResponse (char *cmd, int code) {
             }
 
             json_object_set_new (body, MANAGEMENT_CONTROL_RESPONSE_BODY_PROTO_NUM,
-                                 json_integer (protoAnalyzerInformation.registeredProtoSize));
+                                 json_integer (protoAnalyzerInformation.registeredAnalyzerSize));
 
-            for (i = 0; i < protoAnalyzerInformation.registeredProtoSize; i++)
+            for (i = 0; i < protoAnalyzerInformation.registeredAnalyzerSize; i++)
                 json_array_append_new (protoNames, json_string (protoAnalyzerInformation.protoNames [i]));
 
             json_object_set_new (body, MANAGEMENT_CONTROL_RESPONSE_BODY_PROTO_NAMES, protoNames);

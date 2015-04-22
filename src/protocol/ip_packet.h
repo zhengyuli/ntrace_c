@@ -45,9 +45,9 @@ struct _ipQueueTimeout {
 int
 ipDefrag (iphdrPtr iph, timeValPtr tm, iphdrPtr *newIph);
 int
-initIp (void);
+initIpContext (void);
 void
-destroyIp (void);
+destroyIpContext (void);
 /*=======================Interfaces definition end=========================*/
 
 #endif /* __IP_PACKET_H__ */

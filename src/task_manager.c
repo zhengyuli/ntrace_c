@@ -141,6 +141,10 @@ stopTaskForEachHashItem (void *data, void *args) {
     ret = pthread_kill (tsk->tid, SIGUSR1);
     if (!ret)
         pthread_join (tsk->tid, NULL);
+    else if (ret == ESRCH)
+        LOGE ("No thread with the tid: %lu could be found.\n", tsk->tid);
+    else
+        LOGE ("Stop thread with the tid: %lu failed.\n", tsk->tid);
 
     return True;
 }
@@ -238,6 +242,7 @@ taskStatusHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
     u_int retries;
     char *taskStatusMsg;
     char taskName [64];
+    char hashKey [64];
     u_int taskStatus;
     pthread_t tid;
 
@@ -251,8 +256,8 @@ taskStatusHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
             &taskStatus, &tid, taskName);
     switch (taskStatus) {
         case TASK_STATUS_EXIT_NORMALLY:
-            LOGE ("%s:%lu exit normally.\n",  taskName, tid);
-            pthread_kill (pthread_self (), SIGINT);
+            snprintf (hashKey, sizeof (hashKey), "%lu", tid);
+            hashRemove (taskManagerHashTable, hashKey);
             break;
 
         case TASK_STATUS_EXIT_ABNORMALLY:

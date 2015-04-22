@@ -7,8 +7,12 @@
 #include "signals.h"
 #include "log.h"
 #include "netdev.h"
+#include "task_manager.h"
 #include "ip.h"
 #include "raw_packet.h"
+#include "ip_packet.h"
+#include "proto_detector.h"
+#include "proto_detection_packet.h"
 #include "proto_detection_service.h"
 
 /*
@@ -23,6 +27,7 @@ protoDetectionService (void *args) {
     u_char *rawPkt;
     timeVal captureTime;
     iphdrPtr iph, newIphdr;
+    boolean exitNormally = False;
 
     /* Reset signals flag */
     resetSignalsFlag ();
@@ -47,10 +52,24 @@ protoDetectionService (void *args) {
     }
 
     /* Init ip context */
-    ret = initIp ();
+    ret = initIpContext ();
     if (ret < 0) {
         LOGE ("Init ip context error.\n");
         goto destroyLogContext;
+    }
+
+    /* Init proto detection context */
+    ret = initProtoDetectionContext ();
+    if (ret < 0) {
+        LOGE ("Init proto detection context error.\n");
+        goto destroyIpContext;
+    }
+
+    /* Init proto detector */
+    ret = initProtoDetector ();
+    if (ret < 0) {
+        LOGE ("Init proto detector error.\n");
+        goto destroyProtoDetectionContext;
     }
 
     while (!SIGUSR1IsInterrupted ()) {
@@ -69,14 +88,14 @@ protoDetectionService (void *args) {
             captureTime.tvSec = htonll (capPktHdr->ts.tv_sec);
             captureTime.tvUsec = htonll (capPktHdr->ts.tv_usec);
 
-            ret = ipDefrag (iph, captureTime, &newIphdr);
+            ret = ipDefrag (iph, &captureTime, &newIphdr);
             if (ret < 0)
                 LOGE ("Ip packet defragment error.\n");
 
             if (newIphdr) {
                 switch (newIphdr->ipProto) {
                     case IPPROTO_TCP:
-                        tcpPacketDispatch (newIphdr, (timeValPtr) zframe_data (tmFrame));
+                        protoDetectionProcess (newIphdr, &captureTime);
                         break;
 
                     default:
@@ -88,21 +107,26 @@ protoDetectionService (void *args) {
                     free (newIphdr);
             }
         } else if (ret == -1) {
-            LOGE ("Capture raw packets with fatal error.\n");
+            LOGE ("Capture raw packets for proto detection with fatal error.\n");
             break;
         } else if (ret == -2) {
-            LOGI ("Capture raw packets complete.\n");
+            exitNormally = True;
             break;
         }
     }
 
     LOGI ("ProtoDetectionService will exit ... .. .\n");
-destroyIp:
-    destroyIp ();
+    destroyProtoDetector ();
+destroyProtoDetectionContext:
+    destroyProtoDetectionContext ();
+destroyIpContext:
+    destroyIpContext ();
 destroyLogContext:
     destroyLogContext ();
 exit:
-    if (!SIGUSR1IsInterrupted ())
+    if (exitNormally)
+        sendTaskStatus ("ProtoDetectionService", TASK_STATUS_EXIT_NORMALLY);
+    else if (!SIGUSR1IsInterrupted ())
         sendTaskStatus ("ProtoDetectionService", TASK_STATUS_EXIT_ABNORMALLY);
 
     return NULL;

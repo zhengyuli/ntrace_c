@@ -168,7 +168,7 @@ rawCaptureService (void *args) {
                 continue;
             }
         } else if (ret == -1) {
-            LOGE ("Capture raw packets with fatal error.\n");
+            LOGE ("Capture raw packets for sniff with fatal error.\n");
             break;
         } else if (ret == -2 && loopPcapDev ())
             break;
@@ -181,7 +181,9 @@ rawCaptureService (void *args) {
 destroyLogContext:
     destroyLogContext ();
 exit:
-    if (!loopComplete && !SIGUSR1IsInterrupted ())
+    if (loopComplete)
+        sendTaskStatus ("RawCaptureService", TASK_STATUS_EXIT_NORMALLY);
+    else if (!SIGUSR1IsInterrupted ())
         sendTaskStatus ("RawCaptureService", TASK_STATUS_EXIT_ABNORMALLY);
 
     return NULL;

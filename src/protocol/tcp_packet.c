@@ -1,9 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <string.h>
-#include <math.h>
 #include <errno.h>
 #include <arpa/inet.h>
 #include <pthread.h>
@@ -19,17 +17,18 @@
 #include "app_service_manager.h"
 #include "ip.h"
 #include "tcp.h"
-#include "proto_analyzer.h"
 #include "tcp_options.h"
+#include "proto_analyzer.h"
 #include "tcp_packet.h"
+
+/* Tcp stream hash key format string */
+#define TCP_STREAM_HASH_KEY_FORMAT "%s:%u:%s:%u"
 
 /* Default closing timeout of tcp stream */
 #define DEFAULT_TCP_STREAM_CLOSING_TIMEOUT 30
 
 /* Default tcp stream hash table size */
-#define DEFAULT_TCP_STREAM_HASH_TABLE_SIZE (2 << 17)
-/* Tcp stream hash key format string */
-#define TCP_STREAM_HASH_KEY_FORMAT "%s:%u:%s:%u"
+#define DEFAULT_TCP_STREAM_HASH_TABLE_SIZE (1 << 17)
 
 /* Tcp receive buffer maxium size = 16MB */
 #define TCP_RECEIVE_BUFFER_MAX_SIZE (1 << 24)
@@ -37,13 +36,17 @@
 /* Tcp expect sequence */
 #define EXP_SEQ (snd->firstDataSeq + rcv->count + rcv->urgCount)
 
-/* Tcp streams alloc statistic */
+/* Tcp streams alloc statistic for global */
 static u_long_long tcpStreamsAlloc = 0;
 static pthread_spinlock_t tcpStreamsAllocLock;
+/* Tcp streams alloc for local */
+static __thread u_long_long tcpStreamsAllocLocal = 0;
 
-/* Tcp streams free statistic */
+/* Tcp streams free statistic for global */
 static u_long_long tcpStreamsFree = 0;
 static pthread_spinlock_t tcpStreamsFreeLock;
+/* Tcp streams free statistic for local */
+static __thread u_long_long tcpStreamsFreeLocal = 0;
 
 /* Tcp context init once control */
 static pthread_once_t tcpInitOnceControl = PTHREAD_ONCE_INIT;
@@ -62,6 +65,39 @@ static __thread void *tcpBreakdownSendSock;
 
 /* Tcp stream cache */
 static __thread tcpStreamPtr streamCache = NULL;
+
+static boolean
+before (u_int seq1, u_int seq2) {
+    int ret;
+
+    ret = (int) (seq1 - seq2);
+    if (ret < 0)
+        return True;
+    else
+        return False;
+}
+
+static boolean
+after (u_int seq1, u_int seq2) {
+    int ret;
+
+    ret = (int) (seq1 - seq2);
+    if (ret > 0)
+        return True;
+    else
+        return False;
+}
+
+static boolean
+tuple4IsEqual (tuple4Ptr addr1, tuple4Ptr addr2) {
+    if (addr1->saddr.s_addr == addr2->saddr.s_addr &&
+        addr1->source == addr2->source &&
+        addr1->daddr.s_addr == addr2->daddr.s_addr &&
+        addr1->dest == addr2->dest)
+        return True;
+
+    return False;
+}
 
 static char *
 getTcpBreakdownStateName (tcpBreakdownState state) {
@@ -90,28 +126,6 @@ getTcpBreakdownStateName (tcpBreakdownState state) {
         default:
             return "TCP_STATE_UNKNOWN";
     }
-}
-
-static inline boolean
-before (u_int seq1, u_int seq2) {
-    int ret;
-
-    ret = (int) (seq1 - seq2);
-    if (ret < 0)
-        return True;
-    else
-        return False;
-}
-
-static inline boolean
-after (u_int seq1, u_int seq2) {
-    int ret;
-
-    ret = (int) (seq1 - seq2);
-    if (ret > 0)
-        return True;
-    else
-        return False;
 }
 
 static inline void
@@ -148,17 +162,6 @@ getTcpStreamsFree (void) {
     pthread_spin_unlock (&tcpStreamsFreeLock);
 
     return streams;
-}
-
-static inline boolean
-tuple4IsEqual (tuple4Ptr addr1, tuple4Ptr addr2) {
-    if (addr1->saddr.s_addr == addr2->saddr.s_addr &&
-        addr1->source == addr2->source &&
-        addr1->daddr.s_addr == addr2->daddr.s_addr &&
-        addr1->dest == addr2->dest)
-        return True;
-
-    return False;
 }
 
 /**
@@ -271,9 +274,12 @@ delTcpStreamFromHash (tcpStreamPtr stream) {
     if (ret < 0)
         LOGE ("Delete stream from hash table error.\n");
     else {
+        tcpStreamsFreeLocal++;
         incTcpStreamsFree ();
-        LOGT ("tcpStreamsAlloc: %u<------->tcpStreamsFree: %u\n",
-              getTcpStreamsAlloc (), getTcpStreamsFree ());
+        LOGT ("tcpStreamsAlloc: %u<------->tcpStreamsFree: %u\n"
+              "tcpStreamsAllocLocal: %u<------->tcpStreamsFreeLocal: %u\n",
+              getTcpStreamsAlloc (), getTcpStreamsFree (),
+              tcpStreamsAllocLocal, tcpStreamsFreeLocal);
     }
 
     /* If streamCache will be deleted, reset streamCache */
@@ -549,6 +555,7 @@ addNewTcpStream (tcphdrPtr tcph, iphdrPtr iph, timeValPtr tm) {
         LOGE ("Add tcp stream to stream hash table error.\n");
         return NULL;
     } else {
+        tcpStreamsAllocLocal++;
         incTcpStreamsAlloc ();
         return stream;
     }
@@ -1133,7 +1140,9 @@ tcpQueue (tcpStreamPtr stream,
 
         if (after (curSeq + dataLen + tcph->fin, EXP_SEQ)) {
             /* The packet straddles our window end */
-            getTimeStampOption (tcph, &snd->currTs);
+            if (snd->tsOn)
+                getTimeStampOption (tcph, &snd->currTs);
+
             addFromSkb (stream, snd, rcv,
                         (u_char *) data, dataLen, curSeq,
                         tcph->fin, tcph->urg, curSeq + ntohs (tcph->urgPtr) - 1,
@@ -1198,6 +1207,9 @@ tcpQueue (tcpStreamPtr stream,
 
 /**
  * @brief Tcp packet processor
+ *        Tcp packet process function, it will defragment tcp packet
+ *        and do tcp and application level performance analysis by
+ *        calling specified proto analyzer to parse.
  *
  * @param iph ip packet header
  * @param tm packet capture timestamp
@@ -1259,10 +1271,8 @@ tcpProcess (iphdrPtr iph, timeValPtr tm) {
         /* The first sync packet of tcp three handshakes */
         if (tcph->syn && !tcph->ack && !tcph->rst) {
             stream = addNewTcpStream (tcph, iph, tm);
-            if (stream == NULL) {
+            if (stream == NULL)
                 LOGE ("Add new tcp stream error.\n");
-                return;
-            }
         }
         return;
     }
@@ -1372,18 +1382,18 @@ tcpProcess (iphdrPtr iph, timeValPtr tm) {
     }
 
     if (tcph->ack) {
-        if (direction == STREAM_FROM_CLIENT) {
+        if (direction == STREAM_FROM_CLIENT &&
+            stream->client.state == TCP_SYN_PKT_SENT &&
+            stream->server.state == TCP_SYN_PKT_RECV) {
             /* The last packet of tcp three handshakes */
-            if (stream->client.state == TCP_SYN_PKT_SENT &&
-                stream->server.state == TCP_SYN_PKT_RECV) {
-                if (ntohl (tcph->ackSeq) == stream->server.seq) {
-                    handleEstb (stream, tm);
-                    stream->state = STREAM_DATA_EXCHANGING;
-                } else
-                    stream->outOfOrderPkts++;
-            }
+            if (ntohl (tcph->ackSeq) == stream->server.seq) {
+                handleEstb (stream, tm);
+                stream->state = STREAM_DATA_EXCHANGING;
+            } else
+                stream->outOfOrderPkts++;
         }
 
+        /* Update ackSeq */
         if (ntohl (tcph->ackSeq) > snd->ackSeq)
             snd->ackSeq = ntohl (tcph->ackSeq);
         else if (!tcpDataLen) {
@@ -1422,6 +1432,12 @@ initTcpSharedInstance (void) {
 
 static void
 destroyTcpSharedInstance (void) {
+    LOGI ("\n"
+          "==Global tcp packet statistic info==\n"
+          "--tcpStreamsAlloc: %u\n"
+          "--tcpStreamsFree: %u\n\n",
+          getTcpStreamsAlloc (), getTcpStreamsFree ());
+
     pthread_spin_destroy (&tcpStreamsAllocLock);
     pthread_spin_destroy (&tcpStreamsFreeLock);
 
@@ -1430,7 +1446,7 @@ destroyTcpSharedInstance (void) {
 
 /* Init tcp context */
 int
-initTcp (void *sock) {
+initTcpContext (void *sock) {
     pthread_once (&tcpInitOnceControl, initTcpSharedInstance);
 
     initListHead (&tcpStreamList);
@@ -1449,7 +1465,13 @@ initTcp (void *sock) {
 
 /* Destroy tcp context */
 void
-destroyTcp (void) {
+destroyTcpContext (void) {
+    LOGI ("\n"
+          "==Local tcp packet statistic info==\n"
+          "--tcpStreamsAlloc: %u\n"
+          "--tcpStreamsFree: %u\n\n",
+          tcpStreamsAllocLocal, tcpStreamsFreeLocal);
+
     pthread_once (&tcpDestroyOnceControl, destroyTcpSharedInstance);
     hashDestroy (tcpStreamHashTable);
     tcpStreamHashTable = NULL;

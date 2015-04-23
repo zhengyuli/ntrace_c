@@ -55,6 +55,26 @@ getProtoAnalyzer (char *proto) {
     return NULL;
 }
 
+char *
+protoDetect (streamDirection direction, timeValPtr tm,
+             u_char *data, u_int dataLen) {
+    u_int i;
+    protoAnalyzerPtr analyzer;
+    char *protoName;
+
+    for (i = 0; i < registeredAnalyzerSize; i++) {
+        analyzer = protoAnalyzerContextTable [i].analyzer;
+        if (analyzer->sessionProcessProtoDetect) {
+            protoName = (*analyzer->sessionProcessProtoDetect) (direction, tm,
+                                                                data, dataLen);
+            if (protoName)
+                return protoName;
+        }
+    }
+
+    return NULL;
+}
+
 static void
 loadAnalyzers (void) {
     DIR *dir;

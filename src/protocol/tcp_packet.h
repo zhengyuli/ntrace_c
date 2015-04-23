@@ -206,7 +206,7 @@ struct _tcpBreakdown {
 void
 tcpProcess (iphdrPtr iph, timeValPtr tm);
 int
-initTcpContext (void *sock);
+initTcpContext (boolean protoDetectFlag, void *sock);
 void
 destroyTcpContext (void);
 /*=======================Interfaces definition end=========================*/

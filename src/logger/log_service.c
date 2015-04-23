@@ -362,7 +362,7 @@ logService (void *args) {
 destroyLogDev:
     logDevDestroy ();
     if (!SIGUSR1IsInterrupted ())
-        sendTaskStatus ("LogService", TASK_STATUS_EXIT_ABNORMALLY);
+        sendTaskStatus (TASK_STATUS_EXIT_ABNORMALLY);
 
     return NULL;
 }

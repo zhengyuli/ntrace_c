@@ -535,7 +535,9 @@ managementService (void *args) {
     }
 
     /* Start zloop */
-    zloop_start (loop);
+    while (!SIGUSR1IsInterrupted ()) {
+        zloop_start (loop);
+    }
 
     LOGI ("ManagementService will exit... .. .\n");
 destroyZloop:
@@ -546,7 +548,7 @@ destroyLogContext:
     destroyLogContext ();
 exit:
     if (!SIGUSR1IsInterrupted ())
-        sendTaskStatus ("ManagementService", TASK_STATUS_EXIT_ABNORMALLY);
+        sendTaskStatus (TASK_STATUS_EXIT_ABNORMALLY);
 
     return NULL;
 }

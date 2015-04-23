@@ -182,9 +182,9 @@ destroyLogContext:
     destroyLogContext ();
 exit:
     if (loopComplete)
-        sendTaskStatus ("RawCaptureService", TASK_STATUS_EXIT_NORMALLY);
+        sendTaskStatus (TASK_STATUS_EXIT_NORMALLY);
     else if (!SIGUSR1IsInterrupted ())
-        sendTaskStatus ("RawCaptureService", TASK_STATUS_EXIT_ABNORMALLY);
+        sendTaskStatus (TASK_STATUS_EXIT_ABNORMALLY);
 
     return NULL;
 }

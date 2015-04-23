@@ -72,14 +72,10 @@ SET (AGENT_SOURCE_FILES
   protocol/tcp_packet.c
   analyzer/proto_analyzer.c
   analyzer/default/default_analyzer.c
-  analyzer/http/http_analyzer.c
   3rd_party/http_parser/http_parser.c
+  analyzer/http/http_analyzer.c
   analyzer/mysql/mysql_analyzer.c
   session_breakdown/session_breakdown_service.c
-  proto_detection/detector/http/http_detector.c
-  proto_detection/detector/mysql/mysql_detector.c
-  proto_detection/detector/proto_detector.c
-  proto_detection/proto_detection_packet.c
   proto_detection/proto_detection_service.c)
 
 ADD_EXECUTABLE (${ROOT_PROJECT_LOWER}_agent ${AGENT_SOURCE_FILES})
@@ -97,4 +93,3 @@ INSTALL (
 ADD_SUBDIRECTORY (util)
 ADD_SUBDIRECTORY (logger)
 ADD_SUBDIRECTORY (analyzer)
-ADD_SUBDIRECTORY (proto_detection)

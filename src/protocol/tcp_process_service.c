@@ -57,7 +57,7 @@ tcpProcessService (void *args) {
     displayTaskSchedPolicyInfo ("TcpProcessService");
 
     /* Init tcp context */
-    ret = initTcpContext (tcpBreakdownSendSock);
+    ret = initTcpContext (False, tcpBreakdownSendSock);
     if (ret < 0) {
         LOGE ("Init tcp context error.\n");
         goto destroyLogContext;
@@ -108,7 +108,7 @@ destroyLogContext:
     destroyLogContext ();
 exit:
     if (!SIGUSR1IsInterrupted ())
-        sendTaskStatus ("TcpProcessService", TASK_STATUS_EXIT_ABNORMALLY);
+        sendTaskStatus (TASK_STATUS_EXIT_ABNORMALLY);
 
     return NULL;
 }

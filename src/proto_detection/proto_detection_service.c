@@ -11,8 +11,7 @@
 #include "ip.h"
 #include "raw_packet.h"
 #include "ip_packet.h"
-#include "proto_detector.h"
-#include "proto_detection_packet.h"
+#include "tcp_packet.h"
 #include "proto_detection_service.h"
 
 /*
@@ -58,18 +57,11 @@ protoDetectionService (void *args) {
         goto destroyLogContext;
     }
 
-    /* Init proto detection context */
-    ret = initProtoDetectionContext ();
+    /* Init tcp context */
+    ret = initTcpContext (True, NULL);
     if (ret < 0) {
-        LOGE ("Init proto detection context error.\n");
+        LOGE ("Init tcp context error.\n");
         goto destroyIpContext;
-    }
-
-    /* Init proto detector */
-    ret = initProtoDetector ();
-    if (ret < 0) {
-        LOGE ("Init proto detector error.\n");
-        goto destroyProtoDetectionContext;
     }
 
     while (!SIGUSR1IsInterrupted ()) {
@@ -95,7 +87,7 @@ protoDetectionService (void *args) {
             if (newIphdr) {
                 switch (newIphdr->ipProto) {
                     case IPPROTO_TCP:
-                        protoDetectionProcess (newIphdr, &captureTime);
+                        tcpProcess (newIphdr, &captureTime);
                         break;
 
                     default:
@@ -116,18 +108,16 @@ protoDetectionService (void *args) {
     }
 
     LOGI ("ProtoDetectionService will exit ... .. .\n");
-    destroyProtoDetector ();
-destroyProtoDetectionContext:
-    destroyProtoDetectionContext ();
+    destroyTcpContext ();
 destroyIpContext:
     destroyIpContext ();
 destroyLogContext:
     destroyLogContext ();
 exit:
     if (exitNormally)
-        sendTaskStatus ("ProtoDetectionService", TASK_STATUS_EXIT_NORMALLY);
+        sendTaskStatus (TASK_STATUS_EXIT_NORMALLY);
     else if (!SIGUSR1IsInterrupted ())
-        sendTaskStatus ("ProtoDetectionService", TASK_STATUS_EXIT_ABNORMALLY);
+        sendTaskStatus (TASK_STATUS_EXIT_ABNORMALLY);
 
     return NULL;
 }

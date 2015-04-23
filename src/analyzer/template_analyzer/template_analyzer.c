@@ -6,6 +6,8 @@
 #include <wda/proto_analyzer.h>
 #include "template_analyzer.h"
 
+#define TEMPLATE_PROTO_NAME "TEMPLATE"
+
 static int
 initTemplateAnalyzer (void) {
     LOGI ("Init template analyzer success.\n");
@@ -126,8 +128,17 @@ templateSessionProcessFin (streamDirection direction, timeValPtr tm, void *sd,
     }
 }
 
+static char *
+templateSessionProcessProtoDetect (streamDirection direction, timeValPtr tm,
+                                   u_char *data, u_int dataLen) {
+    if (dataLen > 65536)
+        return TEMPLATE_PROTO_NAME;
+    else
+        return NULL;
+}
+
 protoAnalyzer analyzer = {
-    .proto = "TEMPLATE",
+    .proto = TEMPLATE_PROTO_NAME,
     .initProtoAnalyzer = initTemplateAnalyzer,
     .destroyProtoAnalyzer = destroyTemplateAnalyzer,
     .newSessionDetail = newTemplateSessionDetail,
@@ -140,5 +151,6 @@ protoAnalyzer analyzer = {
     .sessionProcessUrgData = templateSessionProcessUrgData,
     .sessionProcessData = templateSessionProcessData,
     .sessionProcessReset = templateSessionProcessReset,
-    .sessionProcessFin = templateSessionProcessFin
+    .sessionProcessFin = templateSessionProcessFin,
+    .sessionProcessProtoDetect = templateSessionProcessProtoDetect
 };

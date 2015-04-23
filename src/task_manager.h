@@ -17,6 +17,7 @@ typedef struct _taskItem taskItem;
 typedef taskItem *taskItemPtr;
 
 struct _taskItem {
+    char name [64];                     /**< Task name */
     pthread_t tid;                      /**< Task thread id */
     taskRoutine routine;                /**< Task routine */
     void *args;                         /**< Task routine arguments */
@@ -31,7 +32,7 @@ newRealTask (char *taskName, taskRoutine routine, void *args);
 void
 stopAllTask (void);
 void
-sendTaskStatus (char *taskName, taskStatus status);
+sendTaskStatus (taskStatus status);
 void
 displayTaskSchedPolicyInfo (char *taskName);
 int

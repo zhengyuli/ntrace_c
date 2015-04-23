@@ -1,6 +1,0 @@
-#ifndef __TEMPLATE_DETECTOR_H__
-#define __TEMPLATE_DETECTOR_H__
-
-#define TEMPLATE_PROTO_NAME "TEMPLATE"
-
-#endif /* __TEMPLATE_DETECTOR_H__ */

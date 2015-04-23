@@ -154,6 +154,21 @@ typedef void (*sessionProcessResetCB) (streamDirection direction, timeValPtr tm,
  */
 typedef void (*sessionProcessFinCB) (streamDirection direction, timeValPtr tm, void *sd,
                                      sessionState *state);
+
+/**
+ * @brief Tcp proto detect process callback.
+ *        This callback will be called when receive application proto data,
+ *        it will check proto data and return proto name if proto detected.
+ *
+ * @param direction data flow direction
+ * @param data application proto data
+ * @param dataLen application proto data length
+ *
+ * @return proto name if detected, else NULL
+ */
+typedef char * (*sessionProcessProtoDetectCB) (streamDirection direction, timeValPtr tm,
+                                               u_char *data, u_int dataLen);
+
 /*===============Proto analyzer callbacks definition end===================*/
 
 typedef struct _protoAnalyzer protoAnalyzer;
@@ -161,20 +176,21 @@ typedef protoAnalyzer *protoAnalyzerPtr;
 
 /* Proto analyzer callback */
 struct _protoAnalyzer {
-    char proto [32];                                     /**< Protocol name */
-    initProtoAnalyzerCB initProtoAnalyzer;               /**< Protocol init callback */
-    destroyProtoAnalyzerCB destroyProtoAnalyzer;         /**< Protocol destroy callback */
-    newSessionDetailCB newSessionDetail;                 /**< Create new session detail callback */
-    freeSessionDetailCB freeSessionDetail;               /**< Free session detail callback */
-    newSessionBreakdownCB newSessionBreakdown;           /**< Create new session breakdown callback */
-    freeSessionBreakdownCB freeSessionBreakdown;         /**< Free session breakdown callback */
-    generateSessionBreakdownCB generateSessionBreakdown; /**< Generate session breakdown callback */
-    sessionBreakdown2JsonCB sessionBreakdown2Json;       /**< Translate session breakdown to json callback */
-    sessionProcessEstbCB sessionProcessEstb;             /**< Tcp establishment callback */
-    sessionProcessUrgeDataCB sessionProcessUrgData;      /**< Urgency data processing callback */
-    sessionProcessDataCB sessionProcessData;             /**< Data processing callback */
-    sessionProcessResetCB sessionProcessReset;           /**< Tcp reset processing callback */
-    sessionProcessFinCB sessionProcessFin;               /**< Tcp fin processing callback */
+    char proto [32];                                       /**< Protocol name */
+    initProtoAnalyzerCB initProtoAnalyzer;                 /**< Protocol init callback */
+    destroyProtoAnalyzerCB destroyProtoAnalyzer;           /**< Protocol destroy callback */
+    newSessionDetailCB newSessionDetail;                   /**< Create new session detail callback */
+    freeSessionDetailCB freeSessionDetail;                 /**< Free session detail callback */
+    newSessionBreakdownCB newSessionBreakdown;             /**< Create new session breakdown callback */
+    freeSessionBreakdownCB freeSessionBreakdown;           /**< Free session breakdown callback */
+    generateSessionBreakdownCB generateSessionBreakdown;   /**< Generate session breakdown callback */
+    sessionBreakdown2JsonCB sessionBreakdown2Json;         /**< Translate session breakdown to json callback */
+    sessionProcessEstbCB sessionProcessEstb;               /**< Tcp establishment callback */
+    sessionProcessUrgeDataCB sessionProcessUrgData;        /**< Urgency data processing callback */
+    sessionProcessDataCB sessionProcessData;               /**< Data processing callback */
+    sessionProcessResetCB sessionProcessReset;             /**< Tcp reset processing callback */
+    sessionProcessFinCB sessionProcessFin;                 /**< Tcp fin processing callback */
+    sessionProcessProtoDetectCB sessionProcessProtoDetect; /**< Tcp proto detect processing callback */
 };
 
 /*========================Interfaces definition============================*/
@@ -182,6 +198,9 @@ int
 getProtoAnalyzerInfo (protoAnalyzerInfoPtr info);
 protoAnalyzerPtr
 getProtoAnalyzer (char *proto);
+char *
+protoDetect (streamDirection direction, timeValPtr tm,
+             u_char *data, u_int dataLen);
 int
 initProtoAnalyzer (void);
 void

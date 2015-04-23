@@ -10,7 +10,7 @@
 #include "zmq_hub.h"
 #include "task_manager.h"
 
-#define TASK_STATUS_MESSAGE_FORMAT_STRING "%u:%lu:%s"
+#define TASK_STATUS_MESSAGE_FORMAT_STRING "%u:%lu"
 #define TASK_RESTART_MAX_RETRIES 3
 
 /* Task manager hash table */
@@ -107,6 +107,7 @@ newTask (char *taskName, taskRoutine routine, void *args, int schedPolicy) {
         return -1;
     }
 
+    snprintf (tsk->name, sizeof (tsk->name), "%s", taskName);
     tsk->routine = routine;
     tsk->args = args;
     snprintf (key, sizeof (key), "%lu", tsk->tid);
@@ -182,13 +183,13 @@ restartTask (pthread_t oldTid) {
 }
 
 void
-sendTaskStatus (char *taskName, taskStatus status) {
+sendTaskStatus (taskStatus status) {
     int ret;
     u_int retries = 3;
     char statusMsg [128];
 
     snprintf (statusMsg, sizeof (statusMsg),
-              TASK_STATUS_MESSAGE_FORMAT_STRING, status, pthread_self (), taskName);
+              TASK_STATUS_MESSAGE_FORMAT_STRING, status, pthread_self ());
 
     do {
         pthread_mutex_lock (&taskStatusSendSockLock);
@@ -240,8 +241,8 @@ int
 taskStatusHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
     int ret;
     u_int retries;
+    taskItemPtr task;
     char *taskStatusMsg;
-    char taskName [64];
     char hashKey [64];
     u_int taskStatus;
     pthread_t tid;
@@ -253,18 +254,24 @@ taskStatusHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
         return 0;
 
     sscanf (taskStatusMsg, TASK_STATUS_MESSAGE_FORMAT_STRING,
-            &taskStatus, &tid, taskName);
+            &taskStatus, &tid);
+    snprintf (hashKey, sizeof (hashKey), "%lu", tid);
+    task = hashLookup (taskManagerHashTable, hashKey);
+    if (task == NULL) {
+        LOGE ("Get task: %lu error.\n", tid);
+        return -1;
+    }
+
     switch (taskStatus) {
         case TASK_STATUS_EXIT_NORMALLY:
-            snprintf (hashKey, sizeof (hashKey), "%lu", tid);
             hashRemove (taskManagerHashTable, hashKey);
             break;
 
         case TASK_STATUS_EXIT_ABNORMALLY:
-            LOGE ("%s:%lu exit abnormally.\n",  taskName, tid);
+            LOGE ("%s:%lu exit abnormally.\n",  task->name, tid);
             retries = 1;
             while (retries <= TASK_RESTART_MAX_RETRIES) {
-                LOGI ("Try to restart %s with retries: %u\n", taskName, retries);
+                LOGI ("Try to restart %s with retries: %u\n", task->name, retries);
                 ret = restartTask (tid);
                 if (!ret)
                     break;
@@ -273,16 +280,16 @@ taskStatusHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
             }
 
             if (ret < 0) {
-                LOGE ("Restart %s failed.\n", taskName);
+                LOGE ("Restart %s failed.\n", task->name);
                 ret = -1;
             } else {
-                LOGI ("Restart %s successfully.\n", taskName);
+                LOGI ("Restart %s successfully.\n", task->name);
                 ret = 0;
             }
             break;
 
         default:
-            LOGE ("Unknown task status for %s.\n", taskName);
+            LOGE ("Unknown task status for %s.\n", task->name);
             ret = 0;
             break;
     }

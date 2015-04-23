@@ -134,5 +134,6 @@ protoAnalyzer defaultAnalyzer = {
     .sessionProcessUrgData = defaultSessionProcessUrgData,
     .sessionProcessData = defaultSessionProcessData,
     .sessionProcessReset = defaultSessionProcessReset,
-    .sessionProcessFin = defaultSessionProcessFin
+    .sessionProcessFin = defaultSessionProcessFin,
+    .sessionProcessProtoDetect = NULL
 };

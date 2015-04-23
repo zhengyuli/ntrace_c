@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <wda/proto_detector.h>
 #include "template_detector.h"
@@ -15,11 +16,11 @@ destroyTemplateDetector (void) {
 static char *
 templateSessionDetectProto (streamDirection direction, u_char *data,
                             u_int dataLen) {
-    return "TEMPLATE";
+    return TEMPLATE_PROTO_NAME;
 }
 
 protoDetector detector = {
-    .proto = "TEMPLATE",
+    .proto = TEMPLATE_PROTO_NAME,
     .initProtoDetector = initTemplateDetector,
     .destroyProtoDetector = destroyTemplateDetector,
     .sessionDetectProto = templateSessionDetectProto

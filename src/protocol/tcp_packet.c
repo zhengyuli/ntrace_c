@@ -956,6 +956,7 @@ static int
 add2buf (halfStreamPtr rcv, u_char *data, u_int dataLen) {
     int ret = 0;
     u_int toAlloc;
+    u_char *tmp;
 
     if ((rcv->count - rcv->offset + dataLen) > rcv->bufSize) {
         if (rcv->rcvBuf == NULL) {
@@ -986,12 +987,15 @@ add2buf (halfStreamPtr rcv, u_char *data, u_int dataLen) {
                 else
                     toAlloc = rcv->bufSize + dataLen * 2;
 
-                rcv->rcvBuf = (u_char *) realloc (rcv->rcvBuf, toAlloc);
-                if (rcv->rcvBuf == NULL) {
-                    LOGE ("Alloc memory for halfStream rcvBuf error: %s.\n",
+                tmp = (u_char *) realloc (rcv->rcvBuf, toAlloc);
+                if (tmp == NULL) {
+                    LOGE ("Realloc memory for halfStream rcvBuf error: %s.\n",
                           strerror (errno));
+                    free (rcv->rcvBuf);
+                    rcv->rcvBuf = NULL;
                     ret = -1;
-                }
+                } else
+                    rcv->rcvBuf = tmp;
             }
         }
 

@@ -432,12 +432,8 @@ handleData (tcpStreamPtr stream, halfStreamPtr snd,
     else
         direction = STREAM_FROM_SERVER;
 
-    if (stream->proto == NULL) {
+    if (stream->proto == NULL)
         stream->proto = protoDetect (direction, data, dataLen);
-        if (stream->proto) {
-            LOGI ("Detect proto: %s\n", stream->proto);
-        }
-    }
 
     return dataLen;
 }
@@ -477,6 +473,7 @@ static int
 add2buf (halfStreamPtr rcv, u_char *data, u_int dataLen) {
     int ret = 0;
     u_int toAlloc;
+    u_char *tmp;
 
     if ((rcv->count - rcv->offset + dataLen) > rcv->bufSize) {
         if (rcv->rcvBuf == NULL) {
@@ -507,12 +504,15 @@ add2buf (halfStreamPtr rcv, u_char *data, u_int dataLen) {
                 else
                     toAlloc = rcv->bufSize + dataLen * 2;
 
-                rcv->rcvBuf = (u_char *) realloc (rcv->rcvBuf, toAlloc);
-                if (rcv->rcvBuf == NULL) {
-                    LOGE ("Alloc memory for halfStream rcvBuf error: %s.\n",
+                tmp = (u_char *) realloc (rcv->rcvBuf, toAlloc);
+                if (tmp == NULL) {
+                    LOGE ("Realloc memory for halfStream rcvBuf error: %s.\n",
                           strerror (errno));
+                    free (rcv->rcvBuf);
+                    rcv->rcvBuf = NULL;
                     ret = -1;
-                }
+                } else
+                    rcv->rcvBuf = tmp;
             }
         }
 
@@ -875,6 +875,11 @@ protoDetectionProcess (iphdrPtr iph, timeValPtr tm) {
             handleClose (stream, tm);
             return;
         }
+    }
+
+    if (stream->proto) {
+        LOGI ("Proto: %s detected.\n", stream->proto);
+        handleClose (stream, tm);
     }
 
     if (tcpDataLen + tcph->fin > 0)

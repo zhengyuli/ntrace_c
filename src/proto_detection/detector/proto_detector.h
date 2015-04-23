@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include "util/util.h"
 
-#define MAX_PROTO_DETECTOR_NUM 256
+#define MAX_PROTO_DETECTOR_NUM 512
 
 typedef enum {
     STREAM_FROM_CLIENT = 0,

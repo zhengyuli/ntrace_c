@@ -8,12 +8,16 @@
 /*========================Interfaces definition============================*/
 protoAnalyzerPtr
 getAppServiceProtoAnalyzer (char *key);
+boolean
+appServiceIsDetected (struct in_addr *ip, u_short port);
+int
+addAppServiceDetected (char *proto, struct in_addr *ip, u_short port);
 char *
 getAppServicesPaddingFilter (void);
 char *
 getAppServicesFilter (void);
 int
-updateAppServiceManager (json_t *root);
+updateAppServiceManager (json_t *updateProfile);
 int
 initAppServiceManager (void);
 void

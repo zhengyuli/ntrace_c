@@ -23,7 +23,8 @@ struct _appService {
 
 /*========================Interfaces definition============================*/
 appServicePtr
-newAppService (void);
+newAppService (char *proto, protoAnalyzerPtr analyzer,
+               char *ip, u_short port);
 void
 freeAppService (appServicePtr svc);
 appServicePtr

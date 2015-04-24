@@ -53,16 +53,18 @@ tcpPacketDispatch (iphdrPtr iph, timeValPtr tm) {
     u_int hash;
     u_int ipPktLen;
     tcphdrPtr tcph;
-    char key1 [32];
-    char key2 [32];
+    char ipSrcStr [16], ipDestStr [16];
+    char key1 [32], key2 [32];
     zframe_t *frame;
     void *tcpPktSendSock = NULL;
 
     ipPktLen = ntohs (iph->ipLen);
 
     tcph = (tcphdrPtr) ((u_char *) iph + (iph->iphLen * 4));
-    snprintf (key1, sizeof (key1), "%s:%d", inet_ntoa (iph->ipSrc), ntohs (tcph->source));
-    snprintf (key2, sizeof (key2), "%s:%d", inet_ntoa (iph->ipDest), ntohs (tcph->dest));
+    inet_ntop (AF_INET, (void *) &iph->ipSrc, ipSrcStr, sizeof (ipSrcStr));
+    inet_ntop (AF_INET, (void *) &iph->ipDest, ipDestStr, sizeof (ipDestStr));
+    snprintf (key1, sizeof (key1), "%s:%d", ipSrcStr, ntohs (tcph->source));
+    snprintf (key2, sizeof (key2), "%s:%d", ipDestStr, ntohs (tcph->dest));
 
     hash = dispatchHash (key1, key2);
     tcpPktSendSock = getOwnershipPktDispatchSock (hash);

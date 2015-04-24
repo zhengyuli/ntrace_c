@@ -226,11 +226,14 @@ delTcpStreamFromClosingTimeoutList (tcpStreamPtr stream) {
  */
 static tcpStreamPtr
 lookupTcpStreamFromHash (tuple4Ptr addr) {
+    char ipSrcStr [16], ipDestStr [16];
     char key [64];
 
+    inet_ntop (AF_INET, (void *) &addr->saddr, ipSrcStr, sizeof (ipSrcStr));
+    inet_ntop (AF_INET, (void *) &addr->daddr, ipDestStr, sizeof (ipDestStr));
+
     snprintf (key, sizeof (key), TCP_STREAM_HASH_KEY_FORMAT,
-              inet_ntoa (addr->saddr), addr->source,
-              inet_ntoa (addr->daddr), addr->dest);
+              ipSrcStr, addr->source, ipDestStr, addr->dest);
     return (tcpStreamPtr) hashLookup (tcpStreamHashTable, key);
 }
 
@@ -246,12 +249,15 @@ static int
 addTcpStreamToHash (tcpStreamPtr stream, hashItemFreeCB freeFun) {
     int ret;
     tuple4Ptr addr;
+    char ipSrcStr [16], ipDestStr [16];
     char key [64];
 
     addr = &stream->addr;
+    inet_ntop (AF_INET, (void *) &addr->saddr, ipSrcStr, sizeof (ipSrcStr));
+    inet_ntop (AF_INET, (void *) &addr->daddr, ipDestStr, sizeof (ipDestStr));
+
     snprintf (key, sizeof (key), TCP_STREAM_HASH_KEY_FORMAT,
-              inet_ntoa (addr->saddr), addr->source,
-              inet_ntoa (addr->daddr), addr->dest);
+              ipSrcStr, addr->source, ipDestStr, addr->dest);
     ret = hashInsert (tcpStreamHashTable, key, stream, freeFun);
     if (ret < 0) {
         LOGE ("Insert stream to hash table error.\n");
@@ -275,12 +281,29 @@ static void
 delTcpStreamFromHash (tcpStreamPtr stream) {
     int ret;
     tuple4Ptr addr;
+    char ipSrcStr [16], ipDestStr [16];
     char key [64];
 
+    /* If streamCache will be deleted, reset streamCache */
+    if (streamCache == stream)
+        streamCache = NULL;
+
     addr = &stream->addr;
+    if (forProtoDetect) {
+        if (stream->proto) {
+            ret = addAppServiceDetected (stream->proto, &addr->daddr, addr->dest);
+            if (ret < 0)
+                LOGE ("Add new appService detected error.\n");
+            else
+                LOGI ("Proto: %s has been detected.\n", stream->proto);
+        }
+    }
+
+    inet_ntop (AF_INET, (void *) &addr->saddr, ipSrcStr, sizeof (ipSrcStr));
+    inet_ntop (AF_INET, (void *) &addr->daddr, ipDestStr, sizeof (ipDestStr));
+
     snprintf (key, sizeof (key), TCP_STREAM_HASH_KEY_FORMAT,
-              inet_ntoa (addr->saddr), addr->source,
-              inet_ntoa (addr->daddr), addr->dest);
+              ipSrcStr, addr->source, ipDestStr, addr->dest);
     ret = hashRemove (tcpStreamHashTable, key);
     if (ret < 0)
         LOGE ("Delete stream from hash table error.\n");
@@ -288,10 +311,6 @@ delTcpStreamFromHash (tcpStreamPtr stream) {
         tcpStreamsFreeLocal++;
         incTcpStreamsFree ();
     }
-
-    /* If streamCache will be deleted, reset streamCache */
-    if (streamCache == stream)
-        streamCache = NULL;
 }
 
 /**
@@ -510,16 +529,18 @@ freeTcpStreamForHash (void *data) {
 static tcpStreamPtr
 addNewTcpStream (tcphdrPtr tcph, iphdrPtr iph, timeValPtr tm) {
     int ret;
+    char ipStr [16];
     char key [64];
     protoAnalyzerPtr analyzer;
     tcpStreamPtr stream, tmp;
 
     if (!forProtoDetect) {
-        snprintf (key, sizeof (key), "%s:%d", inet_ntoa (iph->ipDest), ntohs (tcph->dest));
+        inet_ntop (AF_INET, (void *) &iph->ipDest, ipStr, sizeof (ipStr));
+        snprintf (key, sizeof (key), "%s:%d", ipStr, ntohs (tcph->dest));
         analyzer = getAppServiceProtoAnalyzer (key);
         if (analyzer == NULL) {
             LOGE ("Appliction service (%s:%d) has not been registered.\n",
-                  inet_ntoa (iph->ipDest), ntohs (tcph->dest));
+                  ipStr, ntohs (tcph->dest));
             return NULL;
         }
     } else
@@ -594,6 +615,7 @@ static char *
 tcpBreakdown2Json (tcpStreamPtr stream, tcpBreakdownPtr tbd) {
     char *out;
     json_t *root;
+    char ipStr [16];
     char buf [64];
 
     root = json_object ();
@@ -612,14 +634,16 @@ tcpBreakdown2Json (tcpStreamPtr stream, tcpBreakdownPtr tbd) {
     json_object_set_new (root, TCP_SKBD_PROTOCOL,
                          json_string (tbd->proto));
     /* Tcp source ip */
+    inet_ntop (AF_INET, (void *) &tbd->ipSrc, ipStr, sizeof (ipStr));
     json_object_set_new (root, TCP_SKBD_SOURCE_IP,
-                         json_string (inet_ntoa (tbd->ipSrc)));
+                         json_string (ipStr));
     /* Tcp source port */
     json_object_set_new (root, TCP_SKBD_SOURCE_PORT,
                          json_integer (tbd->source));
     /* Tcp service ip */
+    inet_ntop (AF_INET, (void *) &tbd->svcIp, ipStr, sizeof (ipStr));
     json_object_set_new (root, TCP_SKBD_SERVICE_IP,
-                         json_string (inet_ntoa (tbd->svcIp)));
+                         json_string (ipStr));
     /* Tcp service port */
     json_object_set_new (root, TCP_SKBD_SERVICE_PORT,
                          json_integer (tbd->svcPort));
@@ -900,11 +924,8 @@ handleData (tcpStreamPtr stream, halfStreamPtr snd,
         if (state == SESSION_DONE)
             generateSessionBreakdown (stream, tm);
     } else {
-        if (stream->proto == NULL) {
+        if (stream->proto == NULL)
             stream->proto = protoDetect (direction, tm, data, dataLen);
-            if (stream->proto)
-                LOGI ("Proto: %s detected.\n", stream->proto);
-        }
 
         parseCount = dataLen;
     }
@@ -1308,6 +1329,12 @@ tcpProcess (iphdrPtr iph, timeValPtr tm) {
     if (stream == NULL) {
         /* The first sync packet of tcp three handshakes */
         if (tcph->syn && !tcph->ack && !tcph->rst) {
+            /* For proto detect, if application service has been detected
+             * do return directly */
+            if (forProtoDetect  &&
+                appServiceIsDetected (&iph->ipDest, ntohs (tcph->dest)))
+                return;
+
             stream = addNewTcpStream (tcph, iph, tm);
             if (stream == NULL)
                 LOGE ("Add new tcp stream error.\n");

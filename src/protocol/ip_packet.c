@@ -33,6 +33,7 @@ static __thread hashTablePtr ipQueueHashTable = NULL;
 static void
 displayIphdr (iphdrPtr iph) {
     u_short offset, flags;
+    char ipSrcStr [16], ipDestStr [16];
 
     offset = ntohs (iph->ipOff);
     flags = offset & ~IP_OFFMASK;
@@ -43,8 +44,9 @@ displayIphdr (iphdrPtr iph) {
     else
         LOGD ("Defragment ip packet");
 
-    LOGD (" src: %s ------------>", inet_ntoa (iph->ipSrc));
-    LOGD (" dst: %s\n", inet_ntoa (iph->ipDest));
+    inet_ntop (AF_INET, (void *) &iph->ipSrc, ipSrcStr, sizeof (ipSrcStr));
+    inet_ntop (AF_INET, (void *) &iph->ipDest, ipDestStr, sizeof (ipDestStr));
+    LOGD (" src: %s ------------> dst: %s\n", ipSrcStr, ipDestStr);
     LOGD ("Ip header len: %d , ip packet len: %u, offset: %u, IP_MF: %u.\n",
           (iph->iphLen * 4), ntohs (iph->ipLen), offset, ((flags & IP_MF) ? 1 : 0));
 }
@@ -132,10 +134,12 @@ updateIpQueueExpireTimeout (ipQueuePtr ipq, timeValPtr tm) {
 static int
 addIpQueueToHash (ipQueuePtr ipq, hashItemFreeCB fun) {
     int ret;
+    char ipSrcStr [16], ipDestStr [16];
     char key [64];
 
-    snprintf (key, sizeof (key), IPQUEUE_HASH_KEY_FORMAT,
-              inet_ntoa (ipq->ipSrc), inet_ntoa (ipq->ipDest), ipq->id);
+    inet_ntop (AF_INET, (void *) &ipq->ipSrc, ipSrcStr, sizeof (ipSrcStr));
+    inet_ntop (AF_INET, (void *) &ipq->ipDest, ipDestStr, sizeof (ipDestStr));
+    snprintf (key, sizeof (key), IPQUEUE_HASH_KEY_FORMAT, ipSrcStr, ipDestStr, ipq->id);
     ret = hashInsert (ipQueueHashTable, key, ipq, fun);
     if (ret < 0)
         return -1;
@@ -146,10 +150,12 @@ addIpQueueToHash (ipQueuePtr ipq, hashItemFreeCB fun) {
 static void
 delIpQueueFromHash (ipQueuePtr ipq) {
     int ret;
+    char ipSrcStr [16], ipDestStr [16];
     char key [64];
 
-    snprintf (key, sizeof (key), IPQUEUE_HASH_KEY_FORMAT,
-              inet_ntoa (ipq->ipSrc), inet_ntoa (ipq->ipDest), ipq->id);
+    inet_ntop (AF_INET, (void *) &ipq->ipSrc, ipSrcStr, sizeof (ipSrcStr));
+    inet_ntop (AF_INET, (void *) &ipq->ipDest, ipDestStr, sizeof (ipDestStr));
+    snprintf (key, sizeof (key), IPQUEUE_HASH_KEY_FORMAT, ipSrcStr, ipDestStr, ipq->id);
     ret = hashRemove (ipQueueHashTable, key);
     if (ret < 0)
         LOGE ("Delete ipQueue from hash table error.\n");
@@ -157,10 +163,13 @@ delIpQueueFromHash (ipQueuePtr ipq) {
 
 static ipQueuePtr
 findIpQueue (iphdrPtr iph) {
+    char ipSrcStr [16], ipDestStr [16];
     char key [64];
 
+    inet_ntop (AF_INET, (void *) &iph->ipSrc, ipSrcStr, sizeof (ipSrcStr));
+    inet_ntop (AF_INET, (void *) &iph->ipDest, ipDestStr, sizeof (ipDestStr));
     snprintf (key, sizeof (key), IPQUEUE_HASH_KEY_FORMAT,
-              inet_ntoa (iph->ipSrc), inet_ntoa (iph->ipDest), ntohs (iph->ipId));
+              ipSrcStr, ipDestStr, ntohs (iph->ipId));
     return (ipQueuePtr) hashLookup (ipQueueHashTable, key);
 }
 
@@ -244,6 +253,7 @@ ipQueueDone (ipQueuePtr ipq) {
 static iphdrPtr
 glueIpQueue (ipQueuePtr ipq) {
     u_int ipLen;
+    char ipStr [16];
     u_char *buf;
     iphdrPtr iph;
     ipFragPtr entry;
@@ -251,7 +261,8 @@ glueIpQueue (ipQueuePtr ipq) {
 
     ipLen = ipq->iphLen + ipq->dataLen;
     if (ipLen > MAX_IP_PACKET_SIZE) {
-        LOGE ("Oversized ip packet from %s.\n", inet_ntoa (ipq->ipSrc));
+        inet_ntop (AF_INET, (void *) &ipq->ipSrc, ipStr, sizeof (ipStr));
+        LOGE ("Oversized ip packet from %s.\n", ipStr);
         delIpQueueFromHash (ipq);
         return NULL;
     }
@@ -309,14 +320,16 @@ checkIpHeader (iphdrPtr iph) {
 static boolean
 ipPktShouldDrop (iphdrPtr iph) {
     tcphdrPtr tcph;
-    char key1 [32];
-    char key2 [32];
+    char ipSrcStr [16], ipDestStr [16];
+    char key1 [32], key2 [32];
 
     if (iph->ipProto == IPPROTO_TCP) {
         tcph = (tcphdrPtr) ((u_char *) iph + (iph->iphLen * 4));
 
-        snprintf (key1, sizeof (key1), "%s:%d", inet_ntoa (iph->ipSrc), ntohs (tcph->source));
-        snprintf (key2, sizeof (key2), "%s:%d", inet_ntoa (iph->ipDest), ntohs (tcph->dest));
+        inet_ntop (AF_INET, (void *) &iph->ipSrc, ipSrcStr, sizeof (ipSrcStr));
+        inet_ntop (AF_INET, (void *) &iph->ipDest, ipDestStr, sizeof (ipDestStr));
+        snprintf (key1, sizeof (key1), "%s:%d", ipSrcStr, ntohs (tcph->source));
+        snprintf (key2, sizeof (key2), "%s:%d", ipDestStr, ntohs (tcph->dest));
         if (getAppServiceProtoAnalyzer (key1) || getAppServiceProtoAnalyzer (key2))
             return False;
         else
@@ -463,14 +476,14 @@ ipDefrag (iphdrPtr iph, timeValPtr tm, iphdrPtr *newIph) {
             return -1;
         } else {
             displayIphdr (tmpIph);
+
             if (ipPktShouldDrop (tmpIph)) {
                 free (tmpIph);
                 *newIph = NULL;
-                return 0;
-            } else {
+            } else
                 *newIph = tmpIph;
-                return 0;
-            }
+
+            return 0;
         }
     } else {
         *newIph = NULL;

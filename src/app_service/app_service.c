@@ -7,8 +7,8 @@
 #include "log.h"
 #include "app_service.h"
 
-appServicePtr
-newAppService (void) {
+static appServicePtr
+newAppServiceInternal (void) {
     appServicePtr svc;
 
     svc = (appServicePtr) malloc (sizeof (appService));
@@ -23,6 +23,28 @@ newAppService (void) {
     return svc;
 }
 
+appServicePtr
+newAppService (char *proto, protoAnalyzerPtr analyzer,
+               char *ip, u_short port) {
+
+    appServicePtr svc;
+
+    svc = newAppServiceInternal ();
+    if (svc == NULL)
+        return NULL;
+
+    svc->proto = proto;
+    svc->analyzer = analyzer;
+    svc->ip = strdup (ip);
+    if (svc->ip == NULL) {
+        free (svc);
+        return NULL;
+    }
+    svc->port = port;
+
+    return svc;
+}
+
 void
 freeAppService (appServicePtr svc) {
     if (svc == NULL)
@@ -32,11 +54,16 @@ freeAppService (appServicePtr svc) {
     free (svc);
 }
 
+void
+freeAppServiceForHash (void *data) {
+    return freeAppService ((appServicePtr) data);
+}
+
 appServicePtr
 copyAppService (appServicePtr appService) {
     appServicePtr tmp;
 
-    tmp = newAppService ();
+    tmp = newAppServiceInternal ();
     if (tmp == NULL)
         return NULL;
 
@@ -50,11 +77,6 @@ copyAppService (appServicePtr appService) {
     tmp->port = appService->port;
 
     return tmp;
-}
-
-void
-freeAppServiceForHash (void *data) {
-    return freeAppService ((appServicePtr) data);
 }
 
 json_t *
@@ -84,7 +106,7 @@ json2AppService (json_t *json) {
     protoAnalyzerPtr analyzer;
     struct in_addr sa;
 
-    svc = newAppService ();
+    svc = newAppServiceInternal ();
     if (svc == NULL) {
         LOGE ("Alloc appService error.\n");
         return NULL;

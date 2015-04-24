@@ -2,6 +2,9 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
@@ -33,6 +36,9 @@ static hashTablePtr appServiceHashTableMaster = NULL;
 /* Application services slave hash table */
 static hashTablePtr appServiceHashTableSlave = NULL;
 
+/* Application services detected hash table */
+static hashTablePtr appServiceDetectedHashTable = NULL;
+
 protoAnalyzerPtr
 getAppServiceProtoAnalyzer (char *key) {
     appServicePtr svc;
@@ -50,6 +56,45 @@ getAppServiceProtoAnalyzer (char *key) {
     pthread_rwlock_unlock (&appServiceHashTableMasterRWLock);
 
     return analyzer;
+}
+
+boolean
+appServiceIsDetected (struct in_addr *ip, u_short port) {
+    char ipStr [16];
+    char key [32];
+    appServicePtr svc;
+
+    inet_ntop (AF_INET, (void *) ip, ipStr, sizeof (ipStr));
+    snprintf (key, sizeof (key), "%s:%u", ipStr, port);
+    svc = hashLookup (appServiceDetectedHashTable, key);
+    return svc ? True : False;
+}
+
+int
+addAppServiceDetected (char *proto, struct in_addr *ip, u_short port) {
+    int ret;
+    char ipStr [16];
+    char key [32];
+    appServicePtr svc;
+
+    inet_ntop (AF_INET, (void *) ip, ipStr, sizeof (ipStr));
+    snprintf (key, sizeof (key), "%s:%u", ipStr, port);
+    svc = hashLookup (appServiceDetectedHashTable, key);
+    if (svc == NULL) {
+        svc = newAppService (proto, NULL, ipStr, port);
+        if (svc == NULL) {
+            LOGE ("New appService detected error.\n");
+            return -1;
+        }
+
+        ret = hashInsert (appServiceDetectedHashTable, key, svc, freeAppServiceForHash);
+        if (ret < 0) {
+            LOGE ("Insert new appService detected %s error\n", key);
+            return -1;
+        }
+
+        return 0;
+    }
 }
 
 char *
@@ -155,10 +200,10 @@ addAppServiceToSlave (appServicePtr svc) {
     int ret;
     char key [32];
 
-    snprintf (key, sizeof (key), "%s:%d", svc->ip, svc->port);
+    snprintf (key, sizeof (key), "%s:%u", svc->ip, svc->port);
     ret = hashInsert (appServiceHashTableSlave, key, svc, freeAppServiceForHash);
     if (ret < 0) {
-        LOGE ("Insert new appService ip:%s-port:%u error\n", svc->ip, svc->port);
+        LOGE ("Insert new appService %s error\n", key);
         return -1;
     }
 
@@ -239,8 +284,28 @@ updateAppServicesFromProfileCache (void) {
 }
 
 int
-updateAppServiceManager (json_t *root) {
-    return updateAppServicesFromJson (root);
+updateAppServiceManager (json_t *profile) {
+    int ret;
+    json_t *appServices;
+
+    appServices = getAppServicesFromProfile (profile);
+    if (appServices == NULL || !json_is_array (appServices)) {
+        LOGE ("Invalid format of update profile\n.");
+        return -1;
+    }
+
+    ret = updateAppServicesFromJson (appServices);
+    if (ret < 0) {
+        LOGE ("Update app services error.\n");
+        return -1;
+    }
+
+    /* Sync profile cache */
+    ret = syncProfileCache (profile);
+    if (ret < 0)
+        LOGE ("Sync profile cache error.\n");
+
+    return ret;
 }
 
 /* Init application service manager */
@@ -266,14 +331,23 @@ initAppServiceManager (void) {
         goto destroyAppServiceHashTableMaster;
     }
 
+    appServiceDetectedHashTable = hashNew (0);
+    if (appServiceDetectedHashTable == NULL) {
+        LOGE ("Create appServiceDetectedHashTable error.\n");
+        goto destroyAppServiceHashTableSlave;
+    }
+
     ret = updateAppServicesFromProfileCache ();
     if (ret < 0) {
         LOGE ("Update appServices from profile cache error.\n");
-        goto destroyAppServiceHashTableSlave;
+        goto destroyAppServiceDetectedHashTable;
     }
 
     return 0;
 
+destroyAppServiceDetectedHashTable:
+    hashDestroy (appServiceDetectedHashTable);
+    appServiceDetectedHashTable = NULL;
 destroyAppServiceHashTableSlave:
     hashDestroy (appServiceHashTableSlave);
     appServiceHashTableSlave = NULL;
@@ -293,4 +367,6 @@ destroyAppServiceManager (void) {
     appServiceHashTableMaster = NULL;
     hashDestroy (appServiceHashTableSlave);
     appServiceHashTableSlave = NULL;
+    hashDestroy (appServiceDetectedHashTable);
+    appServiceDetectedHashTable = NULL;
 }

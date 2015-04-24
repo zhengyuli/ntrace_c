@@ -25,7 +25,7 @@
 #include "tcp_dispatch_service.h"
 #include "tcp_process_service.h"
 #include "session_breakdown_service.h"
-#include "proto_detection_service.h"
+#include "proto_detect_service.h"
 
 /* Agent pid file fd */
 static int agentPidFd = -1;
@@ -141,10 +141,10 @@ startServices (void) {
         goto stopAllTask;
     }
 
-    /* Start protoDetectionService */
-    ret = newNormalTask ("ProtoDetectionService", protoDetectionService, NULL);
+    /* Start protoDetectService */
+    ret = newNormalTask ("ProtoDetectService", protoDetectService, NULL);
     if (ret < 0) {
-        LOGE ("Create ProtoDetectionService error.\n");
+        LOGE ("Create ProtoDetectService error.\n");
         goto stopAllTask;
     }
 
@@ -274,7 +274,9 @@ agentService (void) {
     }
 
     /* Start zloop */
-    zloop_start (loop);
+    ret = zloop_start (loop);
+    if (ret)
+        LOGE ("AgentService get error.\n");
 
     LOGI ("AgentService will exit ... .. .\n");
 destroyZloop:

@@ -196,6 +196,7 @@ getIpAddrOfInterface (char *interface) {
     size_t ifNameLen;
     struct ifreq ifr;
     char *ipAddr = NULL;
+    char ipStr [16];
     struct sockaddr_in *sockAddr;
 
     ifNameLen = strlen (interface);
@@ -213,7 +214,8 @@ getIpAddrOfInterface (char *interface) {
     }
 
     sockAddr = (struct sockaddr_in *) &ifr.ifr_addr;
-    ipAddr = strdup (inet_ntoa (sockAddr->sin_addr));
+    inet_ntop (AF_INET, (void *) &sockAddr->sin_addr, ipStr, sizeof (ipStr));
+    ipAddr = strdup (ipStr);
 
     close (sockfd);
     return ipAddr;

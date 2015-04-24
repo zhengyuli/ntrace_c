@@ -9,16 +9,20 @@
 #include "netdev.h"
 #include "task_manager.h"
 #include "ip.h"
+#include "tcp.h"
 #include "raw_packet.h"
 #include "ip_packet.h"
 #include "tcp_packet.h"
-#include "proto_detection_service.h"
+#include "proto_detect_service.h"
 
 /*
- * Proto detection service.
+ * Proto detect service.
+ * Capture raw packets from pcap file or mirror interface,
+ * then do ip defragment and tcp packet process to detect
+ * application level proto.
  */
 void *
-protoDetectionService (void *args) {
+protoDetectService (void *args) {
     int ret;
     pcap_t * pcapDev;
     int datalinkType;
@@ -107,7 +111,7 @@ protoDetectionService (void *args) {
         }
     }
 
-    LOGI ("ProtoDetectionService will exit ... .. .\n");
+    LOGI ("ProtoDetectService will exit ... .. .\n");
     destroyTcpContext ();
 destroyIpContext:
     destroyIpContext ();

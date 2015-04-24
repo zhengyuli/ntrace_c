@@ -6,7 +6,6 @@
 #include "zmq_hub.h"
 #include "task_manager.h"
 #include "app_service_manager.h"
-#include "profile_cache.h"
 #include "netdev.h"
 #include "proto_analyzer.h"
 #include "management_service.h"
@@ -108,7 +107,6 @@ handleHeartbeatRequest (json_t *body) {
 static int
 handleUpdateProfileRequest (json_t *body) {
     int ret;
-    json_t *appServices;
     char *filter;
 
     if (body == NULL) {
@@ -116,14 +114,8 @@ handleUpdateProfileRequest (json_t *body) {
         return -1;
     }
 
-    appServices = getAppServicesFromProfile (body);
-    if (appServices == NULL || !json_is_array (appServices)) {
-        LOGE ("Invalid format of update profile\n.");
-        return -1;
-    }
-
     /* Update application service manager */
-    ret = updateAppServiceManager (appServices);
+    ret = updateAppServiceManager (body);
     if (ret < 0) {
         LOGE ("Update application service manager error.\n");
         return -1;
@@ -146,13 +138,6 @@ handleUpdateProfileRequest (json_t *body) {
 
     LOGI ("Update application services filter with: %s\n", filter);
     free (filter);
-
-    /* Sync profile cache */
-    ret = syncProfileCache (body);
-    if (ret < 0) {
-        LOGE ("Sync profile cache error.\n");
-        return -1;
-    }
 
     return 0;
 }
@@ -536,7 +521,11 @@ managementService (void *args) {
 
     /* Start zloop */
     while (!SIGUSR1IsInterrupted ()) {
-        zloop_start (loop);
+        ret = zloop_start (loop);
+        if (ret) {
+            LOGE ("Management service get error.\n");
+            break;
+        }
     }
 
     LOGI ("ManagementService will exit... .. .\n");

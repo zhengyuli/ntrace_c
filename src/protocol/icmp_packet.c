@@ -87,6 +87,7 @@ static char *
 icmpBreakdown2Json (icmpBreakdownPtr ibd) {
     char *out;
     json_t *root;
+    char ipStr [16];
     char buf [64];
 
     root = json_object ();
@@ -112,8 +113,9 @@ icmpBreakdown2Json (icmpBreakdownPtr ibd) {
     json_object_set_new (root, ICMP_SKBD_ICMP_CODE,
                          json_string (getIcmpDestUnreachCodeName (ibd->code)));
     /* Icmp dest unreach ip */
+    inet_ntop (AF_INET, (void *) &ibd->ip, ipStr, sizeof (ipStr));
     json_object_set_new (root, ICMP_SKBD_ICMP_DEST_UNREACH_IP,
-                         json_string (inet_ntoa (ibd->ip)));
+                         json_string (ipStr));
     /* Icmp dest unreach port */
     if (ibd->code == ICMP_PORT_UNREACH)
         json_object_set_new (root, ICMP_SKBD_ICMP_DEST_UNREACH_PORT,
@@ -127,9 +129,11 @@ icmpBreakdown2Json (icmpBreakdownPtr ibd) {
 
 static boolean
 icmpPktShouldDrop (iphdrPtr iph, tcphdrPtr tcph) {
+    char ipStr [16];
     char key [32];
 
-    snprintf (key, sizeof (key), "%s:%d", inet_ntoa (iph->ipDest), ntohs (tcph->dest));
+    inet_ntop (AF_INET, (void *) &iph->ipDest, ipStr, sizeof (ipStr));
+    snprintf (key, sizeof (key), "%s:%d", ipStr, ntohs (tcph->dest));
     if (getAppServiceProtoAnalyzer (key))
         return False;
     else

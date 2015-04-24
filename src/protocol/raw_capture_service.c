@@ -73,7 +73,7 @@ displayRawCaptureStatisticInfo (void) {
 
 /*
  * Raw packet capture service.
- * Capture raw packet from pcap file or mirror interface,
+ * Capture raw packets from pcap file or mirror interface,
  * then extract ip packet from raw packet and send it to
  * ip packet process service.
  */

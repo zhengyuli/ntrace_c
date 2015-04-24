@@ -33,7 +33,6 @@ INCLUDE_DIRECTORIES (
   protocol/
   analyzer/
   proto_detection/
-  proto_detection/detector/
   session_breakdown/
   3rd_party/http_parser/
   ${PROJECT_BINARY_DIR})
@@ -42,7 +41,6 @@ SET (AGENT_SOURCE_FILES
   agent.c
   util/util.c
   util/hash.c
-  util/base64.c
   properties.c
   option_parser.c
   signals.c
@@ -76,10 +74,12 @@ SET (AGENT_SOURCE_FILES
   analyzer/http/http_analyzer.c
   analyzer/mysql/mysql_analyzer.c
   session_breakdown/session_breakdown_service.c
-  proto_detection/proto_detection_service.c)
+  proto_detection/proto_detect_service.c)
 
 ADD_EXECUTABLE (${ROOT_PROJECT_LOWER}_agent ${AGENT_SOURCE_FILES})
-TARGET_LINK_LIBRARIES (${ROOT_PROJECT_LOWER}_agent pcap czmq pthread ini_config z jansson dl uuid)
+TARGET_LINK_LIBRARIES (
+  ${ROOT_PROJECT_LOWER}_agent
+  pcap czmq pthread ini_config z jansson dl uuid)
 INSTALL (
   TARGETS ${ROOT_PROJECT_LOWER}_agent
   DESTINATION ${PROJECT_BIN_DIR})

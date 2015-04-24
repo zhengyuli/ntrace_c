@@ -6,7 +6,7 @@
 #include "tcp_options.h"
 
 /**
- * @brief Get tcp timestamp option
+ * @brief Get tcp timestamp option.
  *
  * @param tcph tcp header
  * @param ts pointer to return time stamp
@@ -48,7 +48,7 @@ getTimeStampOption (tcphdrPtr tcph, u_int *ts) {
 }
 
 /**
- * @brief Get tcp window scale option
+ * @brief Get tcp window scale option.
  *
  * @param tcph tcp header
  * @param ws pointer to return window scale
@@ -93,7 +93,7 @@ getTcpWindowScaleOption (tcphdrPtr tcph, u_short *ws) {
 }
 
 /**
- * @brief Get tcp MSS option
+ * @brief Get tcp MSS option.
  *
  * @param tcph tcp header
  * @param mss pointer to return mss

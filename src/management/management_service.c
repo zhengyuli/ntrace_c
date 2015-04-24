@@ -26,7 +26,7 @@ static u_int packetsStatisticPktsDrop = 0;
 static protoAnalyzerInfo protoAnalyzerInformation;
 
 /**
- * @brief resume request handler
+ * @brief Resume request handler.
  *
  * @param body data to handle
  *
@@ -56,7 +56,7 @@ handleResumeRequest (json_t *body) {
 }
 
 /**
- * @brief pause request handler
+ * @brief Pause request handler.
  *
  * @param body data to handle
  *
@@ -86,7 +86,7 @@ handlePauseRequest (json_t *body) {
 }
 
 /**
- * @brief heartbeat request handler
+ * @brief Heartbeat request handler.
  *
  * @param body data to handle
  *
@@ -98,52 +98,7 @@ handleHeartbeatRequest (json_t *body) {
 }
 
 /**
- * @brief update_profile request handler
- *
- * @param  body data to handle
- *
- * @return 0 if success else -1
- */
-static int
-handleUpdateProfileRequest (json_t *body) {
-    int ret;
-    char *filter;
-
-    if (body == NULL) {
-        LOGE ("Invalid format of update profile request, miss body item.\n");
-        return -1;
-    }
-
-    /* Update application service manager */
-    ret = updateAppServiceManager (body);
-    if (ret < 0) {
-        LOGE ("Update application service manager error.\n");
-        return -1;
-    }
-
-    /* Get latest application services filter */
-    filter = getAppServicesFilter ();
-    if (filter == NULL) {
-        LOGE ("Get application services filter error.\n");
-        return -1;
-    }
-
-    /* Update application services filter */
-    ret = updateNetDevFilterForSniff (filter);
-    if (ret < 0) {
-        LOGE ("Update application services filter error.\n");
-        free (filter);
-        return -1;
-    }
-
-    LOGI ("Update application services filter with: %s\n", filter);
-    free (filter);
-
-    return 0;
-}
-
-/**
- * @brief packets_statistic request handler
+ * @brief Packets_statistic request handler.
  *
  * @param  body data to handle
  *
@@ -164,7 +119,7 @@ handlePacketsStatisticRequest (json_t *body) {
 }
 
 /**
- * @brief get proto information handler
+ * @brief Get proto information handler.
  *
  * @param body data to handle
  *
@@ -184,7 +139,7 @@ handleGetProtoInfoRequest (json_t *body) {
 }
 
 /**
- * @brief Build management control response based on command
+ * @brief Build management control response based on command.
  *
  * @param cmd command for response
  *
@@ -295,8 +250,6 @@ managementControlRequestHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg)
         ret = handlePauseRequest (body);
     else if (strEqual (MANAGEMENT_CONTROL_REQUEST_COMMAND_HEARTBEAT, cmdStr))
         ret = handleHeartbeatRequest (body);
-    else if (strEqual (MANAGEMENT_CONTROL_REQUEST_COMMAND_UPDATE_PROFILE, cmdStr))
-        ret = handleUpdateProfileRequest (body);
     else if (strEqual (MANAGEMENT_CONTROL_REQUEST_COMMAND_PACKETS_STATISTIC, cmdStr))
         ret = handlePacketsStatisticRequest (body);
     else if (strEqual (MANAGEMENT_CONTROL_REQUEST_COMMAND_PROTO_INFO, cmdStr))

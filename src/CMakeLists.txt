@@ -11,7 +11,7 @@ SET (AGENT_CONFIG_FILE  ${PROJECT_CONFIG_DIR}/${SUB_PROJECT_LOWER}.conf)
 SET (AGENT_PID_FILE ${PROJECT_RUN_DIR}/${ROOT_PROJECT_LOWER}_${SUB_PROJECT_LOWER}.pid)
 SET (AGENT_ANALYZER_DIR ${PROJECT_DATA_DIR}/analyzers)
 SET (AGENT_DETECTOR_DIR ${PROJECT_DATA_DIR}/detectors)
-SET (AGENT_PROFILE_CACHE ${PROJECT_RUN_DIR}/profile.cache)
+SET (AGENT_APP_SERVICES_CACHE ${PROJECT_RUN_DIR}/app_services.cache)
 
 # Configuration header file
 configure_file (
@@ -51,7 +51,7 @@ SET (AGENT_SOURCE_FILES
   task_manager.c
   app_service/app_service.c
   app_service/app_service_manager.c
-  profile_cache.c
+  app_service/app_service_cache.c
   netdev.c
   management/management_service.c
   ownership/ownership.c

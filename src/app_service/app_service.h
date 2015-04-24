@@ -8,23 +8,22 @@
 typedef struct _appService appService;
 typedef appService *appServicePtr;
 
-/* Application service definition */
+/* AppService definition */
 struct _appService {
-    char *proto;                        /**< Application service proto name */
-    protoAnalyzerPtr analyzer;          /**< Application service proto analyzer */
-    char *ip;                           /**< Application service ip */
-    u_short port;                       /**< Application service port */
+    char *proto;                        /**< AppService proto name */
+    protoAnalyzerPtr analyzer;          /**< AppService proto analyzer */
+    char *ip;                           /**< AppService ip */
+    u_short port;                       /**< AppService port */
 };
 
-/* Application service json key definitions */
+/* AppService json key definitions */
 #define APP_SERVICE_PROTO "proto"
 #define APP_SERVICE_IP "ip"
 #define APP_SERVICE_PORT "port"
 
 /*========================Interfaces definition============================*/
 appServicePtr
-newAppService (char *proto, protoAnalyzerPtr analyzer,
-               char *ip, u_short port);
+newAppService (char *proto, char *ip, u_short port);
 void
 freeAppService (appServicePtr svc);
 appServicePtr

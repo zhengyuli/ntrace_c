@@ -42,8 +42,8 @@ typedef struct _sessionBreakdownOutputFile sessionBreakdownOutputFile;
 typedef sessionBreakdownOutputFile *sessionBreakdownOutputFilePtr;
 
 struct _sessionBreakdownOutputFile {
-    FILE *file;                         /**< sessionBreakdown output file descriptor */
-    char *filePath;                     /**< sessionBreakdown output file path */
+    FILE *file;                         /**< SessionBreakdown output file descriptor */
+    char *filePath;                     /**< SessionBreakdown output file path */
 };
 
 static int

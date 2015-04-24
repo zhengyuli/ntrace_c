@@ -23,7 +23,7 @@ static pcap_t *pcapDescForProtoDectionInstance = NULL;
 static int datalinkTypeForProtoDetection = -1;
 
 /**
- * @brief create a pcap descriptor from pcap file
+ * @brief Create a pcap descriptor from pcap file.
  *
  * @param pcapFile pcap file
  *
@@ -42,7 +42,7 @@ newPcapFileDesc (char *pcapFile) {
 }
 
 /**
- * @brief create a pcap descriptor from network Interface
+ * @brief Create a pcap descriptor from network Interface.
  *
  * @param interface network Interface
  *
@@ -152,7 +152,7 @@ getNetDevDatalinkTypeForProtoDetection (void) {
 }
 
 /**
- * @brief get pcapDev statistic info for sniff
+ * @brief Get pcapDev statistic info for sniff.
  *
  * @param pcapDev pcap descriptor
  * @param pktsRecv pointer to return packets received
@@ -189,7 +189,7 @@ getNetDevStatisticInfoForProtoDetection (u_int *pktsRecv, u_int *pktsDrop) {
 }
 
 /**
- * @brief update pcapDev BPF filter
+ * @brief Update pcapDev BPF filter.
  *
  * @param pcapDev pcap descriptor
  * @param filter BPF filter to update
@@ -237,8 +237,8 @@ updateNetDevFilterForProtoDetection (char *filter) {
 }
 
 /**
- * @brief loop netDev for sniff
- *        loop netDev is only for pcap file, it will loop create and read
+ * @brief Loop netDev for sniff
+ *        Loop netDev is only for pcap file, it will loop create and read
  *        pcap file until reach loop count if loop count is not zero, else
  *        loop forever.
  *
@@ -276,7 +276,7 @@ loopNetDevForSniff (void) {
 }
 
 /**
- * @brief init netDev.
+ * @brief Init netDev.
  *        Init netDev for sniff and proto detection from pcap file
  *        or network interface, if pcap file is configured, it will
  *        create a pcap file descriptor, else if will create a network

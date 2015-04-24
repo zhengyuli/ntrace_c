@@ -7,7 +7,7 @@
 #define ipCheckAddr(x) 0
 
 /**
- * @brief Check ip header options
+ * @brief Check ip header options.
  *
  * @param iph ip header
  *

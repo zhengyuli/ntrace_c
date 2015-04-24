@@ -141,7 +141,7 @@ icmpPktShouldDrop (iphdrPtr iph, tcphdrPtr tcph) {
 }
 
 /**
- * @brief Icmp pakcet processor
+ * @brief Icmp pakcet processor.
  *
  * @param iph ip packet header
  * @param tm packet capture timestamp

@@ -3,21 +3,15 @@
 
 #include "proto_analyzer.h"
 
-#define PROFILE_APP_SERVICES "application_services"
-
 /*========================Interfaces definition============================*/
 protoAnalyzerPtr
 getAppServiceProtoAnalyzer (char *key);
-boolean
-appServiceIsDetected (struct in_addr *ip, u_short port);
-int
-addAppServiceDetected (char *proto, struct in_addr *ip, u_short port);
 char *
 getAppServicesPaddingFilter (void);
 char *
 getAppServicesFilter (void);
 int
-updateAppServiceManager (json_t *updateProfile);
+addAppService (char *proto, char *ip, u_short port);
 int
 initAppServiceManager (void);
 void

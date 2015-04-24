@@ -6,7 +6,7 @@
 #include "ownership.h"
 
 /**
- * @brief Create new ownership based on ownership type and ip
+ * @brief Create new ownership based on ownership type and ip.
  *
  * @param type ownership type
  * @param ip ownership ip

@@ -19,6 +19,7 @@
 #include "tcp.h"
 #include "tcp_options.h"
 #include "proto_analyzer.h"
+#include "netdev.h"
 #include "tcp_packet.h"
 
 /* Tcp stream hash key format string */
@@ -170,7 +171,7 @@ getTcpStreamsFree (void) {
 }
 
 /**
- * @brief Add tcp stream to global tcp stream timeout list
+ * @brief Add tcp stream to global tcp stream timeout list.
  *
  * @param stream tcp stream to add
  * @param tm tcp stream closing time
@@ -196,7 +197,7 @@ addTcpStreamToClosingTimeoutList (tcpStreamPtr stream, timeValPtr tm) {
 }
 
 /**
- * @brief Delete tcp stream from closing timeout list
+ * @brief Delete tcp stream from closing timeout list.
  *
  * @param stream tcp stream to Delete
  */
@@ -218,7 +219,7 @@ delTcpStreamFromClosingTimeoutList (tcpStreamPtr stream) {
 }
 
 /**
- * @brief Lookup tcp stream from global tcp stream hash table
+ * @brief Lookup tcp stream from global tcp stream hash table.
  *
  * @param addr tcp stream 4 tuple address
  *
@@ -238,7 +239,7 @@ lookupTcpStreamFromHash (tuple4Ptr addr) {
 }
 
 /**
- * @brief Add tcp stream to global hash table
+ * @brief Add tcp stream to global hash table.
  *
  * @param stream tcp stream to add
  * @param freeFun tcp stream free function
@@ -273,7 +274,7 @@ addTcpStreamToHash (tcpStreamPtr stream, hashItemFreeCB freeFun) {
 }
 
 /**
- * @brief Remove tcp stream from hash table
+ * @brief Remove tcp stream from hash table.
  *
  * @param stream tcp stream to remove
  */
@@ -281,6 +282,7 @@ static void
 delTcpStreamFromHash (tcpStreamPtr stream) {
     int ret;
     tuple4Ptr addr;
+    char *filter;
     char ipSrcStr [16], ipDestStr [16];
     char key [64];
 
@@ -289,18 +291,37 @@ delTcpStreamFromHash (tcpStreamPtr stream) {
         streamCache = NULL;
 
     addr = &stream->addr;
-    if (forProtoDetect) {
-        if (stream->proto) {
-            ret = addAppServiceDetected (stream->proto, &addr->daddr, addr->dest);
-            if (ret < 0)
-                LOGE ("Add new appService detected error.\n");
-            else
-                LOGI ("Proto: %s has been detected.\n", stream->proto);
-        }
-    }
-
     inet_ntop (AF_INET, (void *) &addr->saddr, ipSrcStr, sizeof (ipSrcStr));
     inet_ntop (AF_INET, (void *) &addr->daddr, ipDestStr, sizeof (ipDestStr));
+
+    /* Save detected appService if any */
+    if (forProtoDetect) {
+        if (stream->proto) {
+            ret = addAppService (stream->proto, ipDestStr, addr->dest);
+            if (ret < 0)
+                LOGE ("Add new detected appService ip:%s port:%u proto: %s error.\n",
+                      ipDestStr, addr->dest, stream->proto);
+            else {
+                LOGI ("Add new detected appService ip:%s port:%u proto: %s success.\n",
+                      ipDestStr, addr->dest, stream->proto);
+
+                /* Update application services filter */
+                filter = getAppServicesFilter ();
+                if (filter == NULL)
+                    LOGE ("Get application services filter error.\n");
+                else {
+                    ret = updateNetDevFilterForSniff (filter);
+                    if (ret < 0)
+                        LOGE ("Update application services filter error.\n");
+                    else
+                        LOGI ("============================================\n"
+                              "Update application services filter with:\n%s\n"
+                              "============================================\n", filter);
+                    free (filter);
+                }
+            }
+        }
+    }
 
     snprintf (key, sizeof (key), TCP_STREAM_HASH_KEY_FORMAT,
               ipSrcStr, addr->source, ipDestStr, addr->dest);
@@ -314,7 +335,7 @@ delTcpStreamFromHash (tcpStreamPtr stream) {
 }
 
 /**
- * @brief Find tcp stream from global hash table
+ * @brief Find tcp stream from global hash table.
  *
  * @param tcph tcp header
  * @param iph ip header
@@ -518,7 +539,7 @@ freeTcpStreamForHash (void *data) {
 }
 
 /**
- * @brief Alloc new tcp stream and add it to tcp stream hash table
+ * @brief Alloc new tcp stream and add it to tcp stream hash table.
  *
  * @param tcph tcp header for current packet
  * @param iph ip header for current packet
@@ -999,7 +1020,7 @@ handleClose (tcpStreamPtr stream, timeValPtr tm) {
 }
 
 /**
- * @brief Add data to halfStream receive buffer
+ * @brief Add data to halfStream receive buffer.
  *
  * @param rcv halfStream to receive
  * @param data data to add
@@ -1265,7 +1286,7 @@ tcpQueue (tcpStreamPtr stream,
 }
 
 /**
- * @brief Tcp packet processor
+ * @brief Tcp packet processor.
  *        Tcp packet process function, it will defragment tcp packet
  *        and do tcp and application level performance analysis by
  *        calling specified proto analyzer to parse.
@@ -1284,6 +1305,7 @@ tcpProcess (iphdrPtr iph, timeValPtr tm) {
     tcpStreamPtr stream;
     halfStreamPtr snd, rcv;
     streamDirection direction;
+    char ipStr [16], key [64];
 
     ipLen = ntohs (iph->ipLen);
     tcph = (tcphdrPtr) ((u_char *) iph + iph->iphLen * 4);
@@ -1329,11 +1351,15 @@ tcpProcess (iphdrPtr iph, timeValPtr tm) {
     if (stream == NULL) {
         /* The first sync packet of tcp three handshakes */
         if (tcph->syn && !tcph->ack && !tcph->rst) {
-            /* For proto detect, if application service has been detected
+            /* For proto detect, if application service has been added
              * do return directly */
-            if (forProtoDetect  &&
-                appServiceIsDetected (&iph->ipDest, ntohs (tcph->dest)))
-                return;
+            if (forProtoDetect) {
+                inet_ntop (AF_INET, (void *) &iph->ipDest, ipStr, sizeof (ipStr));
+                snprintf (key, sizeof (key), "%s:%d", ipStr, ntohs (tcph->dest));
+
+                if (getAppServiceProtoAnalyzer (key))
+                    return;
+            }
 
             stream = addNewTcpStream (tcph, iph, tm);
             if (stream == NULL)

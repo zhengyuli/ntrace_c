@@ -15,30 +15,35 @@
 #include "util.h"
 #include "hash.h"
 #include "log.h"
-#include "profile_cache.h"
 #include "app_service.h"
+#include "app_service_cache.h"
 #include "app_service_manager.h"
 
-/* Application service padding filter */
+/* AppService padding filter */
 #define APP_SERVICE_PADDING_BPF_FILTER "icmp"
-/* Application service ip fragment filter */
+/* AppService ip fragment filter */
 #define APP_SERVICE_IP_FRAGMENT_BPF_FILTER                              \
     "(tcp and (ip[6] & 0x20 != 0 or (ip[6] & 0x20 = 0 and ip[6:2] & 0x1fff != 0)))"
-/* Application service filter */
+/* AppService filter */
 #define APP_SERVICE_BPF_FILTER "(ip host %s and (tcp port %u or %s)) or "
-/* Application service filter length */
+/* AppService filter length */
 #define APP_SERVICE_BPF_FILTER_LENGTH 256
 
-/* Application services master hash table rwlock */
+/* AppService master hash table rwlock */
 static pthread_rwlock_t appServiceHashTableMasterRWLock;
-/* Application services master hash table */
+/* AppService master hash table */
 static hashTablePtr appServiceHashTableMaster = NULL;
-/* Application services slave hash table */
+/* AppService slave hash table */
 static hashTablePtr appServiceHashTableSlave = NULL;
 
-/* Application services detected hash table */
-static hashTablePtr appServiceDetectedHashTable = NULL;
-
+/**
+ * @brief Get appService proto analyzer.
+ *        Get appService proto analyzer from appService map.
+ *
+ * @param key key to search
+ *
+ * @return protoAnalyzerPtr if success, else NULL
+ */
 protoAnalyzerPtr
 getAppServiceProtoAnalyzer (char *key) {
     appServicePtr svc;
@@ -58,45 +63,12 @@ getAppServiceProtoAnalyzer (char *key) {
     return analyzer;
 }
 
-boolean
-appServiceIsDetected (struct in_addr *ip, u_short port) {
-    char ipStr [16];
-    char key [32];
-    appServicePtr svc;
-
-    inet_ntop (AF_INET, (void *) ip, ipStr, sizeof (ipStr));
-    snprintf (key, sizeof (key), "%s:%u", ipStr, port);
-    svc = hashLookup (appServiceDetectedHashTable, key);
-    return svc ? True : False;
-}
-
-int
-addAppServiceDetected (char *proto, struct in_addr *ip, u_short port) {
-    int ret;
-    char ipStr [16];
-    char key [32];
-    appServicePtr svc;
-
-    inet_ntop (AF_INET, (void *) ip, ipStr, sizeof (ipStr));
-    snprintf (key, sizeof (key), "%s:%u", ipStr, port);
-    svc = hashLookup (appServiceDetectedHashTable, key);
-    if (svc == NULL) {
-        svc = newAppService (proto, NULL, ipStr, port);
-        if (svc == NULL) {
-            LOGE ("New appService detected error.\n");
-            return -1;
-        }
-
-        ret = hashInsert (appServiceDetectedHashTable, key, svc, freeAppServiceForHash);
-        if (ret < 0) {
-            LOGE ("Insert new appService detected %s error\n", key);
-            return -1;
-        }
-
-        return 0;
-    }
-}
-
+/**
+ * @brief Get appServices padding filter.
+ *        Get appServices padding filter to pause packet sniff.
+ *
+ * @return padding filter
+ */
 char *
 getAppServicesPaddingFilter (void) {
     return strdup (APP_SERVICE_PADDING_BPF_FILTER);
@@ -114,6 +86,13 @@ generateFilterForEachAppService (void *data, void *args) {
     return 0;
 }
 
+/**
+ * @brief Get appServices filter.
+ *        Get appServices filter from appService map, it will loop
+ *        all appServices and generate filter from each.
+ *
+ * @return appServices filter if success, else NULL
+ */
 char *
 getAppServicesFilter (void) {
     int ret;
@@ -136,7 +115,7 @@ getAppServicesFilter (void) {
     ret = hashLoopDo (appServiceHashTableMaster, generateFilterForEachAppService, filter);
     if (ret < 0) {
         pthread_rwlock_unlock (&appServiceHashTableMasterRWLock);
-        LOGE ("Generate BPF filter for each application service error.\n");
+        LOGE ("Get BPF filter from each appService error.\n");
         free (filter);
         return NULL;
     }
@@ -147,13 +126,64 @@ getAppServicesFilter (void) {
     return filter;
 }
 
+static int
+getJsonForEachAppService (void *data, void *args) {
+    json_t *root = (json_t *) args;
+    json_t *svc;
+
+    svc = appService2Json ((appServicePtr) data);
+    if (svc == NULL) {
+        LOGE ("Get json from appService error.\n");
+        return -1;
+    }
+
+    json_array_append_new (root, svc);
+    return 0;
+}
+
 /**
- * @brief Get application services from json.
+ * @brief Get json from all appServices.
+ *        Get json from appService map, it will loop all
+ *        appServices and get json from each.
  *
- * @param root json object of application services
- * @param appSvcNum pointer to return application service number
+ * @return json object if success, else NULL
+ */
+static json_t *
+getJsonFromAppServices (void) {
+    int ret;
+    json_t *root;
+
+    root = json_array ();
+    if (root == NULL) {
+        LOGE ("Create json array object error.\n");
+        return NULL;
+    }
+
+    pthread_rwlock_rdlock (&appServiceHashTableMasterRWLock);
+    ret = hashLoopDo (appServiceHashTableMaster,
+                      getJsonForEachAppService,
+                      root);
+    pthread_rwlock_unlock (&appServiceHashTableMasterRWLock);
+
+    if (ret < 0) {
+        LOGE ("Get appServices json from each appService error.\n");
+        json_object_clear (root);
+        return NULL;
+    }
+
+    return root;
+}
+
+/**
+ * @brief Get appServices from json.
+ *        Get appServices from json array, it will parse appServices
+ *        json array and retrieve each json item, then convert it to
+ *        appService.
  *
- * @return application service pointer array if success, else return NULL
+ * @param root json data
+ * @param appSvcNum pointer to return appServices number
+ *
+ * @return appServices pointer array if success, else NULL
  */
 static appServicePtr *
 getAppServicesFromJson (json_t *root, u_int *appSvcNum) {
@@ -163,7 +193,7 @@ getAppServicesFromJson (json_t *root, u_int *appSvcNum) {
 
     appServices = (appServicePtr *) malloc (sizeof (appServicePtr) * json_array_size (root));
     if (appServices == NULL) {
-        LOGE ("Malloc appServicePtr array error: %s\n", strerror (errno));
+        LOGE ("Alloc appServicePtr array error: %s\n", strerror (errno));
         *appSvcNum = 0;
         return NULL;
     }
@@ -203,7 +233,7 @@ addAppServiceToSlave (appServicePtr svc) {
     snprintf (key, sizeof (key), "%s:%u", svc->ip, svc->port);
     ret = hashInsert (appServiceHashTableSlave, key, svc, freeAppServiceForHash);
     if (ret < 0) {
-        LOGE ("Insert new appService %s error\n", key);
+        LOGE ("Insert appService %s to slave appService map error\n", key);
         return -1;
     }
 
@@ -221,6 +251,60 @@ swapAppServiceMap (void) {
     appServiceHashTableSlave = tmp;
 }
 
+/**
+ * @brief Add appService to appService map.
+ *
+ * @param proto appService proto name
+ * @param ip appService ip
+ * @param port appService port
+ *
+ * @return 0 if success, else -1
+ */
+int
+addAppService (char *proto, char *ip, u_short port) {
+    int ret;
+    json_t *root;
+    appServicePtr svc;
+
+    /* Create new appService */
+    svc = newAppService (proto, ip, port);
+    if (svc == NULL) {
+        LOGE ("Create appService %s:%u proto: %s error", ip, port, proto);
+        return -1;
+    }
+    /* Add appService to slave service map */
+    ret = addAppServiceToSlave (svc);
+    if (ret < 0)
+        return -1;
+
+    /* Swap service map table */
+    swapAppServiceMap ();
+
+    /* Get json from appServices */
+    root = getJsonFromAppServices ();
+    if (root == NULL) {
+        LOGE ("Get json from appService error.\n");
+        return -1;
+    }
+
+    /* Sync appServices cache */
+    ret = syncAppServicesCache (root);
+    if (ret < 0)
+        LOGE ("Sync appService cache error.\n");
+
+    json_object_clear (root);
+    return ret;
+}
+
+/**
+ * @brief Update appService map from json.
+ *        Update appService map from appServices retrieved from
+ *        json.
+ *
+ * @param root json data
+ *
+ * @return 0 if success, else -1
+ */
 static int
 updateAppServicesFromJson (json_t *root) {
     int ret;
@@ -231,18 +315,16 @@ updateAppServicesFromJson (json_t *root) {
     /* Get appServices from json */
     appServices = getAppServicesFromJson (root, &appServicesNum);
     if (appServices == NULL) {
-        LOGE ("Get application services from json error.\n");
+        LOGE ("Get appServices from json error.\n");
         return -1;
     }
 
-    /* Cleanup slave application service hash table */
+    /* Cleanup slave appService hash table */
     hashClean (appServiceHashTableSlave);
-    /* Insert application services to slave hash table */
+    /* Insert appServices to slave hash table */
     for (i = 0; i < appServicesNum; i ++) {
         ret = addAppServiceToSlave (appServices [i]);
         if (ret < 0) {
-            LOGE ("Add appService ip:%s-port:%u error.\n",
-                  appServices [i]->ip, appServices [i]->port);
             for (n = i + 1; n < appServicesNum; n++)
                 freeAppService (appServices [n]);
             ret = -1;
@@ -257,13 +339,21 @@ exit:
     return ret;
 }
 
+/**
+ * @brief Update appService map from cache.
+ *        Update appService map from cache file, it will load
+ *        appServices from cache file and then update appService
+ *        map.
+ *
+ * @return 0 if success, else -1
+ */
 static int
-updateAppServicesFromProfileCache (void) {
+updateAppServicesFromCache (void) {
     int ret;
     char *out;
     json_t *appSvcs;
 
-    appSvcs = getAppServicesFromProfileCache ();
+    appSvcs = getAppServicesFromCache ();
     if (appSvcs == NULL)
         return 0;
 
@@ -275,7 +365,7 @@ updateAppServicesFromProfileCache (void) {
 
     out = json_dumps (appSvcs, JSON_INDENT (4) | JSON_PRESERVE_ORDER);
     if (out) {
-        LOGI ("Get appServices from profile cache success:\n%s\n", out);
+        LOGI ("Get appServices from cache success:\n%s\n", out);
         free (out);
     }
 
@@ -283,32 +373,7 @@ updateAppServicesFromProfileCache (void) {
     return 0;
 }
 
-int
-updateAppServiceManager (json_t *profile) {
-    int ret;
-    json_t *appServices;
-
-    appServices = getAppServicesFromProfile (profile);
-    if (appServices == NULL || !json_is_array (appServices)) {
-        LOGE ("Invalid format of update profile\n.");
-        return -1;
-    }
-
-    ret = updateAppServicesFromJson (appServices);
-    if (ret < 0) {
-        LOGE ("Update app services error.\n");
-        return -1;
-    }
-
-    /* Sync profile cache */
-    ret = syncProfileCache (profile);
-    if (ret < 0)
-        LOGE ("Sync profile cache error.\n");
-
-    return ret;
-}
-
-/* Init application service manager */
+/* Init appService manager */
 int
 initAppServiceManager (void) {
     int ret;
@@ -331,23 +396,14 @@ initAppServiceManager (void) {
         goto destroyAppServiceHashTableMaster;
     }
 
-    appServiceDetectedHashTable = hashNew (0);
-    if (appServiceDetectedHashTable == NULL) {
-        LOGE ("Create appServiceDetectedHashTable error.\n");
-        goto destroyAppServiceHashTableSlave;
-    }
-
-    ret = updateAppServicesFromProfileCache ();
+    ret = updateAppServicesFromCache ();
     if (ret < 0) {
-        LOGE ("Update appServices from profile cache error.\n");
-        goto destroyAppServiceDetectedHashTable;
+        LOGE ("Update appServices from cache error.\n");
+        goto destroyAppServiceHashTableSlave;
     }
 
     return 0;
 
-destroyAppServiceDetectedHashTable:
-    hashDestroy (appServiceDetectedHashTable);
-    appServiceDetectedHashTable = NULL;
 destroyAppServiceHashTableSlave:
     hashDestroy (appServiceHashTableSlave);
     appServiceHashTableSlave = NULL;
@@ -359,7 +415,7 @@ destroyAppServiceHashTableMasterRWLock:
     return -1;
 }
 
-/* Destroy application service manager */
+/* Destroy appService manager */
 void
 destroyAppServiceManager (void) {
     pthread_rwlock_destroy (&appServiceHashTableMasterRWLock);
@@ -367,6 +423,4 @@ destroyAppServiceManager (void) {
     appServiceHashTableMaster = NULL;
     hashDestroy (appServiceHashTableSlave);
     appServiceHashTableSlave = NULL;
-    hashDestroy (appServiceDetectedHashTable);
-    appServiceDetectedHashTable = NULL;
 }

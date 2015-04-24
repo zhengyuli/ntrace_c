@@ -120,7 +120,9 @@ rawCaptureService (void *args) {
         free (filter);
         goto destroyLogContext;
     }
-    LOGI ("Update application services filter with: %s\n", filter);
+    LOGI ("============================================\n"
+          "Update application services filter with:\n%s\n"
+          "============================================\n", filter);
     free (filter);
 
     /* Init rawPktCaptureSize and rawPktCaptureStartTime */

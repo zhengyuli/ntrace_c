@@ -17,6 +17,32 @@ static __thread httpHeaderType currHeaderType;
 /* Current http session detail */
 static __thread httpSessionDetailPtr currSessionDetail;
 
+static char *
+getHttpBreakdownStateName (httpBreakdownState state) {
+    switch (state) {
+        case HTTP_BREAKDOWN_OK:
+            return "HTTP_OK";
+
+        case HTTP_BREAKDOWN_ERROR:
+            return "HTTP_ERROR";
+
+        case HTTP_BREAKDOWN_RESET_TYPE1:
+            return "HTTP_RESET_TYPE1";
+
+        case HTTP_BREAKDOWN_RESET_TYPE2:
+            return "HTTP_RESET_TYPE2";
+
+        case HTTP_BREAKDOWN_RESET_TYPE3:
+            return "HTTP_RESET_TYPE3";
+
+        case HTTP_BREAKDOWN_RESET_TYPE4:
+            return "HTTP_RESET_TYPE4";
+
+        default:
+            return "HTTP_STATE_UNKNOWN";
+    }
+}
+
 static httpSessionDetailNodePtr
 newHttpSessionDetailNode (void);
 
@@ -918,7 +944,7 @@ httpSessionBreakdown2Json (json_t *root, void *sd, void *sbd) {
                                  json_string (""));
         /* Http state */
         json_object_set_new (root, HTTP_SBKD_STATE,
-                             json_string (httpBreakdownStateName [hsbd->state]));
+                             json_string (getHttpBreakdownStateName (hsbd->state)));
         /* Http status code */
         json_object_set_new (root, HTTP_SBKD_STATUS_CODE,
                              json_integer (hsbd->statusCode));

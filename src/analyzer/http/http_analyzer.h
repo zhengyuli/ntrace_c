@@ -104,15 +104,6 @@ typedef enum {
     HTTP_BREAKDOWN_RESET_TYPE4          /**< Http reset without request */
 } httpBreakdownState;
 
-static char *httpBreakdownStateName [] = {
-    "HTTP_OK",
-    "HTTP_ERROR",
-    "HTTP_RESET_TYPE1",
-    "HTTP_RESET_TYPE2",
-    "HTTP_RESET_TYPE3",
-    "HTTP_RESET_TYPE4",
-};
-
 typedef struct _httpSessionBreakdown httpSessionBreakdown;
 typedef httpSessionBreakdown *httpSessionBreakdownPtr;
 

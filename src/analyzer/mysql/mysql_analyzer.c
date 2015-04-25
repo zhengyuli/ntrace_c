@@ -260,7 +260,7 @@ getMysqlCmdName (mysqlCmd cmd) {
         default:
             return "COM_UNKNOWN";
     }
-};
+}
 
 static char *
 getMysqlBreakdownStateName (mysqlBreakdownState state) {

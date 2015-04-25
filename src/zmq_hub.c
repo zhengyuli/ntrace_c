@@ -34,6 +34,16 @@ getTaskStatusRecvSock (void) {
 }
 
 void *
+getProtoDetectionStatusSendSock (void) {
+    return zmqHubIntance->protoDetectionStatusSendSock;
+}
+
+void *
+getProtoDetectionStatusRecvSock (void) {
+    return zmqHubIntance->protoDetectionStatusRecvSock;
+}
+
+void *
 getSessionBreakdownRecvSock (void) {
     return zmqHubIntance->sessionBreakdownRecvSock;
 }
@@ -182,6 +192,39 @@ initZmqHub (void) {
         fprintf (stderr, "Connect taskStatusRecvSock to %s error.\n",
                  TASK_STATUS_EXCHANGE_CHANNEL);
         goto destroyZmqCtxt;
+    }
+
+    if (getPropertiesPcapFile ()) {
+        /* Create protoDetectionStatusSendSock */
+        zmqHubIntance->protoDetectionStatusSendSock = zsocket_new (zmqHubIntance->zmqCtxt, ZMQ_PUSH);
+        if (zmqHubIntance->protoDetectionStatusSendSock == NULL) {
+            fprintf (stderr, "Create protoDetectionStatusSendSock error.\n");
+            goto destroyZmqCtxt;
+        }
+        ret = zsocket_bind (zmqHubIntance->protoDetectionStatusSendSock,
+                            PROTO_DETECTION_STATUS_EXCHANGE_CHANNEL);
+        if (ret < 0) {
+            fprintf (stderr, "Bind protoDetectionStatusSendSock to %s error.\n",
+                     PROTO_DETECTION_STATUS_EXCHANGE_CHANNEL);
+            goto destroyZmqCtxt;
+        }
+
+        /* Create protoDetectionStatusRecvSock */
+        zmqHubIntance->protoDetectionStatusRecvSock = zsocket_new (zmqHubIntance->zmqCtxt, ZMQ_PULL);
+        if (zmqHubIntance->protoDetectionStatusRecvSock == NULL) {
+            fprintf (stderr, "Create protoDetectionStatusRecvSock error.\n");
+            goto destroyZmqCtxt;
+        }
+        ret = zsocket_connect (zmqHubIntance->protoDetectionStatusRecvSock,
+                               PROTO_DETECTION_STATUS_EXCHANGE_CHANNEL);
+        if (ret < 0) {
+            fprintf (stderr, "Connect protoDetectionStatusRecvSock to %s error.\n",
+                     PROTO_DETECTION_STATUS_EXCHANGE_CHANNEL);
+            goto destroyZmqCtxt;
+        }
+    } else {
+        zmqHubIntance->protoDetectionStatusSendSock = NULL;
+        zmqHubIntance->protoDetectionStatusRecvSock = NULL;
     }
 
     /* Set zmq context io threads */

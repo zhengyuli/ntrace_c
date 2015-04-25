@@ -5,6 +5,7 @@
 #include <czmq.h>
 
 #define TASK_STATUS_EXCHANGE_CHANNEL "inproc://taskStatusExchangeChannel"
+#define PROTO_DETECTION_STATUS_EXCHANGE_CHANNEL "inproc://protoDetectionStatusExchangeChannel"
 #define IP_PACKET_EXCHANGE_CHANNEL "inproc://ipPacketExchangeChannel"
 #define ICMP_PACKET_EXCHANGE_CHANNEL "inproc://icmpPacketExchangeChannel"
 #define TCP_PACKET_EXCHANGE_CHANNEL "inproc://tcpPacketExchangeChannel"
@@ -27,6 +28,9 @@ struct _zmqHub {
 
     void *taskStatusSendSock;           /**< Task status send sock */
     void *taskStatusRecvSock;           /**< Task status recv sock */
+
+    void *protoDetectionStatusSendSock; /**< Proto detection status send sock */
+    void *protoDetectionStatusRecvSock; /**< Proto detection status recv sock */
 
     void *sessionBreakdownRecvSock;     /**< Session breakdown recv sock */
     void *sessionBreakdownPushSock;     /**< Session breakdown push sock */
@@ -58,6 +62,10 @@ void *
 getTaskStatusSendSock (void);
 void *
 getTaskStatusRecvSock (void);
+void *
+getProtoDetectionStatusSendSock (void);
+void *
+getProtoDetectionStatusRecvSock (void);
 void *
 getSessionBreakdownRecvSock (void);
 void *

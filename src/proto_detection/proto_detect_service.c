@@ -7,6 +7,7 @@
 #include "signals.h"
 #include "log.h"
 #include "netdev.h"
+#include "zmq_hub.h"
 #include "app_service_manager.h"
 #include "task_manager.h"
 #include "ip.h"
@@ -55,9 +56,10 @@ protoDetectService (void *args) {
     int datalinkType;
     struct pcap_pkthdr *capPktHdr;
     u_char *rawPkt;
+    boolean captureLive;
+    u_long_long detectStartTime = 0;
     timeVal captureTime;
     iphdrPtr iph, newIphdr;
-    u_long_long detectStartTime = 0;
     boolean exitNormally = False;
 
     /* Reset signals flag */
@@ -96,6 +98,9 @@ protoDetectService (void *args) {
         goto destroyIpContext;
     }
 
+    /* Check capture mode */
+    captureLive = getPropertiesPcapFile () ? False : True;
+
     while (!SIGUSR1IsInterrupted ()) {
         ret = pcap_next_ex (pcapDev, &capPktHdr, (const u_char **) &rawPkt);
         if (ret == 1) {
@@ -103,15 +108,14 @@ protoDetectService (void *args) {
             if (capPktHdr->caplen != capPktHdr->len)
                 continue;
 
-            if (getPropertiesPcapFile () == NULL) {
+            if (captureLive) {
                 if (!detectStartTime) {
                     detectStartTime = capPktHdr->ts.tv_sec;
                 } else {
                     if (capPktHdr->ts.tv_sec - detectStartTime > PROTO_DETECTION_DETECT_INTERVAL) {
-                        LOGI ("interval: %llu\n", capPktHdr->ts.tv_sec - detectStartTime);
                         sleep (PROTO_DETECTION_SLEEP_INTERVAL);
-                        detectStartTime = 0;
                         resetTcpContext ();
+                        detectStartTime = 0;
                         continue;
                     }
                 }
@@ -150,6 +154,12 @@ protoDetectService (void *args) {
             LOGE ("Capture raw packets for proto detection with fatal error.\n");
             break;
         } else if (ret == -2) {
+            if (!captureLive)
+                zstr_send (getProtoDetectionStatusSendSock (),
+                           "\n"
+                           "******************************************\n"
+                           "Proto detection complete.\n"
+                           "******************************************\n");
             exitNormally = True;
             break;
         }

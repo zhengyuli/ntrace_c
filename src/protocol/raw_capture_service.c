@@ -83,6 +83,7 @@ rawCaptureService (void *args) {
     int ret;
     void *ipPktSendSock;
     char *filter;
+    char *msgStr;
     struct pcap_pkthdr *capPktHdr;
     u_char *rawPkt;
     iphdrPtr iph;
@@ -126,6 +127,15 @@ rawCaptureService (void *args) {
           "Update application services filter with:\n%s\n"
           "============================================\n\n", filter);
     free (filter);
+
+    if (getPropertiesPcapFile ()) {
+        msgStr = zstr_recv (getProtoDetectionStatusRecvSock ());
+        if (msgStr) {
+            LOGI ("%s\n", msgStr);
+            free (msgStr);
+        } else if (!SIGUSR1IsInterrupted ())
+            LOGE ("Receive proto detection status fatal error.\n");
+    }
 
     /* Init rawPktCaptureSize and rawPktCaptureStartTime */
     rawPktCaptureSize = 0;

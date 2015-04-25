@@ -16,7 +16,6 @@
 #include "hash.h"
 #include "log.h"
 #include "app_service.h"
-#include "app_service_cache.h"
 #include "app_service_manager.h"
 
 /* AppService padding filter */
@@ -75,7 +74,7 @@ getAppServicesPaddingFilter (void) {
 }
 
 static int
-generateFilterForEachAppService (void *data, void *args) {
+getFilterForEachAppService (void *data, void *args) {
     u_int len;
     appServicePtr appSvc = (appServicePtr) data;
     char *filter = (char *) args;
@@ -112,7 +111,7 @@ getAppServicesFilter (void) {
     }
     memset (filter, 0, filterLen);
 
-    ret = hashLoopDo (appServiceHashTableMaster, generateFilterForEachAppService, filter);
+    ret = hashLoopDo (appServiceHashTableMaster, getFilterForEachAppService, filter);
     if (ret < 0) {
         pthread_rwlock_unlock (&appServiceHashTableMasterRWLock);
         LOGE ("Get BPF filter from each appService error.\n");
@@ -124,6 +123,40 @@ getAppServicesFilter (void) {
 
     strcat (filter, APP_SERVICE_PADDING_BPF_FILTER);
     return filter;
+}
+
+static int
+addAppServiceToSlave (appServicePtr svc) {
+    int ret;
+    char key [32];
+
+    snprintf (key, sizeof (key), "%s:%u", svc->ip, svc->port);
+    ret = hashInsert (appServiceHashTableSlave, key, svc, freeAppServiceForHash);
+    if (ret < 0) {
+        LOGE ("Insert appService %s to slave appService map error\n", key);
+        return -1;
+    }
+
+    return 0;
+}
+
+static void
+removeAppServiceFromSlave (char *ip, u_short port) {
+    char key [32];
+
+    snprintf (key, sizeof (key), "%s:%u", ip, port);
+    hashRemove (appServiceHashTableSlave, key);
+}
+
+static void
+swapAppServiceMap (void) {
+    hashTablePtr tmp;
+
+    tmp = appServiceHashTableMaster;
+    pthread_rwlock_wrlock (&appServiceHashTableMasterRWLock);
+    appServiceHashTableMaster = appServiceHashTableSlave;
+    pthread_rwlock_unlock (&appServiceHashTableMasterRWLock);
+    appServiceHashTableSlave = tmp;
 }
 
 static int
@@ -172,6 +205,110 @@ getJsonFromAppServices (void) {
     }
 
     return root;
+}
+
+/**
+ * @brief Sync appServices to cache file.
+ *        Sync appServices json data to cache file.
+ *
+ * @param appSvcs appServices json data
+ *
+ * @return 0 if success, else -1
+ */
+static int
+syncAppServicesCache (char *appSvcsStr) {
+    int ret;
+    int fd;
+
+    fd = open (AGENT_APP_SERVICES_CACHE, O_WRONLY | O_TRUNC | O_CREAT, 0755);
+    if (fd < 0) {
+        LOGE ("Open appServices cache file %s error: %s\n",
+              AGENT_APP_SERVICES_CACHE, strerror (errno));
+        return -1;
+    }
+
+    ret = safeWrite (fd, appSvcsStr, strlen (appSvcsStr));
+    if (ret < 0 || ret != strlen (appSvcsStr)) {
+        LOGE ("Dump to appServices cache file error.\n");
+        ret = -1;
+    } else
+        ret = 0;
+
+    close (fd);
+    return ret;
+}
+
+/**
+ * @brief Add appService to appService map.
+ *
+ * @param proto appService proto name
+ * @param ip appService ip
+ * @param port appService port
+ *
+ * @return 0 if success, else -1
+ */
+int
+addAppService (char *proto, char *ip, u_short port) {
+    int ret;
+    appServicePtr svc, svcCopy;
+    json_t *appSvcs;
+    char *appSvcsStr;
+
+    /* Create new appService */
+    svc = newAppService (proto, ip, port);
+    if (svc == NULL) {
+        LOGE ("Create appService %s:%u proto: %s error", ip, port, proto);
+        return -1;
+    }
+
+    /* Create new appService copy */
+    svcCopy = copyAppService (svc);
+    if (svcCopy == NULL) {
+        LOGE ("Create appService copy %s:%u proto: %s error", ip, port, proto);
+        freeAppService (svc);
+        return -1;
+    }
+
+    /* Add appService to slave service map */
+    ret = addAppServiceToSlave (svc);
+    if (ret < 0)
+        return -1;
+
+    /* Swap service map table */
+    swapAppServiceMap ();
+
+    /* Add appService to slave service map */
+    ret = addAppServiceToSlave (svcCopy);
+    if (ret < 0) {
+        swapAppServiceMap ();
+        removeAppServiceFromSlave (ip, port);
+        return -1;
+    }
+
+    /* Get json from appServices */
+    appSvcs = getJsonFromAppServices ();
+    if (appSvcs == NULL) {
+        LOGE ("Get json from appServices error.\n");
+        return -1;
+    }
+
+    appSvcsStr = json_dumps (appSvcs, JSON_INDENT (4) | JSON_PRESERVE_ORDER);
+    if (appSvcsStr == NULL) {
+        LOGE ("Json dump appServices string error.\n");
+        json_object_clear (appSvcs);
+        return -1;
+    }
+
+    /* Sync appServices cache */
+    ret = syncAppServicesCache (appSvcsStr);
+    if (ret < 0)
+        LOGE ("Sync appServices cache error.\n");
+    else
+        LOGI ("Sync appServices cache success:\n%s\n", appSvcsStr);
+
+    free (appSvcsStr);
+    json_object_clear (appSvcs);
+    return ret;
 }
 
 /**
@@ -225,77 +362,6 @@ error:
     return NULL;
 }
 
-static int
-addAppServiceToSlave (appServicePtr svc) {
-    int ret;
-    char key [32];
-
-    snprintf (key, sizeof (key), "%s:%u", svc->ip, svc->port);
-    ret = hashInsert (appServiceHashTableSlave, key, svc, freeAppServiceForHash);
-    if (ret < 0) {
-        LOGE ("Insert appService %s to slave appService map error\n", key);
-        return -1;
-    }
-
-    return 0;
-}
-
-static void
-swapAppServiceMap (void) {
-    hashTablePtr tmp;
-
-    tmp = appServiceHashTableMaster;
-    pthread_rwlock_wrlock (&appServiceHashTableMasterRWLock);
-    appServiceHashTableMaster = appServiceHashTableSlave;
-    pthread_rwlock_unlock (&appServiceHashTableMasterRWLock);
-    appServiceHashTableSlave = tmp;
-}
-
-/**
- * @brief Add appService to appService map.
- *
- * @param proto appService proto name
- * @param ip appService ip
- * @param port appService port
- *
- * @return 0 if success, else -1
- */
-int
-addAppService (char *proto, char *ip, u_short port) {
-    int ret;
-    json_t *root;
-    appServicePtr svc;
-
-    /* Create new appService */
-    svc = newAppService (proto, ip, port);
-    if (svc == NULL) {
-        LOGE ("Create appService %s:%u proto: %s error", ip, port, proto);
-        return -1;
-    }
-    /* Add appService to slave service map */
-    ret = addAppServiceToSlave (svc);
-    if (ret < 0)
-        return -1;
-
-    /* Swap service map table */
-    swapAppServiceMap ();
-
-    /* Get json from appServices */
-    root = getJsonFromAppServices ();
-    if (root == NULL) {
-        LOGE ("Get json from appService error.\n");
-        return -1;
-    }
-
-    /* Sync appServices cache */
-    ret = syncAppServicesCache (root);
-    if (ret < 0)
-        LOGE ("Sync appService cache error.\n");
-
-    json_object_clear (root);
-    return ret;
-}
-
 /**
  * @brief Update appService map from json.
  *        Update appService map from appServices retrieved from
@@ -309,7 +375,9 @@ static int
 updateAppServicesFromJson (json_t *root) {
     int ret;
     u_int i, n;
+    appServicePtr svc;
     appServicePtr *appServices;
+    appServicePtr *appServicesCopy;
     u_int appServicesNum;
 
     /* Get appServices from json */
@@ -319,24 +387,69 @@ updateAppServicesFromJson (json_t *root) {
         return -1;
     }
 
-    /* Cleanup slave appService hash table */
-    hashClean (appServiceHashTableSlave);
+    /* Alloc appServices array copy */
+    appServicesCopy = (appServicePtr *) malloc (sizeof (appServicePtr *) * appServicesNum);
+    if (appServicesCopy == NULL) {
+        LOGE ("Alloc appServicePtr array copy error: %s\n", strerror (errno));
+
+        for (i = 0; i < appServicesNum; i++)
+            freeAppService (appServices [i]);
+        free (appServices);
+
+        return -1;
+    }
+
+    /* Copy appServices to appServicesCopy */
+    for (i = 0; i < appServicesNum; i++) {
+        svc = copyAppService (appServices [i]);
+        if (svc == NULL) {
+            LOGE ("Copy appService error.\n");
+
+            for (n = 0; n < appServicesNum; n++)
+                freeAppService (appServices [n]);
+            free (appServices);
+
+            for (n = 0; n < i; n++)
+                freeAppService (appServicesCopy [n]);
+            free (appServicesCopy);
+
+            return -1;
+        }
+
+        appServicesCopy [i] = svc;
+    }
+
     /* Insert appServices to slave hash table */
-    for (i = 0; i < appServicesNum; i ++) {
+    for (i = 0; i < appServicesNum; i++) {
         ret = addAppServiceToSlave (appServices [i]);
         if (ret < 0) {
             for (n = i + 1; n < appServicesNum; n++)
                 freeAppService (appServices [n]);
-            ret = -1;
-            goto exit;
+            free (appServices);
+
+            for (n = 0; n < appServicesNum; n++)
+                freeAppService (appServicesCopy [n]);
+            free (appServicesCopy);
+
+            return -1;
         }
     }
-    swapAppServiceMap ();
-    ret = 0;
 
-exit:
-    free (appServices);
-    return ret;
+    /* Swap appService map */
+    swapAppServiceMap ();
+
+    /* Insert appServices copy to slave hash table */
+    for (i = 0; i < appServicesNum; i++) {
+        ret = addAppServiceToSlave (appServicesCopy [i]);
+        if (ret < 0) {
+            for (n = i + 1; n < appServicesNum; n++)
+                freeAppService (appServicesCopy [n]);
+            free (appServicesCopy);
+            return -1;
+        }
+    }
+
+    return 0;
 }
 
 /**
@@ -352,20 +465,23 @@ updateAppServicesFromCache (void) {
     int ret;
     char *out;
     json_t *appSvcs;
+    json_error_t error;
 
-    appSvcs = getAppServicesFromCache ();
+    appSvcs = json_load_file (AGENT_APP_SERVICES_CACHE,
+                              JSON_DISABLE_EOF_CHECK, &error);
     if (appSvcs == NULL)
         return 0;
 
     ret = updateAppServicesFromJson (appSvcs);
     if (ret < 0) {
+        remove (AGENT_APP_SERVICES_CACHE);
         json_object_clear (appSvcs);
         return -1;
     }
 
     out = json_dumps (appSvcs, JSON_INDENT (4) | JSON_PRESERVE_ORDER);
     if (out) {
-        LOGI ("Get appServices from cache success:\n%s\n", out);
+        LOGI ("Update appServices from cache success:\n%s\n", out);
         free (out);
     }
 

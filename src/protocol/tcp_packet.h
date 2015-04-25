@@ -202,11 +202,15 @@ struct _tcpBreakdown {
 #define TCP_SKBD_TCP_ZERO_WINDOWS "tcp_zero_windows"
 #define TCP_SKBD_TCP_DUPLICATE_ACKS "tcp_duplicate_acks"
 
+typedef void (*tcpProcessCB) (void *args);
+
 /*========================Interfaces definition============================*/
 void
 tcpProcess (iphdrPtr iph, timeValPtr tm);
 int
-initTcpContext (boolean protoDetectFlag, void *sock);
+resetTcpContext (void);
+int
+initTcpContext (boolean protoDetectFlag, tcpProcessCB fun);
 void
 destroyTcpContext (void);
 /*=======================Interfaces definition end=========================*/

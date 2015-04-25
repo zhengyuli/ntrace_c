@@ -89,17 +89,17 @@ freeIpFrag (ipFragPtr ipf) {
 
 static void
 addIpQueueToExpireTimeoutList (ipQueuePtr ipq, timeValPtr tm) {
-    ipQueueTimeoutPtr new;
+    ipQueueTimeoutPtr tmp;
 
-    new = (ipQueueTimeoutPtr) malloc (sizeof (ipQueueTimeout));
-    if (new == NULL) {
+    tmp = (ipQueueTimeoutPtr) malloc (sizeof (ipQueueTimeout));
+    if (tmp == NULL) {
         LOGE ("Alloc ipQueue expire timeout error: %s.\n", strerror (errno));
         return;
     }
 
-    new->queue = ipq;
-    new->timeout = tm->tvSec + DEFAULT_IPQUEUE_EXPIRE_TIMEOUT;
-    listAddTail (&new->node, &ipQueueExpireTimeoutList);
+    tmp->queue = ipq;
+    tmp->timeout = tm->tvSec + DEFAULT_IPQUEUE_EXPIRE_TIMEOUT;
+    listAddTail (&tmp->node, &ipQueueExpireTimeoutList);
 }
 
 static void
@@ -330,6 +330,7 @@ ipPktShouldDrop (iphdrPtr iph) {
         inet_ntop (AF_INET, (void *) &iph->ipDest, ipDestStr, sizeof (ipDestStr));
         snprintf (key1, sizeof (key1), "%s:%d", ipSrcStr, ntohs (tcph->source));
         snprintf (key2, sizeof (key2), "%s:%d", ipDestStr, ntohs (tcph->dest));
+
         if (getAppServiceProtoAnalyzer (key1) || getAppServiceProtoAnalyzer (key2))
             return False;
         else
@@ -350,14 +351,18 @@ ipPktShouldDrop (iphdrPtr iph) {
 int
 ipDefrag (iphdrPtr iph, timeValPtr tm, iphdrPtr *newIph) {
     int ret;
+    timeVal timestamp;
     u_short iphLen, ipLen, offset, end, flags, gap;
     ipFragPtr ipf, prevEntry, entry;
     listHeadPtr pos, npos;
     ipQueuePtr ipq;
     iphdrPtr tmpIph;
 
+    timestamp.tvSec = ntohll (tm->tvSec);
+    timestamp.tvUsec = ntohll (tm->tvUsec);
+
     /* Check ipQueue expire timeout list */
-    checkIpQueueExpireTimeoutList (tm);
+    checkIpQueueExpireTimeoutList (&timestamp);
     ret = checkIpHeader (iph);
     if (ret < 0) {
         *newIph = NULL;
@@ -401,10 +406,10 @@ ipDefrag (iphdrPtr iph, timeValPtr tm, iphdrPtr *newIph) {
         }
 
         /* Add ipQueue to expire timeout list */
-        addIpQueueToExpireTimeoutList (ipq, tm);
+        addIpQueueToExpireTimeoutList (ipq, &timestamp);
     } else {
         /* Update ipQueue expire timeout */
-        updateIpQueueExpireTimeout (ipq, tm);
+        updateIpQueueExpireTimeout (ipq, &timestamp);
     }
 
     /* Alloc new ipFrag */

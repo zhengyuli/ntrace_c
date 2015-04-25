@@ -7,6 +7,7 @@
 #include "signals.h"
 #include "log.h"
 #include "netdev.h"
+#include "app_service_manager.h"
 #include "task_manager.h"
 #include "ip.h"
 #include "tcp.h"
@@ -14,6 +15,32 @@
 #include "ip_packet.h"
 #include "tcp_packet.h"
 #include "proto_detect_service.h"
+
+#define PROTO_DETECTION_DETECT_INTERVAL 10
+#define PROTO_DETECTION_SLEEP_INTERVAL 10
+
+static void
+updateFilterForSniff (void *args) {
+    int ret;
+    char *filter;
+
+    /* Update application services filter */
+    filter = getAppServicesFilter ();
+    if (filter == NULL)
+        LOGE ("Get application services filter error.\n");
+    else {
+        ret = updateNetDevFilterForSniff (filter);
+        if (ret < 0)
+            LOGE ("Update application services filter error.\n");
+        else
+            LOGI ("\n"
+                  "============================================\n"
+                  "Update application services filter with:\n%s\n"
+                  "============================================\n\n", filter);
+
+        free (filter);
+    }
+}
 
 /*
  * Proto detect service.
@@ -30,6 +57,7 @@ protoDetectService (void *args) {
     u_char *rawPkt;
     timeVal captureTime;
     iphdrPtr iph, newIphdr;
+    u_long_long detectStartTime = 0;
     boolean exitNormally = False;
 
     /* Reset signals flag */
@@ -62,7 +90,7 @@ protoDetectService (void *args) {
     }
 
     /* Init tcp context */
-    ret = initTcpContext (True, NULL);
+    ret = initTcpContext (True, updateFilterForSniff);
     if (ret < 0) {
         LOGE ("Init tcp context error.\n");
         goto destroyIpContext;
@@ -75,21 +103,37 @@ protoDetectService (void *args) {
             if (capPktHdr->caplen != capPktHdr->len)
                 continue;
 
-            /* Get ip packet and filter non-tcp packets */
+            if (getPropertiesPcapFile () == NULL) {
+                if (!detectStartTime) {
+                    detectStartTime = capPktHdr->ts.tv_sec;
+                } else {
+                    if (capPktHdr->ts.tv_sec - detectStartTime > PROTO_DETECTION_DETECT_INTERVAL) {
+                        LOGI ("interval: %llu\n", capPktHdr->ts.tv_sec - detectStartTime);
+                        sleep (PROTO_DETECTION_SLEEP_INTERVAL);
+                        detectStartTime = 0;
+                        resetTcpContext ();
+                        continue;
+                    }
+                }
+            }
+
+            /* Get ip packet */
             iph = (iphdrPtr) getIpPacket (rawPkt, datalinkType);
-            if (iph == NULL || iph->ipProto != IPPROTO_TCP)
+            if (iph == NULL)
                 continue;
 
             /* Get packet capture timestamp */
             captureTime.tvSec = htonll (capPktHdr->ts.tv_sec);
             captureTime.tvUsec = htonll (capPktHdr->ts.tv_usec);
 
+            /* Ip packet process */
             ret = ipDefrag (iph, &captureTime, &newIphdr);
             if (ret < 0)
                 LOGE ("Ip packet defragment error.\n");
 
             if (newIphdr) {
                 switch (newIphdr->ipProto) {
+                    /* Tcp packet process */
                     case IPPROTO_TCP:
                         tcpProcess (newIphdr, &captureTime);
                         break;

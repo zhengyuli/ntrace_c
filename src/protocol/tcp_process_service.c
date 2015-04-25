@@ -12,6 +12,24 @@
 #include "tcp_packet.h"
 #include "tcp_process_service.h"
 
+/* Tcp session breakdown send sock */
+static __thread void *tcpBreakdownSendSock = NULL;
+
+static void
+publishTcpBreakdown (void *args) {
+    int ret;
+    char *tcpBreakdown = (char *) args;
+    u_int retries = 3;
+
+    do {
+        ret = zstr_send (tcpBreakdownSendSock, tcpBreakdown);
+        retries -= 1;
+    } while (ret < 0 && retries);
+
+    if (ret < 0)
+        LOGE ("Send session breakdown error.\n");
+}
+
 /*
  * Tcp packet process service.
  * Read ip packets send by ipPktProcessService, then do tcp process and
@@ -23,7 +41,6 @@ tcpProcessService (void *args) {
     u_int dispatchIndex;
     cpu_set_t cpuset;
     void *tcpPktRecvSock;
-    void *tcpBreakdownSendSock;
     zframe_t *tmFrame = NULL;
     zframe_t *ipPktFrame = NULL;
     timeValPtr tm;
@@ -57,7 +74,7 @@ tcpProcessService (void *args) {
     displayTaskSchedPolicyInfo ("TcpProcessService");
 
     /* Init tcp context */
-    ret = initTcpContext (False, tcpBreakdownSendSock);
+    ret = initTcpContext (False, publishTcpBreakdown);
     if (ret < 0) {
         LOGE ("Init tcp context error.\n");
         goto destroyLogContext;

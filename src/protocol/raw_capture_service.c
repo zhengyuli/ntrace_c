@@ -16,6 +16,7 @@
 /* NetDev pcap descriptor and datalink type */
 static pcap_t *pcapDev = NULL;
 static int datalinkType = -1;
+
 /* NetDev loop complete flag */
 static boolean loopComplete = False;
 
@@ -120,9 +121,10 @@ rawCaptureService (void *args) {
         free (filter);
         goto destroyLogContext;
     }
-    LOGI ("============================================\n"
+    LOGI ("\n"
+          "============================================\n"
           "Update application services filter with:\n%s\n"
-          "============================================\n", filter);
+          "============================================\n\n", filter);
     free (filter);
 
     /* Init rawPktCaptureSize and rawPktCaptureStartTime */
@@ -135,6 +137,7 @@ rawCaptureService (void *args) {
             /* Filter out incomplete raw packet */
             if (capPktHdr->caplen != capPktHdr->len)
                 continue;
+
             rawPktCaptureSize += capPktHdr->caplen;
 
             /* Get ip packet */

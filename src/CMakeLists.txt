@@ -51,7 +51,6 @@ SET (AGENT_SOURCE_FILES
   task_manager.c
   app_service/app_service.c
   app_service/app_service_manager.c
-  app_service/app_service_cache.c
   netdev.c
   management/management_service.c
   ownership/ownership.c

@@ -14,12 +14,11 @@
 #include "atomic.h"
 #include "checksum.h"
 #include "log.h"
-#include "app_service_manager.h"
 #include "ip.h"
 #include "tcp.h"
 #include "tcp_options.h"
 #include "proto_analyzer.h"
-#include "netdev.h"
+#include "app_service_manager.h"
 #include "tcp_packet.h"
 
 /* Tcp stream hash key format string */
@@ -39,16 +38,18 @@
 /* Tcp expect sequence */
 #define EXP_SEQ (snd->firstDataSeq + rcv->count + rcv->urgCount)
 
-/* Tcp streams alloc statistic for global */
-static u_long_long tcpStreamsAlloc = 0;
+/* Tcp streams alloc info for global */
 static pthread_spinlock_t tcpStreamsAllocLock;
-/* Tcp streams alloc for local */
+static u_long_long tcpStreamsAlloc = 0;
+
+/* Tcp streams free info for global */
+static pthread_spinlock_t tcpStreamsFreeLock;
+static u_long_long tcpStreamsFree = 0;
+
+/* Tcp streams alloc info for local */
 static __thread u_long_long tcpStreamsAllocLocal = 0;
 
-/* Tcp streams free statistic for global */
-static u_long_long tcpStreamsFree = 0;
-static pthread_spinlock_t tcpStreamsFreeLock;
-/* Tcp streams free statistic for local */
+/* Tcp streams free info for local */
 static __thread u_long_long tcpStreamsFreeLocal = 0;
 
 /* Tcp context init once control */
@@ -63,14 +64,14 @@ static __thread listHead tcpStreamTimoutList;
 /* Tcp stream hash table */
 static __thread hashTablePtr tcpStreamHashTable;
 
-/* Tcp breakdown send sock */
-static __thread void *tcpBreakdownSendSock;
-
 /* Tcp stream cache */
 static __thread tcpStreamPtr streamCache = NULL;
 
-/* Tcp context purpose */
-static __thread boolean forProtoDetect = False;
+/* Tcp process purpose, for proto analysis or detect */
+static __thread boolean doProtoDetect = False;
+
+/* Tcp process callback function */
+static __thread tcpProcessCB tcpProcessCallback;
 
 static boolean
 before (u_int seq1, u_int seq2) {
@@ -265,7 +266,7 @@ addTcpStreamToHash (tcpStreamPtr stream, hashItemFreeCB freeFun) {
         return -1;
     }
 
-    if (!forProtoDetect) {
+    if (!doProtoDetect) {
         tcpStreamsAllocLocal++;
         incTcpStreamsAlloc ();
     }
@@ -282,7 +283,7 @@ static void
 delTcpStreamFromHash (tcpStreamPtr stream) {
     int ret;
     tuple4Ptr addr;
-    char *filter;
+    protoAnalyzerPtr analyzer;
     char ipSrcStr [16], ipDestStr [16];
     char key [64];
 
@@ -295,29 +296,20 @@ delTcpStreamFromHash (tcpStreamPtr stream) {
     inet_ntop (AF_INET, (void *) &addr->daddr, ipDestStr, sizeof (ipDestStr));
 
     /* Save detected appService if any */
-    if (forProtoDetect) {
+    if (doProtoDetect) {
         if (stream->proto) {
-            ret = addAppService (stream->proto, ipDestStr, addr->dest);
-            if (ret < 0)
-                LOGE ("Add new detected appService ip:%s port:%u proto: %s error.\n",
-                      ipDestStr, addr->dest, stream->proto);
-            else {
-                LOGI ("Add new detected appService ip:%s port:%u proto: %s success.\n",
-                      ipDestStr, addr->dest, stream->proto);
+            snprintf (key, sizeof (key), "%s:%d", ipDestStr, addr->dest);
 
-                /* Update application services filter */
-                filter = getAppServicesFilter ();
-                if (filter == NULL)
-                    LOGE ("Get application services filter error.\n");
+            analyzer = getAppServiceProtoAnalyzer (key);
+            if (analyzer == NULL) {
+                ret = addAppService (stream->proto, ipDestStr, addr->dest);
+                if (ret < 0)
+                    LOGE ("Add new detected appService ip:%s port:%u proto: %s error.\n",
+                          ipDestStr, addr->dest, stream->proto);
                 else {
-                    ret = updateNetDevFilterForSniff (filter);
-                    if (ret < 0)
-                        LOGE ("Update application services filter error.\n");
-                    else
-                        LOGI ("============================================\n"
-                              "Update application services filter with:\n%s\n"
-                              "============================================\n", filter);
-                    free (filter);
+                    LOGI ("Add new detected appService ip:%s port:%u proto: %s success.\n",
+                          ipDestStr, addr->dest, stream->proto);
+                    (*tcpProcessCallback) (NULL);
                 }
             }
         }
@@ -328,7 +320,7 @@ delTcpStreamFromHash (tcpStreamPtr stream) {
     ret = hashRemove (tcpStreamHashTable, key);
     if (ret < 0)
         LOGE ("Delete stream from hash table error.\n");
-    else if (!forProtoDetect) {
+    else if (!doProtoDetect) {
         tcpStreamsFreeLocal++;
         incTcpStreamsFree ();
     }
@@ -396,7 +388,7 @@ newTcpStream (protoAnalyzerPtr analyzer) {
     if (stream == NULL)
         return NULL;
 
-    if (!forProtoDetect) {
+    if (!doProtoDetect) {
         stream->proto = analyzer->proto;
         stream->analyzer = analyzer;
     } else {
@@ -483,7 +475,7 @@ newTcpStream (protoAnalyzerPtr analyzer) {
     stream->zeroWindows = 0;
     stream->dupAcks = 0;
 
-    if (!forProtoDetect) {
+    if (!doProtoDetect) {
         stream->sessionDetail = (*stream->analyzer->newSessionDetail) ();
         if (stream->sessionDetail == NULL) {
             free (stream);
@@ -525,7 +517,7 @@ freeTcpStream (tcpStreamPtr stream) {
     free (stream->server.rcvBuf);
 
     /* Free session detail */
-    if (!forProtoDetect)
+    if (!doProtoDetect)
         (*stream->analyzer->freeSessionDetail) (stream->sessionDetail);
 
     free (stream);
@@ -555,9 +547,10 @@ addNewTcpStream (tcphdrPtr tcph, iphdrPtr iph, timeValPtr tm) {
     protoAnalyzerPtr analyzer;
     tcpStreamPtr stream, tmp;
 
-    if (!forProtoDetect) {
+    if (!doProtoDetect) {
         inet_ntop (AF_INET, (void *) &iph->ipDest, ipStr, sizeof (ipStr));
         snprintf (key, sizeof (key), "%s:%d", ipStr, ntohs (tcph->dest));
+
         analyzer = getAppServiceProtoAnalyzer (key);
         if (analyzer == NULL) {
             LOGE ("Appliction service (%s:%d) has not been registered.\n",
@@ -616,20 +609,6 @@ addNewTcpStream (tcphdrPtr tcph, iphdrPtr iph, timeValPtr tm) {
         return NULL;
     } else
         return stream;
-}
-
-static void
-publishTcpBreakdown (char *sessionBreakdown) {
-    int ret;
-    u_int retries = 3;
-
-    do {
-        ret = zstr_send (tcpBreakdownSendSock, sessionBreakdown);
-        retries -= 1;
-    } while (ret < 0 && retries);
-
-    if (ret < 0)
-        LOGE ("Send tcp breakdown error.\n");
 }
 
 static char *
@@ -852,7 +831,7 @@ generateSessionBreakdown (tcpStreamPtr stream, timeValPtr tm) {
         (*stream->analyzer->freeSessionBreakdown) (tbd.sessionBreakdown);
         return;
     }
-    publishTcpBreakdown (jsonStr);
+    (*tcpProcessCallback) (jsonStr);
 
     /* Free json string and application layer session breakdown */
     free (jsonStr);
@@ -888,7 +867,7 @@ checkTcpStreamClosingTimeoutList (timeValPtr tm) {
 
         entry->stream->state = STREAM_TIME_OUT;
         entry->stream->closeTime = timeVal2MilliSecond (tm);
-        if (!forProtoDetect)
+        if (!doProtoDetect)
             generateSessionBreakdown (entry->stream, tm);
         delTcpStreamFromHash (entry->stream);
     }
@@ -904,7 +883,7 @@ handleEstb (tcpStreamPtr stream, timeValPtr tm) {
     stream->estbTime = timeVal2MilliSecond (tm);
     stream->mss = MIN_NUM (stream->client.mss, stream->server.mss);
 
-    if (!forProtoDetect) {
+    if (!doProtoDetect) {
         (*stream->analyzer->sessionProcessEstb) (tm, stream->sessionDetail);
         generateSessionBreakdown (stream, tm);
     }
@@ -921,7 +900,7 @@ handleUrgData (tcpStreamPtr stream, halfStreamPtr snd,
     else
         direction = STREAM_FROM_SERVER;
 
-    if (!forProtoDetect)
+    if (!doProtoDetect)
         (*stream->analyzer->sessionProcessUrgData) (direction, urgData,
                                                     tm, stream->sessionDetail);
 }
@@ -939,7 +918,7 @@ handleData (tcpStreamPtr stream, halfStreamPtr snd,
     else
         direction = STREAM_FROM_SERVER;
 
-    if (!forProtoDetect) {
+    if (!doProtoDetect) {
         parseCount = (*stream->analyzer->sessionProcessData) (direction, data, dataLen,
                                                               tm, stream->sessionDetail, &state);
         if (state == SESSION_DONE)
@@ -975,13 +954,13 @@ handleReset (tcpStreamPtr stream, halfStreamPtr snd, timeValPtr tm) {
         else
             stream->state = STREAM_RESET_TYPE4;
 
-        if (!forProtoDetect)
+        if (!doProtoDetect)
             (*stream->analyzer->sessionProcessReset) (direction, tm,
                                                       stream->sessionDetail);
     }
 
     stream->closeTime = timeVal2MilliSecond (tm);
-    if (!forProtoDetect)
+    if (!doProtoDetect)
         generateSessionBreakdown (stream, tm);
     delTcpStreamFromHash (stream);
 }
@@ -997,7 +976,7 @@ handleFin (tcpStreamPtr stream, halfStreamPtr snd, timeValPtr tm) {
     else
         direction = STREAM_FROM_SERVER;
 
-    if (!forProtoDetect) {
+    if (!doProtoDetect) {
         (*stream->analyzer->sessionProcessFin) (direction, tm,
                                                 stream->sessionDetail, &state);
         if (state == SESSION_DONE)
@@ -1014,7 +993,7 @@ static void
 handleClose (tcpStreamPtr stream, timeValPtr tm) {
     stream->state = STREAM_CLOSED;
     stream->closeTime = timeVal2MilliSecond (tm);
-    if (!forProtoDetect)
+    if (!doProtoDetect)
         generateSessionBreakdown (stream, tm);
     delTcpStreamFromHash (stream);
 }
@@ -1302,6 +1281,7 @@ tcpProcess (iphdrPtr iph, timeValPtr tm) {
     u_char *tcpData;
     u_int tcpDataLen;
     u_int tmOption;
+    timeVal timestamp;
     tcpStreamPtr stream;
     halfStreamPtr snd, rcv;
     streamDirection direction;
@@ -1313,11 +1293,11 @@ tcpProcess (iphdrPtr iph, timeValPtr tm) {
     tcpData = (u_char *) tcph + tcph->doff * 4;
     tcpDataLen = ipLen - (iph->iphLen * 4) - (tcph->doff * 4);
 
-    tm->tvSec = ntohll (tm->tvSec);
-    tm->tvUsec = ntohll (tm->tvUsec);
+    timestamp.tvSec = ntohll (tm->tvSec);
+    timestamp.tvUsec = ntohll (tm->tvUsec);
 
     /* Tcp stream closing timout check */
-    checkTcpStreamClosingTimeoutList (tm);
+    checkTcpStreamClosingTimeoutList (&timestamp);
 
     if (ipLen < (iph->iphLen * 4 + sizeof (tcphdr))) {
         LOGE ("Invalid tcp packet.\n");
@@ -1353,7 +1333,7 @@ tcpProcess (iphdrPtr iph, timeValPtr tm) {
         if (tcph->syn && !tcph->ack && !tcph->rst) {
             /* For proto detect, if application service has been added
              * do return directly */
-            if (forProtoDetect) {
+            if (doProtoDetect) {
                 inet_ntop (AF_INET, (void *) &iph->ipDest, ipStr, sizeof (ipStr));
                 snprintf (key, sizeof (key), "%s:%d", ipStr, ntohs (tcph->dest));
 
@@ -1361,7 +1341,7 @@ tcpProcess (iphdrPtr iph, timeValPtr tm) {
                     return;
             }
 
-            stream = addNewTcpStream (tcph, iph, tm);
+            stream = addNewTcpStream (tcph, iph, &timestamp);
             if (stream == NULL)
                 LOGE ("Add new tcp stream error.\n");
             else
@@ -1399,12 +1379,12 @@ tcpProcess (iphdrPtr iph, timeValPtr tm) {
             if (direction == STREAM_FROM_CLIENT &&
                 stream->client.state == TCP_SYN_PKT_SENT) {
                 stream->retries++;
-                stream->retriesTime = timeVal2MilliSecond (tm);
+                stream->retriesTime = timeVal2MilliSecond (&timestamp);
             } else if (direction == STREAM_FROM_SERVER &&
                        stream->server.state == TCP_SYN_PKT_RECV) {
                 /* Tcp syn/ack retries */
                 stream->dupSynAcks++;
-                stream->synAckTime = timeVal2MilliSecond (tm);
+                stream->synAckTime = timeVal2MilliSecond (&timestamp);
                 stream->dupAcks++;
             }
 
@@ -1446,14 +1426,14 @@ tcpProcess (iphdrPtr iph, timeValPtr tm) {
             if (!getTcpMssOption (tcph, &stream->server.mss))
                 LOGW ("Tcp MSS from server is null.\n");
 
-            stream->synAckTime = timeVal2MilliSecond (tm);
+            stream->synAckTime = timeVal2MilliSecond (&timestamp);
         }
 
         return;
     }
 
     if (tcph->rst) {
-        handleReset (stream, snd, tm);
+        handleReset (stream, snd, &timestamp);
         return;
     }
 
@@ -1481,7 +1461,7 @@ tcpProcess (iphdrPtr iph, timeValPtr tm) {
             stream->server.state == TCP_SYN_PKT_RECV) {
             /* The last packet of tcp three handshakes */
             if (ntohl (tcph->ackSeq) == stream->server.seq) {
-                handleEstb (stream, tm);
+                handleEstb (stream, &timestamp);
                 stream->state = STREAM_DATA_EXCHANGING;
             } else
                 stream->outOfOrderPkts++;
@@ -1502,7 +1482,7 @@ tcpProcess (iphdrPtr iph, timeValPtr tm) {
 
         if (rcv->state == TCP_FIN_PKT_CONFIRMED &&
             snd->state == TCP_FIN_PKT_CONFIRMED) {
-            handleClose (stream, tm);
+            handleClose (stream, &timestamp);
             return;
         }
     }
@@ -1510,7 +1490,7 @@ tcpProcess (iphdrPtr iph, timeValPtr tm) {
     if (tcpDataLen + tcph->fin > 0) {
         if (tcpDataLen == 1)
             stream->tinyPkts++;
-        tcpQueue (stream, tcph, snd, rcv, tcpData, tcpDataLen, tm);
+        tcpQueue (stream, tcph, snd, rcv, tcpData, tcpDataLen, &timestamp);
     }
 }
 
@@ -1551,25 +1531,32 @@ destroyTcpSharedInstance (void) {
     tcpInitOnceControl = PTHREAD_ONCE_INIT;
 }
 
+int
+resetTcpContext (void) {
+    hashClean (tcpStreamHashTable);
+
+    return 0;
+}
+
 /* Init tcp context */
 int
-initTcpContext (boolean protoDetectFlag, void *sock) {
-    forProtoDetect = protoDetectFlag;
-    tcpBreakdownSendSock = sock;
+initTcpContext (boolean protoDetectFlag, tcpProcessCB fun) {
+    doProtoDetect = protoDetectFlag;
+    tcpProcessCallback = fun;
 
-    if (!forProtoDetect)
+    if (!doProtoDetect)
         pthread_once (&tcpInitOnceControl, initTcpSharedInstance);
 
     initListHead (&tcpStreamList);
     initListHead (&tcpStreamTimoutList);
 
-    if (!forProtoDetect)
+    if (!doProtoDetect)
         tcpStreamHashTable = hashNew (TCP_STREAM_HASH_TABLE_SIZE);
     else
         tcpStreamHashTable = hashNew (TCP_STREAM_HASH_TABLE_SIZE_FOR_PROTO_DETECT);
 
     if (tcpStreamHashTable == NULL) {
-        if (!forProtoDetect)
+        if (!doProtoDetect)
             pthread_once (&tcpDestroyOnceControl, destroyTcpSharedInstance);
         return -1;
     }
@@ -1580,7 +1567,7 @@ initTcpContext (boolean protoDetectFlag, void *sock) {
 /* Destroy tcp context */
 void
 destroyTcpContext (void) {
-    if (!forProtoDetect) {
+    if (!doProtoDetect) {
         dispalyLocalStatisticInfo ();
         pthread_once (&tcpDestroyOnceControl, destroyTcpSharedInstance);
     }

@@ -134,6 +134,7 @@ icmpPktShouldDrop (iphdrPtr iph, tcphdrPtr tcph) {
 
     inet_ntop (AF_INET, (void *) &iph->ipDest, ipStr, sizeof (ipStr));
     snprintf (key, sizeof (key), "%s:%d", ipStr, ntohs (tcph->dest));
+
     if (getAppServiceProtoAnalyzer (key))
         return False;
     else

@@ -148,8 +148,10 @@ ipProcessService (void *args) {
     int ret;
     void *ipPktRecvSock;
     zframe_t *tmFrame = NULL;
-    zframe_t *pktFrame = NULL;
-    iphdrPtr newIphdr;
+    zframe_t *ipPktFrame = NULL;
+    timeValPtr tm;
+    iphdrPtr iph;
+    iphdrPtr newIph;
 
     /* Reset signals flag */
     resetSignalsFlag ();
@@ -189,45 +191,50 @@ ipProcessService (void *args) {
         }
 
         /* Receive ip packet zframe */
-        pktFrame = zframe_recv (ipPktRecvSock);
-        if (pktFrame == NULL) {
+        ipPktFrame = zframe_recv (ipPktRecvSock);
+        if (ipPktFrame == NULL) {
             if (!SIGUSR1IsInterrupted ())
                 LOGE ("Receive ip packet zframe fatal error.\n");
             zframe_destroy (&tmFrame);
             break;
-        } else if (zframe_more (pktFrame)) {
+        } else if (zframe_more (ipPktFrame)) {
             zframe_destroy (&tmFrame);
-            tmFrame = pktFrame;
-            pktFrame = NULL;
+            tmFrame = ipPktFrame;
+            ipPktFrame = NULL;
             continue;
         }
 
-        ret = ipDefrag ((iphdrPtr) zframe_data (pktFrame),
-                        (timeValPtr) zframe_data (tmFrame), &newIphdr);
+        tm = (timeValPtr) zframe_data (tmFrame);
+        iph = (iphdrPtr) zframe_data (ipPktFrame);
+
+        /* Ip packet process */
+        ret = ipDefrag (iph, tm, &newIph);
         if (ret < 0)
             LOGE ("Ip packet defragment error.\n");
 
-        if (newIphdr) {
-            switch (newIphdr->ipProto) {
+        if (newIph) {
+            switch (newIph->ipProto) {
+                    /* Tcp packet dispatch */
                 case IPPROTO_TCP:
-                    tcpPacketDispatch (newIphdr, (timeValPtr) zframe_data (tmFrame));
+                    tcpPacketDispatch (newIph, tm);
                     break;
 
+                    /* Icmp packet dispatch */
                 case IPPROTO_ICMP:
-                    icmpPacketDispatch (newIphdr, (timeValPtr) zframe_data (tmFrame));
+                    icmpPacketDispatch (newIph, tm);
 
                 default:
                     break;
             }
 
             /* Free new ip packet after defragment */
-            if (newIphdr != (iphdrPtr) zframe_data (pktFrame))
-                free (newIphdr);
+            if (newIph != iph)
+                free (newIph);
         }
 
         /* Free zframe */
         zframe_destroy (&tmFrame);
-        zframe_destroy (&pktFrame);
+        zframe_destroy (&ipPktFrame);
     }
 
     LOGI ("IpProcessService will exit ... .. .\n");

@@ -2,6 +2,7 @@
 #define __NETDEV_H__
 
 #include <pcap.h>
+#include "util.h"
 
 /*========================Interfaces definition============================*/
 pcap_t *

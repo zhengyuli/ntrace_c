@@ -162,6 +162,7 @@ hashItemInsert (hashTablePtr htbl, char *key, void *data, hashItemFreeCB fun) {
         htbl->size++;
         return 0;
     } else {
+        printf ("already added: %s\n", key);
         fun (data);
         return -1;
     }

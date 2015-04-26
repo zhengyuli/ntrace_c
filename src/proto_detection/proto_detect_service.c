@@ -17,9 +17,6 @@
 #include "tcp_packet.h"
 #include "proto_detect_service.h"
 
-#define PROTO_DETECTION_DETECT_INTERVAL 10
-#define PROTO_DETECTION_SLEEP_INTERVAL 10
-
 static void
 updateFilterForSniff (void *args) {
     int ret;
@@ -57,6 +54,8 @@ protoDetectService (void *args) {
     struct pcap_pkthdr *capPktHdr;
     u_char *rawPkt;
     boolean captureLive;
+    u_int protoDetectInterval;
+    u_int protoDetectSleepInterval;
     u_long_long detectStartTime = 0;
     timeVal captureTime;
     iphdrPtr iph, newIphdr;
@@ -98,8 +97,9 @@ protoDetectService (void *args) {
         goto destroyIpContext;
     }
 
-    /* Check capture mode */
     captureLive = getPropertiesPcapFile () ? False : True;
+    protoDetectInterval = getPropertiesProtoDetectInterval ();
+    protoDetectSleepInterval = getPropertiesProtoDetectSleepInterval ();
 
     while (!SIGUSR1IsInterrupted ()) {
         ret = pcap_next_ex (pcapDev, &capPktHdr, (const u_char **) &rawPkt);
@@ -108,16 +108,37 @@ protoDetectService (void *args) {
             if (capPktHdr->caplen != capPktHdr->len)
                 continue;
 
-            if (captureLive) {
+            if (captureLive &&
+                protoDetectInterval &&
+                protoDetectSleepInterval) {
                 if (!detectStartTime) {
                     detectStartTime = capPktHdr->ts.tv_sec;
-                } else {
-                    if (capPktHdr->ts.tv_sec - detectStartTime > PROTO_DETECTION_DETECT_INTERVAL) {
-                        sleep (PROTO_DETECTION_SLEEP_INTERVAL);
-                        resetTcpContext ();
-                        detectStartTime = 0;
-                        continue;
+                } else if (capPktHdr->ts.tv_sec - detectStartTime > protoDetectInterval) {
+                    LOGI ("Pause ProtoDetectService.\n");
+                    sleep (protoDetectSleepInterval);
+
+                    /* Reset netdev for proto detection */
+                    ret = resetNetDevForProtoDetection ();
+                    if (ret < 0) {
+                        LOGE ("Reset netdev for proto detection error.\n");
+                        break;
                     }
+                    pcapDev = getNetDevPcapDescForProtoDetection ();
+                    datalinkType = getNetDevDatalinkTypeForProtoDetection ();
+
+                    /* Update proto detection filter */
+                    ret = updateNetDevFilterForProtoDetection ("tcp");
+                    if (ret < 0) {
+                        LOGE ("Update application services filter error.\n");
+                        break;
+                    }
+
+                    /* Reset tcp context */
+                    resetTcpContext ();
+
+                    detectStartTime = 0;
+                    LOGI ("Resume ProtoDetectService.\n");
+                    continue;
                 }
             }
 

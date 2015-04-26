@@ -264,7 +264,7 @@ sessionBreakdownService (void *args) {
         sessionBreakdown = zstr_recv (sessionBreakdownRecvSock);
         if (sessionBreakdown == NULL) {
             if (!SIGUSR1IsInterrupted ())
-                LOGE ("Receive session breakdown fatal error.\n");
+                LOGE ("Receive session breakdown with fatal error.\n");
             break;
         }
 

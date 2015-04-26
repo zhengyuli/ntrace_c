@@ -151,6 +151,46 @@ getNetDevDatalinkTypeForProtoDetection (void) {
     return datalinkTypeForProtoDetection;
 }
 
+int
+resetNetDevForProtoDetection (void) {
+    if (getPropertiesPcapFile ()) {
+        pcapDescForProtoDectionInstance =
+                newPcapFileDesc (getPropertiesPcapFile ());
+        if (pcapDescForProtoDectionInstance == NULL) {
+            pcap_close (pcapDescForSniffInstance);
+            pcapDescForSniffInstance = NULL;
+            LOGE ("Open pcap file for proto detection error.\n");
+            return -1;
+        }
+    } else if (getPropertiesInterface ()) {
+        pcapDescForProtoDectionInstance =
+                newPcapInterfaceDesc (getPropertiesInterface ());
+        if (pcapDescForProtoDectionInstance == NULL) {
+            pcap_close (pcapDescForSniffInstance);
+            pcapDescForSniffInstance = NULL;
+            LOGE ("Open interface: %s for proto detection error.\n",
+                  getPropertiesInterface ());
+            return -1;
+        }
+    } else {
+        LOGE ("Input \"Input.Interface\" and \"Input.PcapFile\" are all empty, "
+              "please set the right input source.");
+        return -1;
+    }
+
+    datalinkTypeForProtoDetection =
+            pcap_datalink (pcapDescForProtoDectionInstance);
+
+    if (datalinkTypeForProtoDetection < 0) {
+        LOGE ("Get datalink type error.\n");
+        pcap_close (pcapDescForProtoDectionInstance);
+        pcapDescForProtoDectionInstance = NULL;
+        return -1;
+    }
+
+    return 0;
+}
+
 /**
  * @brief Get pcapDev statistic info for sniff.
  *
@@ -289,7 +329,8 @@ int
 initNetDev (void) {
     /* Create pcap descriptor instance */
     if (getPropertiesPcapFile ()) {
-        pcapDescForSniffInstance = newPcapFileDesc (getPropertiesPcapFile ());
+        pcapDescForSniffInstance =
+                newPcapFileDesc (getPropertiesPcapFile ());
         if (pcapDescForSniffInstance == NULL) {
             LOGE ("Open pcap file for sniff error.\n");
             return -1;
@@ -299,7 +340,8 @@ initNetDev (void) {
             pcapFileLoadCount++;
         }
 
-        pcapDescForProtoDectionInstance = newPcapFileDesc (getPropertiesPcapFile ());
+        pcapDescForProtoDectionInstance =
+                newPcapFileDesc (getPropertiesPcapFile ());
         if (pcapDescForProtoDectionInstance == NULL) {
             pcap_close (pcapDescForSniffInstance);
             pcapDescForSniffInstance = NULL;
@@ -309,36 +351,39 @@ initNetDev (void) {
             LOGI ("Use pcap file: %s as input for proto detection.\n",
                   getPropertiesPcapFile ());
         }
-    }
-
-    if (pcapDescForSniffInstance == NULL &&
-        pcapDescForProtoDectionInstance == NULL &&
-        getPropertiesInterface ()) {
-        pcapDescForSniffInstance = newPcapInterfaceDesc (getPropertiesInterface ());
+    } else if (getPropertiesInterface ()) {
+        pcapDescForSniffInstance =
+                newPcapInterfaceDesc (getPropertiesInterface ());
         if (pcapDescForSniffInstance == NULL) {
-            LOGE ("Open interface: %s for sniff error.\n", getPropertiesInterface ());
+            LOGE ("Open interface: %s for sniff error.\n",
+                  getPropertiesInterface ());
             return -1;
         } else
-            LOGI ("Use interface: %s as input for sniff.\n", getPropertiesInterface ());
+            LOGI ("Use interface: %s as input for sniff.\n",
+                  getPropertiesInterface ());
 
-        pcapDescForProtoDectionInstance = newPcapInterfaceDesc (getPropertiesInterface ());
+        pcapDescForProtoDectionInstance =
+                newPcapInterfaceDesc (getPropertiesInterface ());
         if (pcapDescForProtoDectionInstance == NULL) {
             pcap_close (pcapDescForSniffInstance);
             pcapDescForSniffInstance = NULL;
-            LOGE ("Open interface: %s for proto detection error.\n", getPropertiesInterface ());
+            LOGE ("Open interface: %s for proto detection error.\n",
+                  getPropertiesInterface ());
             return -1;
         } else
-            LOGI ("Use interface: %s as input for proto detection.\n", getPropertiesInterface ());
-    }
-
-    if (pcapDescForSniffInstance == NULL && pcapDescForProtoDectionInstance == NULL) {
-        LOGE ("Input \"Input.Interface\" and \"Input.PcapFile\" are all empty, at least set one.");
+            LOGI ("Use interface: %s as input for proto detection.\n",
+                  getPropertiesInterface ());
+    } else {
+        LOGE ("Input \"Input.Interface\" and \"Input.PcapFile\" are all empty, "
+              "please set the right input source.");
         return -1;
     }
 
     /* Get datalink type for sniff and proto detection */
-    datalinkTypeForSniff = pcap_datalink (pcapDescForSniffInstance);
-    datalinkTypeForProtoDetection = pcap_datalink (pcapDescForProtoDectionInstance);
+    datalinkTypeForSniff =
+            pcap_datalink (pcapDescForSniffInstance);
+    datalinkTypeForProtoDetection =
+            pcap_datalink (pcapDescForProtoDectionInstance);
 
     if (datalinkTypeForSniff < 0 ||
         datalinkTypeForProtoDetection < 0) {
@@ -346,7 +391,7 @@ initNetDev (void) {
         pcap_close (pcapDescForSniffInstance);
         pcapDescForSniffInstance = NULL;
         pcap_close (pcapDescForProtoDectionInstance);
-        pcapDescForSniffInstance = NULL;
+        pcapDescForProtoDectionInstance = NULL;
         return -1;
     }
 

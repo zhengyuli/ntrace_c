@@ -23,6 +23,11 @@ struct _properties {
 
     char *outputFile;                   /**< Output file */
 
+    u_int protoDetectInterval;          /**< Proto auto detect interval for each
+                                             detect procedure */
+    u_int protoDetectSleepInterval;     /**< Proto auto detect sleep interval after
+                                             each detect procedure */
+
     char *miningEngineHost;             /**< Mining engine host ip */
     u_short managementRegisterPort;     /**< Management register port of mining engine */
     u_short sessionBreakdownRecvPort;   /**< session breakdown receive port of mining engine */
@@ -65,6 +70,14 @@ void
 updatePropertiesLoopCount (u_int loopCount);
 char *
 getPropertiesOutputFile (void);
+u_int
+getPropertiesProtoDetectInterval (void);
+void
+updatePropertiesProtoDetectInterval (u_int protoDetectInterval);
+u_int
+getPropertiesProtoDetectSleepInterval (void);
+void
+updatePropertiesProtoDetectSleepInterval (u_int protoDetectSleepInterval);
 void
 updatePropertiesOutputFile (char *fname);
 char *

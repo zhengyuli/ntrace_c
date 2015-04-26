@@ -16,7 +16,7 @@ newProperties (void) {
     if (tmp == NULL)
         return NULL;
 
-    tmp->daemonMode = 0;
+    tmp->daemonMode = False;
     tmp->schedRealtime = False;
     tmp->schedPriority = 0;
     tmp->managementControlHost = NULL;
@@ -25,6 +25,8 @@ newProperties (void) {
     tmp->pcapFile = NULL;
     tmp->loopCount = 0;
     tmp->outputFile = NULL;
+    tmp->protoDetectInterval = 0;
+    tmp->protoDetectSleepInterval = 0;
     tmp->miningEngineHost = NULL;
     tmp->managementRegisterPort = 0;
     tmp->sessionBreakdownRecvPort = 0;
@@ -84,12 +86,12 @@ loadPropertiesFromConfigFile (char *configFile) {
 
     /* Get daemon mode */
     ret = get_config_item ("Agent", "daemonMode", iniConfig, &item);
-    if (ret) {
+    if (ret && item == NULL) {
         fprintf (stderr, "Get_config_item \"daemonMode\" error.\n");
         goto freeProperties;
     }
     ret = get_bool_config_value (item, 0, &error);
-    if (error && item) {
+    if (error) {
         fprintf (stderr, "Parse \"daemonMode\" error.\n");
         goto freeProperties;
     }
@@ -100,23 +102,25 @@ loadPropertiesFromConfigFile (char *configFile) {
 
     /* Get schedule priority */
     ret = get_config_item ("SchedulePolicy", "schedPriority", iniConfig, &item);
-    if (!ret && item) {
-        tmp->schedPriority = get_int_config_value (item, 1, 0, &error);
-        if (error) {
-            fprintf (stderr, "Get \"schedPriority\" error.\n");
-            goto freeProperties;
-        }
+    if (ret || item == NULL) {
+        fprintf (stderr, "Get_config_item \"schedPriority\" error.\n");
+        goto freeProperties;
+    }
+    tmp->schedPriority = get_int_config_value (item, 1, 0, &error);
+    if (error) {
+        fprintf (stderr, "Get \"schedPriority\" error.\n");
+        goto freeProperties;
+    }
 
-        minPriority = sched_get_priority_min (SCHED_RR);
-        maxPriority = sched_get_priority_max (SCHED_RR);
+    minPriority = sched_get_priority_min (SCHED_RR);
+    maxPriority = sched_get_priority_max (SCHED_RR);
 
-        if (tmp->schedPriority >= minPriority &&
-            tmp->schedPriority <= maxPriority)
-            tmp->schedRealtime = True;
-        else {
-            tmp->schedRealtime = False;
-            tmp->schedPriority = 0;
-        }
+    if (tmp->schedPriority >= minPriority &&
+        tmp->schedPriority <= maxPriority)
+        tmp->schedRealtime = True;
+    else {
+        tmp->schedRealtime = False;
+        tmp->schedPriority = 0;
     }
 
     /* Get management control host */
@@ -181,6 +185,30 @@ loadPropertiesFromConfigFile (char *configFile) {
             fprintf (stderr, "Get \"outputFile\" error.\n");
             goto freeProperties;
         }
+    }
+
+    /* Get proto detect interval */
+    ret = get_config_item ("ProtoDetect", "protoDetectInterval", iniConfig, &item);
+    if (ret || item == NULL) {
+        fprintf (stderr, "Get_config_item \"protoDetectInterval\" error.\n");
+        goto freeProperties;
+    }
+    tmp->protoDetectInterval = get_int_config_value (item, 1, 0, &error);
+    if (error) {
+        fprintf (stderr, "Get \"protoDetectInterval\" error.\n");
+        goto freeProperties;
+    }
+
+    /* Get proto detect sleep interval */
+    ret = get_config_item ("ProtoDetect", "protoDetectSleepInterval", iniConfig, &item);
+    if (ret || item == NULL) {
+        fprintf (stderr, "Get_config_item \"protoDetectSleepInterval\" error.\n");
+        goto freeProperties;
+    }
+    tmp->protoDetectSleepInterval = get_int_config_value (item, 1, 0, &error);
+    if (error) {
+        fprintf (stderr, "Get \"protoDetectSleepInterval\" error.\n");
+        goto freeProperties;
     }
 
     /* Get mining engine host */
@@ -370,6 +398,26 @@ updatePropertiesOutputFile (char *fname) {
     propertiesInstance->outputFile = strdup (fname);
 }
 
+u_int
+getPropertiesProtoDetectInterval (void) {
+    return propertiesInstance->protoDetectInterval;
+}
+
+void
+updatePropertiesProtoDetectInterval (u_int protoDetectInterval) {
+    propertiesInstance->protoDetectInterval = protoDetectInterval;
+}
+
+u_int
+getPropertiesProtoDetectSleepInterval (void) {
+    return propertiesInstance->protoDetectSleepInterval;
+}
+
+void
+updatePropertiesProtoDetectSleepInterval (u_int protoDetectSleepInterval) {
+    propertiesInstance->protoDetectSleepInterval = protoDetectSleepInterval;
+}
+
 char *
 getPropertiesMiningEngineHost (void) {
     return propertiesInstance->miningEngineHost;
@@ -441,47 +489,49 @@ displayPropertiesDetail (void) {
     minPriority = sched_get_priority_min (SCHED_RR);
     maxPriority = sched_get_priority_max (SCHED_RR);
 
-    LOGI("Startup with properties:{\n");
-    LOGI("    daemonMode: %s\n", propertiesInstance->daemonMode ? "True" : "False");
-    LOGI("    ScheduleRealtime: %s\n", propertiesInstance->schedRealtime ? "True" : "False");
-    LOGI("    SchedulePriority: %u\n", propertiesInstance->schedPriority);
-    LOGI("    managementControlHost: %s\n", propertiesInstance->managementControlHost);
-    LOGI("    managementControlPort: %u\n", propertiesInstance->managementControlPort);
-    LOGI("    interface: %s\n", propertiesInstance->interface);
-    LOGI("    pcapFile: %s\n", propertiesInstance->pcapFile);
-    LOGI("    loopCount: %u\n", propertiesInstance->loopCount);
-    LOGI("    outputFile: %s\n", propertiesInstance->outputFile);
-    LOGI("    miningEngineHost: %s\n", propertiesInstance->miningEngineHost);
-    LOGI("    managementRegisterPort: %u\n", propertiesInstance->managementRegisterPort);
-    LOGI("    sessionBreakdownRecvPort: %u\n", propertiesInstance->sessionBreakdownRecvPort);
-    LOGI("    logDir: %s\n", propertiesInstance->logDir);
-    LOGI("    logFileName: %s\n", propertiesInstance->logFileName);
-    LOGI("    logLevel: ");
+    LOGI ("Startup with properties:{\n");
+    LOGI ("    daemonMode: %s\n", propertiesInstance->daemonMode ? "True" : "False");
+    LOGI ("    ScheduleRealtime: %s\n", propertiesInstance->schedRealtime ? "True" : "False");
+    LOGI ("    SchedulePriority: %u\n", propertiesInstance->schedPriority);
+    LOGI ("    managementControlHost: %s\n", propertiesInstance->managementControlHost);
+    LOGI ("    managementControlPort: %u\n", propertiesInstance->managementControlPort);
+    LOGI ("    interface: %s\n", propertiesInstance->interface);
+    LOGI ("    pcapFile: %s\n", propertiesInstance->pcapFile);
+    LOGI ("    loopCount: %u\n", propertiesInstance->loopCount);
+    LOGI ("    outputFile: %s\n", propertiesInstance->outputFile);
+    LOGI ("    protoDetectInterval: %u\n", propertiesInstance->protoDetectInterval);
+    LOGI ("    protoDetectSleepInterval: %u\n", propertiesInstance->protoDetectSleepInterval);
+    LOGI ("    miningEngineHost: %s\n", propertiesInstance->miningEngineHost);
+    LOGI ("    managementRegisterPort: %u\n", propertiesInstance->managementRegisterPort);
+    LOGI ("    sessionBreakdownRecvPort: %u\n", propertiesInstance->sessionBreakdownRecvPort);
+    LOGI ("    logDir: %s\n", propertiesInstance->logDir);
+    LOGI ("    logFileName: %s\n", propertiesInstance->logFileName);
+    LOGI ("    logLevel: ");
     switch (propertiesInstance->logLevel) {
         case LOG_ERR_LEVEL:
-            LOGI("ERROR\n");
+            LOGI ("ERROR\n");
             break;
 
         case LOG_WARN_LEVEL:
-            LOGI("WARNING\n");
+            LOGI ("WARNING\n");
             break;
 
         case LOG_INFO_LEVEL:
-            LOGI("INFO\n");
+            LOGI ("INFO\n");
             break;
 
         case LOG_DEBUG_LEVEL:
-            LOGI("DEBUG\n");
+            LOGI ("DEBUG\n");
             break;
 
         case LOG_TRACE_LEVEL:
-            LOGI("TRACE\n");
+            LOGI ("TRACE\n");
             break;
 
         default:
-            LOGI("Unknown\n");
+            LOGI ("Unknown\n");
     }
-    LOGI("}\n");
+    LOGI ("}\n");
 }
 
 /* Init properties form configFile */

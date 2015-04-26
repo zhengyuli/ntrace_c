@@ -134,7 +134,7 @@ rawCaptureService (void *args) {
             LOGI ("%s\n", msgStr);
             free (msgStr);
         } else if (!SIGUSR1IsInterrupted ())
-            LOGE ("Receive proto detection status fatal error.\n");
+            LOGE ("Receive proto detection status message with fatal error.\n");
     }
 
     /* Init rawPktCaptureSize and rawPktCaptureStartTime */

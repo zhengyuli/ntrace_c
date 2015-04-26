@@ -86,7 +86,7 @@ tcpProcessService (void *args) {
             tmFrame = zframe_recv (tcpPktRecvSock);
             if (tmFrame == NULL) {
                 if (!SIGUSR1IsInterrupted ())
-                    LOGE ("Receive timestamp zframe fatal error.\n");
+                    LOGE ("Receive timestamp zframe with fatal error.\n");
                 break;
             } else if (!zframe_more (tmFrame)) {
                 zframe_destroy (&tmFrame);
@@ -98,7 +98,7 @@ tcpProcessService (void *args) {
         ipPktFrame = zframe_recv (tcpPktRecvSock);
         if (ipPktFrame == NULL) {
             if (!SIGUSR1IsInterrupted ())
-                LOGE ("Receive ip packet zframe fatal error.\n");
+                LOGE ("Receive ip packet zframe with fatal error.\n");
             zframe_destroy (&tmFrame);
             break;
         } else if (zframe_more (ipPktFrame)) {

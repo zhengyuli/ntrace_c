@@ -350,7 +350,7 @@ logService (void *args) {
         logMsg = zstr_recv (logRecvSock);
         if (logMsg == NULL) {
             if (!SIGUSR1IsInterrupted ())
-                LOGE ("Receive log message fatal error.\n");
+                LOGE ("Receive log message with fatal error.\n");
             break;
         }
 

@@ -45,6 +45,8 @@ struct _ipQueueTimeout {
 int
 ipDefrag (iphdrPtr iph, timeValPtr tm, iphdrPtr *newIph);
 int
+resetIpContext (void);
+int
 initIpContext (void);
 void
 destroyIpContext (void);

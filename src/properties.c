@@ -25,8 +25,8 @@ newProperties (void) {
     tmp->pcapFile = NULL;
     tmp->loopCount = 0;
     tmp->outputFile = NULL;
-    tmp->protoDetectInterval = 0;
-    tmp->protoDetectSleepInterval = 0;
+    tmp->packetsToScan = 0;
+    tmp->sleepIntervalAfterScan = 0;
     tmp->miningEngineHost = NULL;
     tmp->managementRegisterPort = 0;
     tmp->sessionBreakdownRecvPort = 0;
@@ -85,7 +85,7 @@ loadPropertiesFromConfigFile (char *configFile) {
     }
 
     /* Get daemon mode */
-    ret = get_config_item ("Agent", "daemonMode", iniConfig, &item);
+    ret = get_config_item ("Basic", "daemonMode", iniConfig, &item);
     if (ret && item == NULL) {
         fprintf (stderr, "Get_config_item \"daemonMode\" error.\n");
         goto freeProperties;
@@ -187,27 +187,27 @@ loadPropertiesFromConfigFile (char *configFile) {
         }
     }
 
-    /* Get proto detect interval */
-    ret = get_config_item ("ProtoDetect", "protoDetectInterval", iniConfig, &item);
+    /* Get packets to scan for proto detect */
+    ret = get_config_item ("ProtoDetect", "packetsToScan", iniConfig, &item);
     if (ret || item == NULL) {
-        fprintf (stderr, "Get_config_item \"protoDetectInterval\" error.\n");
+        fprintf (stderr, "Get_config_item \"packetsToScan\" error.\n");
         goto freeProperties;
     }
-    tmp->protoDetectInterval = get_int_config_value (item, 1, 0, &error);
+    tmp->packetsToScan = get_int_config_value (item, 1, 0, &error);
     if (error) {
-        fprintf (stderr, "Get \"protoDetectInterval\" error.\n");
+        fprintf (stderr, "Get \"packetsToScan\" error.\n");
         goto freeProperties;
     }
 
-    /* Get proto detect sleep interval */
-    ret = get_config_item ("ProtoDetect", "protoDetectSleepInterval", iniConfig, &item);
+    /* Get sleep interval after scan for proto detect */
+    ret = get_config_item ("ProtoDetect", "sleepIntervalAfterScan", iniConfig, &item);
     if (ret || item == NULL) {
-        fprintf (stderr, "Get_config_item \"protoDetectSleepInterval\" error.\n");
+        fprintf (stderr, "Get_config_item \"sleepIntervalAfterScan\" error.\n");
         goto freeProperties;
     }
-    tmp->protoDetectSleepInterval = get_int_config_value (item, 1, 0, &error);
+    tmp->sleepIntervalAfterScan = get_int_config_value (item, 1, 0, &error);
     if (error) {
-        fprintf (stderr, "Get \"protoDetectSleepInterval\" error.\n");
+        fprintf (stderr, "Get \"sleepIntervalAfterScan\" error.\n");
         goto freeProperties;
     }
 
@@ -399,23 +399,23 @@ updatePropertiesOutputFile (char *fname) {
 }
 
 u_int
-getPropertiesProtoDetectInterval (void) {
-    return propertiesInstance->protoDetectInterval;
+getPropertiesPacketsToScan (void) {
+    return propertiesInstance->packetsToScan;
 }
 
 void
-updatePropertiesProtoDetectInterval (u_int protoDetectInterval) {
-    propertiesInstance->protoDetectInterval = protoDetectInterval;
+updatePropertiesPacketsToScan (u_int pktsNum) {
+    propertiesInstance->packetsToScan = pktsNum;
 }
 
 u_int
-getPropertiesProtoDetectSleepInterval (void) {
-    return propertiesInstance->protoDetectSleepInterval;
+getPropertiesSleepIntervalAfterScan (void) {
+    return propertiesInstance->sleepIntervalAfterScan;
 }
 
 void
-updatePropertiesProtoDetectSleepInterval (u_int protoDetectSleepInterval) {
-    propertiesInstance->protoDetectSleepInterval = protoDetectSleepInterval;
+updatePropertiesSleepIntervalAfterScan (u_int sleepInterval) {
+    propertiesInstance->sleepIntervalAfterScan = sleepInterval;
 }
 
 char *
@@ -499,8 +499,8 @@ displayPropertiesDetail (void) {
     LOGI ("    pcapFile: %s\n", propertiesInstance->pcapFile);
     LOGI ("    loopCount: %u\n", propertiesInstance->loopCount);
     LOGI ("    outputFile: %s\n", propertiesInstance->outputFile);
-    LOGI ("    protoDetectInterval: %u\n", propertiesInstance->protoDetectInterval);
-    LOGI ("    protoDetectSleepInterval: %u\n", propertiesInstance->protoDetectSleepInterval);
+    LOGI ("    packetsToScan: %u\n", propertiesInstance->packetsToScan);
+    LOGI ("    sleepIntervalAfterScan: %u\n", propertiesInstance->sleepIntervalAfterScan);
     LOGI ("    miningEngineHost: %s\n", propertiesInstance->miningEngineHost);
     LOGI ("    managementRegisterPort: %u\n", propertiesInstance->managementRegisterPort);
     LOGI ("    sessionBreakdownRecvPort: %u\n", propertiesInstance->sessionBreakdownRecvPort);

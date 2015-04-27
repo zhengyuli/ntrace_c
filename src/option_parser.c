@@ -15,8 +15,8 @@ static struct option options [] = {
     {"pcapFile", required_argument, NULL, 'F'},
     {"loopCount", required_argument, NULL, 'n'},
     {"outputFile", required_argument, NULL, 'O'},
-    {"protoDetectInterval", required_argument, NULL, 't'},
-    {"protoDetectSleepInterval", required_argument, NULL, 'T'},
+    {"packetsToScan", required_argument, NULL, 'N'},
+    {"sleepIntervalAfterScan", required_argument, NULL, 'T'},
     {"miningEngineHost", required_argument, NULL, 'i'},
     {"managementRegisterPort", required_argument, NULL, 'r'},
     {"sessionBreakdownRecvPort", required_argument, NULL, 'p'},
@@ -46,8 +46,8 @@ showHelpInfo (const char *cmd) {
              "  -F|--pcapFile <fname> pcap file\n"
              "  -n|--loopCount <count> Loop read pcap file some times, 0 for loop forever\n"
              "  -O|--outputFile <fname> output file\n"
-             "  -t|--protoDetectInterval, proto detect interval for each detect procedure\n"
-             "  -T|--protoDetectSleepInterval, proto detect sleep interval after each detect procedure\n"
+             "  -N|--packetsToScan, packets to scan for each proto detect loop\n"
+             "  -T|--sleepIntervalAfterScan, sleep interval after each proto detect loop\n"
              "  -i|--miningEngineHost <ip> mining engine host ip\n"
              "  -r|--managementRegisterPort <port> management register port\n"
              "  -p|--sessionBreakdownRecvPort <port> session breakdown receive port\n"
@@ -92,7 +92,7 @@ parseOptions (int argc, char *argv []) {
 
     optind = 1;
     while ((option = getopt_long (argc, argv,
-                                  ":C:DS:I:P:m:F:n:O:t:T:i:r:p:d:f:l:vh?",
+                                  ":C:DS:I:P:m:F:n:O:N:T:i:r:p:d:f:l:vh?",
                                   options, NULL)) != -1) {
         switch (option) {
             case 'C':
@@ -146,12 +146,12 @@ parseOptions (int argc, char *argv []) {
                 }
                 break;
 
-            case 't':
-                updatePropertiesProtoDetectInterval (atoi (optarg));
+            case 'N':
+                updatePropertiesPacketsToScan (atoi (optarg));
                 break;
 
             case 'T':
-                updatePropertiesProtoDetectSleepInterval (atoi (optarg));
+                updatePropertiesSleepIntervalAfterScan (atoi (optarg));
                 break;
 
             case 'i':

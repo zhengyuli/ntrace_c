@@ -496,6 +496,14 @@ ipDefrag (iphdrPtr iph, timeValPtr tm, iphdrPtr *newIph) {
     }
 }
 
+/* Reset ip context */
+int
+resetIpContext (void) {
+    hashClean (ipQueueHashTable);
+
+    return 0;
+}
+
 /* Init ip context */
 int
 initIpContext (void) {
@@ -504,8 +512,8 @@ initIpContext (void) {
     ipQueueHashTable = hashNew (DEFAULT_IPQUEUE_HASH_TABLE_SIZE);
     if (ipQueueHashTable == NULL)
         return -1;
-    else
-        return 0;
+
+    return 0;
 }
 
 /* Destroy ip context */

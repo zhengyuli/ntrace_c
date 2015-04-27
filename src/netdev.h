@@ -14,8 +14,6 @@ getNetDevDatalinkTypeForSniff (void);
 int
 getNetDevDatalinkTypeForProtoDetection (void);
 int
-resetNetDevForProtoDetection (void);
-int
 getNetDevStatisticInfoForSniff (u_int *pktsRecv, u_int *pktsDrop);
 int
 getNetDevStatisticInfoForProtoDetection (u_int *pktsRecv, u_int *pktsDrop);

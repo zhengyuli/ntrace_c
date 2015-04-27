@@ -534,9 +534,13 @@ destroyAppServiceHashTableMasterRWLock:
 /* Destroy appService manager */
 void
 destroyAppServiceManager (void) {
+    /* Destroy appService map */
     pthread_rwlock_destroy (&appServiceHashTableMasterRWLock);
     hashDestroy (appServiceHashTableMaster);
     appServiceHashTableMaster = NULL;
     hashDestroy (appServiceHashTableSlave);
     appServiceHashTableSlave = NULL;
+
+    /* Remove appServices cache if exit normally */
+    remove (AGENT_APP_SERVICES_CACHE);
 }

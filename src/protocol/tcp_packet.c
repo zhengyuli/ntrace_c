@@ -38,24 +38,11 @@
 /* Tcp expect sequence */
 #define EXP_SEQ (snd->firstDataSeq + rcv->count + rcv->urgCount)
 
-/* Tcp streams alloc info for global */
-static pthread_spinlock_t tcpStreamsAllocLock;
-static u_long_long tcpStreamsAlloc = 0;
-
-/* Tcp streams free info for global */
-static pthread_spinlock_t tcpStreamsFreeLock;
-static u_long_long tcpStreamsFree = 0;
-
 /* Tcp streams alloc info for local */
 static __thread u_long_long tcpStreamsAllocLocal = 0;
 
 /* Tcp streams free info for local */
 static __thread u_long_long tcpStreamsFreeLocal = 0;
-
-/* Tcp context init once control */
-static pthread_once_t tcpInitOnceControl = PTHREAD_ONCE_INIT;
-/* Tcp context destroy once control */
-static pthread_once_t tcpDestroyOnceControl = PTHREAD_ONCE_INIT;
 
 /* Tcp stream list */
 static __thread listHead tcpStreamList;
@@ -133,42 +120,6 @@ getTcpBreakdownStateName (tcpBreakdownState state) {
         default:
             return "TCP_STATE_UNKNOWN";
     }
-}
-
-static inline void
-incTcpStreamsAlloc (void) {
-    pthread_spin_lock (&tcpStreamsAllocLock);
-    tcpStreamsAlloc ++;
-    pthread_spin_unlock (&tcpStreamsAllocLock);
-}
-
-static inline u_long_long
-getTcpStreamsAlloc (void) {
-    u_long_long streams;
-
-    pthread_spin_lock (&tcpStreamsAllocLock);
-    streams = tcpStreamsAlloc;
-    pthread_spin_unlock (&tcpStreamsAllocLock);
-
-    return streams;
-}
-
-static inline void
-incTcpStreamsFree (void) {
-    pthread_spin_lock (&tcpStreamsFreeLock);
-    tcpStreamsFree ++;
-    pthread_spin_unlock (&tcpStreamsFreeLock);
-}
-
-static inline u_long_long
-getTcpStreamsFree (void) {
-    u_long_long streams;
-
-    pthread_spin_lock (&tcpStreamsFreeLock);
-    streams = tcpStreamsFree;
-    pthread_spin_unlock (&tcpStreamsFreeLock);
-
-    return streams;
 }
 
 /**
@@ -266,10 +217,8 @@ addTcpStreamToHash (tcpStreamPtr stream, hashItemFreeCB freeFun) {
         return -1;
     }
 
-    if (!doProtoDetect) {
+    if (!doProtoDetect)
         tcpStreamsAllocLocal++;
-        incTcpStreamsAlloc ();
-    }
 
     return 0;
 }
@@ -320,10 +269,8 @@ delTcpStreamFromHash (tcpStreamPtr stream) {
     ret = hashRemove (tcpStreamHashTable, key);
     if (ret < 0)
         LOGE ("Delete stream from hash table error.\n");
-    else if (!doProtoDetect) {
+    else if (!doProtoDetect)
         tcpStreamsFreeLocal++;
-        incTcpStreamsFree ();
-    }
 }
 
 /**
@@ -1351,6 +1298,20 @@ tcpProcess (iphdrPtr iph, timeValPtr tm) {
         return;
     }
 
+    /* For proto detection, if proto has been detected then close stream
+     * in advance. */
+    if (doProtoDetect &&
+        (stream->proto ||
+         (stream->proto == NULL &&
+          stream->c2sPkts >= 5 &&
+          stream->s2cPkts >= 5))) {
+        stream->state = STREAM_CLOSED;
+        stream->closeTime = timeVal2MilliSecond (tm);
+        delTcpStreamFromHash (stream);
+
+        return;
+    }
+
     if (direction == STREAM_FROM_CLIENT) {
         snd = &stream->client;
         rcv = &stream->server;
@@ -1495,15 +1456,6 @@ tcpProcess (iphdrPtr iph, timeValPtr tm) {
 }
 
 static void
-dispalyGlobalStatisticInfo (void) {
-    LOGI ("\n"
-          "==Global tcp packet statistic info==\n"
-          "--tcpStreamsAlloc: %u\n"
-          "--tcpStreamsFree: %u\n\n",
-          getTcpStreamsAlloc (), getTcpStreamsFree ());
-}
-
-static void
 dispalyLocalStatisticInfo (void) {
     LOGI ("\n"
           "==Local tcp packet statistic info==\n"
@@ -1512,25 +1464,7 @@ dispalyLocalStatisticInfo (void) {
           tcpStreamsAllocLocal, tcpStreamsFreeLocal);
 }
 
-static void
-initTcpSharedInstance (void) {
-    tcpStreamsAlloc = 0;
-    pthread_spin_init (&tcpStreamsAllocLock, PTHREAD_PROCESS_PRIVATE);
-    tcpStreamsFree = 0;
-    pthread_spin_init (&tcpStreamsFreeLock, PTHREAD_PROCESS_PRIVATE);
-
-    tcpDestroyOnceControl = PTHREAD_ONCE_INIT;
-}
-
-static void
-destroyTcpSharedInstance (void) {
-    dispalyGlobalStatisticInfo ();
-    pthread_spin_destroy (&tcpStreamsAllocLock);
-    pthread_spin_destroy (&tcpStreamsFreeLock);
-
-    tcpInitOnceControl = PTHREAD_ONCE_INIT;
-}
-
+/* Reset tcp context */
 int
 resetTcpContext (void) {
     hashClean (tcpStreamHashTable);
@@ -1544,9 +1478,6 @@ initTcpContext (boolean protoDetectFlag, tcpProcessCB fun) {
     doProtoDetect = protoDetectFlag;
     tcpProcessCallback = fun;
 
-    if (!doProtoDetect)
-        pthread_once (&tcpInitOnceControl, initTcpSharedInstance);
-
     initListHead (&tcpStreamList);
     initListHead (&tcpStreamTimoutList);
 
@@ -1555,11 +1486,8 @@ initTcpContext (boolean protoDetectFlag, tcpProcessCB fun) {
     else
         tcpStreamHashTable = hashNew (TCP_STREAM_HASH_TABLE_SIZE_FOR_PROTO_DETECT);
 
-    if (tcpStreamHashTable == NULL) {
-        if (!doProtoDetect)
-            pthread_once (&tcpDestroyOnceControl, destroyTcpSharedInstance);
+    if (tcpStreamHashTable == NULL)
         return -1;
-    }
 
     return 0;
 }
@@ -1567,10 +1495,9 @@ initTcpContext (boolean protoDetectFlag, tcpProcessCB fun) {
 /* Destroy tcp context */
 void
 destroyTcpContext (void) {
-    if (!doProtoDetect) {
+    if (!doProtoDetect)
         dispalyLocalStatisticInfo ();
-        pthread_once (&tcpDestroyOnceControl, destroyTcpSharedInstance);
-    }
+
     hashDestroy (tcpStreamHashTable);
     tcpStreamHashTable = NULL;
 }

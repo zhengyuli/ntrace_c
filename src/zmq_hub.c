@@ -140,7 +140,7 @@ initZmqHub (void) {
     }
 
     /* Create logPubSock */
-    zmqHubIntance->logPubSock = zsocket_new (zmqHubIntance->zmqCtxt, ZMQ_PUSH);
+    zmqHubIntance->logPubSock = zsocket_new (zmqHubIntance->zmqCtxt, ZMQ_PUB);
     if (zmqHubIntance->logPubSock == NULL) {
         LOGE ("Create logPubSock error.\n");
         goto destroyZmqCtxt;

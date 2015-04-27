@@ -2,7 +2,7 @@
 #define __TEMPLATE_ANALYZER_H__
 
 #include <stdlib.h>
-#include <wda/util/util.h>
+#include <ntrace/util/util.h>
 
 typedef struct _templateSessionDetail templateSessionDetail;
 typedef templateSessionDetail *templateSessionDetailPtr;

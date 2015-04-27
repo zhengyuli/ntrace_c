@@ -12,7 +12,7 @@ SET (CMAKE_C_FLAGS_RELEASE "-Wall -O3")
 
 SET (CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
-SET (ANALYZER_INSTALL_DIR /usr/share/wda/analyzers/)
+SET (ANALYZER_INSTALL_DIR /usr/share/ntrace/proto_analyzers/)
 
 INCLUDE_DIRECTORIES (
   ./)

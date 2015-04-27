@@ -11,7 +11,7 @@ static boolean showInDetail  = False;
 static char *logLevel = NULL;
 
 static zctx_t *zmqContext = NULL;
-static void *subSock = NULL;
+static void *pullSock = NULL;
 
 static boolean
 checkLogLevel (char *logLevel) {
@@ -119,23 +119,22 @@ main (int argc, char *argv []) {
         freeCmdlineArgs ();
         return -1;
     }
-    subSock = zsocket_new (zmqContext, ZMQ_SUB);
-    if (subSock == NULL) {
+    pullSock = zsocket_new (zmqContext, ZMQ_PULL);
+    if (pullSock == NULL) {
         zctx_destroy (&zmqContext);
         freeCmdlineArgs ();
         return -1;
     }
-    ret = zsocket_connect (subSock, "tcp://%s:%d",
+    ret = zsocket_connect (pullSock, "tcp://%s:%d",
                            logServerIp ? logServerIp : "localhost", 50002);
     if (ret < 0) {
         zctx_destroy (&zmqContext);
         freeCmdlineArgs ();
         return -1;
     }
-    zsocket_set_subscribe (subSock, "");
 
     while (!zctx_interrupted) {
-        logMsg = zstr_recv (subSock);
+        logMsg = zstr_recv (pullSock);
 
         if (logMsg && (logLevel == NULL ||
                        (logLevel && strstr (logMsg, logLevel)))) {

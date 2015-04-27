@@ -7,14 +7,14 @@
 # X-Start-Before:
 # Default-Start:    2 3 4 5
 # Default-Stop:
-# Short-Description: Wda agent service
+# Short-Description: nTrace agent service
 # Description:
 ### END INIT INFO
 
 source /etc/profile
 
-SERVICE_NAME=wda_agent
-PID_FILE=/var/run/wda/wda_agent.pid
+SERVICE_NAME=ntrace_agent
+PID_FILE=/var/run/ntrace/agent.pid
 
 start () {
     if [ -f $PID_FILE ]

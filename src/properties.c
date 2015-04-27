@@ -148,7 +148,7 @@ loadPropertiesFromConfigFile (char *configFile) {
     }
 
     /* Get interface */
-    ret = get_config_item ("Input.Interface", "interface", iniConfig, &item);
+    ret = get_config_item ("Input", "interface", iniConfig, &item);
     if (!ret && item) {
         tmp->interface = strdup (get_const_string_config_value (item, &error));
         if (tmp->interface == NULL) {
@@ -158,7 +158,7 @@ loadPropertiesFromConfigFile (char *configFile) {
     }
 
     /* Get pcap file */
-    ret = get_config_item ("Input.PcapFile", "pcapFile", iniConfig, &item);
+    ret = get_config_item ("Input", "pcapFile", iniConfig, &item);
     if (!ret && item) {
         tmp->pcapFile = strdup (get_const_string_config_value (item, &error));
         if (tmp->pcapFile == NULL) {
@@ -168,7 +168,7 @@ loadPropertiesFromConfigFile (char *configFile) {
     }
 
     /* Get loop count */
-    ret = get_config_item ("Input.PcapFile", "loopCount", iniConfig, &item);
+    ret = get_config_item ("Input", "loopCount", iniConfig, &item);
     if (!ret && item) {
         tmp->loopCount = get_int_config_value (item, 1, 0, &error);
         if (error) {
@@ -178,7 +178,7 @@ loadPropertiesFromConfigFile (char *configFile) {
     }
 
     /* Get output file */
-    ret = get_config_item ("Output.File", "outputFile", iniConfig, &item);
+    ret = get_config_item ("Output", "outputFile", iniConfig, &item);
     if (!ret && item) {
         tmp->outputFile = strdup (get_const_string_config_value (item, &error));
         if (tmp->outputFile == NULL) {

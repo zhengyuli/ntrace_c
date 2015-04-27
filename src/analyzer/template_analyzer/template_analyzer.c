@@ -1,9 +1,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <jansson.h>
-#include <wda/util/util.h>
-#include <wda/log.h>
-#include <wda/proto_analyzer.h>
+#include <ntrace/util/util.h>
+#include <ntrace/log.h>
+#include <ntrace/proto_analyzer.h>
 #include "template_analyzer.h"
 
 #define TEMPLATE_PROTO_NAME "TEMPLATE"

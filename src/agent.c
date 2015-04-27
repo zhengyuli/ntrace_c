@@ -40,7 +40,7 @@ lockPidFile (void) {
     if (!getPropertiesDaemonMode ())
         return 0;
 
-    agentPidFd = open (AGENT_PID_FILE, O_CREAT | O_RDWR, 0666);
+    agentPidFd = open (AGENT_SERVICE_PID_FILE, O_CREAT | O_RDWR, 0666);
     if (agentPidFd < 0)
         return -1;
 
@@ -54,7 +54,7 @@ lockPidFile (void) {
     n = safeWrite (agentPidFd, buf, strlen (buf));
     if (n != strlen (buf)) {
         close (agentPidFd);
-        remove (AGENT_PID_FILE);
+        remove (AGENT_SERVICE_PID_FILE);
         return -1;
     }
     sync ();
@@ -73,7 +73,7 @@ unlockPidFile (void) {
         close (agentPidFd);
         agentPidFd = -1;
     }
-    remove (AGENT_PID_FILE);
+    remove (AGENT_SERVICE_PID_FILE);
 }
 
 /* Start service tasks */
@@ -193,7 +193,7 @@ agentService (void) {
     }
 
     /* Display startup info */
-    displayStartupInfo ();
+    displayAgentStartupInfo ();
 
     /* Display properties info */
     displayPropertiesDetail ();

@@ -4,7 +4,6 @@ SET (AGENT_TOOLS
   resume.py
   pause.py
   heartbeat.py
-  update_profile.py
   packets_statistic.py
   proto_info.py
   mining_engine.py

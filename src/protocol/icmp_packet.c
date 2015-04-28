@@ -70,17 +70,22 @@ getIcmpDestUnreachCodeName (u_char code) {
 }
 
 static void
-publishIcmpBreakdown (char *sessionBreakdown) {
+publishIcmpBreakdown (char *icmpBreakdown) {
     int ret;
-    u_int retries = 3;
+    zframe_t *frame;
 
-    do {
-        ret = zstr_send (icmpBreakdownSendSock, sessionBreakdown);
-        retries -= 1;
-    } while (ret < 0 && retries);
+    frame = zframe_new (icmpBreakdown, strlen (icmpBreakdown));
+    if (frame == NULL) {
+        LOGE ("Create icmp breakdown zframe error.\n");
+        return;
+    }
 
-    if (ret < 0)
+    ret = zframe_send (&frame, icmpBreakdownSendSock, 0);
+    if (ret < 0) {
         LOGE ("Send icmp breakdown error.\n");
+        if (frame)
+            zframe_destroy (&frame);
+    }
 }
 
 static char *

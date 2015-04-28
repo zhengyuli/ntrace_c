@@ -1,5 +1,5 @@
 #
-# nTrace cmake build config
+# NTRACE AGENT cmake build config
 # Authors: Zhengyu li <lizhengyu419@gmail.com>
 #
 
@@ -7,13 +7,15 @@
 CMAKE_MINIMUM_REQUIRED (VERSION 2.8.0)
 
 # Root project
-SET (ROOT_PROJECT "nTrace")
+SET (ROOT_PROJECT "NTRACE")
 STRING (TOLOWER ${ROOT_PROJECT} ROOT_PROJECT_LOWER)
+SET (SUB_PROJECT "AGENT")
+STRING (TOLOWER ${SUB_PROJECT} SUB_PROJECT_LOWER)
 
 # Sub-project summary
-SET (PROJECT_NAME_SHORT "${ROOT_PROJECT}")
-SET (PROJECT_NAME_LONG "${ROOT_PROJECT}")
-SET (PROJECT_DESCRIPTION "${ROOT_PROJECT} application performance monitor system.")
+SET (PROJECT_NAME_SHORT "${ROOT_PROJECT}_${SUB_PROJECT_LOWER}")
+SET (PROJECT_NAME_LONG "${ROOT_PROJECT} ${SUB_PROJECT_LOWER}")
+SET (PROJECT_DESCRIPTION "${ROOT_PROJECT} ${SUB_PROJECT_LOWER} for application performance monitor.")
 SET (PROJECT_COPYRIGHT "Copyright (C) zhengyu li, 2015")
 SET (PROJECT_CONTACT "lizhengyu419@gmail.com")
 SET (PROJECT_VENDOR "zhengyu li")

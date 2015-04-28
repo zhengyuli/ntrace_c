@@ -24,7 +24,7 @@ struct _zmqHub {
     void *logRecvSock;                  /**< Log recv sock */
     void *logPubSock;                   /**< Log pub sock */
 
-    void *managementControlReplySock;   /**< Management reply sock */
+    void *managementReplySock;          /**< Management reply sock */
 
     void *taskStatusSendSock;           /**< Task status send sock */
     void *taskStatusRecvSock;           /**< Task status recv sock */
@@ -57,7 +57,7 @@ getLogRecvSock (void);
 void *
 getLogPubSock (void);
 void *
-getManagementControlReplySock (void);
+getManagementReplySock (void);
 void *
 getTaskStatusSendSock (void);
 void *

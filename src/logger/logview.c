@@ -119,7 +119,7 @@ main (int argc, char *argv []) {
         freeCmdlineArgs ();
         return -1;
     }
-    subSock = zsocket_new (zmqContext, ZMQ_PULL);
+    subSock = zsocket_new (zmqContext, ZMQ_SUB);
     if (subSock == NULL) {
         zctx_destroy (&zmqContext);
         freeCmdlineArgs ();

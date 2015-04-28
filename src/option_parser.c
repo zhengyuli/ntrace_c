@@ -9,8 +9,8 @@ static struct option options [] = {
     {"config", required_argument, NULL, 'C'},
     {"daemonMode", no_argument, NULL, 'D'},
     {"schedPriority", required_argument, NULL, 'S'},
-    {"managementControlHost", required_argument, NULL, 'I'},
-    {"managementControlPort", required_argument, NULL, 'P'},
+    {"managementServiceHost", required_argument, NULL, 'I'},
+    {"managementServicePort", required_argument, NULL, 'P'},
     {"interface", required_argument, NULL, 'm'},
     {"pcapFile", required_argument, NULL, 'F'},
     {"loopCount", required_argument, NULL, 'n'},
@@ -18,7 +18,6 @@ static struct option options [] = {
     {"packetsToScan", required_argument, NULL, 'N'},
     {"sleepIntervalAfterScan", required_argument, NULL, 'T'},
     {"miningEngineHost", required_argument, NULL, 'i'},
-    {"managementRegisterPort", required_argument, NULL, 'r'},
     {"sessionBreakdownRecvPort", required_argument, NULL, 'p'},
     {"logDir", required_argument, NULL, 'd'},
     {"logFileName", required_argument, NULL, 'f'},
@@ -40,8 +39,8 @@ showHelpInfo (const char *cmd) {
              "  -C|--config, config file\n"
              "  -D|--daemonMode, run as daemon\n"
              "  -S|--schedPriority <priority> schedule priority\n"
-             "  -I|--managementControlHost <ip> management control host ip\n"
-             "  -P|--managementControlPort <port> management control port\n"
+             "  -I|--managementServiceHost <ip> management control host ip\n"
+             "  -P|--managementServicePort <port> management control port\n"
              "  -m|--interface <eth*> interface to monitor\n"
              "  -F|--pcapFile <fname> pcap file\n"
              "  -n|--loopCount <count> Loop read pcap file some times, 0 for loop forever\n"
@@ -49,7 +48,6 @@ showHelpInfo (const char *cmd) {
              "  -N|--packetsToScan, packets to scan for each proto detect loop\n"
              "  -T|--sleepIntervalAfterScan, sleep interval after each proto detect loop\n"
              "  -i|--miningEngineHost <ip> mining engine host ip\n"
-             "  -r|--managementRegisterPort <port> management register port\n"
              "  -p|--sessionBreakdownRecvPort <port> session breakdown receive port\n"
              "  -d|--logDir <path>, log file directory\n"
              "  -f|--logFileName <name>, log file name\n"
@@ -92,7 +90,7 @@ parseOptions (int argc, char *argv []) {
 
     optind = 1;
     while ((option = getopt_long (argc, argv,
-                                  ":C:DS:I:P:m:F:n:O:N:T:i:r:p:d:f:l:vh?",
+                                  ":C:DS:I:P:m:F:n:O:N:T:i:p:d:f:l:vh?",
                                   options, NULL)) != -1) {
         switch (option) {
             case 'C':
@@ -107,15 +105,15 @@ parseOptions (int argc, char *argv []) {
                 break;
 
             case 'I':
-                updatePropertiesManagementControlHost (optarg);
-                if (getPropertiesManagementControlHost () == NULL) {
+                updatePropertiesManagementServiceHost (optarg);
+                if (getPropertiesManagementServiceHost () == NULL) {
                     fprintf (stderr, "Parse management control host error!\n");
                     return -1;
                 }
                 break;
 
             case 'P':
-                updatePropertiesManagementControlPort (atoi (optarg));
+                updatePropertiesManagementServicePort (atoi (optarg));
                 break;
 
             case 'm':
@@ -160,10 +158,6 @@ parseOptions (int argc, char *argv []) {
                     fprintf (stderr, "Parse mining engine host error!\n");
                     return -1;
                 }
-                break;
-
-            case 'r':
-                updatePropertiesManagementRegisterPort (atoi (optarg));
                 break;
 
             case 'p':

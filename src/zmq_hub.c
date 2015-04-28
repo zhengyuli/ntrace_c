@@ -19,8 +19,8 @@ getLogPubSock (void) {
 }
 
 void *
-getManagementControlReplySock (void) {
-    return zmqHubIntance->managementControlReplySock;
+getManagementReplySock (void) {
+    return zmqHubIntance->managementReplySock;
 }
 
 void *
@@ -151,18 +151,18 @@ initZmqHub (void) {
         goto destroyZmqCtxt;
     }
 
-    /* Create managementControlReplySock */
-    zmqHubIntance->managementControlReplySock = zsocket_new (zmqHubIntance->zmqCtxt,
+    /* Create managementReplySock */
+    zmqHubIntance->managementReplySock = zsocket_new (zmqHubIntance->zmqCtxt,
                                                              ZMQ_REP);
-    if (zmqHubIntance->managementControlReplySock == NULL) {
-        fprintf (stderr, "Create managementControlReplySock error.\n");
+    if (zmqHubIntance->managementReplySock == NULL) {
+        fprintf (stderr, "Create managementReplySock error.\n");
         goto destroyZmqCtxt;
     }
-    ret = zsocket_bind (zmqHubIntance->managementControlReplySock, "tcp://*:%u",
-                        getPropertiesManagementControlPort ());
+    ret = zsocket_bind (zmqHubIntance->managementReplySock, "tcp://*:%u",
+                        getPropertiesManagementServicePort ());
     if (ret < 0) {
-        fprintf (stderr, "Bind managementControlReplySock to tcp://*:%u error.\n",
-                 getPropertiesManagementControlPort ());
+        fprintf (stderr, "Bind managementReplySock to tcp://*:%u error.\n",
+                 getPropertiesManagementServicePort ());
         goto destroyZmqCtxt;
     }
 

@@ -7,7 +7,7 @@
 # X-Start-Before:
 # Default-Start:    2 3 4 5
 # Default-Stop:
-# Short-Description: nTrace agent service
+# Short-Description: ntrace agent service
 # Description:
 ### END INIT INFO
 

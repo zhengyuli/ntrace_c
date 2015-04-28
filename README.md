@@ -1,1 +1,1 @@
-nTrace system is used to monitor application performance of network.
+ntrace system is used to monitor application performance of network.

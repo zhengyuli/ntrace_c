@@ -13,8 +13,8 @@ struct _properties {
     boolean schedRealtime;              /**< Realtime schedule flag */
     u_int schedPriority;                /**< Realtime schedule priority */
 
-    char *managementControlHost;        /**< Management control host ip */
-    u_short managementControlPort;      /**< Management control port */
+    char *managementServiceHost;        /**< Management control host ip */
+    u_short managementServicePort;      /**< Management control port */
 
     char *interface;                    /**< Mirror interface */
 
@@ -29,8 +29,6 @@ struct _properties {
                                              detection loop */
 
     char *miningEngineHost;             /**< Mining engine host ip */
-    u_short managementRegisterPort;     /**< Management register port of mining
-                                             engine */
     u_short sessionBreakdownRecvPort;   /**< session breakdown receive port of
                                              mining engine */
 
@@ -51,13 +49,13 @@ getPropertiesSchedPriority (void);
 void
 updatePropertiesSchedPriority (u_int schedPriority);
 char *
-getPropertiesManagementControlHost (void);
+getPropertiesManagementServiceHost (void);
 void
-updatePropertiesManagementControlHost (char *ip);
+updatePropertiesManagementServiceHost (char *ip);
 u_short
-getPropertiesManagementControlPort (void);
+getPropertiesManagementServicePort (void);
 void
-updatePropertiesManagementControlPort (u_short port);
+updatePropertiesManagementServicePort (u_short port);
 char *
 getPropertiesInterface (void);
 void
@@ -86,10 +84,6 @@ char *
 getPropertiesMiningEngineHost (void);
 void
 updatePropertiesMiningEngineHost (char *ip);
-u_short
-getPropertiesManagementRegisterPort (void);
-void
-updatePropertiesManagementRegisterPort (u_short port);
 u_short
 getPropertiesSessionBreakdownRecvPort (void);
 void

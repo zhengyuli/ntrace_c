@@ -253,11 +253,11 @@ delTcpStreamFromHash (tcpStreamPtr stream) {
             if (analyzer == NULL) {
                 ret = addAppService (stream->proto, ipDestStr, addr->dest);
                 if (ret < 0)
-                    LOGE ("Add new detected appService ip:%s port:%u proto: %s error.\n",
-                          ipDestStr, addr->dest, stream->proto);
+                    LOGE ("Add new detected appService ip:%s port:%u proto: %s, %x error.\n",
+                          ipDestStr, addr->dest, stream->proto, stream->proto);
                 else {
-                    LOGI ("Add new detected appService ip:%s port:%u proto: %s success.\n",
-                          ipDestStr, addr->dest, stream->proto);
+                    LOGI ("Add new detected appService ip:%s port:%u proto: %s, %x success.\n",
+                          ipDestStr, addr->dest, stream->proto, stream->proto);
                     (*tcpProcessCallback) (NULL);
                 }
             }

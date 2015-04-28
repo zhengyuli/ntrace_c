@@ -20,7 +20,7 @@ publishTcpBreakdown (void *args) {
     int ret;
     char *tcpBreakdown = (char *) args;
     u_int retries = 3;
-
+    printf ("session breakdown len: %u\n", strlen (tcpBreakdown));
     do {
         ret = zstr_send (tcpBreakdownSendSock, tcpBreakdown);
         retries -= 1;

@@ -19,8 +19,8 @@ newProperties (void) {
     tmp->daemonMode = False;
     tmp->schedRealtime = False;
     tmp->schedPriority = 0;
-    tmp->managementControlHost = NULL;
-    tmp->managementControlPort = 0;
+    tmp->managementServiceHost = NULL;
+    tmp->managementServicePort = 0;
     tmp->interface = NULL;
     tmp->pcapFile = NULL;
     tmp->loopCount = 0;
@@ -28,7 +28,6 @@ newProperties (void) {
     tmp->packetsToScan = 0;
     tmp->sleepIntervalAfterScan = 0;
     tmp->miningEngineHost = NULL;
-    tmp->managementRegisterPort = 0;
     tmp->sessionBreakdownRecvPort = 0;
     tmp->logDir = NULL;
     tmp->logFileName = NULL;
@@ -41,8 +40,8 @@ freeProperties (propertiesPtr instance) {
     if (instance == NULL)
         return;
 
-    free (instance->managementControlHost);
-    instance->managementControlHost = NULL;
+    free (instance->managementServiceHost);
+    instance->managementServiceHost = NULL;
     free (instance->interface);
     instance->interface = NULL;
     free (instance->pcapFile);
@@ -124,26 +123,26 @@ loadPropertiesFromConfigFile (char *configFile) {
     }
 
     /* Get management control host */
-    ret = get_config_item ("ManagementControl", "managementControlHost", iniConfig, &item);
+    ret = get_config_item ("ManagementService", "managementServiceHost", iniConfig, &item);
     if (ret || item == NULL) {
-        fprintf (stderr, "Get_config_item \"managementControlHost\" error.\n");
+        fprintf (stderr, "Get_config_item \"managementServiceHost\" error.\n");
         goto freeProperties;
     }
-    tmp->managementControlHost = strdup (get_const_string_config_value (item, &error));
-    if (tmp->managementControlHost == NULL) {
-        fprintf (stderr, "Get \"managementControlHost\" error.\n");
+    tmp->managementServiceHost = strdup (get_const_string_config_value (item, &error));
+    if (tmp->managementServiceHost == NULL) {
+        fprintf (stderr, "Get \"managementServiceHost\" error.\n");
         goto freeProperties;
     }
 
     /* Get management control port */
-    ret = get_config_item ("ManagementControl", "managementControlPort", iniConfig, &item);
+    ret = get_config_item ("ManagementService", "managementServicePort", iniConfig, &item);
     if (ret || item == NULL) {
-        fprintf (stderr, "Get_config_item \"managementControlPort\" error.\n");
+        fprintf (stderr, "Get_config_item \"managementServicePort\" error.\n");
         goto freeProperties;
     }
-    tmp->managementControlPort = get_int_config_value (item, 1, 0, &error);
+    tmp->managementServicePort = get_int_config_value (item, 1, 0, &error);
     if (error) {
-        fprintf (stderr, "Get \"managementControlPort\" error.\n");
+        fprintf (stderr, "Get \"managementServicePort\" error.\n");
         goto freeProperties;
     }
 
@@ -220,18 +219,6 @@ loadPropertiesFromConfigFile (char *configFile) {
     tmp->miningEngineHost = strdup (get_const_string_config_value (item, &error));
     if (tmp->miningEngineHost == NULL) {
         fprintf (stderr, "Get \"miningEngineHost\" error.\n");
-        goto freeProperties;
-    }
-
-    /* Get management register port */
-    ret = get_config_item ("MiningEngine", "managementRegisterPort", iniConfig, &item);
-    if (ret || item == NULL) {
-        fprintf (stderr, "Get_config_item \"managementRegisterPort\" error.\n");
-        goto freeProperties;
-    }
-    tmp->managementRegisterPort = get_int_config_value (item, 1, 0, &error);
-    if (error) {
-        fprintf (stderr, "Get \"managementRegisterPort\" error.\n");
         goto freeProperties;
     }
 
@@ -335,24 +322,24 @@ updatePropertiesSchedPriority (u_int schedPriority) {
 }
 
 char *
-getPropertiesManagementControlHost (void) {
-    return propertiesInstance->managementControlHost;
+getPropertiesManagementServiceHost (void) {
+    return propertiesInstance->managementServiceHost;
 }
 
 void
-updatePropertiesManagementControlHost (char *ip) {
-    free (propertiesInstance->managementControlHost);
-    propertiesInstance->managementControlHost = strdup (ip);
+updatePropertiesManagementServiceHost (char *ip) {
+    free (propertiesInstance->managementServiceHost);
+    propertiesInstance->managementServiceHost = strdup (ip);
 }
 
 u_short
-getPropertiesManagementControlPort (void) {
-    return propertiesInstance->managementControlPort;
+getPropertiesManagementServicePort (void) {
+    return propertiesInstance->managementServicePort;
 }
 
 void
-updatePropertiesManagementControlPort (u_short port) {
-    propertiesInstance->managementControlPort = port;
+updatePropertiesManagementServicePort (u_short port) {
+    propertiesInstance->managementServicePort = port;
 }
 
 char *
@@ -430,16 +417,6 @@ updatePropertiesMiningEngineHost (char *ip) {
 }
 
 u_short
-getPropertiesManagementRegisterPort (void) {
-    return propertiesInstance->managementRegisterPort;
-}
-
-void
-updatePropertiesManagementRegisterPort (u_short port) {
-    propertiesInstance->managementRegisterPort = port;
-}
-
-u_short
 getPropertiesSessionBreakdownRecvPort (void) {
     return propertiesInstance->sessionBreakdownRecvPort;
 }
@@ -493,8 +470,8 @@ displayPropertiesDetail (void) {
     LOGI ("    daemonMode: %s\n", propertiesInstance->daemonMode ? "True" : "False");
     LOGI ("    ScheduleRealtime: %s\n", propertiesInstance->schedRealtime ? "True" : "False");
     LOGI ("    SchedulePriority: %u\n", propertiesInstance->schedPriority);
-    LOGI ("    managementControlHost: %s\n", propertiesInstance->managementControlHost);
-    LOGI ("    managementControlPort: %u\n", propertiesInstance->managementControlPort);
+    LOGI ("    managementServiceHost: %s\n", propertiesInstance->managementServiceHost);
+    LOGI ("    managementServicePort: %u\n", propertiesInstance->managementServicePort);
     LOGI ("    interface: %s\n", propertiesInstance->interface);
     LOGI ("    pcapFile: %s\n", propertiesInstance->pcapFile);
     LOGI ("    loopCount: %u\n", propertiesInstance->loopCount);
@@ -502,7 +479,6 @@ displayPropertiesDetail (void) {
     LOGI ("    packetsToScan: %u\n", propertiesInstance->packetsToScan);
     LOGI ("    sleepIntervalAfterScan: %u\n", propertiesInstance->sleepIntervalAfterScan);
     LOGI ("    miningEngineHost: %s\n", propertiesInstance->miningEngineHost);
-    LOGI ("    managementRegisterPort: %u\n", propertiesInstance->managementRegisterPort);
     LOGI ("    sessionBreakdownRecvPort: %u\n", propertiesInstance->sessionBreakdownRecvPort);
     LOGI ("    logDir: %s\n", propertiesInstance->logDir);
     LOGI ("    logFileName: %s\n", propertiesInstance->logFileName);

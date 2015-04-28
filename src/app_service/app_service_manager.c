@@ -1,10 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
@@ -257,14 +252,14 @@ addAppService (char *proto, char *ip, u_short port) {
     /* Create new appService */
     svc = newAppService (proto, ip, port);
     if (svc == NULL) {
-        LOGE ("Create appService %s:%u proto: %s error", ip, port, proto);
+        LOGE ("Create appService %s:%u proto: %s error\n", ip, port, proto);
         return -1;
     }
 
     /* Create new appService copy */
     svcCopy = copyAppService (svc);
     if (svcCopy == NULL) {
-        LOGE ("Create appService copy %s:%u proto: %s error", ip, port, proto);
+        LOGE ("Create appService copy %s:%u proto: %s error\n", ip, port, proto);
         freeAppService (svc);
         return -1;
     }

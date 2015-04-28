@@ -8,8 +8,6 @@
 #include "log.h"
 #include "mysql_analyzer.h"
 
-#define MYSQL_PROTO_NAME "MYSQL"
-
 /* Mysql indention for info display */
 #define MYSQL_INFO_DISPLAY_INDENT1 "    "
 #define MYSQL_INFO_DISPLAY_INDENT2 "        "
@@ -2895,6 +2893,8 @@ mysqlSessionProcessFin (streamDirection direction, timeValPtr tm, void *sd,
     return;
 }
 
+protoAnalyzer mysqlAnalyzer;
+
 static char *
 mysqlSessionProcessProtoDetect (streamDirection direction, timeValPtr tm,
                                 u_char *data, u_int dataLen) {
@@ -2916,7 +2916,7 @@ mysqlSessionProcessProtoDetect (streamDirection direction, timeValPtr tm,
                     if (data [i] != 0x00)
                         return NULL;
                 }
-                return MYSQL_PROTO_NAME;
+                return mysqlAnalyzer.proto;
             } else if (direction == STREAM_FROM_SERVER &&
                        seqId == 0 &&
                        data [5] > 0x30 &&  /* Server version > 0 */
@@ -2925,7 +2925,7 @@ mysqlSessionProcessProtoDetect (streamDirection direction, timeValPtr tm,
                 /* Check initial server handshake */
                 for (i = 7; i + 13 <= dataLen; i++) {
                     if (data [i] == 0x00 && data [i + 13] == 0x00)
-                        return MYSQL_PROTO_NAME;
+                        return mysqlAnalyzer.proto;
                 }
             }
         }
@@ -2935,7 +2935,7 @@ mysqlSessionProcessProtoDetect (streamDirection direction, timeValPtr tm,
 }
 
 protoAnalyzer mysqlAnalyzer = {
-    .proto = MYSQL_PROTO_NAME,
+    .proto = "MYSQL",
     .initProtoAnalyzer = initMysqlAnalyzer,
     .destroyProtoAnalyzer = destroyMysqlAnalyzer,
     .newSessionDetail = newMysqlSessionDetail,

@@ -6,8 +6,6 @@
 #include "log.h"
 #include "http_analyzer.h"
 
-#define HTTP_PROTO_NAME "HTTP"
-
 /* Current timestamp */
 static __thread timeValPtr currTime;
 /* Current session state indicator */
@@ -1057,6 +1055,8 @@ httpSessionProcessFin (streamDirection direction, timeValPtr tm, void *sd,
     }
 }
 
+protoAnalyzer httpAnalyzer;
+
 static char *
 httpSessionProcessProtoDetect (streamDirection direction, timeValPtr tm,
                                u_char *data, u_int dataLen) {
@@ -1132,7 +1132,7 @@ httpSessionProcessProtoDetect (streamDirection direction, timeValPtr tm,
                     data [i + 1] == '\n' &&
                     (memcmp ("HTTP/1.0", data + i - 8, 8) == 0 ||
                      memcmp ("HTTP/1.1", data + i - 8, 8) == 0)) {
-                    return HTTP_PROTO_NAME;
+                    return httpAnalyzer.proto;
                 }
             }
         }
@@ -1140,14 +1140,14 @@ httpSessionProcessProtoDetect (streamDirection direction, timeValPtr tm,
         if (dataLen >= 8 &&
             (memcmp ("HTTP/1.0", data, 8) == 0 ||
              memcmp ("HTTP/1.1", data, 8) == 0))
-            return HTTP_PROTO_NAME;
+            return httpAnalyzer.proto;
     }
 
     return NULL;
 }
 
 protoAnalyzer httpAnalyzer = {
-    .proto = HTTP_PROTO_NAME,
+    .proto = "HTTP",
     .initProtoAnalyzer = initHttpAnalyzer,
     .destroyProtoAnalyzer = destroyHttpAnalyzer,
     .newSessionDetail = newHttpSessionDetail,

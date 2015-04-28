@@ -6,8 +6,6 @@
 #include <ntrace/proto_analyzer.h>
 #include "template_analyzer.h"
 
-#define TEMPLATE_PROTO_NAME "TEMPLATE"
-
 static int
 initTemplateAnalyzer (void) {
     LOGI ("Init template analyzer success.\n");
@@ -128,17 +126,19 @@ templateSessionProcessFin (streamDirection direction, timeValPtr tm, void *sd,
     }
 }
 
+protoAnalyzer analyzer;
+
 static char *
 templateSessionProcessProtoDetect (streamDirection direction, timeValPtr tm,
                                    u_char *data, u_int dataLen) {
     if (dataLen > 65536)
-        return TEMPLATE_PROTO_NAME;
+        return analyzer.proto;
     else
         return NULL;
 }
 
 protoAnalyzer analyzer = {
-    .proto = TEMPLATE_PROTO_NAME,
+    .proto = "TEMPLATE",
     .initProtoAnalyzer = initTemplateAnalyzer,
     .destroyProtoAnalyzer = destroyTemplateAnalyzer,
     .newSessionDetail = newTemplateSessionDetail,

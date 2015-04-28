@@ -3,7 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/types.h>
-#include <czmq.h>
+#include <czmq/czmq.h>
 #include "util.h"
 #include "zmq_hub.h"
 #include "log.h"

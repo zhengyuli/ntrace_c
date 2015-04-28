@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <arpa/inet.h>
 #include <jansson.h>
-#include <czmq.h>
+#include <czmq/czmq.h>
 #include "util.h"
 #include "log.h"
 #include "app_service_manager.h"
@@ -81,11 +81,8 @@ publishIcmpBreakdown (char *icmpBreakdown) {
     }
 
     ret = zframe_send (&frame, icmpBreakdownSendSock, 0);
-    if (ret < 0) {
+    if (ret < 0)
         LOGE ("Send icmp breakdown error.\n");
-        if (frame)
-            zframe_destroy (&frame);
-    }
 }
 
 static char *

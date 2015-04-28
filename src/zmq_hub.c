@@ -1,5 +1,5 @@
 #include <stdlib.h>
-#include <czmq.h>
+#include <czmq/czmq.h>
 #include "util.h"
 #include "properties.h"
 #include "log.h"

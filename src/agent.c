@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <czmq.h>
+#include <czmq/czmq.h>
 #include <locale.h>
 #include "config.h"
 #include "util.h"

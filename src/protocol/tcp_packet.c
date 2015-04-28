@@ -6,7 +6,7 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 #include <jansson.h>
-#include <czmq.h>
+#include <czmq/czmq.h>
 #include "config.h"
 #include "util.h"
 #include "list.h"
@@ -245,21 +245,19 @@ delTcpStreamFromHash (tcpStreamPtr stream) {
     inet_ntop (AF_INET, (void *) &addr->daddr, ipDestStr, sizeof (ipDestStr));
 
     /* Save detected appService if any */
-    if (doProtoDetect) {
-        if (stream->proto) {
-            snprintf (key, sizeof (key), "%s:%d", ipDestStr, addr->dest);
+    if (doProtoDetect && stream->proto) {
+        snprintf (key, sizeof (key), "%s:%d", ipDestStr, addr->dest);
 
-            analyzer = getAppServiceProtoAnalyzer (key);
-            if (analyzer == NULL) {
-                ret = addAppService (stream->proto, ipDestStr, addr->dest);
-                if (ret < 0)
-                    LOGE ("Add new detected appService ip:%s port:%u proto: %s, %x error.\n",
-                          ipDestStr, addr->dest, stream->proto, stream->proto);
-                else {
-                    LOGI ("Add new detected appService ip:%s port:%u proto: %s, %x success.\n",
-                          ipDestStr, addr->dest, stream->proto, stream->proto);
-                    (*tcpProcessCallback) (NULL);
-                }
+        analyzer = getAppServiceProtoAnalyzer (key);
+        if (analyzer == NULL) {
+            ret = addAppService (stream->proto, ipDestStr, addr->dest);
+            if (ret < 0)
+                LOGE ("Add new detected appService ip:%s port:%u proto: %s error.\n",
+                      ipDestStr, addr->dest, stream->proto);
+            else {
+                LOGI ("Add new detected appService ip:%s port:%u proto: %s success.\n",
+                      ipDestStr, addr->dest, stream->proto);
+                (*tcpProcessCallback) (NULL);
             }
         }
     }

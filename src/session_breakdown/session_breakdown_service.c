@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
-#include <czmq.h>
+#include <czmq/czmq.h>
 #include "list.h"
 #include "util.h"
 #include "properties.h"
@@ -162,11 +162,8 @@ writeSessionBreakdownOutputNet (void *sessionBreakdown, u_int len,
     }
 
     ret = zframe_send (&frame, outputNet->pushSock, 0);
-    if (ret < 0) {
+    if (ret < 0)
         LOGE ("Send session breakdown error.\n");
-        if (frame)
-            zframe_destroy (&frame);
-    }
 }
 
 /*============================SessionBreakdown output net dev===========================*/

@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <getopt.h>
-#include <czmq.h>
+#include <czmq/czmq.h>
 #include <string.h>
 #include "util.h"
 #include "log.h"

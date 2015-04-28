@@ -1,7 +1,7 @@
 #ifndef __MANAGEMENT_SERVICE_H__
 #define __MANAGEMENT_SERVICE_H__
 
-#include <czmq.h>
+#include <czmq/czmq.h>
 
 /*=========================================================================*/
 

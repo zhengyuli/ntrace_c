@@ -28,11 +28,8 @@ publishTcpBreakdown (void *args) {
     }
 
     ret = zframe_send (&frame, tcpBreakdownSendSock, 0);
-    if (ret < 0) {
+    if (ret < 0)
         LOGE ("Send tcp breakdown error.\n");
-        if (frame)
-            zframe_destroy (&frame);
-    }
 }
 
 /*

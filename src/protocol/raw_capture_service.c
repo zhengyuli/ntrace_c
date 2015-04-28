@@ -168,6 +168,8 @@ rawCaptureService (void *args) {
             ret = zframe_send (&frame, ipPktSendSock, ZFRAME_MORE);
             if (ret < 0) {
                 LOGE ("Send packet timestamp zframe error.\n");
+                if (frame)
+                    zframe_destroy (&frame);
                 continue;
             }
 
@@ -180,6 +182,8 @@ rawCaptureService (void *args) {
             ret = zframe_send (&frame, ipPktSendSock, 0);
             if (ret < 0) {
                 LOGE ("Send ip packet zframe error.\n");
+                if (frame)
+                    zframe_destroy (&frame);
                 continue;
             }
         } else if (ret == -1) {

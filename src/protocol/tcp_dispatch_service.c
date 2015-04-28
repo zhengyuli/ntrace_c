@@ -76,6 +76,8 @@ tcpPacketDispatch (iphdrPtr iph, timeValPtr tm) {
     ret = zframe_send (&frame, tcpPktSendSock, ZFRAME_MORE);
     if (ret < 0) {
         LOGE ("Send tm zframe error.\n");
+        if (frame)
+            zframe_destroy (&frame);
         return;
     }
 
@@ -88,6 +90,8 @@ tcpPacketDispatch (iphdrPtr iph, timeValPtr tm) {
     ret = zframe_send (&frame, tcpPktSendSock, 0);
     if (ret < 0) {
         LOGE ("Send ip packet zframe error.\n");
+        if (frame)
+            zframe_destroy (&frame);
         return;
     }
 }

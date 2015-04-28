@@ -30,7 +30,7 @@ struct _sessionBreakdownOutputDev {
     /* SessionBreakdown output dev destroy operation */
     void (*destroy) (sessionBreakdownOutputDevPtr dev);
     /* SessionBreakdown output dev write operation */
-    void (*write) (char *sessionBreakdown,
+    void (*write) (void *sessionBreakdown, u_int len,
                    sessionBreakdownOutputDevPtr dev);
     /**< SessionBreakdown output dev list node of global SessionBreakdown output devices */
     listHead node;
@@ -92,13 +92,13 @@ resetSessionBreakdownOutputFile (sessionBreakdownOutputDevPtr dev) {
 }
 
 static void
-writeSessionBreakdownOutputFile (char *sessionBreakdown,
+writeSessionBreakdownOutputFile (void *sessionBreakdown, u_int len,
                                  sessionBreakdownOutputDevPtr dev) {
     int ret;
     sessionBreakdownOutputFilePtr outputFile;
 
     outputFile = (sessionBreakdownOutputFilePtr) dev->data;
-    ret = fwrite (sessionBreakdown, strlen (sessionBreakdown), 1, outputFile->file);
+    ret = fwrite (sessionBreakdown, len, 1, outputFile->file);
     if (ret != 1) {
         ret = resetSessionBreakdownOutputFile (dev);
         if (ret < 0)
@@ -147,20 +147,26 @@ destroySessionBreakdownOutputNet (sessionBreakdownOutputDevPtr dev) {
 }
 
 static void
-writeSessionBreakdownOutputNet (char *sessionBreakdown,
+writeSessionBreakdownOutputNet (void *sessionBreakdown, u_int len,
                                 sessionBreakdownOutputDevPtr dev) {
     int ret;
     sessionBreakdownOutputNetPtr outputNet;
-    u_int retries = 3;
+    zframe_t *frame;
 
     outputNet = (sessionBreakdownOutputNetPtr) dev->data;
-    do {
-        ret = zstr_send (outputNet->pushSock, sessionBreakdown);
-        retries -= 1;
-    } while (ret < 0 && retries);
 
-    if (ret < 0)
+    frame = zframe_new (sessionBreakdown, len);
+    if (frame == NULL) {
+        LOGE ("Create session breakdown zframe error.\n");
+        return;
+    }
+
+    ret = zframe_send (&frame, outputNet->pushSock, 0);
+    if (ret < 0) {
         LOGE ("Send session breakdown error.\n");
+        if (frame)
+            zframe_destroy (&frame);
+    }
 }
 
 /*============================SessionBreakdown output net dev===========================*/
@@ -193,12 +199,12 @@ sessionBreakdownOutputDevDestroy (void) {
 
 static void
 sessionBreakdownOutputDevWrite (listHeadPtr sessionBreakdownOutputDevices,
-                                char *sessionBreakdown) {
+                                void *sessionBreakdown, u_int len) {
     sessionBreakdownOutputDevPtr dev;
     listHeadPtr pos;
 
     listForEachEntry (dev, pos, sessionBreakdownOutputDevices, node) {
-        dev->write (sessionBreakdown, dev);
+        dev->write (sessionBreakdown, len, dev);
     }
 }
 
@@ -207,8 +213,7 @@ void *
 sessionBreakdownService (void *args) {
     int ret;
     void *sessionBreakdownRecvSock;
-    void *sessionBreakdownPushSock;
-    char *sessionBreakdown;
+    zframe_t *sessionBreakdown;
     u_long_long sessionBreakdownCount = 0;
 
     /* Reset signals flag */
@@ -256,22 +261,21 @@ sessionBreakdownService (void *args) {
 
     /* Get sessionBreakdownRecvSock */
     sessionBreakdownRecvSock = getSessionBreakdownRecvSock ();
-    /* Get sessionBreakdownPushSock */
-    sessionBreakdownPushSock = getSessionBreakdownPushSock ();
 
     while (!SIGUSR1IsInterrupted ()) {
         /* Receive session breakdown */
-        sessionBreakdown = zstr_recv (sessionBreakdownRecvSock);
+        sessionBreakdown = zframe_recv (sessionBreakdownRecvSock);
         if (sessionBreakdown == NULL) {
             if (!SIGUSR1IsInterrupted ())
-                LOGE ("Receive session breakdown with fatal error.\n");
+                LOGE ("Receive session breakdown zframe with fatal error.\n");
             break;
         }
 
         sessionBreakdownOutputDevWrite (&sessionBreakdownOutputDevices,
-                                        sessionBreakdown);
+                                        zframe_data (sessionBreakdown),
+                                        zframe_size (sessionBreakdown));
         sessionBreakdownCount++;
-        free (sessionBreakdown);
+        zframe_destroy (&sessionBreakdown);
     }
 
     /* Display session breakdown statistic info */

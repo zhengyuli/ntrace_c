@@ -8,7 +8,7 @@
 #include "zmq_hub.h"
 #include "log.h"
 
-#define MAX_LOG_MESSAGE_LENGTH 4096
+#define MAX_LOG_MESSAGE_LENGTH 8192
 
 typedef struct _logContext logContext;
 typedef logContext *logContextPtr;
@@ -93,9 +93,8 @@ doLog (u_char logLevel, const char *file, u_int line, const char *func, char *ms
               timeStr, gettid (), logLevelStr, fileName, line, func, tmp);
     buf [MAX_LOG_MESSAGE_LENGTH - 1] = 0;
 
-    /* For log level <= LOG_ERR_LEVEL message, send to console also */
-    if (logLevel <= LOG_INFO_LEVEL)
-        fprintf (stdout, "%s", tmp);
+    /* Send log to console also */
+    fprintf (stdout, "%s", tmp);
 
     do {
         ret = zstr_send (logCtxtInstance->logSock, buf);

@@ -953,7 +953,7 @@ handleClose (tcpStreamPtr stream, timeValPtr tm) {
  * @return 0 if success else -1
  */
 static int
-add2buf (halfStreamPtr rcv, u_char *data, u_int dataLen) {
+addToBuf (halfStreamPtr rcv, u_char *data, u_int dataLen) {
     int ret = 0;
     u_int toAlloc;
     u_char *tmp;
@@ -1052,7 +1052,7 @@ addFromSkb (tcpStreamPtr stream,
         /* Hanlde data before urgData */
         toCopy1 = rcv->urgPtr - EXP_SEQ;
         if (toCopy1 > 0) {
-            ret = add2buf (rcv, data + lost, toCopy1);
+            ret = addToBuf (rcv, data + lost, toCopy1);
             if (ret < 0) {
                 LOGE ("Add data to receive buffer error.\n");
                 rcv->offset = rcv->count;
@@ -1078,7 +1078,7 @@ addFromSkb (tcpStreamPtr stream,
         /* Handle data after urgData */
         toCopy2 = curSeq + dataLen - rcv->urgPtr - 1;
         if (toCopy2 > 0) {
-            ret = add2buf (rcv, data + lost + toCopy1 + 1, toCopy2);
+            ret = addToBuf (rcv, data + lost + toCopy1 + 1, toCopy2);
             if (ret < 0) {
                 LOGE ("Add data to receive buffer error.\n");
                 rcv->offset = rcv->count;
@@ -1094,7 +1094,7 @@ addFromSkb (tcpStreamPtr stream,
         }
     } else {
         if (dataLen - lost > 0) {
-            ret = add2buf (rcv, data + lost, dataLen - lost);
+            ret = addToBuf (rcv, data + lost, dataLen - lost);
             if (ret < 0) {
                 LOGE ("Add data to receive buffer error.\n");
                 rcv->offset = rcv->count;

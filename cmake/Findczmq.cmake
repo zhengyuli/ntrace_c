@@ -7,7 +7,7 @@ MESSAGE (STATUS "Using bundled find czmq")
 FIND_PATH (
   LIBCZMQ_INCLUDE_DIR
   NAMES czmq.h
-  PATHS /usr/include/czmq /usr/local/include/czmq)
+  PATHS /usr/include /usr/include/czmq /usr/local/include /usr/local/include/czmq)
 
 FIND_LIBRARY (
   LIBCZMQ_LIBRARY

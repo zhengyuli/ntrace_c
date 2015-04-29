@@ -229,6 +229,8 @@ managementService (void *args) {
             break;
         }
 
+        LOGI ("Management request: %s\n", request);
+
         root = json_loads (request, JSON_DISABLE_EOF_CHECK, &error);
         if (root == NULL) {
             LOGE ("Management request parse error: %s\n", error.text);

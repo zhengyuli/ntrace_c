@@ -1,0 +1,26 @@
+CMAKE_MINIMUM_REQUIRED (VERSION 2.8.0)
+
+INCLUDE_DIRECTORIES (
+  ${PROJECT_SOURCE_DIR}/src/util)
+
+SET (HASH_TEST_SOURCE_FILES
+  hash_test.c
+  ${PROJECT_SOURCE_DIR}/src/util/hash.c
+  ${PROJECT_SOURCE_DIR}/src/util/util.c)
+
+ADD_EXECUTABLE (hash_test ${HASH_TEST_SOURCE_FILES})
+
+ADD_TEST (
+  NAME hash_test
+  COMMAND ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/hash_test)
+
+SET (LIST_TEST_SOURCE_FILES
+  list_test.c
+  ${PROJECT_SOURCE_DIR}/src/util/list.c
+  ${PROJECT_SOURCE_DIR}/src/util/util.c)
+
+ADD_EXECUTABLE (list_test ${LIST_TEST_SOURCE_FILES})
+
+ADD_TEST (
+  NAME list_test
+  COMMAND ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/list_test)

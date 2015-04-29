@@ -12,14 +12,7 @@ struct _listHead {
     listHeadPtr next;
 };
 
-static inline void
-initListHead (listHeadPtr head) {
-    head->prev = head;
-    head->next = head;
-}
-
-/* ======================================================================================== */
-
+/*========================Interfaces definition============================*/
 #define listEntry(pos, type, member) ({                                 \
             typeof (((type *) 0)->member) *mptr = (pos);                \
             (type *) ((u_char *) mptr - ((size_t) &((type *) 0)->member)); \
@@ -88,54 +81,31 @@ initListHead (listHeadPtr head) {
          (pos) != (head) && ({(entry) = listEntry ((pos), typeof (*(entry)), member); 1;}); \
          (pos) = (pos)->next)
 
-#define listForEachEntryFromSafe(entry, pos, npos, head, member)          \
+#define listForEachEntryFromSafe(entry, pos, npos, head, member)     \
     for ((entry) = NULL;                                             \
          (pos) != (head) && ({(npos) = (pos)->next; 1;}) && ({(entry) = listEntry ((pos), typeof (*(entry)), member); 1;}); \
          (pos) = (npos))
 
-#define listForEachEntryFromReverse(entry, pos, head, member)                   \
+#define listForEachEntryFromReverse(entry, pos, head, member)        \
     for ((entry) = NULL;                                             \
          (pos) != (head) && ({(entry) = listEntry ((pos), typeof (*(entry)), member); 1;}); \
          (pos) = (pos)->prev)
 
-#define listForEachEntryFromReverseSafe(entry, pos, ppos, head, member)          \
+#define listForEachEntryFromReverseSafe(entry, pos, ppos, head, member) \
     for ((entry) = NULL;                                             \
          (pos) != (head) && ({(ppos) = (pos)->next; 1;}) && ({(entry) = listEntry ((pos), typeof (*(entry)), member); 1;}); \
          (pos) = (ppos))
 
-/* ======================================================================================== */
-
-/* Add an item to the head of the list */
-static inline void
-listAdd (listHeadPtr new, listHeadPtr head) {
-    new->prev = head;
-    new->next = head->next;
-    (head->next)->prev = new;
-    head->next = new;
-}
-
-/* Aadd an item to the tail of the list */
-static inline void
-listAddTail (listHeadPtr new, listHeadPtr head) {
-    listAdd (new, head->prev);
-}
-
-/* Delete an item from list */
-static inline void
-listDel (listHeadPtr node) {
-    node->prev->next = node->next;
-    node->next->prev = node->prev;
-    node->next = node;
-    node->prev = node;
-}
-
-/* Check list size */
-static inline boolean
-listIsEmpty (const listHeadPtr head) {
-    if (head->next == head)
-        return True;
-    else
-        return False;
-}
+void
+initListHead (listHeadPtr head);
+inline void
+listAdd (listHeadPtr new, listHeadPtr head);
+inline void
+listAddTail (listHeadPtr new, listHeadPtr head);
+inline void
+listDel (listHeadPtr node);
+inline boolean
+listIsEmpty (listHeadPtr head);
+/*=======================Interfaces definition end=========================*/
 
 #endif /* __LIST_H__ */

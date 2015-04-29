@@ -276,6 +276,7 @@ hashInsert (hashTablePtr htbl, char *key, void *data, hashItemFreeCB fun) {
                         (item->fun) (item->data);
                     free (item->key);
                     free (item);
+                    htbl->size--;
                 }
             }
         }
@@ -475,8 +476,10 @@ hashLoopCheckToRemove (hashTablePtr htbl, hashLoopCheckToRemoveCB fun, void *arg
     for (index = 0; index < htbl->capacity; index++) {
         head = & htbl->heads [index];
         hlistForEachEntrySafe (item, hnode, tmp, head, node) {
-            if (fun (item->data, args))
+            if (fun (item->data, args)) {
                 hlistDel (&item->node);
+                htbl->size--;
+            }
         }
     }
 }

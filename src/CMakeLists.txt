@@ -39,6 +39,7 @@ INCLUDE_DIRECTORIES (
 SET (AGENT_SOURCE_FILES
   agent.c
   util/util.c
+  util/list.c
   util/hash.c
   properties.c
   option_parser.c

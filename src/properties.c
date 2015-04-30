@@ -73,7 +73,7 @@ loadPropertiesFromConfigFile (char *configFile) {
         return NULL;
     }
 
-    /* Load properties from AGENT_CONFIG_FILE */
+    /* Load properties from NTRACE_CONFIG_FILE */
     ret = config_from_file ("Main", configFile,
                             &iniConfig, INI_STOP_ON_ANY, &errorSet);
     if (ret) {

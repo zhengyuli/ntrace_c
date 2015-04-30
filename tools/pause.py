@@ -4,7 +4,7 @@
 # Name: pause.py
 # Purpose:
 #
-# Time-stamp: <2015-04-10 19:29:11 Friday by lzy>
+# Time-stamp: <2015-04-30 17:27:02 Thursday by zhengyuli>
 #
 # Author: zhengyu li
 # Created: 24 May 2014

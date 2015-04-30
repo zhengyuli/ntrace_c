@@ -1,10 +1,10 @@
-#+TITLE: ntrace agent C style
+#+TITLE: nTrace C style
 #+AUTHOR: zhengyu li
 #+OPTIONS: ^:nil \n:t
 
-* ntrace agent C style
+* nTrace C style
 ** Naming rule
-For ntrace agent C naming style, all variables and functions are consisted by letters and numbers and every
+For nTrace C naming style, all variables and functions are consisted by letters and numbers and every
 word start with capital letter except the first world.
 
 *** example of function and normal variable naming style:

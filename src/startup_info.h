@@ -3,7 +3,7 @@
 
 /*========================Interfaces definition============================*/
 void
-displayAgentStartupInfo (void);
+displayNtraceStartupInfo (void);
 /*=======================Interfaces definition end=========================*/
 
 #endif /* __STARTUP_INFO_H__ */

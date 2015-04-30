@@ -4,7 +4,7 @@
 # Name: post_install.sh
 # Purpose:
 #
-# Time-stamp: <2015-04-28 07:19:23 Tuesday by lzy>
+# Time-stamp: <2015-04-30 17:42:19 Thursday by zhengyuli>
 #
 # Author: zhengyu li
 # Created: 2014-03-27
@@ -15,7 +15,7 @@
 source /etc/profile
 export LC_ALL=C
 
-PROJECT_NAME="ntrace"
+PROJECT_NAME="nTrace"
 
 toLower() {
     echo "$(echo ${1}|tr '[:upper:]' '[:lower:]')"
@@ -24,3 +24,7 @@ toLower() {
 toUpper() {
     echo "$(echo ${1}|tr '[:lower:]' '[:upper:]')"
 }
+
+rm -rf /usr/share/$(toLower ${PROJECT_NAME})
+rm -rf /var/run/$(toLower ${PROJECT_NAME})
+rm -rf /var/log/$(toLower ${PROJECT_NAME})

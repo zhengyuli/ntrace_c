@@ -27,8 +27,8 @@
 #include "session_breakdown_service.h"
 #include "proto_detect_service.h"
 
-/* Agent pid file fd */
-static int agentPidFd = -1;
+/* nTrace pid file fd */
+static int ntracePidFd = -1;
 
 /* Lock pid file for daemon mode */
 static int
@@ -40,21 +40,21 @@ lockPidFile (void) {
     if (!getPropertiesDaemonMode ())
         return 0;
 
-    agentPidFd = open (AGENT_SERVICE_PID_FILE, O_CREAT | O_RDWR, 0666);
-    if (agentPidFd < 0)
+    ntracePidFd = open (NTRACE_SERVICE_PID_FILE, O_CREAT | O_RDWR, 0666);
+    if (ntracePidFd < 0)
         return -1;
 
-    ret = flock (agentPidFd, LOCK_EX | LOCK_NB);
+    ret = flock (ntracePidFd, LOCK_EX | LOCK_NB);
     if (ret < 0) {
-        close (agentPidFd);
+        close (ntracePidFd);
         return -1;
     }
 
     snprintf (buf, sizeof (buf), "%d", getpid ());
-    n = safeWrite (agentPidFd, buf, strlen (buf));
+    n = safeWrite (ntracePidFd, buf, strlen (buf));
     if (n != strlen (buf)) {
-        close (agentPidFd);
-        remove (AGENT_SERVICE_PID_FILE);
+        close (ntracePidFd);
+        remove (NTRACE_SERVICE_PID_FILE);
         return -1;
     }
     sync ();
@@ -68,12 +68,12 @@ unlockPidFile (void) {
     if (!getPropertiesDaemonMode ())
         return;
 
-    if (agentPidFd >= 0) {
-        flock (agentPidFd, LOCK_UN);
-        close (agentPidFd);
-        agentPidFd = -1;
+    if (ntracePidFd >= 0) {
+        flock (ntracePidFd, LOCK_UN);
+        close (ntracePidFd);
+        ntracePidFd = -1;
     }
-    remove (AGENT_SERVICE_PID_FILE);
+    remove (NTRACE_SERVICE_PID_FILE);
 }
 
 /* Start service tasks */
@@ -161,9 +161,9 @@ stopServices (void) {
     stopAllTask ();
 }
 
-/* Agent service entry */
+/* nTrace service entry */
 static int
-agentService (void) {
+ntraceService (void) {
     int ret;
     zloop_t *loop;
     zmq_pollitem_t pollItem;
@@ -193,7 +193,7 @@ agentService (void) {
     }
 
     /* Display startup info */
-    displayAgentStartupInfo ();
+    displayNtraceStartupInfo ();
 
     /* Display properties info */
     displayPropertiesDetail ();
@@ -276,9 +276,9 @@ agentService (void) {
     /* Start zloop */
     ret = zloop_start (loop);
     if (ret)
-        LOGE ("AgentService get error.\n");
+        LOGE ("nTraceService get error.\n");
 
-    LOGI ("AgentService will exit ... .. .\n");
+    LOGI ("nTraceService will exit ... .. .\n");
 destroyZloop:
     zloop_destroy (&loop);
 stopServices:
@@ -302,9 +302,9 @@ unlockPidFile:
     return ret;
 }
 
-/* Agent daemon service entry */
+/* nTrace daemon service entry */
 static int
-agentDaemon (void) {
+ntraceDaemon (void) {
     pid_t pid, next_pid;
     int stdinfd;
     int stdoutfd;
@@ -359,7 +359,7 @@ agentDaemon (void) {
             next_pid = fork ();
             switch (next_pid) {
                 case 0:
-                    return agentService ();
+                    return ntraceService ();
 
                 case -1:
                     return -1;
@@ -408,9 +408,9 @@ main (int argc, char *argv []) {
 
     /* Run as daemon or normal process */
     if (getPropertiesDaemonMode ())
-        ret = agentDaemon ();
+        ret = ntraceDaemon ();
     else
-        ret = agentService ();
+        ret = ntraceService ();
 
 destroyProperties:
     destroyProperties ();

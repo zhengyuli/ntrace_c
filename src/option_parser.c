@@ -78,7 +78,7 @@ getConfigFile (int argc, char *argv []) {
         }
     }
 
-    return AGENT_CONFIG_FILE;
+    return NTRACE_CONFIG_FILE;
 }
 
 /* Command line options parser */

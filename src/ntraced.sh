@@ -1,20 +1,22 @@
 #!/bin/bash
 
-### BEGIN INIT INFO
-# Provides:
-# Required-Start:
-# Required-Stop:
-# X-Start-Before:
-# Default-Start:    2 3 4 5
-# Default-Stop:
-# Short-Description: ntrace agent service
-# Description:
-### END INIT INFO
+#---------------------------------------------------------------------------------
+# Name: ntraced.sh
+# Purpose:
+#
+# Time-stamp: <2015-04-30 18:11:13 Thursday by zhengyuli>
+#
+# Author: zhengyu li
+# Created: 2015-04-30
+#
+# Copyright (c) 2015 zhengyu li <lizhengyu419@gmail.com>
+#---------------------------------------------------------------------------------
 
 source /etc/profile
+export LC_ALL=C
 
-SERVICE_NAME=ntrace_agent
-PID_FILE=/var/run/ntrace/agent.pid
+SERVICE_NAME=ntrace
+PID_FILE=/var/run/ntrace/ntrace.pid
 
 start () {
     if [ -f $PID_FILE ]

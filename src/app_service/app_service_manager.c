@@ -220,10 +220,10 @@ syncAppServicesCache (char *appSvcsStr) {
     int ret;
     int fd;
 
-    fd = open (AGENT_APP_SERVICES_CACHE, O_WRONLY | O_TRUNC | O_CREAT, 0755);
+    fd = open (NTRACE_APP_SERVICES_CACHE, O_WRONLY | O_TRUNC | O_CREAT, 0755);
     if (fd < 0) {
         LOGE ("Open appServices cache file %s error: %s\n",
-              AGENT_APP_SERVICES_CACHE, strerror (errno));
+              NTRACE_APP_SERVICES_CACHE, strerror (errno));
         return -1;
     }
 
@@ -467,14 +467,14 @@ updateAppServicesFromCache (void) {
     json_t *appSvcs;
     json_error_t error;
 
-    appSvcs = json_load_file (AGENT_APP_SERVICES_CACHE,
+    appSvcs = json_load_file (NTRACE_APP_SERVICES_CACHE,
                               JSON_DISABLE_EOF_CHECK, &error);
     if (appSvcs == NULL)
         return 0;
 
     ret = updateAppServicesFromJson (appSvcs);
     if (ret < 0) {
-        remove (AGENT_APP_SERVICES_CACHE);
+        remove (NTRACE_APP_SERVICES_CACHE);
         json_object_clear (appSvcs);
         return -1;
     }
@@ -542,5 +542,5 @@ destroyAppServiceManager (void) {
     appServiceHashTableSlave = NULL;
 
     /* Remove appServices cache if exit normally */
-    remove (AGENT_APP_SERVICES_CACHE);
+    remove (NTRACE_APP_SERVICES_CACHE);
 }

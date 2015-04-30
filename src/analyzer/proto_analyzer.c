@@ -96,10 +96,10 @@ loadAnalyzers (void) {
     protoAnalyzerContextTable [registeredProtoAnalyzerNum].analyzer = &mysqlAnalyzer;
     registeredProtoAnalyzerNum++;
 
-    /* Load proto analyzers in AGENT_PROTO_ANALYZER_DIR dynamically */
-    dir = opendir (AGENT_PROTO_ANALYZER_DIR);
+    /* Load proto analyzers in NTRACE_PROTO_ANALYZER_DIR dynamically */
+    dir = opendir (NTRACE_PROTO_ANALYZER_DIR);
     if (dir == NULL) {
-        LOGE ("Opendir %s error: %s.\n", AGENT_PROTO_ANALYZER_DIR, strerror (errno));
+        LOGE ("Opendir %s error: %s.\n", NTRACE_PROTO_ANALYZER_DIR, strerror (errno));
         return;
     }
 
@@ -108,7 +108,7 @@ loadAnalyzers (void) {
             break;
 
         if (strstr (entry->d_name, ".so")) {
-            snprintf (filePath, sizeof (filePath), "%s/%s", AGENT_PROTO_ANALYZER_DIR, entry->d_name);
+            snprintf (filePath, sizeof (filePath), "%s/%s", NTRACE_PROTO_ANALYZER_DIR, entry->d_name);
             handle = dlopen (filePath, RTLD_NOW|RTLD_GLOBAL);
             if (handle == NULL) {
                 LOGE ("Open %s error: %s.\n", filePath, dlerror ());

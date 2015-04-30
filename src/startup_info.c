@@ -1,7 +1,7 @@
 #include "log.h"
 #include "startup_info.h"
 
-#define AGENT_STARTUP_LOGO                                              \
+#define NTRACE_STARTUP_LOGO                                              \
     "                                                                      \n" \
     "=============================================================         \n" \
     "**                                                                    \n" \
@@ -22,6 +22,6 @@
 
 
 void
-displayAgentStartupInfo (void) {
-    LOGI ("%s", AGENT_STARTUP_LOGO);
+displayNtraceStartupInfo (void) {
+    LOGI ("%s", NTRACE_STARTUP_LOGO);
 }

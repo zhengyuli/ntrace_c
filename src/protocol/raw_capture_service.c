@@ -1,6 +1,6 @@
 #include <stdlib.h>
 #include <pcap.h>
-#include <czmq/czmq.h>
+#include <czmq.h>
 #include "util.h"
 #include "properties.h"
 #include "signals.h"

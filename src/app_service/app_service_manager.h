@@ -10,6 +10,8 @@ char *
 getAppServicesPaddingFilter (void);
 char *
 getAppServicesFilter (void);
+json_t *
+getJsonFromAppServices (void);
 int
 addAppService (char *proto, char *ip, u_short port);
 int

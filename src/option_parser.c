@@ -9,11 +9,11 @@ static struct option options [] = {
     {"config", required_argument, NULL, 'C'},
     {"daemonMode", no_argument, NULL, 'D'},
     {"schedPriority", required_argument, NULL, 'S'},
-    {"managementServiceHost", required_argument, NULL, 'I'},
     {"managementServicePort", required_argument, NULL, 'P'},
     {"interface", required_argument, NULL, 'm'},
     {"pcapFile", required_argument, NULL, 'F'},
     {"loopCount", required_argument, NULL, 'n'},
+    {"setFlag", no_argument, NULL, 'B'},
     {"outputFile", required_argument, NULL, 'O'},
     {"packetsToScan", required_argument, NULL, 'N'},
     {"sleepIntervalAfterScan", required_argument, NULL, 'T'},
@@ -39,11 +39,11 @@ showHelpInfo (const char *cmd) {
              "  -C|--config, config file\n"
              "  -D|--daemonMode, run as daemon\n"
              "  -S|--schedPriority <priority> schedule priority\n"
-             "  -I|--managementServiceHost <ip> management control host ip\n"
              "  -P|--managementServicePort <port> management control port\n"
              "  -m|--interface <eth*> interface to monitor\n"
              "  -F|--pcapFile <fname> pcap file\n"
              "  -n|--loopCount <count> Loop read pcap file some times, 0 for loop forever\n"
+             "  -B|--setFilter, BPF filter flag"
              "  -O|--outputFile <fname> output file\n"
              "  -N|--packetsToScan, packets to scan for each proto detect loop\n"
              "  -T|--sleepIntervalAfterScan, sleep interval after each proto detect loop\n"
@@ -90,7 +90,7 @@ parseOptions (int argc, char *argv []) {
 
     optind = 1;
     while ((option = getopt_long (argc, argv,
-                                  ":C:DS:I:P:m:F:n:O:N:T:i:p:d:f:l:vh?",
+                                  ":C:DS:P:m:F:n:O:BN:T:i:p:d:f:l:vh?",
                                   options, NULL)) != -1) {
         switch (option) {
             case 'C':
@@ -102,14 +102,6 @@ parseOptions (int argc, char *argv []) {
 
             case 'S':
                 updatePropertiesSchedPriority (atoi (optarg));
-                break;
-
-            case 'I':
-                updatePropertiesManagementServiceHost (optarg);
-                if (getPropertiesManagementServiceHost () == NULL) {
-                    fprintf (stderr, "Parse management control host error!\n");
-                    return -1;
-                }
                 break;
 
             case 'P':
@@ -134,6 +126,10 @@ parseOptions (int argc, char *argv []) {
 
             case 'n':
                 updatePropertiesLoopCount (atoi (optarg));
+                break;
+
+            case 'B':
+                updatePropertiesSetFilter (True);
                 break;
 
             case 'O':

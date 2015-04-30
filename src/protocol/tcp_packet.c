@@ -6,7 +6,7 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 #include <jansson.h>
-#include <czmq/czmq.h>
+#include <czmq.h>
 #include "config.h"
 #include "util.h"
 #include "list.h"
@@ -498,7 +498,7 @@ addNewTcpStream (tcphdrPtr tcph, iphdrPtr iph, timeValPtr tm) {
 
         analyzer = getAppServiceProtoAnalyzer (key);
         if (analyzer == NULL) {
-            LOGE ("Appliction service (%s:%d) has not been registered.\n",
+            LOGD ("Appliction service (%s:%d) has not been registered.\n",
                   ipStr, ntohs (tcph->dest));
             return NULL;
         }

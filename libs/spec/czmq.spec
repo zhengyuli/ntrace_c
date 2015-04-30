@@ -32,7 +32,7 @@ Header files for CZMQ library.
 %build
 # use include subdir - file names could be too common (zfile.h etc.)
 %configure \
-	--includedir=%{_includedir}/czmq \
+	--includedir=%{_includedir} \
 	--disable-static
 %{__make}
 
@@ -71,7 +71,7 @@ rm -rf $RPM_BUILD_ROOT
 %files devel
 %defattr(644,root,root,755)
 %attr(755,root,root) %{_libdir}/libczmq.so
-%{_includedir}/czmq
+%{_includedir}
 %{_libdir}/pkgconfig/libczmq.pc
 %{_mandir}/man3/*.3*
 %{_mandir}/man7/*.7*

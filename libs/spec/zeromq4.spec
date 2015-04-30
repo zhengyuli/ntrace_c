@@ -1,5 +1,5 @@
 Name:           zeromq4
-Version:        4.0.4
+Version:        4.0.5
 Release:        1%{?dist}
 Summary:        Software library for fast, message-based applications
 

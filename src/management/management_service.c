@@ -17,6 +17,9 @@ static u_int packetsStatisticPktsDrop = 0;
 /* Proto analyzer information */
 static protoAnalyzerInfo protoAnalyzerInformation;
 
+/* Detected services */
+static json_t *services = NULL;
+
 /**
  * @brief Resume request handler.
  *
@@ -90,14 +93,14 @@ handleHeartbeatRequest (json_t *body) {
 }
 
 /**
- * @brief Packets_statistic request handler.
+ * @brief Get packets statistic info request handler.
  *
  * @param  body data to handle
  *
  * @return 0 if success else -1
  */
 static int
-handlePacketsStatisticRequest (json_t *body) {
+handleGetPacketsStatisticInfoRequest (json_t *body) {
     int ret;
 
     ret = getNetDevStatisticInfoForSniff (&packetsStatisticPktsReceive,
@@ -111,19 +114,37 @@ handlePacketsStatisticRequest (json_t *body) {
 }
 
 /**
- * @brief Get proto information handler.
+ * @brief Get protos info request handler.
  *
  * @param body data to handle
  *
  * @return 0 if success else -1
  */
 static int
-handleGetProtoInfoRequest (json_t *body) {
+handleGetProtosInfoRequest (json_t *body) {
     int ret;
 
     ret = getProtoAnalyzerInfo (&protoAnalyzerInformation);
     if (ret < 0) {
-        LOGE ("Get proto analyzer information error.\n");
+        LOGE ("Get proto analyzer info error.\n");
+        return -1;
+    }
+
+    return 0;
+}
+
+/**
+ * @brief Get services info request handler.
+ *
+ * @param body data to handle
+ *
+ * @return 0 if success else -1
+ */
+static int
+handleGetServicesInfoRequest (json_t *body) {
+    services = getJsonFromAppServices ();
+    if (services == NULL) {
+        LOGE ("Get services info error.\n");
         return -1;
     }
 
@@ -141,7 +162,8 @@ static char *
 buildManagementResponse (char *cmd, int code) {
     u_int i;
     char *response;
-    json_t *root, *body, *protoNames;
+    json_t *root, *body, *protos;
+    char buf [128];
 
     root = json_object ();
     if (root == NULL) {
@@ -157,7 +179,7 @@ buildManagementResponse (char *cmd, int code) {
             return NULL;
         }
 
-        if (strEqual (cmd, MANAGEMENT_REQUEST_COMMAND_PACKETS_STATISTIC)) {
+        if (strEqual (cmd, MANAGEMENT_REQUEST_COMMAND_PACKETS_STATISTIC_INFO)) {
             json_object_set_new (body, MANAGEMENT_RESPONSE_BODY_PACKETS_RECEIVE,
                                  json_integer (packetsStatisticPktsReceive));
             json_object_set_new (body, MANAGEMENT_RESPONSE_BODY_PACKETS_DROP,
@@ -165,26 +187,31 @@ buildManagementResponse (char *cmd, int code) {
             json_object_set_new (body, MANAGEMENT_RESPONSE_BODY_PACKETS_DROP_RATE,
                                  json_real (((double) packetsStatisticPktsDrop /
                                              (double) packetsStatisticPktsReceive) * 100));
-        } else if (strEqual (cmd, MANAGEMENT_REQUEST_COMMAND_PROTO_INFO)) {
-            protoNames = json_array ();
-            if (protoNames == NULL) {
-                LOGE ("Create json array protoNames error.\n");
+        } else if (strEqual (cmd, MANAGEMENT_REQUEST_COMMAND_PROTOS_INFO)) {
+            protos = json_array ();
+            if (protos == NULL) {
+                LOGE ("Create json array protos error.\n");
                 json_object_clear (body);
                 json_object_clear (root);
                 return NULL;
             }
 
-            json_object_set_new (body, MANAGEMENT_RESPONSE_BODY_PROTO_NUM,
-                                 json_integer (protoAnalyzerInformation.registeredAnalyzerSize));
+            for (i = 0; i < protoAnalyzerInformation.protoNum; i++)
+                json_array_append_new (protos, json_string (protoAnalyzerInformation.protos [i]));
 
-            for (i = 0; i < protoAnalyzerInformation.registeredAnalyzerSize; i++)
-                json_array_append_new (protoNames, json_string (protoAnalyzerInformation.protoNames [i]));
-
-            json_object_set_new (body, MANAGEMENT_RESPONSE_BODY_PROTO_NAMES, protoNames);
+            json_object_set_new (body, MANAGEMENT_RESPONSE_BODY_PROTOS, protos);
+        } else if (strEqual (cmd, MANAGEMENT_REQUEST_COMMAND_SERVICES_INFO)) {
+            json_object_set_new (body, MANAGEMENT_RESPONSE_BODY_SERVICES, services);
+            services = NULL;
         }
 
         json_object_set_new (root, MANAGEMENT_RESPONSE_CODE, json_integer (0));
         json_object_set_new (root, MANAGEMENT_RESPONSE_BODY, body);
+    } else if (code == 1) {
+        snprintf(buf, sizeof (buf), "Unknown request command: %s", cmd);
+        json_object_set_new (root, MANAGEMENT_RESPONSE_CODE, json_integer (1));
+        json_object_set_new (root, MANAGEMENT_RESPONSE_ERROR_MESSAGE,
+                             json_string (buf));
     } else {
         json_object_set_new (root, MANAGEMENT_RESPONSE_CODE, json_integer (1));
         json_object_set_new (root, MANAGEMENT_RESPONSE_ERROR_MESSAGE,
@@ -250,12 +277,16 @@ managementService (void *args) {
                     ret = handlePauseRequest (body);
                 else if (strEqual (MANAGEMENT_REQUEST_COMMAND_HEARTBEAT, cmdStr))
                     ret = handleHeartbeatRequest (body);
-                else if (strEqual (MANAGEMENT_REQUEST_COMMAND_PACKETS_STATISTIC, cmdStr))
-                    ret = handlePacketsStatisticRequest (body);
-                else if (strEqual (MANAGEMENT_REQUEST_COMMAND_PROTO_INFO, cmdStr))
-                    ret = handleGetProtoInfoRequest (body);
-                else
+                else if (strEqual (MANAGEMENT_REQUEST_COMMAND_PACKETS_STATISTIC_INFO, cmdStr))
+                    ret = handleGetPacketsStatisticInfoRequest (body);
+                else if (strEqual (MANAGEMENT_REQUEST_COMMAND_PROTOS_INFO, cmdStr))
+                    ret = handleGetProtosInfoRequest (body);
+                else if (strEqual (MANAGEMENT_REQUEST_COMMAND_SERVICES_INFO, cmdStr))
+                    ret = handleGetServicesInfoRequest (body);
+                else {
                     LOGE ("Unknown management request command: %s.\n", cmdStr);
+                    ret = 1;
+                }
 
                 response = buildManagementResponse (cmdStr, ret);
                 if (response == NULL) {

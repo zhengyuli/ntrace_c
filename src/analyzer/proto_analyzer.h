@@ -21,8 +21,8 @@ typedef struct _protoAnalyzerInfo protoAnalyzerInfo;
 typedef protoAnalyzerInfo *protoAnalyzerInfoPtr;
 
 struct _protoAnalyzerInfo {
-    char protoNames [MAX_PROTO_ANALYZER_NUM][32];
-    u_int registeredAnalyzerSize;
+    char protos [MAX_PROTO_ANALYZER_NUM][32];
+    u_int protoNum;
 };
 
 /*=================Proto analyzer callbacks definition=====================*/

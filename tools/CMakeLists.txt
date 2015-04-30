@@ -4,8 +4,9 @@ SET (AGENT_TOOLS
   resume.py
   pause.py
   heartbeat.py
-  packets_statistic.py
-  proto_info.py
+  packets_statistic_info.py
+  protos_info.py
+  services_info.py
   mining_engine.py
   breakdown_receiver.py)
 

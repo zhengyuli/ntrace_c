@@ -1,7 +1,7 @@
 #ifndef __MANAGEMENT_SERVICE_H__
 #define __MANAGEMENT_SERVICE_H__
 
-#include <czmq/czmq.h>
+#include <czmq.h>
 
 /*=========================================================================*/
 
@@ -13,8 +13,9 @@
 #define MANAGEMENT_REQUEST_COMMAND_RESUME "resume"
 #define MANAGEMENT_REQUEST_COMMAND_PAUSE "pause"
 #define MANAGEMENT_REQUEST_COMMAND_HEARTBEAT "heartbeat"
-#define MANAGEMENT_REQUEST_COMMAND_PACKETS_STATISTIC "packets_statistic"
-#define MANAGEMENT_REQUEST_COMMAND_PROTO_INFO "proto_info"
+#define MANAGEMENT_REQUEST_COMMAND_PACKETS_STATISTIC_INFO "packets_statistic_info"
+#define MANAGEMENT_REQUEST_COMMAND_PROTOS_INFO "protos_info"
+#define MANAGEMENT_REQUEST_COMMAND_SERVICES_INFO "services_info"
 
 /* Management response json key definitions */
 #define MANAGEMENT_RESPONSE_CODE "code"
@@ -26,8 +27,9 @@
 #define MANAGEMENT_RESPONSE_BODY_PACKETS_DROP "packets_drop"
 #define MANAGEMENT_RESPONSE_BODY_PACKETS_DROP_RATE "packets_drop_rate"
 
-#define MANAGEMENT_RESPONSE_BODY_PROTO_NUM "proto_num"
-#define MANAGEMENT_RESPONSE_BODY_PROTO_NAMES "proto_names"
+#define MANAGEMENT_RESPONSE_BODY_PROTOS "protos"
+
+#define MANAGEMENT_RESPONSE_BODY_SERVICES "services"
 
 /* Default management error response */
 #define DEFAULT_MANAGEMENT_ERROR_RESPONSE           \

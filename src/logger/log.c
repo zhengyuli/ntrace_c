@@ -3,7 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/types.h>
-#include <czmq/czmq.h>
+#include <czmq.h>
 #include "util.h"
 #include "zmq_hub.h"
 #include "log.h"
@@ -94,7 +94,8 @@ doLog (u_char logLevel, const char *file, u_int line, const char *func, char *ms
     buf [MAX_LOG_MESSAGE_LENGTH - 1] = 0;
 
     /* Send log to console also */
-    fprintf (stdout, "%s", tmp);
+    if (logLevel <= LOG_INFO_LEVEL)
+        fprintf (stdout, "%s", tmp);
 
     do {
         ret = zstr_send (logCtxtInstance->logSock, buf);

@@ -2,7 +2,7 @@
 #define __TASK_MANAGER_H__
 
 #include <pthread.h>
-#include <czmq/czmq.h>
+#include <czmq.h>
 #include "util.h"
 
 typedef void * (*taskRoutine) (void *args);

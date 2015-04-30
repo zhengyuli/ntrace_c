@@ -13,13 +13,14 @@ struct _properties {
     boolean schedRealtime;              /**< Realtime schedule flag */
     u_int schedPriority;                /**< Realtime schedule priority */
 
-    char *managementServiceHost;        /**< Management control host ip */
     u_short managementServicePort;      /**< Management control port */
 
     char *interface;                    /**< Mirror interface */
 
     char *pcapFile;                     /**< Pcap file */
     u_int loopCount;                    /**< Pcap file loop read count */
+
+    boolean setFilter;                  /**< BPF filter setting flag */
 
     char *outputFile;                   /**< Output file */
 
@@ -48,10 +49,6 @@ u_int
 getPropertiesSchedPriority (void);
 void
 updatePropertiesSchedPriority (u_int schedPriority);
-char *
-getPropertiesManagementServiceHost (void);
-void
-updatePropertiesManagementServiceHost (char *ip);
 u_short
 getPropertiesManagementServicePort (void);
 void
@@ -68,6 +65,10 @@ u_int
 getPropertiesLoopCount (void);
 void
 updatePropertiesLoopCount (u_int loopCount);
+boolean
+getPropertiesSetFilter (void);
+void
+updatePropertiesSetFilter (boolean setFilter);
 char *
 getPropertiesOutputFile (void);
 u_int

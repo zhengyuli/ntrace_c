@@ -3,7 +3,7 @@
 
 #include <stdlib.h>
 #include <jansson.h>
-#include <czmq/czmq.h>
+#include <czmq.h>
 #include "list.h"
 
 typedef enum {

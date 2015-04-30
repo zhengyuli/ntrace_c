@@ -10,6 +10,7 @@
 #include "util.h"
 #include "hash.h"
 #include "log.h"
+#include "properties.h"
 #include "app_service.h"
 #include "app_service_manager.h"
 
@@ -94,29 +95,33 @@ getAppServicesFilter (void) {
     char *filter;
     u_int filterLen;
 
-    pthread_rwlock_rdlock (&appServiceHashTableMasterRWLock);
+    if (getPropertiesSetFilter ()) {
+        pthread_rwlock_rdlock (&appServiceHashTableMasterRWLock);
 
-    svcNum = hashSize (appServiceHashTableMaster);
-    filterLen = APP_SERVICE_BPF_FILTER_LENGTH * (svcNum + 1);
-    filter = (char *) malloc (filterLen);
-    if (filter == NULL) {
-        LOGE ("Alloc filter buffer error: %s.\n", strerror (errno));
+        svcNum = hashSize (appServiceHashTableMaster);
+        filterLen = APP_SERVICE_BPF_FILTER_LENGTH * (svcNum + 1);
+        filter = (char *) malloc (filterLen);
+        if (filter == NULL) {
+            LOGE ("Alloc filter buffer error: %s.\n", strerror (errno));
+            pthread_rwlock_unlock (&appServiceHashTableMasterRWLock);
+            return NULL;
+        }
+        memset (filter, 0, filterLen);
+
+        ret = hashLoopDo (appServiceHashTableMaster, getFilterForEachAppService, filter);
+        if (ret < 0) {
+            pthread_rwlock_unlock (&appServiceHashTableMasterRWLock);
+            LOGE ("Get BPF filter from each appService error.\n");
+            free (filter);
+            return NULL;
+        }
+
         pthread_rwlock_unlock (&appServiceHashTableMasterRWLock);
-        return NULL;
-    }
-    memset (filter, 0, filterLen);
 
-    ret = hashLoopDo (appServiceHashTableMaster, getFilterForEachAppService, filter);
-    if (ret < 0) {
-        pthread_rwlock_unlock (&appServiceHashTableMasterRWLock);
-        LOGE ("Get BPF filter from each appService error.\n");
-        free (filter);
-        return NULL;
-    }
+        strcat (filter, APP_SERVICE_PADDING_BPF_FILTER);
+    } else
+        filter = strdup ("tcp or icmp");
 
-    pthread_rwlock_unlock (&appServiceHashTableMasterRWLock);
-
-    strcat (filter, APP_SERVICE_PADDING_BPF_FILTER);
     return filter;
 }
 
@@ -176,7 +181,7 @@ getJsonForEachAppService (void *data, void *args) {
  *
  * @return json object if success, else NULL
  */
-static json_t *
+json_t *
 getJsonFromAppServices (void) {
     int ret;
     json_t *root;

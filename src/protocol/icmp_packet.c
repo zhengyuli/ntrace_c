@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <arpa/inet.h>
 #include <jansson.h>
-#include <czmq/czmq.h>
+#include <czmq.h>
 #include "util.h"
 #include "log.h"
 #include "app_service_manager.h"

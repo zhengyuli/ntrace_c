@@ -8,7 +8,7 @@
 #include <string.h>
 #include <errno.h>
 #include <pthread.h>
-#include <czmq/czmq.h>
+#include <czmq.h>
 #include <locale.h>
 #include "util.h"
 #include "list.h"

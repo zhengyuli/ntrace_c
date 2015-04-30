@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
-#include <czmq/czmq.h>
+#include <czmq.h>
 #include "list.h"
 #include "util.h"
 #include "properties.h"

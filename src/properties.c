@@ -19,11 +19,11 @@ newProperties (void) {
     tmp->daemonMode = False;
     tmp->schedRealtime = False;
     tmp->schedPriority = 0;
-    tmp->managementServiceHost = NULL;
     tmp->managementServicePort = 0;
     tmp->interface = NULL;
     tmp->pcapFile = NULL;
     tmp->loopCount = 0;
+    tmp->setFilter = False;
     tmp->outputFile = NULL;
     tmp->packetsToScan = 0;
     tmp->sleepIntervalAfterScan = 0;
@@ -40,8 +40,6 @@ freeProperties (propertiesPtr instance) {
     if (instance == NULL)
         return;
 
-    free (instance->managementServiceHost);
-    instance->managementServiceHost = NULL;
     free (instance->interface);
     instance->interface = NULL;
     free (instance->pcapFile);
@@ -91,7 +89,7 @@ loadPropertiesFromConfigFile (char *configFile) {
     }
     ret = get_bool_config_value (item, 0, &error);
     if (error) {
-        fprintf (stderr, "Parse \"daemonMode\" error.\n");
+        fprintf (stderr, "Get \"daemonMode\" error.\n");
         goto freeProperties;
     }
     if (ret)
@@ -120,18 +118,6 @@ loadPropertiesFromConfigFile (char *configFile) {
     else {
         tmp->schedRealtime = False;
         tmp->schedPriority = 0;
-    }
-
-    /* Get management control host */
-    ret = get_config_item ("ManagementService", "managementServiceHost", iniConfig, &item);
-    if (ret || item == NULL) {
-        fprintf (stderr, "Get_config_item \"managementServiceHost\" error.\n");
-        goto freeProperties;
-    }
-    tmp->managementServiceHost = strdup (get_const_string_config_value (item, &error));
-    if (tmp->managementServiceHost == NULL) {
-        fprintf (stderr, "Get \"managementServiceHost\" error.\n");
-        goto freeProperties;
     }
 
     /* Get management control port */
@@ -174,6 +160,20 @@ loadPropertiesFromConfigFile (char *configFile) {
             fprintf (stderr, "Get \"loopCount\" error.\n");
             goto freeProperties;
         }
+    }
+
+    /* Get set filter flag */
+    ret = get_config_item ("Input", "setFilter", iniConfig, &item);
+    if (!ret && item) {
+        ret = get_bool_config_value (item, 0, &error);
+        if (error) {
+            fprintf (stderr, "Get \"setFilter\" error.\n");
+            goto freeProperties;
+        }
+        if (ret)
+            tmp->setFilter = True;
+        else
+            tmp->setFilter = False;
     }
 
     /* Get output file */
@@ -266,7 +266,7 @@ loadPropertiesFromConfigFile (char *configFile) {
     }
     tmp->logLevel = get_int_config_value (item, 1, -1, &error);
     if (error) {
-        fprintf (stderr, "Parse \"logLevel\" error.\n");
+        fprintf (stderr, "Get \"logLevel\" error.\n");
         goto freeProperties;
     }
 
@@ -321,17 +321,6 @@ updatePropertiesSchedPriority (u_int schedPriority) {
     }
 }
 
-char *
-getPropertiesManagementServiceHost (void) {
-    return propertiesInstance->managementServiceHost;
-}
-
-void
-updatePropertiesManagementServiceHost (char *ip) {
-    free (propertiesInstance->managementServiceHost);
-    propertiesInstance->managementServiceHost = strdup (ip);
-}
-
 u_short
 getPropertiesManagementServicePort (void) {
     return propertiesInstance->managementServicePort;
@@ -372,6 +361,16 @@ getPropertiesLoopCount (void) {
 void
 updatePropertiesLoopCount (u_int loopCount) {
     propertiesInstance->loopCount = loopCount;
+}
+
+boolean
+getPropertiesSetFilter (void) {
+    return propertiesInstance->setFilter;
+}
+
+void
+updatePropertiesSetFilter (boolean setFilter) {
+    propertiesInstance->setFilter = setFilter;
 }
 
 char *
@@ -460,21 +459,15 @@ updatePropertiesLogLevel (u_int logLevel) {
 
 void
 displayPropertiesDetail (void) {
-    int minPriority;
-    int maxPriority;
-
-    minPriority = sched_get_priority_min (SCHED_RR);
-    maxPriority = sched_get_priority_max (SCHED_RR);
-
     LOGI ("Startup with properties:{\n");
     LOGI ("    daemonMode: %s\n", propertiesInstance->daemonMode ? "True" : "False");
     LOGI ("    ScheduleRealtime: %s\n", propertiesInstance->schedRealtime ? "True" : "False");
     LOGI ("    SchedulePriority: %u\n", propertiesInstance->schedPriority);
-    LOGI ("    managementServiceHost: %s\n", propertiesInstance->managementServiceHost);
     LOGI ("    managementServicePort: %u\n", propertiesInstance->managementServicePort);
     LOGI ("    interface: %s\n", propertiesInstance->interface);
     LOGI ("    pcapFile: %s\n", propertiesInstance->pcapFile);
     LOGI ("    loopCount: %u\n", propertiesInstance->loopCount);
+    LOGI ("    setFilter: %s\n", propertiesInstance->setFilter ? "True" : "False");
     LOGI ("    outputFile: %s\n", propertiesInstance->outputFile);
     LOGI ("    packetsToScan: %u\n", propertiesInstance->packetsToScan);
     LOGI ("    sleepIntervalAfterScan: %u\n", propertiesInstance->sleepIntervalAfterScan);

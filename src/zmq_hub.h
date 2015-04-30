@@ -2,7 +2,7 @@
 #define __ZMQ_HUB_H__
 
 #include <stdlib.h>
-#include <czmq/czmq.h>
+#include <czmq.h>
 
 #define TASK_STATUS_EXCHANGE_CHANNEL "inproc://taskStatusExchangeChannel"
 #define PROTO_DETECTION_STATUS_EXCHANGE_CHANNEL "inproc://protoDetectionStatusExchangeChannel"

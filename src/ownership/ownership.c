@@ -1,4 +1,4 @@
-#include <czmq/czmq.h>
+#include <czmq.h>
 #include <jansson.h>
 #include "list.h"
 #include "log.h"

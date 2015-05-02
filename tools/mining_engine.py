@@ -1,71 +1,76 @@
-#!/usr/bin/env python
-
-# ---------------------------------------------------------------------------------
-# Name: mining_engine.py
-# Purpose:
-#
-# Time-stamp: <2015-04-15 00:49:46 Wednesday by lzy>
+#! /usr/bin/env python
+# Time-stamp: <2015-05-02 22:23:17 Saturday by zhengyuli>
 #
 # Author: zhengyu li
-# Created: 24 May 2014
+# Created: 2015-05-02
 #
-# Copyright (c) 2014 zhengyu li <lizhengyu419@gmail.com>
-# ---------------------------------------------------------------------------------
+# Copyright (c) 2015 zhengyu li <lizhengyu419@gmail.com>
 
-import os
-import sys
+"""
+Mining engine
+"""
+
 import argparse
 import zmq
 import httplib
 import json
 
 
-def createIndex(ip):
+def createIndex(conn, headers):
     "Created elastic search index if index doesn't exists"
-    httpConn = httplib.HTTPConnection(ip, 9200)
-    httpConn.request("GET", "_cat/indices/breakdown")
-    httpResp = httpConn.getresponse()
+    conn.request("GET", "_cat/indices/breakdown", headers)
+    resp = httpConn.getresponse()
     page = httpResp.read()
-    if httpResp.status != 200:
-        httpConn.request("PUT", "/breakdown")
-        httpResp = httpConn.getresponse()
-        page = httpResp.read()
-    httpConn.close()
+    if resp.status != 200:
+        conn.request("PUT", "/breakdown", headers)
+        resp = conn.getresponse()
+        page = resp.read()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("ip", type=str, help="ElasticSearch ip")
+    parser.add_argument("-i", "--ip", nargs=1, help="ElasticSearch ip")
     args = parser.parse_args()
-    context = zmq.Context()
+    doES = True
+
+
+    if args.ip:
+        try:
+            httpConn = httplib.HTTPConnection(args.ip, 9200)
+            headers = {"Connection": "keep-alive"}
+            createIndex(httpConn, headers)
+        except BaseException:
+            doES = False
+    else:
+        doES = False
+
+    context = zmq.Context.instance()
     bkdRecvSock = context.socket(zmq.PULL)
     bkdRecvSock.bind("tcp://127.0.0.1:60002")
 
-    createIndex(args.ip)
-
-    httpConn = httplib.HTTPConnection(args.ip, 9200)
-    headers = {"Connection": "keep-alive"}
     while True:
         try:
-            data = bkdRecvSock.recv()
-            breakdown = json.loads(data)
+            data = bkdRecvSock.recv_string()
+            if doES:
+                breakdown = json.loads(data)
+                if (breakdown['protocol'] == "ICMP"):
+                    httpConn.request("POST", "breakdown/icmp", data, headers)
+                elif (breakdown['protocol'] == "DEFAULT"):
+                    httpConn.request("POST", "/breakdown/default/", data, headers)
+                elif (breakdown['protocol'] == "HTTP"):
+                    httpConn.request("POST", "/breakdown/http/", data, headers)
+                elif (breakdown['protocol'] == "MYSQL"):
+                    httpConn.request("POST", "/breakdown/mysql/", data, headers)
 
-            if (breakdown['protocol'] == "ICMP"):
-                httpConn.request("POST", "breakdown/icmp", data, headers)
-            elif (breakdown['protocol'] == "DEFAULT"):
-                httpConn.request("POST", "/breakdown/default/", data, headers)
-            elif (breakdown['protocol'] == "HTTP"):
-                httpConn.request("POST", "/breakdown/http/", data, headers)
-            elif (breakdown['protocol'] == "MYSQL"):
-                httpConn.request("POST", "/breakdown/mysql/", data, headers)
-
-            httpResp = httpConn.getresponse()
-            print httpResp.status, httpResp.reason
-            page = httpResp.read()
+                httpResp = httpConn.getresponse()
+                page = httpResp.read()
+                print httpResp.status, httpResp.reason
+            else:
+                print data
         except KeyboardInterrupt:
-            print "program is interrupted."
             exit(0)
         except BaseException:
             print "program encounter fatal error."
             exit(-1)
         finally:
-            httpConn.close()
+            if doES:
+                httpConn.close()

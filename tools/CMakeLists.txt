@@ -1,16 +1,7 @@
 CMAKE_MINIMUM_REQUIRED (VERSION 2.8.0)
 
-SET (TOOLS
-  resume.py
-  pause.py
-  heartbeat.py
-  packets_statistic_info.py
-  protos_info.py
-  services_info.py
-  mining_engine.py
-  breakdown_receiver.py)
-
 INSTALL (
-  FILES ${TOOLS}
-  DESTINATION ${PROJECT_DATA_DIR}/tools
+  FILES ntrace_cli.py
+  RENAME ntrace_cli
+  DESTINATION ${PROJECT_BIN_DIR}
   PERMISSIONS  OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)

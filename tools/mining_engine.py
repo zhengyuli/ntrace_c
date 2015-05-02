@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-# Time-stamp: <2015-05-02 22:23:17 Saturday by zhengyuli>
+# Time-stamp: <2015-05-03 07:42:15 Sunday by zhengyuli>
 #
 # Author: zhengyu li
 # Created: 2015-05-02
@@ -35,7 +35,7 @@ if __name__ == '__main__':
 
     if args.ip:
         try:
-            httpConn = httplib.HTTPConnection(args.ip, 9200)
+            httpConn = httplib.HTTPConnection(args.ip[0], 9200)
             headers = {"Connection": "keep-alive"}
             createIndex(httpConn, headers)
         except BaseException:

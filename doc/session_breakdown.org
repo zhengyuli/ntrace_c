@@ -8,6 +8,7 @@
 |-------------------+-------------------+----------------+---------------------------+-------------------------------------------------------------|
 | /                 | <                 | <              | <                         | <                                                           |
 | u_long_long       | timestamp         | u_long_long    | timestamp                 | Timestamp in seconds                                        |
+| None              | None              | char *         | timestamp_readable        | Timestamp readable string                                       |
 | protoType         | proto             | char *         | protocol                  | Tcp application level protocol type                         |
 | struct in_addr    | srcIp             | char *         | source_ip                 | Source ip                                                   |
 | u_short           | srcPort           | u_short        | source_port               | Source port                                                 |
@@ -59,7 +60,6 @@
  | struct in_addr | ip            | char *         | icmp_dest_unreach_ip   | Icmp dest unreach ip   |
  | u_short        | port          | u_short        | icmp_dest_unreach_port | Icmp dest unreach port |
  |----------------+---------------+----------------+------------------------+------------------------|
-
 
 ** Default breakdown interface
  |---------------+---------------+----------------+------------------------+-----------------------------|

@@ -1,32 +1,36 @@
-#!/usr/bin/env python
-
-# ---------------------------------------------------------------------------------
-# Name: breakdown_receiver.py
-# Purpose:
-#
-# Time-stamp: <2015-04-28 14:31:32 Tuesday by lzy>
+#! /usr/bin/env python
+# Time-stamp: <2015-05-02 16:25:05 Saturday by zhengyuli>
 #
 # Author: zhengyu li
-# Created: 24 May 2014
+# Created: 2015-05-02
 #
-# Copyright (c) 2014 zhengyu li <lizhengyu419@gmail.com>
-# ---------------------------------------------------------------------------------
+# Copyright (c) 2015 zhengyu li <lizhengyu419@gmail.com>
+
+"""
+
+"""
 
 import os
-import sys
+import argparse
 import zmq
 
-context = zmq.Context()
-bkdRecvSock = context.socket(zmq.PULL)
-bkdRecvSock.bind("tcp://127.0.0.1:60002")
 
-while True:
-    try:
-        data = bkdRecvSock.recv()
-        print data
-    except KeyboardInterrupt:
-        print "program is interrupted."
-        exit(0)
-    except BaseException:
-        print "program encounter fatal error."
-        exit(-1)
+def recvBreakdown(ip, port):
+    "Receive session breakdown"
+    ctxt = zmq.Context ()
+    sock = ctxt.sock(zmq.PULL)
+    sock.bind("tcp://" + ip + ":" + port)
+
+    while True:
+        breakdown = sock.recv()
+        print breakdown
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-i", "--ip", nargs=1, help="nTrace host ip")
+    parser.add_argument("-p", "--port", nargs=1, help="nTrace host port")
+    parser.add_argument("-c", "--cmd", nargs=1, choices=["recvBreakdown"], required=True)
+    args = parser.parse_args()
+
+    if args.

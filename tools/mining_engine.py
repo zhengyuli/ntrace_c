@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-# Time-stamp: <2015-05-03 08:25:16 Sunday by zhengyuli>
+# Time-stamp: <2015-05-03 09:13:03 Sunday by zhengyuli>
 #
 # Author: zhengyu li
 # Created: 2015-05-02
@@ -18,11 +18,11 @@ import json
 
 def createIndex(conn, headers):
     "Created elastic search index if index doesn't exists"
-    conn.request("GET", "_cat/indices/breakdown", headers)
-    resp = httpConn.getresponse()
-    page = httpResp.read()
+    conn.request("GET", "_cat/indices/breakdown", headers=headers)
+    resp = conn.getresponse()
+    page = resp.read()
     if resp.status != 200:
-        conn.request("PUT", "/breakdown", headers)
+        conn.request("PUT", "/breakdown", headers=headers)
         resp = conn.getresponse()
         page = resp.read()
 
@@ -39,6 +39,7 @@ if __name__ == '__main__':
             headers = {"Connection": "keep-alive"}
             createIndex(httpConn, headers)
         except BaseException:
+            print "except"
             doES = False
     else:
         doES = False
@@ -53,13 +54,13 @@ if __name__ == '__main__':
             if doES:
                 breakdown = json.loads(data)
                 if breakdown['protocol'] == "ICMP":
-                    httpConn.request("POST", "breakdown/icmp", data, headers)
+                    httpConn.request("POST", "breakdown/icmp", body=data, headers=headers)
                 elif breakdown['protocol'] == "DEFAULT":
-                    httpConn.request("POST", "/breakdown/default/", data, headers)
+                    httpConn.request("POST", "/breakdown/default/", body=data, headers=headers)
                 elif breakdown['protocol'] == "HTTP":
-                    httpConn.request("POST", "/breakdown/http/", data, headers)
+                    httpConn.request("POST", "/breakdown/http/", body=data, headers=headers)
                 elif breakdown['protocol'] == "MYSQL":
-                    httpConn.request("POST", "/breakdown/mysql/", data, headers)
+                    httpConn.request("POST", "/breakdown/mysql/", body=data, headers=headers)
 
                 httpResp = httpConn.getresponse()
                 page = httpResp.read()

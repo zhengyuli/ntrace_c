@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-# Time-stamp: <2015-05-03 07:42:15 Sunday by zhengyuli>
+# Time-stamp: <2015-05-03 08:25:16 Sunday by zhengyuli>
 #
 # Author: zhengyu li
 # Created: 2015-05-02
@@ -52,13 +52,13 @@ if __name__ == '__main__':
             data = bkdRecvSock.recv_string()
             if doES:
                 breakdown = json.loads(data)
-                if (breakdown['protocol'] == "ICMP"):
+                if breakdown['protocol'] == "ICMP":
                     httpConn.request("POST", "breakdown/icmp", data, headers)
-                elif (breakdown['protocol'] == "DEFAULT"):
+                elif breakdown['protocol'] == "DEFAULT":
                     httpConn.request("POST", "/breakdown/default/", data, headers)
-                elif (breakdown['protocol'] == "HTTP"):
+                elif breakdown['protocol'] == "HTTP":
                     httpConn.request("POST", "/breakdown/http/", data, headers)
-                elif (breakdown['protocol'] == "MYSQL"):
+                elif breakdown['protocol'] == "MYSQL":
                     httpConn.request("POST", "/breakdown/mysql/", data, headers)
 
                 httpResp = httpConn.getresponse()

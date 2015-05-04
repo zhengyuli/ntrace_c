@@ -194,7 +194,7 @@ initZmqHub (void) {
         goto destroyZmqCtxt;
     }
 
-    if (getPropertiesPcapFile ()) {
+    if (!getPropertiesSniffLiveMode ()) {
         /* Create protoDetectionStatusSendSock */
         zmqHubIntance->protoDetectionStatusSendSock = zsocket_new (zmqHubIntance->zmqCtxt, ZMQ_PUSH);
         if (zmqHubIntance->protoDetectionStatusSendSock == NULL) {

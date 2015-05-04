@@ -22,21 +22,24 @@ updateFilterForSniff (void *args) {
     int ret;
     char *filter;
 
-    /* Update application services filter */
-    filter = getAppServicesFilter ();
-    if (filter == NULL)
-        LOGE ("Get application services filter error.\n");
-    else {
-        ret = updateNetDevFilterForSniff (filter);
-        if (ret < 0)
-            LOGE ("Update application services filter error.\n");
-        else
-            LOGI ("\n"
-                  "============================================\n"
-                  "Update application services filter with:\n%s\n"
-                  "============================================\n\n", filter);
+    if (getPropertiesSniffLiveMode () &&
+        getPropertiesAutoAddService ()) {
+        /* Update application services filter */
+        filter = getAppServicesFilter ();
+        if (filter == NULL)
+            LOGE ("Get application services filter error.\n");
+        else {
+            ret = updateNetDevFilterForSniff (filter);
+            if (ret < 0)
+                LOGE ("Update application services filter error.\n");
+            else
+                LOGI ("\n"
+                      "============================================\n"
+                      "Update application services filter with:\n%s\n"
+                      "============================================\n\n", filter);
 
-        free (filter);
+            free (filter);
+        }
     }
 }
 
@@ -97,7 +100,7 @@ protoDetectService (void *args) {
         goto destroyIpContext;
     }
 
-    captureLive = getPropertiesPcapFile () ? False : True;
+    captureLive = getPropertiesSniffLiveMode ();
     packetsToScan = getPropertiesPacketsToScan ();
     sleepIntervalAfterScan = getPropertiesSleepIntervalAfterScan ();
 
@@ -113,7 +116,7 @@ protoDetectService (void *args) {
             if (captureLive &&
                 packetsToScan &&
                 packetsScanned % packetsToScan == 0) {
-                LOGD ("Pause ProtoDetectService after scan packets: %llu.\n", packetsScanned);
+                LOGD ("Pause ProtoDetectService after scanning packets: %llu.\n", packetsScanned);
                 sleep (sleepIntervalAfterScan);
 
                 /* Reset ip context */

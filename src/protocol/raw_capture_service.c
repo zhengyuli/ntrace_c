@@ -110,6 +110,15 @@ rawCaptureService (void *args) {
     /* Get ipPktSendSock */
     ipPktSendSock = getIpPktSendSock ();
 
+    if (!getPropertiesSniffLiveMode ()) {
+        msgStr = zstr_recv (getProtoDetectionStatusRecvSock ());
+        if (msgStr) {
+            LOGI ("%s\n", msgStr);
+            free (msgStr);
+        } else if (!SIGUSR1IsInterrupted ())
+            LOGE ("Receive proto detection status message with fatal error.\n");
+    }
+
     /* Update application services filter */
     filter = getAppServicesFilter ();
     if (filter == NULL) {
@@ -127,15 +136,6 @@ rawCaptureService (void *args) {
           "Update application services filter with:\n%s\n"
           "============================================\n\n", filter);
     free (filter);
-
-    if (getPropertiesPcapFile ()) {
-        msgStr = zstr_recv (getProtoDetectionStatusRecvSock ());
-        if (msgStr) {
-            LOGI ("%s\n", msgStr);
-            free (msgStr);
-        } else if (!SIGUSR1IsInterrupted ())
-            LOGE ("Receive proto detection status message with fatal error.\n");
-    }
 
     /* Init rawPktCaptureSize and rawPktCaptureStartTime */
     rawPktCaptureSize = 0;

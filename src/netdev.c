@@ -248,8 +248,8 @@ int
 loopNetDevForSniff (void) {
     pcap_t * tmp;
 
-    if (getPropertiesPcapFile () == NULL) {
-        LOGE ("Has no pcap file config.\n");
+    if (getPropertiesSniffLiveMode ()) {
+        LOGE ("Sniff in live mode, can't loop netDev for sniff.\n");
         return -1;
     }
 

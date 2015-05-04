@@ -10,8 +10,7 @@ typedef properties *propertiesPtr;
 struct _properties {
     boolean daemonMode;                 /**< Daemon mode */
 
-    boolean schedRealtime;              /**< Realtime schedule flag */
-    u_int schedPriority;                /**< Realtime schedule priority */
+    u_int schedPriority;                /**< Schedule priority */
 
     u_short managementServicePort;      /**< Management control port */
 
@@ -20,14 +19,13 @@ struct _properties {
     char *pcapFile;                     /**< Pcap file */
     u_int loopCount;                    /**< Pcap file loop read count */
 
-    boolean setFilter;                  /**< BPF filter setting flag */
-
     char *outputFile;                   /**< Output file */
 
     u_int packetsToScan;                /**< Proto packetes to scan for each
                                              proto detection loop */
     u_int sleepIntervalAfterScan;       /**< Sleep interval after each proto
                                              detection loop */
+    boolean autoAddService;             /**< Auto add detected service to sniff */
 
     char *miningEngineHost;             /**< Mining engine host ip */
     u_short sessionBreakdownRecvPort;   /**< session breakdown receive port of
@@ -53,6 +51,8 @@ u_short
 getPropertiesManagementServicePort (void);
 void
 updatePropertiesManagementServicePort (u_short port);
+boolean
+getPropertiesSniffLiveMode (void);
 char *
 getPropertiesInterface (void);
 void
@@ -65,10 +65,6 @@ u_int
 getPropertiesLoopCount (void);
 void
 updatePropertiesLoopCount (u_int loopCount);
-boolean
-getPropertiesSetFilter (void);
-void
-updatePropertiesSetFilter (boolean setFilter);
 char *
 getPropertiesOutputFile (void);
 u_int
@@ -79,6 +75,10 @@ u_int
 getPropertiesSleepIntervalAfterScan (void);
 void
 updatePropertiesSleepIntervalAfterScan (u_int sleepInterval);
+boolean
+getPropertiesAutoAddService (void);
+void
+updatePropertiesAutoAddService (boolean autoAddService);
 void
 updatePropertiesOutputFile (char *fname);
 char *

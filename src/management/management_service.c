@@ -20,6 +20,9 @@ static protoAnalyzerInfo protoAnalyzerInformation;
 /* Detected services */
 static json_t *services = NULL;
 
+/* Error message for response */
+static char errMsg [256];
+
 /**
  * @brief Resume request handler.
  *
@@ -35,19 +38,22 @@ handleResumeRequest (json_t *body) {
     /* Get Latest application services filter */
     filter = getAppServicesFilter ();
     if (filter == NULL) {
-        LOGE ("Get application services filter error.\n");
+        snprintf (errMsg, sizeof (errMsg), "Get application services filter error.");
+        LOGE ("%s\n", errMsg);
         return -1;
     }
 
     /* Update application services filter */
     ret = updateNetDevFilterForSniff (filter);
-    if (ret < 0)
-        LOGE ("Update application services filter error.\n");
-    else
-        LOGI ("Update application services filter: %s\n", filter);
-    free (filter);
+    if (ret < 0) {
+        snprintf (errMsg, sizeof (errMsg), "Update application services filter error.");
+        LOGE ("%s\n", errMsg);
+        free (filter);
+    }
 
-    return ret;
+    LOGI ("Update application services filter: %s\n", filter);
+    free (filter);
+    return 0;
 }
 
 /**
@@ -65,19 +71,23 @@ handlePauseRequest (json_t *body) {
     /* Get application services padding filter */
     filter = getAppServicesPaddingFilter ();
     if (filter == NULL) {
-        LOGE ("Get application services padding filter error.\n");
+        snprintf (errMsg, sizeof (errMsg), "Get application services filter error.");
+        LOGE ("%s\n", errMsg);
         return -1;
     }
 
     /* Update application services filter */
     ret = updateNetDevFilterForSniff (filter);
-    if (ret < 0)
-        LOGE ("Update application services filter error.\n");
-    else
-        LOGI ("Update application services filter: %s\n", filter);
-    free (filter);
+    if (ret < 0) {
+        snprintf (errMsg, sizeof (errMsg), "Update application services filter error.");
+        LOGE ("%s\n", errMsg);
+        free (filter);
+        return -1;
+    }
 
-    return ret;
+    LOGI ("Update application services filter: %s\n", filter);
+    free (filter);
+    return 0;
 }
 
 /**
@@ -106,7 +116,8 @@ handleGetPacketsStatisticInfoRequest (json_t *body) {
     ret = getNetDevStatisticInfoForSniff (&packetsStatisticPktsReceive,
                                           &packetsStatisticPktsDrop);
     if (ret < 0) {
-        LOGE ("Get packets statistic info error.\n");
+        snprintf (errMsg, sizeof (errMsg), "Get packets statistic info error.");
+        LOGE ("%s\n", errMsg);
         return -1;
     }
 
@@ -126,7 +137,8 @@ handleGetProtosInfoRequest (json_t *body) {
 
     ret = getProtoAnalyzerInfo (&protoAnalyzerInformation);
     if (ret < 0) {
-        LOGE ("Get proto analyzer info error.\n");
+        snprintf (errMsg, sizeof (errMsg), "Get proto analyzer info error.");
+        LOGE ("%s\n", errMsg);
         return -1;
     }
 
@@ -144,10 +156,90 @@ static int
 handleGetServicesInfoRequest (json_t *body) {
     services = getJsonFromAppServices ();
     if (services == NULL) {
-        LOGE ("Get services info error.\n");
+        snprintf (errMsg, sizeof (errMsg), "Get services info error.");
+        LOGE ("%s\n", errMsg);
         return -1;
     }
 
+    return 0;
+}
+
+/**
+ * @brief Get detected services info request handler.
+ *
+ * @param body data to handle
+ *
+ * @return 0 if success else -1
+ */
+static int
+handleGetDetectedServicesInfoRequest (json_t *body) {
+    services = getJsonFromAppServicesDetected ();
+    if (services == NULL) {
+        snprintf (errMsg, sizeof (errMsg), "Get detected services info error.");
+        LOGE ("%s\n", errMsg);
+        return -1;
+    }
+
+    return 0;
+}
+
+/**
+ * @brief Update services request handler
+ *
+ * @param body data to handle
+ *
+ * @return 0 if success else -1
+ */
+static int
+handleUpdateServicesRequest (json_t *body) {
+    int ret;
+    json_t *services;
+    char *filter;
+
+    services = json_object_get (body, MANAGEMENT_REQUEST_BODY_SERVICES);
+    if ((services == NULL) || !json_is_array (services)) {
+        snprintf (errMsg, sizeof (errMsg), "Invalid format of update services request.");
+        LOGE ("%s\n", errMsg);
+        return -1;
+    }
+
+    /* Check update services permission */
+    if (getPropertiesAutoAddService ()) {
+        snprintf (errMsg, sizeof (errMsg), "Has no permission to update services.");
+        LOGE ("%s\n", errMsg);
+        return -1;
+    }
+
+    /* Update application services */
+    ret = updateAppServices (services);
+    if (ret < 0) {
+        snprintf (errMsg, sizeof (errMsg), "Update services error.");
+        LOGE ("%s\n", errMsg);
+        return -1;
+    }
+
+    /* Get application services filter */
+    filter = getAppServicesFilter ();
+    if (filter == NULL) {
+        snprintf (errMsg, sizeof (errMsg), "Get application services filter error.");
+        LOGE ("%s\n", errMsg);
+        return -1;
+    }
+
+    /* Update application services filter */
+    ret = updateNetDevFilterForSniff (filter);
+    if (ret < 0) {
+        snprintf (errMsg, sizeof (errMsg), "Update application services filter error.");
+        LOGE ("%s\n", errMsg);
+        free (filter);
+        return -1;
+    }
+
+    LOGI ("\n"
+          "============================================\n"
+          "Update application services filter with:\n%s\n"
+          "============================================\n\n", filter);
+    free (filter);
     return 0;
 }
 
@@ -200,7 +292,8 @@ buildManagementResponse (char *cmd, int code) {
                 json_array_append_new (protos, json_string (protoAnalyzerInformation.protos [i]));
 
             json_object_set_new (body, MANAGEMENT_RESPONSE_BODY_PROTOS, protos);
-        } else if (strEqual (cmd, MANAGEMENT_REQUEST_COMMAND_SERVICES_INFO)) {
+        } else if (strEqual (cmd, MANAGEMENT_REQUEST_COMMAND_SERVICES_INFO) ||
+                   strEqual (cmd, MANAGEMENT_REQUEST_COMMAND_DETECTED_SERVICES_INFO)) {
             json_object_set_new (body, MANAGEMENT_RESPONSE_BODY_SERVICES, services);
             services = NULL;
         }
@@ -215,7 +308,8 @@ buildManagementResponse (char *cmd, int code) {
     } else {
         json_object_set_new (root, MANAGEMENT_RESPONSE_CODE, json_integer (1));
         json_object_set_new (root, MANAGEMENT_RESPONSE_ERROR_MESSAGE,
-                             json_string ("Internal error."));
+                             json_string (errMsg));
+        errMsg [0] = 0;
     }
 
     response = json_dumps (root, JSON_INDENT (4) | JSON_PRESERVE_ORDER);
@@ -283,6 +377,10 @@ managementService (void *args) {
                     ret = handleGetProtosInfoRequest (body);
                 else if (strEqual (MANAGEMENT_REQUEST_COMMAND_SERVICES_INFO, cmdStr))
                     ret = handleGetServicesInfoRequest (body);
+                else if (strEqual (MANAGEMENT_REQUEST_COMMAND_DETECTED_SERVICES_INFO, cmdStr))
+                    ret = handleGetDetectedServicesInfoRequest (body);
+                else if (strEqual (MANAGEMENT_REQUEST_COMMAND_UPDATE_SERVICES, cmdStr))
+                    ret = handleUpdateServicesRequest (body);
                 else {
                     LOGE ("Unknown management request command: %s.\n", cmdStr);
                     ret = 1;

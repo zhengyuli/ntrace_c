@@ -16,6 +16,11 @@
 #define MANAGEMENT_REQUEST_COMMAND_PACKETS_STATISTIC_INFO "packets_statistic_info"
 #define MANAGEMENT_REQUEST_COMMAND_PROTOS_INFO "protos_info"
 #define MANAGEMENT_REQUEST_COMMAND_SERVICES_INFO "services_info"
+#define MANAGEMENT_REQUEST_COMMAND_DETECTED_SERVICES_INFO "detected_services_info"
+#define MANAGEMENT_REQUEST_COMMAND_UPDATE_SERVICES "update_services"
+
+/* Management request body json key definitions */
+#define MANAGEMENT_REQUEST_BODY_SERVICES "services"
 
 /* Management response json key definitions */
 #define MANAGEMENT_RESPONSE_CODE "code"
@@ -30,6 +35,8 @@
 #define MANAGEMENT_RESPONSE_BODY_PROTOS "protos"
 
 #define MANAGEMENT_RESPONSE_BODY_SERVICES "services"
+
+#define MANAGEMENT_RESPONSE_BODY_DETECTED_SERVICES "detected_services"
 
 /* Default management error response */
 #define DEFAULT_MANAGEMENT_ERROR_RESPONSE           \

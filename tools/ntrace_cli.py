@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-# Time-stamp: <2015-05-02 21:49:20 Saturday by zhengyuli>
+# Time-stamp: <2015-05-04 14:28:45 Monday by zhengyuli>
 #
 # Author: zhengyu li
 # Created: 2015-05-02
@@ -46,6 +46,24 @@ def cmdServicesInfo(sock):
     sock.send_json(req)
     print sock.recv_string()
 
+def cmdDetectedServicesInfo(sock):
+    req = {'command':'detected_services_info'}
+    sock.send_json(req)
+    print sock.recv_string()
+
+def cmdUpdateServices(sock):
+    service1 = {'ip':'210.28.129.4',
+               'port':80,
+               'proto':'HTTP'}
+    serviceList = [service1]
+
+    req = {'command':'update_services',
+           'body':{
+               'services':serviceList
+           }}
+    sock.send_json(req)
+    print sock.recv_string()
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--ip", nargs=1, help="nTrace host ip")
@@ -56,7 +74,9 @@ if __name__ == '__main__':
                                  "heartbeat",
                                  "pktsStatInfo",
                                  "protosInfo",
-                                 "servicesInfo"],
+                                 "servicesInfo",
+                                 "detectedServicesInfo",
+                                 "updateServices"],
                         help="nTrace request command")
     args = parser.parse_args()
 
@@ -81,6 +101,10 @@ if __name__ == '__main__':
             cmdProtosInfo(zmqSock)
         elif cmd == 'servicesInfo':
             cmdServicesInfo(zmqSock)
+        elif cmd == 'detectedServicesInfo':
+            cmdDetectedServicesInfo(zmqSock)
+        elif cmd == 'updateServices':
+            cmdUpdateServices(zmqSock)
 
         zmqCtxt.destroy()
     except KeyboardInterrupt:

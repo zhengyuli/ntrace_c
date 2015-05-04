@@ -244,13 +244,13 @@ delTcpStreamFromHash (tcpStreamPtr stream) {
     inet_ntop (AF_INET, (void *) &addr->saddr, ipSrcStr, sizeof (ipSrcStr));
     inet_ntop (AF_INET, (void *) &addr->daddr, ipDestStr, sizeof (ipDestStr));
 
-    /* Save detected appService if any */
+    /* Save appService detected */
     if (doProtoDetect && stream->proto) {
         snprintf (key, sizeof (key), "%s:%d", ipDestStr, addr->dest);
 
-        analyzer = getAppServiceProtoAnalyzer (key);
+        analyzer = getAppServiceDetectedProtoAnalyzer (key);
         if (analyzer == NULL) {
-            ret = addAppService (stream->proto, ipDestStr, addr->dest);
+            ret = addAppServiceDetected (ipDestStr, addr->dest, stream->proto);
             if (ret < 0)
                 LOGE ("Add new detected appService ip:%s port:%u proto: %s error.\n",
                       ipDestStr, addr->dest, stream->proto);
@@ -565,7 +565,7 @@ tcpBreakdown2Json (tcpStreamPtr stream, tcpBreakdownPtr tbd) {
 
     root = json_object ();
     if (root == NULL) {
-        LOGE ("Create json object error.\n");
+        LOGE ("Create js2on object error.\n");
         return NULL;
     }
     /* Tcp breakdown timestamp */
@@ -1282,7 +1282,7 @@ tcpProcess (iphdrPtr iph, timeValPtr tm) {
                 inet_ntop (AF_INET, (void *) &iph->ipDest, ipStr, sizeof (ipStr));
                 snprintf (key, sizeof (key), "%s:%d", ipStr, ntohs (tcph->dest));
 
-                if (getAppServiceProtoAnalyzer (key))
+                if (getAppServiceDetectedProtoAnalyzer (key))
                     return;
             }
 

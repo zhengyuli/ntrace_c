@@ -17,16 +17,15 @@ newProperties (void) {
         return NULL;
 
     tmp->daemonMode = False;
-    tmp->schedRealtime = False;
     tmp->schedPriority = 0;
     tmp->managementServicePort = 0;
     tmp->interface = NULL;
     tmp->pcapFile = NULL;
     tmp->loopCount = 0;
-    tmp->setFilter = False;
     tmp->outputFile = NULL;
     tmp->packetsToScan = 0;
     tmp->sleepIntervalAfterScan = 0;
+    tmp->autoAddService = False;
     tmp->miningEngineHost = NULL;
     tmp->sessionBreakdownRecvPort = 0;
     tmp->logDir = NULL;
@@ -112,13 +111,9 @@ loadPropertiesFromConfigFile (char *configFile) {
     minPriority = sched_get_priority_min (SCHED_RR);
     maxPriority = sched_get_priority_max (SCHED_RR);
 
-    if (tmp->schedPriority >= minPriority &&
-        tmp->schedPriority <= maxPriority)
-        tmp->schedRealtime = True;
-    else {
-        tmp->schedRealtime = False;
+    if (tmp->schedPriority < minPriority ||
+        tmp->schedPriority > maxPriority)
         tmp->schedPriority = 0;
-    }
 
     /* Get management control port */
     ret = get_config_item ("ManagementService", "managementServicePort", iniConfig, &item);
@@ -162,20 +157,6 @@ loadPropertiesFromConfigFile (char *configFile) {
         }
     }
 
-    /* Get set filter flag */
-    ret = get_config_item ("Input", "setFilter", iniConfig, &item);
-    if (!ret && item) {
-        ret = get_bool_config_value (item, 0, &error);
-        if (error) {
-            fprintf (stderr, "Get \"setFilter\" error.\n");
-            goto freeProperties;
-        }
-        if (ret)
-            tmp->setFilter = True;
-        else
-            tmp->setFilter = False;
-    }
-
     /* Get output file */
     ret = get_config_item ("Output", "outputFile", iniConfig, &item);
     if (!ret && item) {
@@ -209,6 +190,23 @@ loadPropertiesFromConfigFile (char *configFile) {
         fprintf (stderr, "Get \"sleepIntervalAfterScan\" error.\n");
         goto freeProperties;
     }
+
+    /* Get auto add appService flag */
+    ret = get_config_item ("ProtoDetect", "autoAddService", iniConfig, &item);
+    if (ret || item == NULL) {
+        fprintf (stderr, "Get_config_item \"autoAddService\" error.\n");
+        goto freeProperties;
+    }
+    ret = get_bool_config_value (item, 0, &error);
+    if (error) {
+        fprintf (stderr, "Get \"autoAddService\" error.\n");
+        goto freeProperties;
+    }
+    if (ret)
+        tmp->autoAddService = True;
+    else
+        tmp->autoAddService = False;
+
 
     /* Get mining engine host */
     ret = get_config_item ("MiningEngine", "miningEngineHost", iniConfig, &item);
@@ -290,7 +288,7 @@ getPropertiesDaemonMode (void) {
 
 boolean
 getPropertiesSchedRealtime (void) {
-    return propertiesInstance->schedRealtime;
+    return propertiesInstance->schedPriority ? True : False;
 }
 
 void
@@ -311,14 +309,11 @@ updatePropertiesSchedPriority (u_int schedPriority) {
     minPriority = sched_get_priority_min (SCHED_RR);
     maxPriority = sched_get_priority_max (SCHED_RR);
 
-    if (schedPriority >= minPriority &&
-        schedPriority <= maxPriority) {
-        propertiesInstance->schedRealtime = True;
-        propertiesInstance->schedPriority = schedPriority;
-    } else {
-        propertiesInstance->schedRealtime = False;
+    if (schedPriority < minPriority ||
+        schedPriority > maxPriority)
         propertiesInstance->schedPriority = 0;
-    }
+    else
+        propertiesInstance->schedPriority = schedPriority;
 }
 
 u_short
@@ -329,6 +324,11 @@ getPropertiesManagementServicePort (void) {
 void
 updatePropertiesManagementServicePort (u_short port) {
     propertiesInstance->managementServicePort = port;
+}
+
+boolean
+getPropertiesSniffLiveMode (void) {
+    return propertiesInstance->pcapFile == NULL ? True : False;
 }
 
 char *
@@ -363,16 +363,6 @@ updatePropertiesLoopCount (u_int loopCount) {
     propertiesInstance->loopCount = loopCount;
 }
 
-boolean
-getPropertiesSetFilter (void) {
-    return propertiesInstance->setFilter;
-}
-
-void
-updatePropertiesSetFilter (boolean setFilter) {
-    propertiesInstance->setFilter = setFilter;
-}
-
 char *
 getPropertiesOutputFile (void) {
     return propertiesInstance->outputFile;
@@ -402,6 +392,19 @@ getPropertiesSleepIntervalAfterScan (void) {
 void
 updatePropertiesSleepIntervalAfterScan (u_int sleepInterval) {
     propertiesInstance->sleepIntervalAfterScan = sleepInterval;
+}
+
+boolean
+getPropertiesAutoAddService (void) {
+    if (propertiesInstance->pcapFile)
+        return True;
+    else
+        return propertiesInstance->autoAddService;
+}
+
+void
+updatePropertiesAutoAddService (boolean autoAddService) {
+    propertiesInstance->autoAddService = autoAddService;
 }
 
 char *
@@ -460,23 +463,24 @@ updatePropertiesLogLevel (u_int logLevel) {
 void
 displayPropertiesDetail (void) {
     LOGI ("Startup with properties:{\n");
-    LOGI ("    daemonMode: %s\n", propertiesInstance->daemonMode ? "True" : "False");
-    LOGI ("    ScheduleRealtime: %s\n", propertiesInstance->schedRealtime ? "True" : "False");
-    LOGI ("    SchedulePriority: %u\n", propertiesInstance->schedPriority);
-    LOGI ("    managementServicePort: %u\n", propertiesInstance->managementServicePort);
-    LOGI ("    interface: %s\n", propertiesInstance->interface);
-    LOGI ("    pcapFile: %s\n", propertiesInstance->pcapFile);
-    LOGI ("    loopCount: %u\n", propertiesInstance->loopCount);
-    LOGI ("    setFilter: %s\n", propertiesInstance->setFilter ? "True" : "False");
-    LOGI ("    outputFile: %s\n", propertiesInstance->outputFile);
-    LOGI ("    packetsToScan: %u\n", propertiesInstance->packetsToScan);
-    LOGI ("    sleepIntervalAfterScan: %u\n", propertiesInstance->sleepIntervalAfterScan);
-    LOGI ("    miningEngineHost: %s\n", propertiesInstance->miningEngineHost);
-    LOGI ("    sessionBreakdownRecvPort: %u\n", propertiesInstance->sessionBreakdownRecvPort);
-    LOGI ("    logDir: %s\n", propertiesInstance->logDir);
-    LOGI ("    logFileName: %s\n", propertiesInstance->logFileName);
+    LOGI ("    daemonMode: %s\n", getPropertiesDaemonMode () ? "True" : "False");
+    LOGI ("    ScheduleRealtime: %s\n", getPropertiesSchedPriority () ? "True" : "False");
+    LOGI ("    SchedulePriority: %u\n", getPropertiesSchedPriority ());
+    LOGI ("    managementServicePort: %u\n", getPropertiesManagementServicePort ());
+    LOGI ("    sniffLiveMode : %s\n", getPropertiesSniffLiveMode () ? "True" : "False");
+    LOGI ("    interface: %s\n", getPropertiesInterface ());
+    LOGI ("    pcapFile: %s\n", getPropertiesPcapFile ());
+    LOGI ("    loopCount: %u\n", getPropertiesLoopCount ());
+    LOGI ("    outputFile: %s\n", getPropertiesOutputFile ());
+    LOGI ("    packetsToScan: %u\n", getPropertiesPacketsToScan ());
+    LOGI ("    sleepIntervalAfterScan: %u\n", getPropertiesSleepIntervalAfterScan ());
+    LOGI ("    autoAddService: %s\n", getPropertiesAutoAddService () ? "True" : "False");
+    LOGI ("    miningEngineHost: %s\n", getPropertiesMiningEngineHost ());
+    LOGI ("    sessionBreakdownRecvPort: %u\n", getPropertiesSessionBreakdownRecvPort ());
+    LOGI ("    logDir: %s\n", getPropertiesLogDir ());
+    LOGI ("    logFileName: %s\n", getPropertiesLogFileName ());
     LOGI ("    logLevel: ");
-    switch (propertiesInstance->logLevel) {
+    switch (getPropertiesLogLevel ()) {
         case LOG_ERR_LEVEL:
             LOGI ("ERROR\n");
             break;

@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <getopt.h>
 #include "config.h"
+#include "util.h"
 #include "properties.h"
 #include "version.h"
 #include "option_parser.h"
@@ -17,6 +18,7 @@ static struct option options [] = {
     {"outputFile", required_argument, NULL, 'O'},
     {"packetsToScan", required_argument, NULL, 'N'},
     {"sleepIntervalAfterScan", required_argument, NULL, 'T'},
+    {"autoAddService", no_argument, NULL, 'A'},
     {"miningEngineHost", required_argument, NULL, 'i'},
     {"sessionBreakdownRecvPort", required_argument, NULL, 'p'},
     {"logDir", required_argument, NULL, 'd'},
@@ -35,7 +37,7 @@ showHelpInfo (const char *cmd) {
     fprintf (stdout,
              "Usage: %s -m <eth*> [options]\n"
              "       %s [-vh]\n"
-             "Basic options: \n"
+             "Options: \n"
              "  -C|--config, config file\n"
              "  -D|--daemonMode, run as daemon\n"
              "  -S|--schedPriority <priority> schedule priority\n"
@@ -43,10 +45,10 @@ showHelpInfo (const char *cmd) {
              "  -m|--interface <eth*> interface to monitor\n"
              "  -F|--pcapFile <fname> pcap file\n"
              "  -n|--loopCount <count> Loop read pcap file some times, 0 for loop forever\n"
-             "  -B|--setFilter, BPF filter flag"
              "  -O|--outputFile <fname> output file\n"
              "  -N|--packetsToScan, packets to scan for each proto detect loop\n"
              "  -T|--sleepIntervalAfterScan, sleep interval after each proto detect loop\n"
+             "  -A|--autoAddService, auto add detected service for sniff\n"
              "  -i|--miningEngineHost <ip> mining engine host ip\n"
              "  -p|--sessionBreakdownRecvPort <port> session breakdown receive port\n"
              "  -d|--logDir <path>, log file directory\n"
@@ -58,19 +60,25 @@ showHelpInfo (const char *cmd) {
              cmdName, cmdName, cmdName);
 }
 
+/* Get config file */
 char *
 getConfigFile (int argc, char *argv []) {
+    u_int i;
     char option;
+    char *argvCopy [128];
+
+    for (i = 0; i < argc && i < sizeof (argvCopy); i++)
+        argvCopy [i] = argv [i];
 
     optind = 1;
-    while ((option = getopt_long (argc, argv, ":C:?", options, NULL)) != -1) {
+    while ((option = getopt_long (argc, argvCopy, ":C:?", options, NULL)) != -1) {
         switch (option) {
             case 'C':
                 return optarg;
 
             case ':':
                 fprintf (stderr, "Miss option argument.\n");
-                showHelpInfo (argv [0]);
+                showHelpInfo (argvCopy [0]);
                 return NULL;
 
             case '?':
@@ -84,13 +92,18 @@ getConfigFile (int argc, char *argv []) {
 /* Command line options parser */
 int
 parseOptions (int argc, char *argv []) {
+    u_int i;
     char option;
+    char *argvCopy [128];
     boolean showVersion = False;
     boolean showHelp = False;
 
+    for (i = 0; i < argc && i < sizeof (argvCopy); i++)
+        argvCopy [i] = argv [i];
+
     optind = 1;
-    while ((option = getopt_long (argc, argv,
-                                  ":C:DS:P:m:F:n:O:BN:T:i:p:d:f:l:vh?",
+    while ((option = getopt_long (argc, argvCopy,
+                                  ":C:DS:P:m:F:n:O:N:T:Ai:p:d:f:l:vh?",
                                   options, NULL)) != -1) {
         switch (option) {
             case 'C':
@@ -128,14 +141,10 @@ parseOptions (int argc, char *argv []) {
                 updatePropertiesLoopCount (atoi (optarg));
                 break;
 
-            case 'B':
-                updatePropertiesSetFilter (True);
-                break;
-
             case 'O':
                 updatePropertiesOutputFile (optarg);
                 if (getPropertiesOutputFile () == NULL) {
-                    fprintf(stderr, "Parse output file error!\n");
+                    fprintf (stderr, "Parse output file error!\n");
                     return -1;
                 }
                 break;
@@ -146,6 +155,10 @@ parseOptions (int argc, char *argv []) {
 
             case 'T':
                 updatePropertiesSleepIntervalAfterScan (atoi (optarg));
+                break;
+
+            case 'A':
+                updatePropertiesAutoAddService (True);
                 break;
 
             case 'i':
@@ -190,12 +203,12 @@ parseOptions (int argc, char *argv []) {
 
             case ':':
                 fprintf (stderr, "Miss option argument.\n");
-                showHelpInfo (argv [0]);
+                showHelpInfo (argvCopy [0]);
                 return -1;
 
             case '?':
                 fprintf (stderr, "Unknown option.\n");
-                showHelpInfo (argv [0]);
+                showHelpInfo (argvCopy [0]);
                 return -1;
         }
     }
@@ -204,7 +217,7 @@ parseOptions (int argc, char *argv []) {
         if (showVersion)
             fprintf (stdout, "Current version: %s\n", VERSION_STRING);
         if (showHelp)
-            showHelpInfo (argv [0]);
+            showHelpInfo (argvCopy [0]);
         exit (0);
     }
 

@@ -5,6 +5,7 @@
 #include <pthread.h>
 #include "util.h"
 #include "hash.h"
+#include "signals.h"
 #include "log.h"
 #include "properties.h"
 #include "zmq_hub.h"
@@ -15,9 +16,9 @@
 
 /* Task manager hash table */
 static hashTablePtr taskManagerHashTable = NULL;
-/* Mutext lock for task status send/recv sock */
+
+/* Mutext lock for task status send sock */
 static pthread_mutex_t taskStatusSendSockLock = PTHREAD_MUTEX_INITIALIZER;
-static pthread_mutex_t taskStatusRecvSockLock = PTHREAD_MUTEX_INITIALIZER;
 
 static taskItemPtr
 newTaskItem (void) {
@@ -53,9 +54,10 @@ newTask (char *taskName, taskRoutine routine, void *args, int schedPolicy) {
     char key [64];
 
     tsk = newTaskItem ();
-    if (tsk == NULL)
+    if (tsk == NULL) {
+        LOGE ("Create task item error.\n");
         return -1;
-
+    }
 
     ret = pthread_attr_init (&tsk->attr);
     if (ret < 0) {
@@ -113,6 +115,7 @@ newTask (char *taskName, taskRoutine routine, void *args, int schedPolicy) {
     snprintf (key, sizeof (key), "%lu", tsk->tid);
     ret = hashInsert (taskManagerHashTable, key, tsk, freeTaskItemForHash);
     if (ret < 0) {
+        LOGE ("Insert task item error.\n");
         pthread_kill (tsk->tid, SIGUSR1);
         return -1;
     }
@@ -164,17 +167,22 @@ restartTask (pthread_t oldTid) {
 
     snprintf (oldKey, sizeof (oldKey), "%lu", oldTid);
     task = hashLookup (taskManagerHashTable, oldKey);
-    if (task == NULL)
+    if (task == NULL) {
+        LOGE ("Task with tid: %lu doesn't exist.\n", oldTid);
         return -1;
+    }
 
     ret = pthread_create (&newTid, NULL, task->routine, task->args);
-    if (ret < 0)
+    if (ret < 0) {
+        LOGE ("Pthread create task %s error.\n", task->name);
         return -1;
+    }
 
     snprintf (newKey, sizeof (newKey), "%lu", newTid);
     task->tid = newTid;
     ret = hashRename (taskManagerHashTable, oldKey, newKey);
     if (ret < 0) {
+        LOGE ("Update task %s tid error.\n", task->name);
         pthread_kill (newTid, SIGUSR1);
         return -1;
     }
@@ -247,14 +255,17 @@ taskStatusHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
     u_int taskStatus;
     pthread_t tid;
 
-    pthread_mutex_lock (&taskStatusRecvSockLock);
     taskStatusMsg = zstr_recv_nowait (getTaskStatusRecvSock ());
-    pthread_mutex_unlock (&taskStatusRecvSockLock);
-    if (taskStatusMsg == NULL)
-        return 0;
+    if (taskStatusMsg == NULL) {
+        if (!taskShouldExit ()) {
+            LOGE ("Receive task status with fatal error.\n");
+            return -1;
+        }
 
-    sscanf (taskStatusMsg, TASK_STATUS_MESSAGE_FORMAT_STRING,
-            &taskStatus, &tid);
+        return 0;
+    }
+
+    sscanf (taskStatusMsg, TASK_STATUS_MESSAGE_FORMAT_STRING, &taskStatus, &tid);
     snprintf (hashKey, sizeof (hashKey), "%lu", tid);
     task = hashLookup (taskManagerHashTable, hashKey);
     if (task == NULL) {
@@ -280,10 +291,10 @@ taskStatusHandler (zloop_t *loop, zmq_pollitem_t *item, void *arg) {
             }
 
             if (ret < 0) {
-                LOGE ("Restart %s failed.\n", task->name);
+                LOGE ("Restart task %s failed.\n", task->name);
                 ret = -1;
             } else {
-                LOGI ("Restart %s successfully.\n", task->name);
+                LOGI ("Restart task %s successfully.\n", task->name);
                 ret = 0;
             }
             break;

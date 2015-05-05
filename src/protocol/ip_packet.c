@@ -321,17 +321,15 @@ static boolean
 ipPktShouldDrop (iphdrPtr iph) {
     tcphdrPtr tcph;
     char ipSrcStr [16], ipDestStr [16];
-    char key1 [32], key2 [32];
 
     if (iph->ipProto == IPPROTO_TCP) {
         tcph = (tcphdrPtr) ((u_char *) iph + (iph->iphLen * 4));
 
         inet_ntop (AF_INET, (void *) &iph->ipSrc, ipSrcStr, sizeof (ipSrcStr));
         inet_ntop (AF_INET, (void *) &iph->ipDest, ipDestStr, sizeof (ipDestStr));
-        snprintf (key1, sizeof (key1), "%s:%d", ipSrcStr, ntohs (tcph->source));
-        snprintf (key2, sizeof (key2), "%s:%d", ipDestStr, ntohs (tcph->dest));
 
-        if (getAppServiceProtoAnalyzer (key1) || getAppServiceProtoAnalyzer (key2))
+        if (getAppServiceProtoAnalyzer (ipSrcStr, ntohs (tcph->source)) ||
+            getAppServiceProtoAnalyzer (ipDestStr, ntohs (tcph->dest)))
             return False;
         else
             return True;
@@ -349,7 +347,7 @@ ipPktShouldDrop (iphdrPtr iph) {
  * @return 0 if success else -1
  */
 int
-ipDefrag (iphdrPtr iph, timeValPtr tm, iphdrPtr *newIph) {
+ipDefragProcess (iphdrPtr iph, timeValPtr tm, iphdrPtr *newIph) {
     int ret;
     timeVal timestamp;
     u_short iphLen, ipLen, offset, end, flags, gap;

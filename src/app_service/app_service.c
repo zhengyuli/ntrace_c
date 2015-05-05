@@ -27,14 +27,14 @@ newAppServiceInternal (void) {
  * @brief Create new appService.
  *        Create new appService from proto, ip and port.
  *
- * @param proto appService proto name
  * @param ip appService ip address
  * @param port appService port
+ * @param proto appService proto name
  *
  * @return appService if success, else NULL
  */
 appServicePtr
-newAppService (char *proto, char *ip, u_short port) {
+newAppService (char *ip, u_short port, char *proto) {
     protoAnalyzerPtr analyzer;
     appServicePtr svc;
 
@@ -42,14 +42,21 @@ newAppService (char *proto, char *ip, u_short port) {
     if (svc == NULL)
         return NULL;
 
-    analyzer = getProtoAnalyzer (proto);
-    if (analyzer == NULL) {
-        LOGE ("Unsupported appService proto type: %s.\n", proto);
-        free (svc);
-        return NULL;
+    if (proto) {
+        analyzer = getProtoAnalyzer (proto);
+        if (analyzer == NULL) {
+            LOGE ("Unsupported appService proto type: %s.\n", proto);
+            free (svc);
+            return NULL;
+        }
+
+        svc->proto = analyzer->proto;
+        svc->analyzer = analyzer;
+    } else {
+        svc->proto = "UNKNOWN";
+        svc->analyzer = NULL;
     }
-    svc->proto = analyzer->proto;
-    svc->analyzer = analyzer;
+
     svc->ip = strdup (ip);
     if (svc->ip == NULL) {
         svc->analyzer = NULL;
@@ -66,6 +73,7 @@ freeAppService (appServicePtr svc) {
     if (svc == NULL)
         return;
 
+    svc->proto = NULL;
     svc->analyzer = NULL;
     free (svc->ip);
     svc->ip = NULL;
@@ -74,7 +82,7 @@ freeAppService (appServicePtr svc) {
 
 void
 freeAppServiceForHash (void *data) {
-    return freeAppService ((appServicePtr) data);
+    freeAppService ((appServicePtr) data);
 }
 
 /**
@@ -122,11 +130,11 @@ appService2Json (appServicePtr svc) {
         return NULL;
     }
 
-    /* appService proto */
+    /* AppService proto */
     json_object_set_new (root, APP_SERVICE_PROTO, json_string (svc->proto));
-    /* appService ip */
+    /* AppService ip */
     json_object_set_new (root, APP_SERVICE_IP, json_string (svc->ip));
-    /* appService port */
+    /* AppService port */
     json_object_set_new (root, APP_SERVICE_PORT, json_integer (svc->port));
 
     return root;

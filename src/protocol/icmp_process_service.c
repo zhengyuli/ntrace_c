@@ -9,6 +9,26 @@
 #include "icmp_packet.h"
 #include "icmp_process_service.h"
 
+/* Icmp breakdown send sock */
+static __thread void *icmpBreakdownSendSock = NULL;
+
+static void
+publishIcmpBreakdown (void *args) {
+    int ret;
+    char *icmpBreakdown = (char *) args;
+    zframe_t *frame;
+
+    frame = zframe_new (icmpBreakdown, strlen (icmpBreakdown));
+    if (frame == NULL) {
+        LOGE ("Create icmp breakdown zframe error.\n");
+        return;
+    }
+
+    ret = zframe_send (&frame, icmpBreakdownSendSock, 0);
+    if (ret < 0)
+        LOGE ("Send icmp breakdown error.\n");
+}
+
 /*
  * Icmp packet process service.
  * Read ip packets send by ipPktProcessService, then do icmp process and
@@ -18,7 +38,6 @@ void *
 icmpProcessService (void *args) {
     int ret;
     void *icmpPktRecvSock;
-    void *icmpBreakdownSendSock;
     zframe_t *tmFrame = NULL;
     zframe_t *ipPktFrame = NULL;
     timeValPtr tm;
@@ -41,18 +60,18 @@ icmpProcessService (void *args) {
     displayTaskSchedPolicyInfo ("IcmpProcessService");
 
     /* Init icmp context */
-    ret = initIcmp (icmpBreakdownSendSock);
+    ret = initIcmpContext (publishIcmpBreakdown);
     if (ret < 0) {
         LOGE ("Init icmp context error.\n");
         goto destroyLogContext;
     }
 
-    while (!SIGUSR1IsInterrupted ()) {
+    while (!taskShouldExit ()) {
         /* Receive timestamp zframe */
         if (tmFrame == NULL) {
             tmFrame = zframe_recv (icmpPktRecvSock);
             if (tmFrame == NULL) {
-                if (!SIGUSR1IsInterrupted ())
+                if (!taskShouldExit ())
                     LOGE ("Receive timestamp zframe with fatal error.\n");
                 break;
             } else if (!zframe_more (tmFrame)) {
@@ -64,7 +83,7 @@ icmpProcessService (void *args) {
         /* Receive ip packet zframe */
         ipPktFrame = zframe_recv (icmpPktRecvSock);
         if (ipPktFrame == NULL) {
-            if (!SIGUSR1IsInterrupted ())
+            if (!taskShouldExit ())
                 LOGE ("Receive ip packet zframe with fatal error.\n");
             zframe_destroy (&tmFrame);
             break;
@@ -87,11 +106,11 @@ icmpProcessService (void *args) {
     }
 
     LOGI ("IcmpProcessService will exit ... .. .\n");
-    destroyIcmp ();
+    destroyIcmpContext ();
 destroyLogContext:
     destroyLogContext ();
 exit:
-    if (!SIGUSR1IsInterrupted ())
+    if (!taskShouldExit ())
         sendTaskStatus (TASK_STATUS_EXIT_ABNORMALLY);
 
     return NULL;

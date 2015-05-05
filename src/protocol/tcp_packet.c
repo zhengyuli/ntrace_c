@@ -19,6 +19,7 @@
 #include "tcp_options.h"
 #include "proto_analyzer.h"
 #include "app_service_manager.h"
+#include "topology_manager.h"
 #include "tcp_packet.h"
 
 /* Tcp stream hash key format string */
@@ -232,7 +233,6 @@ static void
 delTcpStreamFromHash (tcpStreamPtr stream) {
     int ret;
     tuple4Ptr addr;
-    protoAnalyzerPtr analyzer;
     char ipSrcStr [16], ipDestStr [16];
     char key [64];
 
@@ -244,20 +244,30 @@ delTcpStreamFromHash (tcpStreamPtr stream) {
     inet_ntop (AF_INET, (void *) &addr->saddr, ipSrcStr, sizeof (ipSrcStr));
     inet_ntop (AF_INET, (void *) &addr->daddr, ipDestStr, sizeof (ipDestStr));
 
-    /* Save appService detected */
-    if (doProtoDetect && stream->proto) {
-        snprintf (key, sizeof (key), "%s:%d", ipDestStr, addr->dest);
-
-        analyzer = getAppServiceDetectedProtoAnalyzer (key);
-        if (analyzer == NULL) {
-            ret = addAppServiceDetected (ipDestStr, addr->dest, stream->proto);
-            if (ret < 0)
-                LOGE ("Add new detected appService ip:%s port:%u proto: %s error.\n",
-                      ipDestStr, addr->dest, stream->proto);
-            else {
-                LOGI ("Add new detected appService ip:%s port:%u proto: %s success.\n",
-                      ipDestStr, addr->dest, stream->proto);
-                (*tcpProcessCallback) (NULL);
+    if (doProtoDetect) {
+        if (stream->proto) {
+            /* Add appService detected */
+            if (getAppServiceDetected (ipDestStr, addr->dest) == NULL) {
+                ret = addAppServiceDetected (ipDestStr, addr->dest, stream->proto);
+                if (ret < 0)
+                    LOGE ("Add new detected appService ip:%s port:%u proto: %s error.\n",
+                          ipDestStr, addr->dest, stream->proto);
+                else {
+                    LOGI ("Add new detected appService ip:%s port:%u proto: %s success.\n",
+                          ipDestStr, addr->dest, stream->proto);
+                    (*tcpProcessCallback) (NULL);
+                }
+            }
+        } else {
+            /* Add appService unrecognized */
+            if (getAppServiceUnrecognized (ipDestStr, addr->dest) == NULL) {
+                ret = addAppServiceUnrecognized (ipDestStr, addr->dest);
+                if (ret < 0)
+                    LOGE ("Add new unrecognized appService ip:%s port:%u error.\n",
+                          ipDestStr, addr->dest);
+                else
+                    LOGI ("Add new unrecognized appService ip:%s port:%u success.\n",
+                          ipDestStr, addr->dest);
             }
         }
     }
@@ -487,23 +497,34 @@ freeTcpStreamForHash (void *data) {
 static tcpStreamPtr
 addNewTcpStream (tcphdrPtr tcph, iphdrPtr iph, timeValPtr tm) {
     int ret;
-    char ipStr [16];
-    char key [64];
+    char ipSrcStr [16], ipDestStr [16];
     protoAnalyzerPtr analyzer;
     tcpStreamPtr stream, tmp;
 
-    if (!doProtoDetect) {
-        inet_ntop (AF_INET, (void *) &iph->ipDest, ipStr, sizeof (ipStr));
-        snprintf (key, sizeof (key), "%s:%d", ipStr, ntohs (tcph->dest));
+    inet_ntop (AF_INET, (void *) &iph->ipSrc, ipSrcStr, sizeof (ipSrcStr));
+    inet_ntop (AF_INET, (void *) &iph->ipDest, ipDestStr, sizeof (ipDestStr));
 
-        analyzer = getAppServiceProtoAnalyzer (key);
-        if (analyzer == NULL) {
-            LOGD ("Appliction service (%s:%d) has not been registered.\n",
-                  ipStr, ntohs (tcph->dest));
-            return NULL;
-        }
-    } else
+    if (doProtoDetect) {
         analyzer = NULL;
+
+        /* Add topology entry */
+        if (getTopologyEntry (ipSrcStr, ipDestStr) == NULL) {
+            ret = addTopologyEntry (ipSrcStr, ipDestStr);
+            if (ret < 0)
+                LOGE ("Add topology entry %s:%s error.\n", ipSrcStr, ipDestStr);
+            else
+                LOGI ("Add topology entry %s:%s success.\n", ipSrcStr, ipDestStr);
+        }
+
+        /* Skip service has been scanned */
+        if (getAppServiceDetected (ipDestStr, ntohs (tcph->dest)) ||
+            getAppServiceUnrecognized (ipDestStr, ntohs (tcph->dest)))
+            return NULL;
+    } else {
+        analyzer = getAppServiceProtoAnalyzer (ipDestStr, ntohs (tcph->dest));
+        if (analyzer == NULL)
+            return NULL;
+    }
 
     stream = newTcpStream (analyzer);
     if (stream == NULL) {
@@ -1230,7 +1251,6 @@ tcpProcess (iphdrPtr iph, timeValPtr tm) {
     tcpStreamPtr stream;
     halfStreamPtr snd, rcv;
     streamDirection direction;
-    char ipStr [16], key [64];
 
     ipLen = ntohs (iph->ipLen);
     tcph = (tcphdrPtr) ((u_char *) iph + iph->iphLen * 4);
@@ -1276,28 +1296,16 @@ tcpProcess (iphdrPtr iph, timeValPtr tm) {
     if (stream == NULL) {
         /* The first sync packet of tcp three handshakes */
         if (tcph->syn && !tcph->ack && !tcph->rst) {
-            /* For proto detect, if application service has been added
-             * do return directly */
-            if (doProtoDetect) {
-                inet_ntop (AF_INET, (void *) &iph->ipDest, ipStr, sizeof (ipStr));
-                snprintf (key, sizeof (key), "%s:%d", ipStr, ntohs (tcph->dest));
-
-                if (getAppServiceDetectedProtoAnalyzer (key))
-                    return;
-            }
-
             stream = addNewTcpStream (tcph, iph, &timestamp);
-            if (stream == NULL)
-                LOGE ("Add new tcp stream error.\n");
-            else
+            if (stream)
                 streamCache = stream;
         }
 
         return;
     }
 
-    /* For proto detection, if proto has been detected then close stream
-     * in advance. */
+    /* For proto detection, if proto has been detected or get enough
+     * packets then close stream in advance. */
     if (doProtoDetect &&
         (stream->proto ||
          (stream->proto == NULL &&
@@ -1479,10 +1487,10 @@ initTcpContext (boolean protoDetectFlag, tcpProcessCB fun) {
     initListHead (&tcpStreamList);
     initListHead (&tcpStreamTimoutList);
 
-    if (!doProtoDetect)
-        tcpStreamHashTable = hashNew (TCP_STREAM_HASH_TABLE_SIZE);
-    else
+    if (doProtoDetect)
         tcpStreamHashTable = hashNew (TCP_STREAM_HASH_TABLE_SIZE_FOR_PROTO_DETECT);
+    else
+        tcpStreamHashTable = hashNew (TCP_STREAM_HASH_TABLE_SIZE);
 
     if (tcpStreamHashTable == NULL)
         return -1;

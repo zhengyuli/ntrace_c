@@ -28,13 +28,15 @@ struct _icmpBreakdown {
 #define ICMP_SKBD_ICMP_DEST_UNREACH_IP "icmp_dest_unreach_ip"
 #define ICMP_SKBD_ICMP_DEST_UNREACH_PORT "icmp_dest_unreach_port"
 
+typedef void (*icmpProcessCB) (void *args);
+
 /*========================Interfaces definition============================*/
 void
 icmpProcess (iphdrPtr iph, timeValPtr tm);
 int
-initIcmp (void *sock);
+initIcmpContext (icmpProcessCB fun);
 void
-destroyIcmp (void);
+destroyIcmpContext (void);
 /*=======================Interfaces definition end=========================*/
 
 #endif /* __ICMP_PACKET_H__ */

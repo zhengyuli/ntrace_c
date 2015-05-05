@@ -140,8 +140,8 @@ icmpPacketDispatch (iphdrPtr iph, timeValPtr tm) {
 
 /*
  * Ip packet process service.
- * Read ip packet send by rawPktCaptureService, then do ip process and
- * dispatch ip defragment packet to specific tcpPktProcessService thread.
+ * Receive ip packet send by rawPktCaptureService, then do ip defrag process
+ * and dispatch ip packet to specific tcpPktProcessService thread.
  */
 void *
 ipProcessService (void *args) {
@@ -176,12 +176,12 @@ ipProcessService (void *args) {
         goto destroyLogContext;
     }
 
-    while (!SIGUSR1IsInterrupted ()) {
+    while (!taskShouldExit ()) {
         /* Receive timestamp zframe */
         if (tmFrame == NULL) {
             tmFrame = zframe_recv (ipPktRecvSock);
             if (tmFrame == NULL) {
-                if (!SIGUSR1IsInterrupted ())
+                if (!taskShouldExit ())
                     LOGE ("Receive timestamp zframe with fatal error.\n");
                 break;
             } else if (!zframe_more (tmFrame)) {
@@ -193,7 +193,7 @@ ipProcessService (void *args) {
         /* Receive ip packet zframe */
         ipPktFrame = zframe_recv (ipPktRecvSock);
         if (ipPktFrame == NULL) {
-            if (!SIGUSR1IsInterrupted ())
+            if (!taskShouldExit ())
                 LOGE ("Receive ip packet zframe with fatal error.\n");
             zframe_destroy (&tmFrame);
             break;
@@ -207,8 +207,8 @@ ipProcessService (void *args) {
         tm = (timeValPtr) zframe_data (tmFrame);
         iph = (iphdrPtr) zframe_data (ipPktFrame);
 
-        /* Ip packet process */
-        ret = ipDefrag (iph, tm, &newIph);
+        /* Ip packet defrag process */
+        ret = ipDefragProcess (iph, tm, &newIph);
         if (ret < 0)
             LOGE ("Ip packet defragment error.\n");
 
@@ -242,7 +242,7 @@ ipProcessService (void *args) {
 destroyLogContext:
     destroyLogContext ();
 exit:
-    if (!SIGUSR1IsInterrupted ())
+    if (!taskShouldExit ())
         sendTaskStatus (TASK_STATUS_EXIT_ABNORMALLY);
 
     return NULL;

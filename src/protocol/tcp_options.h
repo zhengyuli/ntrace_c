@@ -2,6 +2,7 @@
 #define __TCP_OPTIONS_H__
 
 #include <stdlib.h>
+#include "util.h"
 #include "tcp.h"
 
 /*========================Interfaces definition============================*/

@@ -346,10 +346,10 @@ logService (void *args) {
         goto destroyLogDev;
 
     logRecvSock = getLogRecvSock ();
-    while (!SIGUSR1IsInterrupted ()) {
+    while (!taskShouldExit ()) {
         logMsg = zstr_recv (logRecvSock);
         if (logMsg == NULL) {
-            if (!SIGUSR1IsInterrupted ())
+            if (!taskShouldExit ())
                 LOGE ("Receive log message with fatal error.\n");
             break;
         }
@@ -361,7 +361,7 @@ logService (void *args) {
     fprintf (stdout, "LogService will exit... .. .\n");
 destroyLogDev:
     logDevDestroy ();
-    if (!SIGUSR1IsInterrupted ())
+    if (!taskShouldExit ())
         sendTaskStatus (TASK_STATUS_EXIT_ABNORMALLY);
 
     return NULL;

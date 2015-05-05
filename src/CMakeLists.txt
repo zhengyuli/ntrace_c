@@ -26,6 +26,7 @@ INCLUDE_DIRECTORIES (
   util
   logger
   app_service/
+  topology/
   ownership/
   management/
   protocol/
@@ -50,6 +51,8 @@ SET (NTRACE_SOURCE_FILES
   task_manager.c
   app_service/app_service.c
   app_service/app_service_manager.c
+  topology/topology_entry.c
+  topology/topology_manager.c
   netdev.c
   management/management_service.c
   ownership/ownership.c

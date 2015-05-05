@@ -5,11 +5,11 @@
 
 /*========================Interfaces definition============================*/
 boolean
-SIGUSR1IsInterrupted (void);
-void
-resetSignalsFlag (void);
+taskShouldExit (void);
 void
 setupSignals (void);
+void
+resetSignalsFlag (void);
 /*=======================Interfaces definition end=========================*/
 
 #endif /* __SIGNALS_H__ */

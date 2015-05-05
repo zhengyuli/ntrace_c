@@ -12,17 +12,17 @@ struct _properties {
 
     u_int schedPriority;                /**< Schedule priority */
 
-    u_short managementServicePort;      /**< Management control port */
+    u_short managementServicePort;      /**< Management service port */
 
     char *interface;                    /**< Mirror interface */
 
-    char *pcapFile;                     /**< Pcap file */
-    u_int loopCount;                    /**< Pcap file loop read count */
+    char *pcapFile;                     /**< Pcap offline file */
+    u_int loopCount;                    /**< Pcap offline file loop read count */
 
-    char *outputFile;                   /**< Output file */
+    char *outputFile;                   /**< Session breakdown output file */
 
-    u_int packetsToScan;                /**< Proto packetes to scan for each
-                                             proto detection loop */
+    u_int packetsToScan;                /**< Packetes to scan for each proto
+                                             detection loop */
     u_int sleepIntervalAfterScan;       /**< Sleep interval after each proto
                                              detection loop */
     boolean autoAddService;             /**< Auto add detected service to sniff */
@@ -52,7 +52,7 @@ getPropertiesManagementServicePort (void);
 void
 updatePropertiesManagementServicePort (u_short port);
 boolean
-getPropertiesSniffLiveMode (void);
+getPropertiesSniffLive (void);
 char *
 getPropertiesInterface (void);
 void
@@ -60,17 +60,19 @@ updatePropertiesInterface (char *interface);
 char *
 getPropertiesPcapFile (void);
 void
-updatePropertiesPcapFile (char *fname);
+updatePropertiesPcapFile (char *pcapFile);
 u_int
 getPropertiesLoopCount (void);
 void
 updatePropertiesLoopCount (u_int loopCount);
 char *
 getPropertiesOutputFile (void);
+void
+updatePropertiesOutputFile (char *outputFile);
 u_int
 getPropertiesPacketsToScan (void);
 void
-updatePropertiesPacketsToScan (u_int pktsNum);
+updatePropertiesPacketsToScan (u_int packetsToScan);
 u_int
 getPropertiesSleepIntervalAfterScan (void);
 void
@@ -79,8 +81,6 @@ boolean
 getPropertiesAutoAddService (void);
 void
 updatePropertiesAutoAddService (boolean autoAddService);
-void
-updatePropertiesOutputFile (char *fname);
 char *
 getPropertiesMiningEngineHost (void);
 void
@@ -92,11 +92,11 @@ updatePropertiesSessionBreakdownRecvPort (u_short port);
 char *
 getPropertiesLogDir (void);
 void
-updatePropertiesLogDir (char *path);
+updatePropertiesLogDir (char *logDir);
 char *
 getPropertiesLogFileName (void);
 void
-updatePropertiesLogFileName (char *fileName);
+updatePropertiesLogFileName (char *logFileName);
 u_int
 getPropertiesLogLevel (void);
 void

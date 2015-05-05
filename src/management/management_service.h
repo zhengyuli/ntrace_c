@@ -17,6 +17,8 @@
 #define MANAGEMENT_REQUEST_COMMAND_PROTOS_INFO "protos_info"
 #define MANAGEMENT_REQUEST_COMMAND_SERVICES_INFO "services_info"
 #define MANAGEMENT_REQUEST_COMMAND_DETECTED_SERVICES_INFO "detected_services_info"
+#define MANAGEMENT_REQUEST_COMMAND_UNRECOGNIZED_SERVICES_INFO "unrecognized_services_info"
+#define MANAGEMENT_REQUEST_COMMAND_TOPOLOGY_ENTRIES_INFO "topology_entries_info"
 #define MANAGEMENT_REQUEST_COMMAND_UPDATE_SERVICES "update_services"
 
 /* Management request body json key definitions */
@@ -37,6 +39,10 @@
 #define MANAGEMENT_RESPONSE_BODY_SERVICES "services"
 
 #define MANAGEMENT_RESPONSE_BODY_DETECTED_SERVICES "detected_services"
+
+#define MANAGEMENT_RESPONSE_BODY_UNRECOGNIZED_SERVICES "unrecognized_services"
+
+#define MANAGEMENT_RESPONSE_BODY_TOPOLOGY_ENTRIES "topology_entries"
 
 /* Default management error response */
 #define DEFAULT_MANAGEMENT_ERROR_RESPONSE           \

@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-# Time-stamp: <2015-05-04 14:28:45 Monday by zhengyuli>
+# Time-stamp: <2015-05-05 16:39:53 Tuesday by zhengyuli>
 #
 # Author: zhengyu li
 # Created: 2015-05-02
@@ -51,6 +51,16 @@ def cmdDetectedServicesInfo(sock):
     sock.send_json(req)
     print sock.recv_string()
 
+def cmdUnrecognizedServicesInfo(sock):
+    req = {'command':'unrecognized_services_info'}
+    sock.send_json(req)
+    print sock.recv_string()
+
+def cmdTopologyEntriesInfo(sock):
+    req = {'command':'topology_entries_info'}
+    sock.send_json(req)
+    print sock.recv_string()
+
 def cmdUpdateServices(sock):
     service1 = {'ip':'210.28.129.4',
                'port':80,
@@ -76,6 +86,8 @@ if __name__ == '__main__':
                                  "protosInfo",
                                  "servicesInfo",
                                  "detectedServicesInfo",
+                                 "unrecognizedServicesInfo",
+                                 "topologyEntriesInfo",
                                  "updateServices"],
                         help="nTrace request command")
     args = parser.parse_args()
@@ -103,6 +115,10 @@ if __name__ == '__main__':
             cmdServicesInfo(zmqSock)
         elif cmd == 'detectedServicesInfo':
             cmdDetectedServicesInfo(zmqSock)
+        elif cmd == 'unrecognizedServicesInfo':
+            cmdUnrecognizedServicesInfo(zmqSock)
+        elif cmd == 'topologyEntriesInfo':
+            cmdTopologyEntriesInfo(zmqSock)
         elif cmd == 'updateServices':
             cmdUpdateServices(zmqSock)
 

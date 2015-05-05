@@ -115,7 +115,7 @@ loadPropertiesFromConfigFile (char *configFile) {
         tmp->schedPriority > maxPriority)
         tmp->schedPriority = 0;
 
-    /* Get management control port */
+    /* Get management service port */
     ret = get_config_item ("ManagementService", "managementServicePort", iniConfig, &item);
     if (ret || item == NULL) {
         fprintf (stderr, "Get_config_item \"managementServicePort\" error.\n");
@@ -167,7 +167,7 @@ loadPropertiesFromConfigFile (char *configFile) {
         }
     }
 
-    /* Get packets to scan for proto detect */
+    /* Get packets to scan for proto detection */
     ret = get_config_item ("ProtoDetect", "packetsToScan", iniConfig, &item);
     if (ret || item == NULL) {
         fprintf (stderr, "Get_config_item \"packetsToScan\" error.\n");
@@ -179,7 +179,7 @@ loadPropertiesFromConfigFile (char *configFile) {
         goto freeProperties;
     }
 
-    /* Get sleep interval after scan for proto detect */
+    /* Get sleep interval after scan for proto detection */
     ret = get_config_item ("ProtoDetect", "sleepIntervalAfterScan", iniConfig, &item);
     if (ret || item == NULL) {
         fprintf (stderr, "Get_config_item \"sleepIntervalAfterScan\" error.\n");
@@ -286,14 +286,14 @@ getPropertiesDaemonMode (void) {
     return propertiesInstance->daemonMode;
 }
 
-boolean
-getPropertiesSchedRealtime (void) {
-    return propertiesInstance->schedPriority ? True : False;
-}
-
 void
 updatePropertiesDaemonMode (boolean daemonMode) {
     propertiesInstance->daemonMode = daemonMode;
+}
+
+boolean
+getPropertiesSchedRealtime (void) {
+    return propertiesInstance->schedPriority ? True : False;
 }
 
 u_int
@@ -327,7 +327,7 @@ updatePropertiesManagementServicePort (u_short port) {
 }
 
 boolean
-getPropertiesSniffLiveMode (void) {
+getPropertiesSniffLive (void) {
     return propertiesInstance->pcapFile == NULL ? True : False;
 }
 
@@ -348,9 +348,9 @@ getPropertiesPcapFile (void) {
 }
 
 void
-updatePropertiesPcapFile (char *fname) {
+updatePropertiesPcapFile (char *pcapFile) {
     free (propertiesInstance->pcapFile);
-    propertiesInstance->pcapFile = strdup (fname);
+    propertiesInstance->pcapFile = strdup (pcapFile);
 }
 
 u_int
@@ -369,9 +369,9 @@ getPropertiesOutputFile (void) {
 }
 
 void
-updatePropertiesOutputFile (char *fname) {
+updatePropertiesOutputFile (char *outputFile) {
     free (propertiesInstance->outputFile);
-    propertiesInstance->outputFile = strdup (fname);
+    propertiesInstance->outputFile = strdup (outputFile);
 }
 
 u_int
@@ -380,8 +380,8 @@ getPropertiesPacketsToScan (void) {
 }
 
 void
-updatePropertiesPacketsToScan (u_int pktsNum) {
-    propertiesInstance->packetsToScan = pktsNum;
+updatePropertiesPacketsToScan (u_int packetsToScan) {
+    propertiesInstance->packetsToScan = packetsToScan;
 }
 
 u_int
@@ -434,9 +434,9 @@ getPropertiesLogDir (void) {
 }
 
 void
-updatePropertiesLogDir (char *path) {
+updatePropertiesLogDir (char *logDir) {
     free (propertiesInstance->logDir);
-    propertiesInstance->logDir = strdup (path);
+    propertiesInstance->logDir = strdup (logDir);
 }
 
 char *
@@ -445,9 +445,9 @@ getPropertiesLogFileName (void) {
 }
 
 void
-updatePropertiesLogFileName (char *fileName) {
+updatePropertiesLogFileName (char *logFileName) {
     free (propertiesInstance->logFileName);
-    propertiesInstance->logFileName = strdup (fileName);
+    propertiesInstance->logFileName = strdup (logFileName);
 }
 
 u_int
@@ -467,7 +467,7 @@ displayPropertiesDetail (void) {
     LOGI ("    ScheduleRealtime: %s\n", getPropertiesSchedPriority () ? "True" : "False");
     LOGI ("    SchedulePriority: %u\n", getPropertiesSchedPriority ());
     LOGI ("    managementServicePort: %u\n", getPropertiesManagementServicePort ());
-    LOGI ("    sniffLiveMode : %s\n", getPropertiesSniffLiveMode () ? "True" : "False");
+    LOGI ("    sniffLiveMode : %s\n", getPropertiesSniffLive () ? "True" : "False");
     LOGI ("    interface: %s\n", getPropertiesInterface ());
     LOGI ("    pcapFile: %s\n", getPropertiesPcapFile ());
     LOGI ("    loopCount: %u\n", getPropertiesLoopCount ());

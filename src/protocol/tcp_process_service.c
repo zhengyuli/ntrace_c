@@ -12,7 +12,7 @@
 #include "tcp_packet.h"
 #include "tcp_process_service.h"
 
-/* Tcp session breakdown send sock */
+/* Tcp breakdown send sock */
 static __thread void *tcpBreakdownSendSock = NULL;
 
 static void
@@ -82,12 +82,12 @@ tcpProcessService (void *args) {
         goto destroyLogContext;
     }
 
-    while (!SIGUSR1IsInterrupted ()) {
+    while (!taskShouldExit ()) {
         /* Receive timestamp zframe */
         if (tmFrame == NULL) {
             tmFrame = zframe_recv (tcpPktRecvSock);
             if (tmFrame == NULL) {
-                if (!SIGUSR1IsInterrupted ())
+                if (!taskShouldExit ())
                     LOGE ("Receive timestamp zframe with fatal error.\n");
                 break;
             } else if (!zframe_more (tmFrame)) {
@@ -99,7 +99,7 @@ tcpProcessService (void *args) {
         /* Receive ip packet zframe */
         ipPktFrame = zframe_recv (tcpPktRecvSock);
         if (ipPktFrame == NULL) {
-            if (!SIGUSR1IsInterrupted ())
+            if (!taskShouldExit ())
                 LOGE ("Receive ip packet zframe with fatal error.\n");
             zframe_destroy (&tmFrame);
             break;
@@ -126,7 +126,7 @@ tcpProcessService (void *args) {
 destroyLogContext:
     destroyLogContext ();
 exit:
-    if (!SIGUSR1IsInterrupted ())
+    if (!taskShouldExit ())
         sendTaskStatus (TASK_STATUS_EXIT_ABNORMALLY);
 
     return NULL;

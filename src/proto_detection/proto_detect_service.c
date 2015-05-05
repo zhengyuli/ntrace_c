@@ -22,7 +22,7 @@ updateFilterForSniff (void *args) {
     int ret;
     char *filter;
 
-    if (getPropertiesSniffLiveMode () &&
+    if (getPropertiesSniffLive () &&
         getPropertiesAutoAddService ()) {
         /* Update application services filter */
         filter = getAppServicesFilter ();
@@ -100,11 +100,11 @@ protoDetectService (void *args) {
         goto destroyIpContext;
     }
 
-    captureLive = getPropertiesSniffLiveMode ();
+    captureLive = getPropertiesSniffLive ();
     packetsToScan = getPropertiesPacketsToScan ();
     sleepIntervalAfterScan = getPropertiesSleepIntervalAfterScan ();
 
-    while (!SIGUSR1IsInterrupted ()) {
+    while (!taskShouldExit ()) {
         ret = pcap_next_ex (pcapDev, &capPktHdr, (const u_char **) &rawPkt);
         if (ret == 1) {
             /* Filter out incomplete raw packet */
@@ -138,8 +138,8 @@ protoDetectService (void *args) {
             captureTime.tvSec = htonll (capPktHdr->ts.tv_sec);
             captureTime.tvUsec = htonll (capPktHdr->ts.tv_usec);
 
-            /* Ip packet process */
-            ret = ipDefrag (iph, &captureTime, &newIphdr);
+            /* Ip packet defrag process */
+            ret = ipDefragProcess (iph, &captureTime, &newIphdr);
             if (ret < 0)
                 LOGE ("Ip packet defragment error.\n");
 
@@ -182,7 +182,7 @@ destroyLogContext:
 exit:
     if (exitNormally)
         sendTaskStatus (TASK_STATUS_EXIT_NORMALLY);
-    else if (!SIGUSR1IsInterrupted ())
+    else if (!taskShouldExit ())
         sendTaskStatus (TASK_STATUS_EXIT_ABNORMALLY);
 
     return NULL;

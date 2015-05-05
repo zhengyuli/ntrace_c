@@ -2,13 +2,16 @@
 #define __APP_SERVICE_MANAGER_H__
 
 #include <jansson.h>
+#include "app_service.h"
 #include "proto_analyzer.h"
 
 /*========================Interfaces definition============================*/
 protoAnalyzerPtr
-getAppServiceProtoAnalyzer (char *key);
-protoAnalyzerPtr
-getAppServiceDetectedProtoAnalyzer (char *key);
+getAppServiceProtoAnalyzer (char *ip, u_short port);
+appServicePtr
+getAppServiceDetected (char *ip, u_short port);
+appServicePtr
+getAppServiceUnrecognized (char *ip, u_short port);
 char *
 getAppServicesPaddingFilter (void);
 char *
@@ -17,10 +20,14 @@ json_t *
 getJsonFromAppServices (void);
 json_t *
 getJsonFromAppServicesDetected (void);
+json_t *
+getJsonFromAppServicesUnrecognized (void);
 int
 updateAppServices (json_t * appServices);
 int
 addAppServiceDetected (char *ip, u_short port, char *proto);
+int
+addAppServiceUnrecognized (char *ip, u_short port);
 int
 initAppServiceManager (void);
 void

@@ -259,11 +259,11 @@ sessionBreakdownService (void *args) {
     /* Get sessionBreakdownRecvSock */
     sessionBreakdownRecvSock = getSessionBreakdownRecvSock ();
 
-    while (!SIGUSR1IsInterrupted ()) {
+    while (!taskShouldExit ()) {
         /* Receive session breakdown */
         sessionBreakdown = zframe_recv (sessionBreakdownRecvSock);
         if (sessionBreakdown == NULL) {
-            if (!SIGUSR1IsInterrupted ())
+            if (!taskShouldExit ())
                 LOGE ("Receive session breakdown zframe with fatal error.\n");
             break;
         }
@@ -283,7 +283,7 @@ destroySessionBreakdownOutputDev:
     sessionBreakdownOutputDevDestroy ();
     destroyLogContext ();
 exit:
-    if (!SIGUSR1IsInterrupted ())
+    if (!taskShouldExit ())
         sendTaskStatus (TASK_STATUS_EXIT_ABNORMALLY);
 
     return NULL;

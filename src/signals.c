@@ -13,13 +13,8 @@ SIGUSR1Handler (int signo) {
 }
 
 boolean
-SIGUSR1IsInterrupted (void) {
+taskShouldExit (void) {
     return SIGUSR1InterruptedFlag;
-}
-
-void
-resetSignalsFlag (void) {
-    SIGUSR1InterruptedFlag = False;
 }
 
 void
@@ -31,4 +26,9 @@ setupSignals (void) {
     action.sa_flags = 0;
     sigemptyset (&action.sa_mask);
     sigaction (SIGUSR1, &action, NULL);
+}
+
+void
+resetSignalsFlag (void) {
+    SIGUSR1InterruptedFlag = False;
 }

@@ -43,7 +43,7 @@ struct _ipQueueTimeout {
 
 /*========================Interfaces definition============================*/
 int
-ipDefrag (iphdrPtr iph, timeValPtr tm, iphdrPtr *newIph);
+ipDefragProcess (iphdrPtr iph, timeValPtr tm, iphdrPtr *newIph);
 int
 resetIpContext (void);
 int

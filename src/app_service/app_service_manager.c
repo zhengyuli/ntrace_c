@@ -31,25 +31,32 @@ static hashTablePtr appServiceHashTableMaster = NULL;
 /* AppService slave hash table */
 static hashTablePtr appServiceHashTableSlave = NULL;
 
+/* AppService detected hash table rwlock */
+static pthread_rwlock_t appServiceDetectedHashTableRWLock;
 /* AppService detected hash table */
 static hashTablePtr appServiceDetectedHashTable = NULL;
+
+/* AppService unrecognized hash table rwlock */
+static pthread_rwlock_t appServiceUnrecognizedHashTableRWLock;
+/* AppService unrecognized hash table */
+static hashTablePtr appServiceUnrecognizedHashTable = NULL;
 
 /**
  * @brief Get appService proto analyzer.
  *        Get appService proto analyzer from appService map.
  *
- * @param key key to search
+ * @param ip service ip
+ * @param port service port
  *
  * @return protoAnalyzerPtr if success, else NULL
  */
 protoAnalyzerPtr
-getAppServiceProtoAnalyzer (char *key) {
+getAppServiceProtoAnalyzer (char *ip, u_short port) {
+    char key [32];
     appServicePtr svc;
     protoAnalyzerPtr analyzer;
 
-    if (key ==  NULL)
-        return NULL;
-
+    snprintf (key, sizeof (key), "%s:%u", ip, port);
     pthread_rwlock_rdlock (&appServiceHashTableMasterRWLock);
     svc = (appServicePtr) hashLookup (appServiceHashTableMaster, key);
     if (svc == NULL)
@@ -62,25 +69,47 @@ getAppServiceProtoAnalyzer (char *key) {
 }
 
 /**
- * @brief Get appService detected proto analyzer.
- *        Get appService detected proto analyzer from appService detected map.
+ * @brief Get appService detected.
+ *        Get appService detected from appService detected map.
  *
- * @param key key to search
+ * @param ip service ip
+ * @param port service port
  *
- * @return protoAnalyzerPtr if success, else NULL
+ * @return appService detected if success, else NULL
  */
-protoAnalyzerPtr
-getAppServiceDetectedProtoAnalyzer (char *key) {
+appServicePtr
+getAppServiceDetected (char *ip, u_short port) {
+    char key [32];
     appServicePtr svc;
 
-    if (key ==  NULL)
-        return NULL;
-
+    snprintf (key, sizeof (key), "%s:%u", ip, port);
+    pthread_rwlock_rdlock (&appServiceDetectedHashTableRWLock);
     svc = (appServicePtr) hashLookup (appServiceDetectedHashTable, key);
-    if (svc == NULL)
-        return NULL;
-    else
-        return svc->analyzer;
+    pthread_rwlock_unlock (&appServiceDetectedHashTableRWLock);
+
+    return svc;
+}
+
+/**
+ * @brief Get appService unrecognized.
+ *        Get appService unrecognized from appService unrecognized map.
+ *
+ * @param ip service ip
+ * @param port service port
+ *
+ * @return appService unrecognized if success, else NULL
+ */
+appServicePtr
+getAppServiceUnrecognized (char *ip, u_short port) {
+    char key [32];
+    appServicePtr svc;
+
+    snprintf (key, sizeof (key), "%s:%u", ip, port);
+    pthread_rwlock_rdlock (&appServiceUnrecognizedHashTableRWLock);
+    svc = (appServicePtr) hashLookup (appServiceUnrecognizedHashTable, key);
+    pthread_rwlock_unlock (&appServiceUnrecognizedHashTableRWLock);
+
+    return svc;
 }
 
 
@@ -215,12 +244,48 @@ getJsonFromAppServicesDetected (void) {
         return NULL;
     }
 
+    pthread_rwlock_rdlock (&appServiceDetectedHashTableRWLock);
     ret = hashLoopDo (appServiceDetectedHashTable,
                       getJsonForEachAppService,
                       root);
+    pthread_rwlock_unlock (&appServiceDetectedHashTableRWLock);
 
     if (ret < 0) {
         LOGE ("Get appServices detected json from each appService detected error.\n");
+        json_object_clear (root);
+        return NULL;
+    }
+
+    return root;
+}
+
+/**
+ * @brief Get json from all appServices unrecognized.
+ *        Get json from appService unrecognized map, it will
+ *        loop all appServices unrecognized and get json from
+ *        each.
+ *
+ * @return json object if success, else NULL
+ */
+json_t *
+getJsonFromAppServicesUnrecognized (void) {
+    int ret;
+    json_t *root;
+
+    root = json_array ();
+    if (root == NULL) {
+        LOGE ("Create json array object error.\n");
+        return NULL;
+    }
+
+    pthread_rwlock_rdlock (&appServiceUnrecognizedHashTableRWLock);
+    ret = hashLoopDo (appServiceUnrecognizedHashTable,
+                      getJsonForEachAppService,
+                      root);
+    pthread_rwlock_unlock (&appServiceUnrecognizedHashTableRWLock);
+
+    if (ret < 0) {
+        LOGE ("Get appServices unrecognized json from each appService unrecognized error.\n");
         json_object_clear (root);
         return NULL;
     }
@@ -527,15 +592,19 @@ addAppServiceDetected (char *ip, u_short port, char *proto) {
     char key [32];
 
     /* Add to appService detected map */
-    svc = newAppService (proto, ip, port);
+    svc = newAppService (ip, port, proto);
     if (svc == NULL) {
-        LOGE ("Create detected appService %s:%u proto: %s error\n", ip, port, proto);
+        LOGE ("Create detected appService %s:%u proto: %s error\n",
+              ip, port, proto);
         return -1;
     }
     snprintf (key, sizeof (key), "%s:%u", ip, port);
-    ret = hashInsert (appServiceDetectedHashTable, key, svc, freeAppServiceForHash);
+    pthread_rwlock_wrlock (&appServiceDetectedHashTableRWLock);
+    ret = hashInsert (appServiceDetectedHashTable, key, svc,
+                      freeAppServiceForHash);
+    pthread_rwlock_unlock (&appServiceDetectedHashTableRWLock);
     if (ret < 0) {
-        LOGE ("Insert detected appService %s  error\n", key);
+        LOGE ("Insert detected appService: %s proto: %s error\n", key, proto);
         return -1;
     }
 
@@ -547,7 +616,7 @@ addAppServiceDetected (char *ip, u_short port, char *proto) {
             return 0;
 
         /* Create new appService */
-        svc = newAppService (proto, ip, port);
+        svc = newAppService (ip, port, proto);
         if (svc == NULL) {
             LOGE ("Create appService %s:%u proto: %s error\n", ip, port, proto);
             return -1;
@@ -563,8 +632,12 @@ addAppServiceDetected (char *ip, u_short port, char *proto) {
 
         /* Add appService to slave service map */
         ret = addAppServiceToSlave (svc);
-        if (ret < 0)
+        if (ret < 0) {
+            LOGE ("Add appService %s:%u proto: %s to slave service map error.\n",
+                  ip, port, proto);
+            freeAppService (svcCopy);
             return -1;
+        }
 
         /* Swap service map table */
         swapAppServiceMap ();
@@ -579,6 +652,38 @@ addAppServiceDetected (char *ip, u_short port, char *proto) {
 
         /* Sync appServices cache */
         syncAppServicesCache ();
+    }
+
+    return 0;
+}
+
+/**
+ * @brief Add appService unrecognized to appService unrecognized map.
+ *
+ * @param ip appService unrecognized ip
+ * @param port appService unrecognized port
+ *
+ * @return 0 if success, else -1
+ */
+int
+addAppServiceUnrecognized (char *ip, u_short port) {
+    int ret;
+    appServicePtr svc;
+    char key [32];
+
+    /* Add to appService detected map */
+    svc = newAppService (ip, port, NULL);
+    if (svc == NULL) {
+        LOGE ("Create unrecognized appService %s:%u error\n", ip, port);
+        return -1;
+    }
+    snprintf (key, sizeof (key), "%s:%u", ip, port);
+    pthread_rwlock_wrlock (&appServiceUnrecognizedHashTableRWLock);
+    ret = hashInsert (appServiceUnrecognizedHashTable, key, svc, freeAppServiceForHash);
+    pthread_rwlock_unlock (&appServiceUnrecognizedHashTableRWLock);
+    if (ret < 0) {
+        LOGE ("Insert unrecognized appService %s error\n", key);
+        return -1;
     }
 
     return 0;
@@ -607,23 +712,48 @@ initAppServiceManager (void) {
         goto destroyAppServiceHashTableMaster;
     }
 
+    ret = pthread_rwlock_init (&appServiceDetectedHashTableRWLock, NULL);
+    if (ret) {
+        LOGE ("Init appServiceDetectedHashTableRWLock error.\n");
+        goto destroyAppServiceHashTableSlave;
+    }
+
     appServiceDetectedHashTable = hashNew (0);
     if (appServiceDetectedHashTable == NULL) {
         LOGE ("Create appServiceDetectedHashTable error.\n");
+        goto destroyAppServiceDetectedHashTableRWLock;
+    }
+
+    ret = pthread_rwlock_init (&appServiceUnrecognizedHashTableRWLock, NULL);
+    if (ret) {
+        LOGE ("Init appServiceUnrecognizedHashTableRWLock error.\n");
         goto destroyAppServiceDetectedHashTable;
+    }
+
+    appServiceUnrecognizedHashTable = hashNew (0);
+    if (appServiceUnrecognizedHashTable == NULL) {
+        LOGE ("Create appServiceUnrecognizedHashTable error.\n");
+        goto destroyAppServiceUnrecognizedHashTableRWLock;
     }
 
     ret = updateAppServicesFromCache ();
     if (ret < 0) {
         LOGE ("Update appServices from cache error.\n");
-        goto destroyAppServiceHashTableSlave;
+        goto destroyAppServiceUnrecognizedHashTable;
     }
 
     return 0;
 
+destroyAppServiceUnrecognizedHashTable:
+    hashDestroy (appServiceUnrecognizedHashTable);
+    appServiceUnrecognizedHashTable = NULL;
+destroyAppServiceUnrecognizedHashTableRWLock:
+    pthread_rwlock_destroy (&appServiceUnrecognizedHashTableRWLock);
 destroyAppServiceDetectedHashTable:
     hashDestroy (appServiceDetectedHashTable);
     appServiceDetectedHashTable = NULL;
+destroyAppServiceDetectedHashTableRWLock:
+    pthread_rwlock_destroy (&appServiceDetectedHashTableRWLock);
 destroyAppServiceHashTableSlave:
     hashDestroy (appServiceHashTableSlave);
     appServiceHashTableSlave = NULL;
@@ -646,8 +776,14 @@ destroyAppServiceManager (void) {
     appServiceHashTableSlave = NULL;
 
     /* Destroy appService detected map */
+    pthread_rwlock_destroy (&appServiceDetectedHashTableRWLock);
     hashDestroy (appServiceDetectedHashTable);
     appServiceDetectedHashTable = NULL;
+
+    /* Destroy appService unrecognized map */
+    pthread_rwlock_destroy (&appServiceUnrecognizedHashTableRWLock);
+    hashDestroy (appServiceUnrecognizedHashTable);
+    appServiceUnrecognizedHashTable = NULL;
 
     /* Clean appServices cache */
     remove (NTRACE_APP_SERVICES_CACHE);

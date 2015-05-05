@@ -121,12 +121,12 @@ tcpDispatchService (void *args) {
     /* Get tcpPktDispatchRecvSock */
     tcpPktDispatchRecvSock = getTcpPktDispatchRecvSock ();
 
-    while (!SIGUSR1IsInterrupted ()) {
+    while (!taskShouldExit ()) {
         /* Receive timestamp zframe */
         if (tmFrame == NULL) {
             tmFrame = zframe_recv (tcpPktDispatchRecvSock);
             if (tmFrame == NULL) {
-                if (!SIGUSR1IsInterrupted ())
+                if (!taskShouldExit ())
                     LOGE ("Receive timestamp zframe with fatal error.\n");
                 break;
             } else if (!zframe_more (tmFrame)) {
@@ -138,7 +138,7 @@ tcpDispatchService (void *args) {
         /* Receive ip packet zframe */
         pktFrame = zframe_recv (tcpPktDispatchRecvSock);
         if (pktFrame == NULL) {
-            if (!SIGUSR1IsInterrupted ())
+            if (!taskShouldExit ())
                 LOGE ("Receive ip packet zframe with fatal error.\n");
             zframe_destroy (&tmFrame);
             break;
@@ -168,7 +168,7 @@ tcpDispatchService (void *args) {
     LOGI ("TcpDispatchService will exit ... .. .\n");
     destroyLogContext ();
 exit:
-    if (!SIGUSR1IsInterrupted ())
+    if (!taskShouldExit ())
         sendTaskStatus (TASK_STATUS_EXIT_ABNORMALLY);
 
     return NULL;

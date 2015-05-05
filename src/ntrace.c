@@ -15,6 +15,7 @@
 #include "task_manager.h"
 #include "proto_analyzer.h"
 #include "app_service_manager.h"
+#include "topology_manager.h"
 #include "ownership_manager.h"
 #include "netdev.h"
 #include "log_service.h"
@@ -229,12 +230,20 @@ ntraceService (void) {
         goto destroyProtoAnalyzer;
     }
 
+    /* Init topology manager */
+    ret = initTopologyManager ();
+    if (ret < 0) {
+        LOGE ("Init topology manager error.\n");
+        ret = -1;
+        goto destroyAppServiceManager;
+    }
+
     /* Init ownership manager */
     ret = initOwnershipManager ();
     if (ret < 0) {
         LOGE ("Init packetOwnership error.\n");
         ret = -1;
-        goto destroyAppServiceManager;
+        goto destroyTopologyManager;
     }
 
     /* Init netDev */
@@ -287,6 +296,8 @@ destroyNetDev:
     destroyNetDev ();
 destroyOwnershipManager:
     destroyOwnershipManager ();
+destroyTopologyManager:
+    destroyTopologyManager ();
 destroyAppServiceManager:
     destroyAppServiceManager ();
 destroyProtoAnalyzer:

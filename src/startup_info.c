@@ -13,10 +13,10 @@
     "**                                                              \n" \
     "**                                                              \n" \
     "**                                                              \n" \
-    "**                             Copyright (C) zhengyu li, 2015   \n" \
+    "**                          Copyright (C) zhengyu li 2014-2016  \n" \
     "**                                                              \n" \
-    "**                             Author: zhengyu li               \n" \
-    "**                             Email: lizhengyu419@gmail.com    \n" \
+    "**                          Author: zhengyu li                  \n" \
+    "**                          Email: lizhengyu419@gmail.com       \n" \
     "**                                                              \n" \
     "==============================================================  \n\n" \
 

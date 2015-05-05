@@ -11,10 +11,9 @@ static struct option options [] = {
     {"daemonMode", no_argument, NULL, 'D'},
     {"schedPriority", required_argument, NULL, 'S'},
     {"managementServicePort", required_argument, NULL, 'P'},
-    {"interface", required_argument, NULL, 'm'},
+    {"interface", required_argument, NULL, 'I'},
     {"pcapFile", required_argument, NULL, 'F'},
     {"loopCount", required_argument, NULL, 'n'},
-    {"setFlag", no_argument, NULL, 'B'},
     {"outputFile", required_argument, NULL, 'O'},
     {"packetsToScan", required_argument, NULL, 'N'},
     {"sleepIntervalAfterScan", required_argument, NULL, 'T'},
@@ -42,10 +41,10 @@ showHelpInfo (const char *cmd) {
              "  -D|--daemonMode, run as daemon\n"
              "  -S|--schedPriority <priority> schedule priority\n"
              "  -P|--managementServicePort <port> management control port\n"
-             "  -m|--interface <eth*> interface to monitor\n"
-             "  -F|--pcapFile <fname> pcap file\n"
+             "  -I|--interface <eth*> interface to monitor\n"
+             "  -F|--pcapFile <file> pcap file\n"
              "  -n|--loopCount <count> Loop read pcap file some times, 0 for loop forever\n"
-             "  -O|--outputFile <fname> output file\n"
+             "  -O|--outputFile <file> output file\n"
              "  -N|--packetsToScan, packets to scan for each proto detect loop\n"
              "  -T|--sleepIntervalAfterScan, sleep interval after each proto detect loop\n"
              "  -A|--autoAddService, auto add detected service for sniff\n"
@@ -103,7 +102,7 @@ parseOptions (int argc, char *argv []) {
 
     optind = 1;
     while ((option = getopt_long (argc, argvCopy,
-                                  ":C:DS:P:m:F:n:O:N:T:Ai:p:d:f:l:vh?",
+                                  ":C:DS:P:I:F:n:O:N:T:Ai:p:d:f:l:vh?",
                                   options, NULL)) != -1) {
         switch (option) {
             case 'C':
@@ -121,10 +120,10 @@ parseOptions (int argc, char *argv []) {
                 updatePropertiesManagementServicePort (atoi (optarg));
                 break;
 
-            case 'm':
+            case 'I':
                 updatePropertiesInterface (optarg);
                 if (getPropertiesInterface () == NULL) {
-                    fprintf (stderr, "Parse mirroring interface error!\n");
+                    fprintf (stderr, "Parse interface error!\n");
                     return -1;
                 }
                 break;
@@ -216,6 +215,7 @@ parseOptions (int argc, char *argv []) {
     if (showVersion || showHelp) {
         if (showVersion)
             fprintf (stdout, "Current version: %s\n", VERSION_STRING);
+
         if (showHelp)
             showHelpInfo (argvCopy [0]);
         exit (0);

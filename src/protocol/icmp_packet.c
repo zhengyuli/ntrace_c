@@ -10,8 +10,8 @@
 #include "icmp.h"
 #include "icmp_packet.h"
 
-/* Icmp breakdown send sock */
-static void *icmpBreakdownSendSock;
+/* Icmp process callback function */
+static __thread icmpProcessCB icmpProcessCallback;
 
 static char *
 getIcmpDestUnreachCodeName (u_char code) {
@@ -69,22 +69,6 @@ getIcmpDestUnreachCodeName (u_char code) {
     }
 }
 
-static void
-publishIcmpBreakdown (char *icmpBreakdown) {
-    int ret;
-    zframe_t *frame;
-
-    frame = zframe_new (icmpBreakdown, strlen (icmpBreakdown));
-    if (frame == NULL) {
-        LOGE ("Create icmp breakdown zframe error.\n");
-        return;
-    }
-
-    ret = zframe_send (&frame, icmpBreakdownSendSock, 0);
-    if (ret < 0)
-        LOGE ("Send icmp breakdown error.\n");
-}
-
 static char *
 icmpBreakdown2Json (icmpBreakdownPtr ibd) {
     char *out;
@@ -132,12 +116,10 @@ icmpBreakdown2Json (icmpBreakdownPtr ibd) {
 static boolean
 icmpPktShouldDrop (iphdrPtr iph, tcphdrPtr tcph) {
     char ipStr [16];
-    char key [32];
 
     inet_ntop (AF_INET, (void *) &iph->ipDest, ipStr, sizeof (ipStr));
-    snprintf (key, sizeof (key), "%s:%d", ipStr, ntohs (tcph->dest));
 
-    if (getAppServiceProtoAnalyzer (key))
+    if (getAppServiceProtoAnalyzer (ipStr, ntohs (tcph->dest)))
         return False;
     else
         return True;
@@ -199,18 +181,18 @@ icmpProcess (iphdrPtr iph, timeValPtr tm) {
         return;
     }
 
-    publishIcmpBreakdown (jsonStr);
+    (*icmpProcessCallback) (jsonStr);
     free (jsonStr);
 }
 
 int
-initIcmp (void *sock) {
-    icmpBreakdownSendSock = sock;
+initIcmpContext (icmpProcessCB fun) {
+    icmpProcessCallback = fun;
 
     return 0;
 }
 
 void
-destroyIcmp (void) {
+destroyIcmpContext (void) {
     return;
 }

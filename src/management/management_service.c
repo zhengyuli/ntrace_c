@@ -6,6 +6,7 @@
 #include "zmq_hub.h"
 #include "task_manager.h"
 #include "app_service_manager.h"
+#include "topology_manager.h"
 #include "netdev.h"
 #include "proto_analyzer.h"
 #include "management_service.h"
@@ -17,8 +18,11 @@ static u_int packetsStatisticPktsDrop = 0;
 /* Proto analyzer information */
 static protoAnalyzerInfo protoAnalyzerInformation;
 
-/* Detected services */
+/* Services information */
 static json_t *services = NULL;
+
+/* Topology entries information */
+static json_t *topologyEntries = NULL;
 
 /* Error message for response */
 static char errMsg [256];
@@ -184,6 +188,44 @@ handleGetDetectedServicesInfoRequest (json_t *body) {
 }
 
 /**
+ * @brief Get unrecognized services info request handler.
+ *
+ * @param body data to handle
+ *
+ * @return 0 if success else -1
+ */
+static int
+handleGetUnrecognizedServicesInfoRequest (json_t *body) {
+    services = getJsonFromAppServicesUnrecognized ();
+    if (services == NULL) {
+        snprintf (errMsg, sizeof (errMsg), "Get unrecognized services info error.");
+        LOGE ("%s\n", errMsg);
+        return -1;
+    }
+
+    return 0;
+}
+
+/**
+ * @brief Get topology entries info request handler.
+ *
+ * @param body data to handle
+ *
+ * @return 0 if success else -1
+ */
+static int
+handleGetTopologyEntriesInfoRequest (json_t *body) {
+    topologyEntries = getJsonFromTopologyEntries ();
+    if (topologyEntries == NULL) {
+        snprintf (errMsg, sizeof (errMsg), "Get topology entries info error.");
+        LOGE ("%s\n", errMsg);
+        return -1;
+    }
+
+    return 0;
+}
+
+/**
  * @brief Update services request handler
  *
  * @param body data to handle
@@ -292,16 +334,24 @@ buildManagementResponse (char *cmd, int code) {
                 json_array_append_new (protos, json_string (protoAnalyzerInformation.protos [i]));
 
             json_object_set_new (body, MANAGEMENT_RESPONSE_BODY_PROTOS, protos);
-        } else if (strEqual (cmd, MANAGEMENT_REQUEST_COMMAND_SERVICES_INFO) ||
-                   strEqual (cmd, MANAGEMENT_REQUEST_COMMAND_DETECTED_SERVICES_INFO)) {
+        } else if (strEqual (cmd, MANAGEMENT_REQUEST_COMMAND_SERVICES_INFO)) {
             json_object_set_new (body, MANAGEMENT_RESPONSE_BODY_SERVICES, services);
             services = NULL;
+        } else if (strEqual (cmd, MANAGEMENT_REQUEST_COMMAND_DETECTED_SERVICES_INFO)) {
+            json_object_set_new (body, MANAGEMENT_RESPONSE_BODY_DETECTED_SERVICES, services);
+            services = NULL;
+        } else if (strEqual (cmd, MANAGEMENT_REQUEST_COMMAND_UNRECOGNIZED_SERVICES_INFO)) {
+            json_object_set_new (body, MANAGEMENT_RESPONSE_BODY_UNRECOGNIZED_SERVICES, services);
+            services = NULL;
+        } else if (strEqual (cmd, MANAGEMENT_REQUEST_COMMAND_TOPOLOGY_ENTRIES_INFO)) {
+            json_object_set_new (body, MANAGEMENT_RESPONSE_BODY_TOPOLOGY_ENTRIES, topologyEntries);
+            topologyEntries = NULL;
         }
 
         json_object_set_new (root, MANAGEMENT_RESPONSE_CODE, json_integer (0));
         json_object_set_new (root, MANAGEMENT_RESPONSE_BODY, body);
     } else if (code == 1) {
-        snprintf(buf, sizeof (buf), "Unknown request command: %s", cmd);
+        snprintf (buf, sizeof (buf), "Unknown request command: %s", cmd);
         json_object_set_new (root, MANAGEMENT_RESPONSE_CODE, json_integer (1));
         json_object_set_new (root, MANAGEMENT_RESPONSE_ERROR_MESSAGE,
                              json_string (buf));
@@ -342,10 +392,10 @@ managementService (void *args) {
     /* Get management reply sock */
     managementReplySock = getManagementReplySock ();
 
-    while (!SIGUSR1IsInterrupted ()) {
+    while (!taskShouldExit ()) {
         request = zstr_recv (managementReplySock);
         if (request == NULL) {
-            if (!SIGUSR1IsInterrupted ())
+            if (!taskShouldExit ())
                 LOGE ("Receive management request with fatal error.\n");
             break;
         }
@@ -379,6 +429,10 @@ managementService (void *args) {
                     ret = handleGetServicesInfoRequest (body);
                 else if (strEqual (MANAGEMENT_REQUEST_COMMAND_DETECTED_SERVICES_INFO, cmdStr))
                     ret = handleGetDetectedServicesInfoRequest (body);
+                else if (strEqual (MANAGEMENT_REQUEST_COMMAND_UNRECOGNIZED_SERVICES_INFO, cmdStr))
+                    ret = handleGetUnrecognizedServicesInfoRequest (body);
+                else if (strEqual (MANAGEMENT_REQUEST_COMMAND_TOPOLOGY_ENTRIES_INFO, cmdStr))
+                    ret = handleGetTopologyEntriesInfoRequest (body);
                 else if (strEqual (MANAGEMENT_REQUEST_COMMAND_UPDATE_SERVICES, cmdStr))
                     ret = handleUpdateServicesRequest (body);
                 else {
@@ -405,7 +459,7 @@ managementService (void *args) {
     LOGI ("ManagementService will exit... .. .\n");
     destroyLogContext ();
 exit:
-    if (!SIGUSR1IsInterrupted ())
+    if (!taskShouldExit ())
         sendTaskStatus (TASK_STATUS_EXIT_ABNORMALLY);
 
     return NULL;

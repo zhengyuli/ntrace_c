@@ -110,12 +110,12 @@ rawCaptureService (void *args) {
     /* Get ipPktSendSock */
     ipPktSendSock = getIpPktSendSock ();
 
-    if (!getPropertiesSniffLiveMode ()) {
+    if (!getPropertiesSniffLive ()) {
         msgStr = zstr_recv (getProtoDetectionStatusRecvSock ());
         if (msgStr) {
             LOGI ("%s\n", msgStr);
             free (msgStr);
-        } else if (!SIGUSR1IsInterrupted ())
+        } else if (!taskShouldExit ())
             LOGE ("Receive proto detection status message with fatal error.\n");
     }
 
@@ -141,7 +141,7 @@ rawCaptureService (void *args) {
     rawPktCaptureSize = 0;
     rawPktCaptureStartTime = getSysTime ();
 
-    while (!SIGUSR1IsInterrupted ()) {
+    while (!taskShouldExit ()) {
         ret = pcap_next_ex (pcapDev, &capPktHdr, (const u_char **) &rawPkt);
         if (ret == 1) {
             /* Filter out incomplete raw packet */
@@ -198,7 +198,7 @@ destroyLogContext:
 exit:
     if (loopComplete)
         sendTaskStatus (TASK_STATUS_EXIT_NORMALLY);
-    else if (!SIGUSR1IsInterrupted ())
+    else if (!taskShouldExit ())
         sendTaskStatus (TASK_STATUS_EXIT_ABNORMALLY);
 
     return NULL;

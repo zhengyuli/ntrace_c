@@ -258,17 +258,6 @@ delTcpStreamFromHash (tcpStreamPtr stream) {
                     (*tcpProcessCallback) (NULL);
                 }
             }
-        } else {
-            /* Add appService unrecognized */
-            if (getAppServiceUnrecognized (ipDestStr, addr->dest) == NULL) {
-                ret = addAppServiceUnrecognized (ipDestStr, addr->dest);
-                if (ret < 0)
-                    LOGE ("Add new unrecognized appService ip:%s port:%u error.\n",
-                          ipDestStr, addr->dest);
-                else
-                    LOGD ("Add new unrecognized appService ip:%s port:%u success.\n",
-                          ipDestStr, addr->dest);
-            }
         }
     }
 
@@ -517,8 +506,7 @@ addNewTcpStream (tcphdrPtr tcph, iphdrPtr iph, timeValPtr tm) {
         }
 
         /* Skip service has been scanned */
-        if (getAppServiceDetected (ipDestStr, ntohs (tcph->dest)) ||
-            getAppServiceUnrecognized (ipDestStr, ntohs (tcph->dest)))
+        if (getAppServiceDetected (ipDestStr, ntohs (tcph->dest)))
             return NULL;
     } else {
         analyzer = getAppServiceProtoAnalyzer (ipDestStr, ntohs (tcph->dest));

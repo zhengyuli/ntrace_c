@@ -188,25 +188,6 @@ handleGetDetectedServicesInfoRequest (json_t *body) {
 }
 
 /**
- * @brief Get unrecognized services info request handler.
- *
- * @param body data to handle
- *
- * @return 0 if success else -1
- */
-static int
-handleGetUnrecognizedServicesInfoRequest (json_t *body) {
-    services = getJsonFromAppServicesUnrecognized ();
-    if (services == NULL) {
-        snprintf (errMsg, sizeof (errMsg), "Get unrecognized services info error.");
-        LOGE ("%s\n", errMsg);
-        return -1;
-    }
-
-    return 0;
-}
-
-/**
  * @brief Get topology entries info request handler.
  *
  * @param body data to handle
@@ -340,9 +321,6 @@ buildManagementResponse (char *cmd, int code) {
         } else if (strEqual (cmd, MANAGEMENT_REQUEST_COMMAND_DETECTED_SERVICES_INFO)) {
             json_object_set_new (body, MANAGEMENT_RESPONSE_BODY_DETECTED_SERVICES, services);
             services = NULL;
-        } else if (strEqual (cmd, MANAGEMENT_REQUEST_COMMAND_UNRECOGNIZED_SERVICES_INFO)) {
-            json_object_set_new (body, MANAGEMENT_RESPONSE_BODY_UNRECOGNIZED_SERVICES, services);
-            services = NULL;
         } else if (strEqual (cmd, MANAGEMENT_REQUEST_COMMAND_TOPOLOGY_ENTRIES_INFO)) {
             json_object_set_new (body, MANAGEMENT_RESPONSE_BODY_TOPOLOGY_ENTRIES, topologyEntries);
             topologyEntries = NULL;
@@ -429,8 +407,6 @@ managementService (void *args) {
                     ret = handleGetServicesInfoRequest (body);
                 else if (strEqual (MANAGEMENT_REQUEST_COMMAND_DETECTED_SERVICES_INFO, cmdStr))
                     ret = handleGetDetectedServicesInfoRequest (body);
-                else if (strEqual (MANAGEMENT_REQUEST_COMMAND_UNRECOGNIZED_SERVICES_INFO, cmdStr))
-                    ret = handleGetUnrecognizedServicesInfoRequest (body);
                 else if (strEqual (MANAGEMENT_REQUEST_COMMAND_TOPOLOGY_ENTRIES_INFO, cmdStr))
                     ret = handleGetTopologyEntriesInfoRequest (body);
                 else if (strEqual (MANAGEMENT_REQUEST_COMMAND_UPDATE_SERVICES, cmdStr))

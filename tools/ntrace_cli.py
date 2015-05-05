@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-# Time-stamp: <2015-05-05 16:39:53 Tuesday by zhengyuli>
+# Time-stamp: <2015-05-05 21:43:47 Tuesday by zhengyuli>
 #
 # Author: zhengyu li
 # Created: 2015-05-02
@@ -51,11 +51,6 @@ def cmdDetectedServicesInfo(sock):
     sock.send_json(req)
     print sock.recv_string()
 
-def cmdUnrecognizedServicesInfo(sock):
-    req = {'command':'unrecognized_services_info'}
-    sock.send_json(req)
-    print sock.recv_string()
-
 def cmdTopologyEntriesInfo(sock):
     req = {'command':'topology_entries_info'}
     sock.send_json(req)
@@ -86,7 +81,6 @@ if __name__ == '__main__':
                                  "protosInfo",
                                  "servicesInfo",
                                  "detectedServicesInfo",
-                                 "unrecognizedServicesInfo",
                                  "topologyEntriesInfo",
                                  "updateServices"],
                         help="nTrace request command")
@@ -115,8 +109,6 @@ if __name__ == '__main__':
             cmdServicesInfo(zmqSock)
         elif cmd == 'detectedServicesInfo':
             cmdDetectedServicesInfo(zmqSock)
-        elif cmd == 'unrecognizedServicesInfo':
-            cmdUnrecognizedServicesInfo(zmqSock)
         elif cmd == 'topologyEntriesInfo':
             cmdTopologyEntriesInfo(zmqSock)
         elif cmd == 'updateServices':

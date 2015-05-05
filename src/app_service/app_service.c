@@ -42,20 +42,15 @@ newAppService (char *ip, u_short port, char *proto) {
     if (svc == NULL)
         return NULL;
 
-    if (proto) {
-        analyzer = getProtoAnalyzer (proto);
-        if (analyzer == NULL) {
-            LOGE ("Unsupported appService proto type: %s.\n", proto);
-            free (svc);
-            return NULL;
-        }
-
-        svc->proto = analyzer->proto;
-        svc->analyzer = analyzer;
-    } else {
-        svc->proto = "UNKNOWN";
-        svc->analyzer = NULL;
+    analyzer = getProtoAnalyzer (proto);
+    if (analyzer == NULL) {
+        LOGE ("Unsupported appService proto type: %s.\n", proto);
+        free (svc);
+        return NULL;
     }
+
+    svc->proto = analyzer->proto;
+    svc->analyzer = analyzer;
 
     svc->ip = strdup (ip);
     if (svc->ip == NULL) {

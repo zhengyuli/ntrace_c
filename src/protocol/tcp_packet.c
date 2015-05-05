@@ -253,7 +253,7 @@ delTcpStreamFromHash (tcpStreamPtr stream) {
                     LOGE ("Add new detected appService ip:%s port:%u proto: %s error.\n",
                           ipDestStr, addr->dest, stream->proto);
                 else {
-                    LOGI ("Add new detected appService ip:%s port:%u proto: %s success.\n",
+                    LOGD ("Add new detected appService ip:%s port:%u proto: %s success.\n",
                           ipDestStr, addr->dest, stream->proto);
                     (*tcpProcessCallback) (NULL);
                 }
@@ -266,7 +266,7 @@ delTcpStreamFromHash (tcpStreamPtr stream) {
                     LOGE ("Add new unrecognized appService ip:%s port:%u error.\n",
                           ipDestStr, addr->dest);
                 else
-                    LOGI ("Add new unrecognized appService ip:%s port:%u success.\n",
+                    LOGD ("Add new unrecognized appService ip:%s port:%u success.\n",
                           ipDestStr, addr->dest);
             }
         }
@@ -513,7 +513,7 @@ addNewTcpStream (tcphdrPtr tcph, iphdrPtr iph, timeValPtr tm) {
             if (ret < 0)
                 LOGE ("Add topology entry %s:%s error.\n", ipSrcStr, ipDestStr);
             else
-                LOGI ("Add topology entry %s:%s success.\n", ipSrcStr, ipDestStr);
+                LOGD ("Add topology entry %s:%s success.\n", ipSrcStr, ipDestStr);
         }
 
         /* Skip service has been scanned */
@@ -1309,8 +1309,8 @@ tcpProcess (iphdrPtr iph, timeValPtr tm) {
     if (doProtoDetect &&
         (stream->proto ||
          (stream->proto == NULL &&
-          stream->c2sPkts >= 5 &&
-          stream->s2cPkts >= 5))) {
+          stream->c2sPkts >= 20 &&
+          stream->s2cPkts >= 20))) {
         stream->state = STREAM_CLOSED;
         stream->closeTime = timeVal2MilliSecond (tm);
         delTcpStreamFromHash (stream);
@@ -1475,6 +1475,8 @@ int
 resetTcpContext (void) {
     hashClean (tcpStreamHashTable);
 
+    streamCache = NULL;
+
     return 0;
 }
 
@@ -1494,6 +1496,8 @@ initTcpContext (boolean protoDetectFlag, tcpProcessCB fun) {
 
     if (tcpStreamHashTable == NULL)
         return -1;
+
+    streamCache = NULL;
 
     return 0;
 }

@@ -246,7 +246,7 @@ ipQueueDone (ipQueuePtr ipq) {
 /**
  * @brief Glue ip fragments of ipQueue.
  *
- * @param ipq ipQueue to glue
+ * @param ipq -- ipQueue to glue
  *
  * @return new ip packet if success else NULL
  */
@@ -340,9 +340,9 @@ ipPktShouldDrop (iphdrPtr iph) {
 /**
  * @brief Ip packet defragment processor.
  *
- * @param iph ip packet header
- * @param tm packet capture timestamp
- * @param newIph pointer to return ip defragment packet
+ * @param iph -- ip packet header
+ * @param tm -- packet capture timestamp
+ * @param newIph -- pointer to return ip defragment packet
  *
  * @return 0 if success else -1
  */

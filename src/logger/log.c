@@ -25,10 +25,10 @@ static __thread logContextPtr logCtxtInstance = NULL;
 /**
  * @brief Format log message and send log message to log service.
  *
- * @param file Source file name
- * @param line Line number
- * @param func Function name
- * @param msg Real log message
+ * @param file -- Source file name
+ * @param line -- Line number
+ * @param func -- Function name
+ * @param msg -- Real log message
  */
 void
 doLog (u_char logLevel, const char *file, u_int line, const char *func, char *msg, ...) {
@@ -110,7 +110,7 @@ doLog (u_char logLevel, const char *file, u_int line, const char *func, char *ms
  * @brief Init log context.
  *        It will create a thread local log context, every thread want to
  *        use log function must init log context first.
- * @param logLevel Log level
+ * @param logLevel -- Log level
  *
  * @return 0 if success else -1
  */

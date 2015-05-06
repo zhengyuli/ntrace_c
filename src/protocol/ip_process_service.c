@@ -44,8 +44,8 @@ dispatchHash (const char *key1, const char *key2) {
  * @brief Dispatch timestamp and ip packet to local or remote
  *        tcp packet dispatch service.
  *
- * @param iph ip packet to dispatch
- * @param tm timestamp to dispatch
+ * @param iph -- ip packet to dispatch
+ * @param tm -- timestamp to dispatch
  */
 static void
 tcpPacketDispatch (iphdrPtr iph, timeValPtr tm) {
@@ -98,8 +98,8 @@ tcpPacketDispatch (iphdrPtr iph, timeValPtr tm) {
  * @brief Dispatch timestamp and ip packet to icmp
  *        packet process service.
  *
- * @param iph ip packet to dispatch
- * @param tm capture timestamp to dispatch
+ * @param iph -- ip packet to dispatch
+ * @param tm -- capture timestamp to dispatch
  */
 static void
 icmpPacketDispatch (iphdrPtr iph, timeValPtr tm) {
@@ -140,8 +140,9 @@ icmpPacketDispatch (iphdrPtr iph, timeValPtr tm) {
 
 /*
  * Ip packet process service.
- * Receive ip packet send by rawPktCaptureService, then do ip defrag process
- * and dispatch ip packet to specific tcpPktProcessService thread.
+ * Receive ip packet send by rawCaptureService, then do ip
+ * defrag process and dispatch timestamp and ip packet to
+ * specific tcpProcessService thread.
  */
 void *
 ipProcessService (void *args) {

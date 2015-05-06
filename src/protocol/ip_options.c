@@ -9,7 +9,7 @@
 /**
  * @brief Check ip header options.
  *
- * @param iph ip header
+ * @param iph -- ip header
  *
  * @return 0 if success, else -1
  */

@@ -32,7 +32,7 @@ INCLUDE_DIRECTORIES (
   protocol/
   analyzer/
   proto_detection/
-  session_breakdown/
+  analysis_record/
   3rd_party/http_parser/
   ${PROJECT_BINARY_DIR})
 
@@ -74,7 +74,8 @@ SET (NTRACE_SOURCE_FILES
   3rd_party/http_parser/http_parser.c
   analyzer/http/http_analyzer.c
   analyzer/mysql/mysql_analyzer.c
-  session_breakdown/session_breakdown_service.c
+  analysis_record/analysis_record.c
+  analysis_record/analysis_record_service.c
   proto_detection/proto_detect_service.c)
 
 ADD_EXECUTABLE (ntrace ${NTRACE_SOURCE_FILES})

@@ -21,6 +21,9 @@ static protoAnalyzerInfo protoAnalyzerInformation;
 /* Services information */
 static json_t *services = NULL;
 
+/* Detected services information */
+static json_t *detectedServices = NULL;
+
 /* Topology entries information */
 static json_t *topologyEntries = NULL;
 
@@ -30,7 +33,7 @@ static char errMsg [256];
 /**
  * @brief Resume request handler.
  *
- * @param body data to handle
+ * @param body -- data to handle
  *
  * @return 0 if success else -1
  */
@@ -55,11 +58,7 @@ handleResumeRequest (json_t *body) {
         free (filter);
     }
 
-    LOGD ("\n"
-          "============================================\n"
-          "Update application services filter with:\n%s\n"
-          "============================================\n\n", filter);
-
+    LOGD ("\nUpdate application services filter with:\n%s\n", filter);
     free (filter);
     return 0;
 }
@@ -67,7 +66,7 @@ handleResumeRequest (json_t *body) {
 /**
  * @brief Pause request handler.
  *
- * @param body data to handle
+ * @param body -- data to handle
  *
  * @return 0 if success else -1
  */
@@ -93,11 +92,7 @@ handlePauseRequest (json_t *body) {
         return -1;
     }
 
-    LOGD ("\n"
-          "============================================\n"
-          "Update application services filter with:\n%s\n"
-          "============================================\n\n", filter);
-
+    LOGD ("\nUpdate application services filter with:\n%s\n", filter);
     free (filter);
     return 0;
 }
@@ -105,7 +100,7 @@ handlePauseRequest (json_t *body) {
 /**
  * @brief Heartbeat request handler.
  *
- * @param body data to handle
+ * @param body -- data to handle
  *
  * @return 0 if success else -1
  */
@@ -117,7 +112,7 @@ handleHeartbeatRequest (json_t *body) {
 /**
  * @brief Get packets statistic info request handler.
  *
- * @param  body data to handle
+ * @param  body -- data to handle
  *
  * @return 0 if success else -1
  */
@@ -139,7 +134,7 @@ handleGetPacketsStatisticInfoRequest (json_t *body) {
 /**
  * @brief Get protos info request handler.
  *
- * @param body data to handle
+ * @param body -- data to handle
  *
  * @return 0 if success else -1
  */
@@ -160,7 +155,7 @@ handleGetProtosInfoRequest (json_t *body) {
 /**
  * @brief Get services info request handler.
  *
- * @param body data to handle
+ * @param body -- data to handle
  *
  * @return 0 if success else -1
  */
@@ -179,14 +174,14 @@ handleGetServicesInfoRequest (json_t *body) {
 /**
  * @brief Get detected services info request handler.
  *
- * @param body data to handle
+ * @param body -- data to handle
  *
  * @return 0 if success else -1
  */
 static int
 handleGetDetectedServicesInfoRequest (json_t *body) {
-    services = getJsonFromAppServicesDetected ();
-    if (services == NULL) {
+    detectedServices = getJsonFromAppServicesDetected ();
+    if (detectedServices == NULL) {
         snprintf (errMsg, sizeof (errMsg), "Get detected services info error.");
         LOGE ("%s\n", errMsg);
         return -1;
@@ -198,7 +193,7 @@ handleGetDetectedServicesInfoRequest (json_t *body) {
 /**
  * @brief Get topology entries info request handler.
  *
- * @param body data to handle
+ * @param body -- data to handle
  *
  * @return 0 if success else -1
  */
@@ -217,7 +212,7 @@ handleGetTopologyEntriesInfoRequest (json_t *body) {
 /**
  * @brief Update services request handler
  *
- * @param body data to handle
+ * @param body -- data to handle
  *
  * @return 0 if success else -1
  */
@@ -266,10 +261,7 @@ handleUpdateServicesRequest (json_t *body) {
         return -1;
     }
 
-    LOGD ("\n"
-          "============================================\n"
-          "Update application services filter with:\n%s\n"
-          "============================================\n\n", filter);
+    LOGD ("\nUpdate application services filter with:\n%s\n", filter);
     free (filter);
     return 0;
 }
@@ -277,7 +269,7 @@ handleUpdateServicesRequest (json_t *body) {
 /**
  * @brief Build management response based on command.
  *
- * @param cmd command for response
+ * @param cmd -- command for response
  *
  * @return response if success else NULL
  */
@@ -327,8 +319,8 @@ buildManagementResponse (char *cmd, int code) {
             json_object_set_new (body, MANAGEMENT_RESPONSE_BODY_SERVICES, services);
             services = NULL;
         } else if (strEqual (cmd, MANAGEMENT_REQUEST_COMMAND_DETECTED_SERVICES_INFO)) {
-            json_object_set_new (body, MANAGEMENT_RESPONSE_BODY_DETECTED_SERVICES, services);
-            services = NULL;
+            json_object_set_new (body, MANAGEMENT_RESPONSE_BODY_DETECTED_SERVICES, detectedServices);
+            detectedServices = NULL;
         } else if (strEqual (cmd, MANAGEMENT_REQUEST_COMMAND_TOPOLOGY_ENTRIES_INFO)) {
             json_object_set_new (body, MANAGEMENT_RESPONSE_BODY_TOPOLOGY_ENTRIES, topologyEntries);
             topologyEntries = NULL;

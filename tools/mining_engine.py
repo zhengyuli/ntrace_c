@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-# Time-stamp: <2015-05-03 09:13:03 Sunday by zhengyuli>
+# Time-stamp: <2015-05-06 17:48:49 Wednesday by zhengyuli>
 #
 # Author: zhengyu li
 # Created: 2015-05-02
@@ -18,11 +18,11 @@ import json
 
 def createIndex(conn, headers):
     "Created elastic search index if index doesn't exists"
-    conn.request("GET", "_cat/indices/breakdown", headers=headers)
+    conn.request("GET", "_cat/indices/analysis_records", headers=headers)
     resp = conn.getresponse()
     page = resp.read()
     if resp.status != 200:
-        conn.request("PUT", "/breakdown", headers=headers)
+        conn.request("PUT", "/analysis_records", headers=headers)
         resp = conn.getresponse()
         page = resp.read()
 
@@ -52,15 +52,20 @@ if __name__ == '__main__':
         try:
             data = bkdRecvSock.recv_string()
             if doES:
-                breakdown = json.loads(data)
-                if breakdown['protocol'] == "ICMP":
-                    httpConn.request("POST", "breakdown/icmp", body=data, headers=headers)
-                elif breakdown['protocol'] == "DEFAULT":
-                    httpConn.request("POST", "/breakdown/default/", body=data, headers=headers)
-                elif breakdown['protocol'] == "HTTP":
-                    httpConn.request("POST", "/breakdown/http/", body=data, headers=headers)
-                elif breakdown['protocol'] == "MYSQL":
-                    httpConn.request("POST", "/breakdown/mysql/", body=data, headers=headers)
+                record = json.loads(data)
+                if record['type'] == "TOPOLOGY_ENTRY":
+                    httpConn.request("POST", "/analysis_records/topology_entries", body=data, headers=headers)
+                elif record['type'] == "APP_SERVICE":
+                    httpConn.request("POST", "/analysis_records/app_services", body=data, headers=headers)
+                elif record['type'] == "ICMP_BREAKDOWN":
+                    httpConn.request("POST", "/analysis_records/icmp_breakdowns", body=data, headers=headers)
+                elif record['type'] == "TCP_BREAKDOWN":
+                    if record['proto'] == "DEFAULT":
+                        httpConn.request("POST", "/analysis_records/default_breakdowns/", body=data, headers=headers)
+                    elif record['proto'] == "HTTP":
+                        httpConn.request("POST", "/analysis_records/http_breakdowns/", body=data, headers=headers)
+                    elif record['protocol'] == "MYSQL":
+                        httpConn.request("POST", "/analysis_records/mysql_breakdowns/", body=data, headers=headers)
 
                 httpResp = httpConn.getresponse()
                 page = httpResp.read()

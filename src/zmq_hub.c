@@ -44,13 +44,23 @@ getProtoDetectionStatusRecvSock (void) {
 }
 
 void *
-getSessionBreakdownRecvSock (void) {
-    return zmqHubIntance->sessionBreakdownRecvSock;
+getAnalysisRecordRecvSock (void) {
+    return zmqHubIntance->analysisRecordRecvSock;
 }
 
 void *
-getSessionBreakdownPushSock (void) {
-    return zmqHubIntance->sessionBreakdownPushSock;
+getAnalysisRecordPushSock (void) {
+    return zmqHubIntance->analysisRecordPushSock;
+}
+
+void *
+getTopologyEntrySendSock (void) {
+    return zmqHubIntance->topologyEntrySendSock;
+}
+
+void *
+getAppServiceSendSock (void) {
+    return zmqHubIntance->appServiceSendSock;
 }
 
 void *
@@ -74,8 +84,8 @@ getIcmpPktRecvSock (void) {
 }
 
 void *
-getIcmpBreakdownSendSock (void) {
-    return zmqHubIntance->icmpBreakdownSendSock;
+getIcmpErrorSendSock (void) {
+    return zmqHubIntance->icmpErrorSendSock;
 }
 
 void *
@@ -231,33 +241,61 @@ initZmqHub (void) {
     /* Set zmq context io threads */
     zctx_set_iothreads (zmqHubIntance->zmqCtxt, 3);
 
-    /* Create session breakdown recv sock */
-    zmqHubIntance->sessionBreakdownRecvSock = zsocket_new (zmqHubIntance->zmqCtxt, ZMQ_PULL);
-    if (zmqHubIntance->sessionBreakdownRecvSock == NULL) {
-        LOGE ("Create sessionBreakdownRecvSock error.\n");
+    /* Create analysis record recv sock */
+    zmqHubIntance->analysisRecordRecvSock = zsocket_new (zmqHubIntance->zmqCtxt, ZMQ_PULL);
+    if (zmqHubIntance->analysisRecordRecvSock == NULL) {
+        LOGE ("Create analysisRecordRecvSock error.\n");
         goto destroyZmqCtxt;
     }
-    zsocket_set_rcvhwm (zmqHubIntance->sessionBreakdownRecvSock, 500000);
-    ret = zsocket_bind (zmqHubIntance->sessionBreakdownRecvSock,
-                        SESSION_BREAKDOWN_EXCHANGE_CHANNEL);
+    zsocket_set_rcvhwm (zmqHubIntance->analysisRecordRecvSock, 500000);
+    ret = zsocket_bind (zmqHubIntance->analysisRecordRecvSock,
+                        ANALYSIS_RECORD_EXCHANGE_CHANNEL);
     if (ret < 0) {
-        LOGE ("Bind sessionBreakdownRecvSock to %s error.\n",
-              SESSION_BREAKDOWN_EXCHANGE_CHANNEL);
+        LOGE ("Bind analysisRecordRecvSock to %s error.\n",
+              ANALYSIS_RECORD_EXCHANGE_CHANNEL);
         goto destroyZmqCtxt;
     }
 
-    /* Create session breakdown push sock */
-    zmqHubIntance->sessionBreakdownPushSock = zsocket_new (zmqHubIntance->zmqCtxt, ZMQ_PUSH);
-    if (zmqHubIntance->sessionBreakdownPushSock == NULL) {
-        LOGE ("Create sessionBreakdownPushSock error.\n");
+    /* Create analysis record push sock */
+    zmqHubIntance->analysisRecordPushSock = zsocket_new (zmqHubIntance->zmqCtxt, ZMQ_PUSH);
+    if (zmqHubIntance->analysisRecordPushSock == NULL) {
+        LOGE ("Create analysisRecordPushSock error.\n");
         goto destroyZmqCtxt;
     }
-    zsocket_set_sndhwm (zmqHubIntance->sessionBreakdownPushSock, 500000);
-    ret = zsocket_connect (zmqHubIntance->sessionBreakdownPushSock, "tcp://%s:%u",
-                           getPropertiesMiningEngineHost (), getPropertiesSessionBreakdownRecvPort ());
+    zsocket_set_sndhwm (zmqHubIntance->analysisRecordPushSock, 500000);
+    ret = zsocket_connect (zmqHubIntance->analysisRecordPushSock, "tcp://%s:%u",
+                           getPropertiesMiningEngineHost (), getPropertiesAnalysisRecordRecvPort ());
     if (ret < 0) {
-        LOGE ("Connect sessionBreakdownPushSock to tcp://%s:%u error.\n",
-              getPropertiesMiningEngineHost (), getPropertiesSessionBreakdownRecvPort ());
+        LOGE ("Connect analysisRecordPushSock to tcp://%s:%u error.\n",
+              getPropertiesMiningEngineHost (), getPropertiesAnalysisRecordRecvPort ());
+        goto destroyZmqCtxt;
+    }
+
+    /* Create topologyEntrySendSock */
+    zmqHubIntance->topologyEntrySendSock = zsocket_new (zmqHubIntance->zmqCtxt, ZMQ_PUSH);
+    if (zmqHubIntance->topologyEntrySendSock == NULL) {
+        LOGE ("Create topologyEntrySendSock error.\n");
+        goto destroyZmqCtxt;
+    }
+    zsocket_set_sndhwm (zmqHubIntance->topologyEntrySendSock, 500000);
+    ret = zsocket_connect (zmqHubIntance->topologyEntrySendSock, ANALYSIS_RECORD_EXCHANGE_CHANNEL);
+    if (ret < 0) {
+        LOGE ("Connect topologyEntrySendSock to %s error.\n",
+              ANALYSIS_RECORD_EXCHANGE_CHANNEL);
+        goto destroyZmqCtxt;
+    }
+
+    /* Create appServiceSendSock */
+    zmqHubIntance->appServiceSendSock = zsocket_new (zmqHubIntance->zmqCtxt, ZMQ_PUSH);
+    if (zmqHubIntance->appServiceSendSock == NULL) {
+        LOGE ("Create appServiceSendSock error.\n");
+        goto destroyZmqCtxt;
+    }
+    zsocket_set_sndhwm (zmqHubIntance->appServiceSendSock, 500000);
+    ret = zsocket_connect (zmqHubIntance->appServiceSendSock, ANALYSIS_RECORD_EXCHANGE_CHANNEL);
+    if (ret < 0) {
+        LOGE ("Connect appServiceSendSock to %s error.\n",
+              ANALYSIS_RECORD_EXCHANGE_CHANNEL);
         goto destroyZmqCtxt;
     }
 
@@ -321,17 +359,17 @@ initZmqHub (void) {
         goto destroyZmqCtxt;
     }
 
-    /* Create icmpBreakdownSendSock */
-    zmqHubIntance->icmpBreakdownSendSock = zsocket_new (zmqHubIntance->zmqCtxt, ZMQ_PUSH);
-    if (zmqHubIntance->icmpBreakdownSendSock == NULL) {
-        LOGE ("Create icmpBreakdownSendSock error.\n");
+    /* Create icmpErrorSendSock */
+    zmqHubIntance->icmpErrorSendSock = zsocket_new (zmqHubIntance->zmqCtxt, ZMQ_PUSH);
+    if (zmqHubIntance->icmpErrorSendSock == NULL) {
+        LOGE ("Create icmpErrorSendSock error.\n");
         goto destroyZmqCtxt;
     }
-    zsocket_set_sndhwm (zmqHubIntance->icmpBreakdownSendSock, 500000);
-    ret = zsocket_connect (zmqHubIntance->icmpBreakdownSendSock, SESSION_BREAKDOWN_EXCHANGE_CHANNEL);
+    zsocket_set_sndhwm (zmqHubIntance->icmpErrorSendSock, 500000);
+    ret = zsocket_connect (zmqHubIntance->icmpErrorSendSock, ANALYSIS_RECORD_EXCHANGE_CHANNEL);
     if (ret < 0) {
-        LOGE ("Connect icmpBreakdownSendSock to %s error.\n",
-              SESSION_BREAKDOWN_EXCHANGE_CHANNEL);
+        LOGE ("Connect icmpErrorSendSock to %s error.\n",
+              ANALYSIS_RECORD_EXCHANGE_CHANNEL);
         goto destroyZmqCtxt;
     }
 
@@ -421,10 +459,10 @@ initZmqHub (void) {
             goto freeTcpBreakdownSendSocks;
         }
         zsocket_set_sndhwm (zmqHubIntance->tcpBreakdownSendSocks [i], 500000);
-        ret = zsocket_connect (zmqHubIntance->tcpBreakdownSendSocks [i], SESSION_BREAKDOWN_EXCHANGE_CHANNEL);
+        ret = zsocket_connect (zmqHubIntance->tcpBreakdownSendSocks [i], ANALYSIS_RECORD_EXCHANGE_CHANNEL);
         if (ret < 0) {
             LOGE ("Connect tcpBreakdownSendSocks [%u] to %s error.\n",
-                  i, SESSION_BREAKDOWN_EXCHANGE_CHANNEL);
+                  i, ANALYSIS_RECORD_EXCHANGE_CHANNEL);
             goto freeTcpBreakdownSendSocks;
         }
     }

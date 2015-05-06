@@ -8,27 +8,36 @@
 #include "ip.h"
 #include "icmp.h"
 
-typedef struct _icmpBreakdown icmpBreakdown;
-typedef icmpBreakdown *icmpBreakdownPtr;
+typedef struct _icmpError icmpError;
+typedef icmpError *icmpErrorPtr;
 
-struct _icmpBreakdown {
+struct _icmpError {
     timeVal timestamp;                  /**< Timestamp */
-    u_char type;                        /**< Icmp type */
-    u_char code;                        /**< Icmp code */
-    struct in_addr ip;                  /**< Icmp dest unreachable ip */
-    u_short port;                       /**< Icmp dest unreachable port */
+    u_char type;                        /**< Icmp error type */
+    u_char code;                        /**< Icmp error code */
+    struct in_addr ip;                  /**< Icmp error dest unreachable ip */
+    u_short port;                       /**< Icmp error dest unreachable port */
 };
 
-/* Icmp breakdown json key definitions */
-#define ICMP_SKBD_TIMESTAMP "timestamp"
-#define ICMP_SKBD_TIMESTAMP_READABLE "timestamp_readable"
-#define ICMP_SKBD_PROTOCOL "protocol"
-#define ICMP_SKBD_ICMP_TYPE "icmp_type"
-#define ICMP_SKBD_ICMP_CODE "icmp_code"
-#define ICMP_SKBD_ICMP_DEST_UNREACH_IP "icmp_dest_unreach_ip"
-#define ICMP_SKBD_ICMP_DEST_UNREACH_PORT "icmp_dest_unreach_port"
+/* Icmp error json key definitions */
+#define ICMP_ERROR_ICMP_TYPE "icmp_type"
+#define ICMP_ERROR_ICMP_CODE "icmp_code"
+#define ICMP_ERROR_ICMP_DEST_UNREACH_IP "icmp_dest_unreach_ip"
+#define ICMP_ERROR_ICMP_DEST_UNREACH_PORT "icmp_dest_unreach_port"
 
-typedef void (*icmpProcessCB) (void *args);
+typedef enum {
+    PUBLISH_ICMP_ERROR
+} icmpProcessCallbackArgsType;
+
+typedef struct _icmpProcessCallbackArgs icmpProcessCallbackArgs;
+typedef icmpProcessCallbackArgs *icmpProcessCallbackArgsPtr;
+
+struct _icmpProcessCallbackArgs {
+    icmpProcessCallbackArgsType type;
+    void *args;
+};
+
+typedef void (*icmpProcessCB) (icmpProcessCallbackArgsPtr callbackArgs);
 
 /*========================Interfaces definition============================*/
 void

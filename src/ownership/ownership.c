@@ -8,11 +8,11 @@
 /**
  * @brief Create new ownership based on ownership type and ip.
  *
- * @param type ownership type
- * @param ip ownership ip
- * @param cpuCores ownership cpu cores
- * @param totalMem ownership total memory in MB
- * @param freeMem ownership free memory in MB
+ * @param type -- ownership type
+ * @param ip -- ownership ip
+ * @param cpuCores -- ownership cpu cores
+ * @param totalMem -- ownership total memory in MB
+ * @param freeMem -- ownership free memory in MB
  *
  * @return ownership if success else NULL
  */

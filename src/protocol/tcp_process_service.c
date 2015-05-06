@@ -10,32 +10,30 @@
 #include "task_manager.h"
 #include "ip.h"
 #include "tcp_packet.h"
+#include "analysis_record.h"
 #include "tcp_process_service.h"
 
 /* Tcp breakdown send sock */
 static __thread void *tcpBreakdownSendSock = NULL;
 
 static void
-publishTcpBreakdown (void *args) {
-    int ret;
-    char *tcpBreakdown = (char *) args;
-    zframe_t *frame;
+tcpProcessCallback (tcpProcessCallbackArgsPtr callbackArgs) {
+    switch (callbackArgs->type) {
+        case PUBLISH_TCP_BREAKDOWN:
+            publishAnalysisRecord (tcpBreakdownSendSock, (char *) callbackArgs->args);
+            break;
 
-    frame = zframe_new (tcpBreakdown, strlen (tcpBreakdown));
-    if (frame == NULL) {
-        LOGE ("Create tcp breakdown zframe error.\n");
-        return;
+        default:
+            LOGE ("Wrong tcp process callback args type.\n");
+            break;
     }
-
-    ret = zframe_send (&frame, tcpBreakdownSendSock, 0);
-    if (ret < 0)
-        LOGE ("Send tcp breakdown error.\n");
 }
 
 /*
  * Tcp packet process service.
- * Read ip packets send by ipPktProcessService, then do tcp process and
- * send session breakdown to session breakdown sink service.
+ * Read ip packets send by ipProcessService, then do tcp
+ * process and then send tcp breakdown to analysis record
+ * service.
  */
 void *
 tcpProcessService (void *args) {
@@ -48,10 +46,6 @@ tcpProcessService (void *args) {
     timeValPtr tm;
     iphdrPtr iph;
 
-    dispatchIndex = *((u_int *) args);
-    tcpPktRecvSock = getTcpPktRecvSock (dispatchIndex);
-    tcpBreakdownSendSock = getTcpBreakdownSendSock (dispatchIndex);
-
     /* Reset signals flag */
     resetSignalsFlag ();
 
@@ -61,6 +55,10 @@ tcpProcessService (void *args) {
         fprintf (stderr, "Init log context error.\n");
         goto exit;
     }
+
+    dispatchIndex = *((u_int *) args);
+    tcpPktRecvSock = getTcpPktRecvSock (dispatchIndex);
+    tcpBreakdownSendSock = getTcpBreakdownSendSock (dispatchIndex);
 
     /* Bind tcpProcessService to CPU# */
     CPU_ZERO (&cpuset);
@@ -76,7 +74,7 @@ tcpProcessService (void *args) {
     displayTaskSchedPolicyInfo ("TcpProcessService");
 
     /* Init tcp context */
-    ret = initTcpContext (False, publishTcpBreakdown);
+    ret = initTcpContext (False, tcpProcessCallback);
     if (ret < 0) {
         LOGE ("Init tcp context error.\n");
         goto destroyLogContext;

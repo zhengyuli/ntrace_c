@@ -3,6 +3,7 @@
 
 #include <stdlib.h>
 #include <jansson.h>
+#include "util.h"
 
 typedef struct _topologyEntry topologyEntry;
 typedef topologyEntry *topologyEntryPtr;
@@ -24,6 +25,8 @@ void
 freeTopologyEntryForHash (void *data);
 json_t *
 topologyEntry2Json (topologyEntryPtr entry);
+char *
+topologyEntryAnalysisRecord (timeValPtr tm, char *srcIp, char *destIp);
 /*=======================Interfaces definition end=========================*/
 
 #endif /* __TOPOLOGY_ENTRY_H__ */

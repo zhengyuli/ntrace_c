@@ -5,8 +5,8 @@
 /**
  * @brief Extract ip packet from raw packet
  *
- * @param rawPkt raw packet captured by pcap
- * @param dataLinkType datalink type
+ * @param rawPkt -- raw packet captured by pcap
+ * @param dataLinkType -- datalink type
  *
  * @return Ip packet address if success else NULL
  */

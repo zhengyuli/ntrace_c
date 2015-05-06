@@ -1,9 +1,9 @@
-#ifndef __SESSION_BREAKDOWN_SERVICE_H__
-#define __SESSION_BREAKDOWN_SERVICE_H__
+#ifndef __ANALYSIS_RECORD_SERVICE_H__
+#define __ANALYSIS_RECORD_SERVICE_H__
 
 /*========================Interfaces definition============================*/
 void *
-sessionBreakdownService (void *args);
+analysisRecordService (void *args);
 /*=======================Interfaces definition end=========================*/
 
-#endif /* __SESSION_BREAKDOWN_SERVICE_H__ */
+#endif /* __ANALYSIS_RECORD_SERVICE_H__ */

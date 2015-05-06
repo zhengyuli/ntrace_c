@@ -19,7 +19,7 @@ static struct option options [] = {
     {"sleepIntervalAfterScan", required_argument, NULL, 'T'},
     {"autoAddService", no_argument, NULL, 'A'},
     {"miningEngineHost", required_argument, NULL, 'i'},
-    {"sessionBreakdownRecvPort", required_argument, NULL, 'p'},
+    {"analysisRecordRecvPort", required_argument, NULL, 'p'},
     {"logDir", required_argument, NULL, 'd'},
     {"logFileName", required_argument, NULL, 'f'},
     {"logLevel", required_argument, NULL, 'l'},
@@ -49,7 +49,7 @@ showHelpInfo (const char *cmd) {
              "  -T|--sleepIntervalAfterScan, sleep interval after each proto detect loop\n"
              "  -A|--autoAddService, auto add detected service for sniff\n"
              "  -i|--miningEngineHost <ip> mining engine host ip\n"
-             "  -p|--sessionBreakdownRecvPort <port> session breakdown receive port\n"
+             "  -p|--analysisRecordRecvPort <port> analysis record receive port\n"
              "  -d|--logDir <path>, log file directory\n"
              "  -f|--logFileName <name>, log file name\n"
              "  -l|--logLevel <level> log level\n"
@@ -169,7 +169,7 @@ parseOptions (int argc, char *argv []) {
                 break;
 
             case 'p':
-                updatePropertiesSessionBreakdownRecvPort (atoi (optarg));
+                updatePropertiesAnalysisRecordRecvPort (atoi (optarg));
                 break;
 
             case 'd':

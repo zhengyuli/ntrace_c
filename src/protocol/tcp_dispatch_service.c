@@ -42,8 +42,8 @@ dispatchHash (const char *key1, const char *key2) {
  * @brief Dispatch timestamp and ip packet to specific tcp
  *        packet process service thread.
  *
- * @param iph ip packet to dispatch
- * @param tm capture timestamp to dispatch
+ * @param iph -- ip packet to dispatch
+ * @param tm -- capture timestamp to dispatch
  */
 static void
 tcpPacketDispatch (iphdrPtr iph, timeValPtr tm) {
@@ -95,7 +95,7 @@ tcpPacketDispatch (iphdrPtr iph, timeValPtr tm) {
 /*
  * Tcp packet dispatch service.
  * Read ip packet send by remote/local node, then dispatch ip
- * packet to local specific tcpPktProcessService thread.
+ * packet to local specific tcpProcessService thread.
  */
 void *
 tcpDispatchService (void *args) {

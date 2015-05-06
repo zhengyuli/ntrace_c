@@ -5,6 +5,7 @@
 #include <string.h>
 #include <jansson.h>
 #include "log.h"
+#include "analysis_record.h"
 #include "app_service.h"
 
 static appServicePtr
@@ -27,9 +28,9 @@ newAppServiceInternal (void) {
  * @brief Create new appService.
  *        Create new appService from proto, ip and port.
  *
- * @param ip appService ip address
- * @param port appService port
- * @param proto appService proto name
+ * @param ip -- appService ip address
+ * @param port -- appService port
+ * @param proto -- appService proto name
  *
  * @return appService if success, else NULL
  */
@@ -84,7 +85,7 @@ freeAppServiceForHash (void *data) {
  * @brief Copy appService.
  *        Copy appService from other appService.
  *
- * @param appService appService to copy.
+ * @param appService -- appService to copy.
  *
  * @return new appService if success, else NULL
  */
@@ -111,7 +112,7 @@ copyAppService (appServicePtr appService) {
 /**
  * @brief Convert appService to json.
  *
- * @param svc appService to convert
+ * @param svc -- appService to convert
  *
  * @return json object if success, else NULL
  */
@@ -138,7 +139,7 @@ appService2Json (appServicePtr svc) {
 /**
  * @brief Convert json to appService.
  *
- * @param json json to convert
+ * @param json -- json to convert
  *
  * @return appService if success, else NULL
  */
@@ -203,4 +204,46 @@ json2AppService (json_t *json) {
     svc->port = (u_short) json_integer_value (tmp);
 
     return svc;
+}
+
+/**
+ * @brief Get appService analysis record.
+ *
+ * @param tm -- timestamp
+ * @param proto -- appService proto
+ * @param ip -- appService ip
+ * @param port -- appService port
+ *
+ * @return analysis record if success, else NULL
+ */
+char *
+appServiceAnalysisRecord (timeValPtr tm, char *proto, char *ip, u_short port) {
+    char *out;
+    json_t *root;
+    char buf [64];
+
+    root = json_object ();
+    if (root == NULL) {
+        LOGE ("Create json object error.\n");
+        return NULL;
+    }
+
+    /* Analysis record timestamp */
+    formatLocalTimeStr (tm, buf, sizeof (buf));
+    json_object_set_new (root, ANALYSIS_RECORD_TIMESTAMP,
+                         json_string (buf));
+    /* Analysis record type */
+    json_object_set_new (root, ANALYSIS_RECORD_TYPE,
+                         json_string (ANALYSIS_RECORD_TYPE_APP_SERVICE));
+    /* AppService proto */
+    json_object_set_new (root, APP_SERVICE_PROTO, json_string (proto));
+    /* AppService ip */
+    json_object_set_new (root, APP_SERVICE_IP, json_string (ip));
+    /* AppService port */
+    json_object_set_new (root, APP_SERVICE_PORT, json_integer (port));
+
+    out = json_dumps (root, JSON_COMPACT | JSON_PRESERVE_ORDER);
+    json_object_clear (root);
+
+    return out;
 }

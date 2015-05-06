@@ -8,6 +8,7 @@
 #include "ip.h"
 #include "tcp.h"
 #include "icmp.h"
+#include "analysis_record.h"
 #include "icmp_packet.h"
 
 /* Icmp process callback function */
@@ -70,7 +71,7 @@ getIcmpDestUnreachCodeName (u_char code) {
 }
 
 static char *
-icmpBreakdown2Json (icmpBreakdownPtr ibd) {
+icmpError2AnalysisRecord (icmpErrorPtr error) {
     char *out;
     json_t *root;
     char ipStr [16];
@@ -82,30 +83,27 @@ icmpBreakdown2Json (icmpBreakdownPtr ibd) {
         return NULL;
     }
 
-    /* Icmp timestamp */
-    json_object_set_new (root, ICMP_SKBD_TIMESTAMP,
-                         json_integer (ibd->timestamp.tvSec));
-    /* Icmp timestamp readable */
-    formatLocalTimeStr (&ibd->timestamp, buf, sizeof (buf));
-    json_object_set_new (root, ICMP_SKBD_TIMESTAMP_READABLE,
+    /* Analysis record timestamp */
+    formatLocalTimeStr (&error->timestamp, buf, sizeof (buf));
+    json_object_set_new (root, ANALYSIS_RECORD_TIMESTAMP,
                          json_string (buf));
-    /* Icmp protocol */
-    json_object_set_new (root, ICMP_SKBD_PROTOCOL,
-                         json_string ("ICMP"));
-    /* Icmp type */
-    json_object_set_new (root, ICMP_SKBD_ICMP_TYPE,
+    /* Analysis record type */
+    json_object_set_new (root, ANALYSIS_RECORD_TYPE,
+                         json_string (ANALYSIS_RECORD_TYPE_ICMP_ERROR));
+    /* Icmp error type */
+    json_object_set_new (root, ICMP_ERROR_ICMP_TYPE,
                          json_string ("ICMP_DEST_UNREACH"));
-    /* Icmp code */
-    json_object_set_new (root, ICMP_SKBD_ICMP_CODE,
-                         json_string (getIcmpDestUnreachCodeName (ibd->code)));
-    /* Icmp dest unreach ip */
-    inet_ntop (AF_INET, (void *) &ibd->ip, ipStr, sizeof (ipStr));
-    json_object_set_new (root, ICMP_SKBD_ICMP_DEST_UNREACH_IP,
+    /* Icmp error code */
+    json_object_set_new (root, ICMP_ERROR_ICMP_CODE,
+                         json_string (getIcmpDestUnreachCodeName (error->code)));
+    /* Icmp error dest unreach ip */
+    inet_ntop (AF_INET, (void *) &error->ip, ipStr, sizeof (ipStr));
+    json_object_set_new (root, ICMP_ERROR_ICMP_DEST_UNREACH_IP,
                          json_string (ipStr));
-    /* Icmp dest unreach port */
-    if (ibd->code == ICMP_PORT_UNREACH)
-        json_object_set_new (root, ICMP_SKBD_ICMP_DEST_UNREACH_PORT,
-                             json_integer (ibd->port));
+    /* Icmp error dest unreach port */
+    if (error->code == ICMP_PORT_UNREACH)
+        json_object_set_new (root, ICMP_ERROR_ICMP_DEST_UNREACH_PORT,
+                             json_integer (error->port));
 
     out = json_dumps (root, JSON_COMPACT | JSON_PRESERVE_ORDER);
     json_object_clear (root);
@@ -128,8 +126,8 @@ icmpPktShouldDrop (iphdrPtr iph, tcphdrPtr tcph) {
 /**
  * @brief Icmp pakcet processor.
  *
- * @param iph ip packet header
- * @param tm packet capture timestamp
+ * @param iph -- ip packet header
+ * @param tm -- packet capture timestamp
  */
 void
 icmpProcess (iphdrPtr iph, timeValPtr tm) {
@@ -137,8 +135,9 @@ icmpProcess (iphdrPtr iph, timeValPtr tm) {
     icmphdrPtr icmph;
     iphdrPtr origIph;
     tcphdrPtr origTcph;
-    icmpBreakdown ibd;
-    char *jsonStr;
+    icmpError error;
+    char *record;
+    icmpProcessCallbackArgs callbackArgs;
 
     len = ntohs (iph->ipLen) - iph->iphLen * 4;
     if (len < sizeof (icmphdr)) {
@@ -162,27 +161,26 @@ icmpProcess (iphdrPtr iph, timeValPtr tm) {
     if (origIph->ipProto != IPPROTO_TCP)
         return;
 
-    ibd.timestamp.tvSec = ntohll (tm->tvSec);
-    ibd.timestamp.tvUsec = ntohll (tm->tvUsec);
-    ibd.type = icmph->type;
-    ibd.code = icmph->code;
-    ibd.ip = origIph->ipDest;
+    error.timestamp.tvSec = ntohll (tm->tvSec);
+    error.timestamp.tvUsec = ntohll (tm->tvUsec);
+    error.type = icmph->type;
+    error.code = icmph->code;
+    error.ip = origIph->ipDest;
 
     if (icmph->code == ICMP_PORT_UNREACH) {
         origTcph = (tcphdrPtr) ((u_char *) origIph + origIph->iphLen * 4);
         if (icmpPktShouldDrop (origIph, origTcph))
             return;
-        ibd.port = ntohs (origTcph->dest);
+        error.port = ntohs (origTcph->dest);
     }
 
-    jsonStr = icmpBreakdown2Json (&ibd);
-    if (jsonStr == NULL) {
-        LOGE ("IcmpBreakdown2Json error.\n");
-        return;
+    record = icmpError2AnalysisRecord (&error);
+    if (record) {
+        callbackArgs.type = PUBLISH_ICMP_ERROR;
+        callbackArgs.args = record;
+        (*icmpProcessCallback) (&callbackArgs);
+        free (record);
     }
-
-    (*icmpProcessCallback) (jsonStr);
-    free (jsonStr);
 }
 
 int

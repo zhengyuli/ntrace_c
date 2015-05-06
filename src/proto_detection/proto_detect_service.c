@@ -15,31 +15,49 @@
 #include "raw_packet.h"
 #include "ip_packet.h"
 #include "tcp_packet.h"
+#include "analysis_record.h"
 #include "proto_detect_service.h"
 
+__thread void *topologyEntrySendSock = NULL;
+__thread void *appServiceSendSock = NULL;
+
 static void
-updateFilterForSniff (void *args) {
+updateFilterForSniff (void) {
     int ret;
     char *filter;
 
-    if (getPropertiesSniffLive () &&
-        getPropertiesAutoAddService ()) {
-        /* Update application services filter */
-        filter = getAppServicesFilter ();
-        if (filter == NULL)
-            LOGE ("Get application services filter error.\n");
-        else {
-            ret = updateNetDevFilterForSniff (filter);
-            if (ret < 0)
-                LOGE ("Update application services filter error.\n");
-            else
-                LOGD ("\n"
-                      "============================================\n"
-                      "Update application services filter with:\n%s\n"
-                      "============================================\n\n", filter);
+    /* Update application services filter */
+    filter = getAppServicesFilter ();
+    if (filter == NULL)
+        LOGE ("Get application services filter error.\n");
+    else {
+        ret = updateNetDevFilterForSniff (filter);
+        if (ret < 0)
+            LOGE ("Update application services filter error.\n");
+        else
+            LOGD ("\nUpdate application services filter with:\n%s\n", filter);
 
-            free (filter);
-        }
+        free (filter);
+    }
+}
+
+static void
+protoDetectCallback (tcpProcessCallbackArgsPtr callbackArgs) {
+    switch (callbackArgs->type) {
+        case PUBLISH_TOPOLOGY_ENTRY:
+            publishAnalysisRecord (topologyEntrySendSock, (char *) callbackArgs->args);
+            break;
+
+        case PUBLISH_APP_SERVICE:
+            if (getPropertiesSniffLive () &&
+                getPropertiesAutoAddService ())
+                updateFilterForSniff ();
+            publishAnalysisRecord (appServiceSendSock, (char *) callbackArgs->args);
+            break;
+
+        default:
+            LOGE ("Wrong proto detect callback args type.\n");
+            break;
     }
 }
 
@@ -74,10 +92,10 @@ protoDetectService (void *args) {
         goto exit;
     }
 
-    /* Get net device pcap descriptor for proto detection */
     pcapDev = getNetDevPcapDescForProtoDetection ();
-    /* Get net device datalink type for proto detection */
     datalinkType = getNetDevDatalinkTypeForProtoDetection ();
+    topologyEntrySendSock = getTopologyEntrySendSock ();
+    appServiceSendSock = getAppServiceSendSock ();
 
     /* Update proto detection filter */
     ret = updateNetDevFilterForProtoDetection ("tcp");
@@ -94,7 +112,7 @@ protoDetectService (void *args) {
     }
 
     /* Init tcp context */
-    ret = initTcpContext (True, updateFilterForSniff);
+    ret = initTcpContext (True, protoDetectCallback);
     if (ret < 0) {
         LOGE ("Init tcp context error.\n");
         goto destroyIpContext;

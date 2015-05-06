@@ -186,7 +186,7 @@ gettid () {
 /**
  * @brief Get ip address of interface.
  *
- * @param interface interface name, like eth0
+ * @param interface -- interface name, like eth0
  *
  * @return Ip address if exists else NULL
  */

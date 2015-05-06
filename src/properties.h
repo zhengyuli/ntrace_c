@@ -19,7 +19,7 @@ struct _properties {
     char *pcapFile;                     /**< Pcap offline file */
     u_int loopCount;                    /**< Pcap offline file loop read count */
 
-    char *outputFile;                   /**< Session breakdown output file */
+    char *outputFile;                   /**< Analysis record output file */
 
     u_int packetsToScan;                /**< Packetes to scan for each proto
                                              detection loop */
@@ -28,7 +28,7 @@ struct _properties {
     boolean autoAddService;             /**< Auto add detected service to sniff */
 
     char *miningEngineHost;             /**< Mining engine host ip */
-    u_short sessionBreakdownRecvPort;   /**< session breakdown receive port of
+    u_short analysisRecordRecvPort;     /**< Analysis record receive port of
                                              mining engine */
 
     char *logDir;                       /**< Log dir */
@@ -86,9 +86,9 @@ getPropertiesMiningEngineHost (void);
 void
 updatePropertiesMiningEngineHost (char *ip);
 u_short
-getPropertiesSessionBreakdownRecvPort (void);
+getPropertiesAnalysisRecordRecvPort (void);
 void
-updatePropertiesSessionBreakdownRecvPort (u_short port);
+updatePropertiesAnalysisRecordRecvPort (u_short port);
 char *
 getPropertiesLogDir (void);
 void

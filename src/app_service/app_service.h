@@ -34,6 +34,8 @@ json_t *
 appService2Json (appServicePtr svc);
 appServicePtr
 json2AppService (json_t *json);
+char *
+appServiceAnalysisRecord (timeValPtr tm, char *proto, char *ip, u_short port);
 /*=======================Interfaces definition end=========================*/
 
 #endif /* __APP_SERVICE_H__ */

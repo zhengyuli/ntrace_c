@@ -85,9 +85,9 @@ typedef int (*generateSessionBreakdownCB) (void *sd, void *sbd);
  *        This callback will be called when tcp session breakdown is generated,
  *        it will convert session breakdown to json format.
  *
- * @param root json root
- * @param sd session detail
- * @param sbd session breakdown
+ * @param root -- json root
+ * @param sd -- session detail
+ * @param sbd -- session breakdown
  */
 typedef void (*sessionBreakdown2JsonCB) (json_t *root, void *sd, void *sbd);
 
@@ -95,8 +95,8 @@ typedef void (*sessionBreakdown2JsonCB) (json_t *root, void *sd, void *sbd);
  * @brief Tcp connection establish callback.
  *        This callback will be called when tcp connection is established.
  *
- * @param tm timestamp
- * @param sd session detail
+ * @param tm -- timestamp
+ * @param sd -- session detail
  */
 typedef void (*sessionProcessEstbCB) (timeValPtr tm, void *sd);
 
@@ -104,10 +104,10 @@ typedef void (*sessionProcessEstbCB) (timeValPtr tm, void *sd);
  * @brief Tcp urgency data process callback.
  *        This callback will be called when receive tcp urgency data.
  *
- * @param direction data flow direction
- * @param urgData urgency data
- * @param tm timestamp
- * @param sd session detail
+ * @param direction --data flow direction
+ * @param urgData --urgency data
+ * @param tm -- timestamp
+ * @param sd -- session detail
  */
 typedef void (*sessionProcessUrgeDataCB) (streamDirection direction, char urgData,
                                           timeValPtr tm, void *sd);
@@ -119,12 +119,12 @@ typedef void (*sessionProcessUrgeDataCB) (streamDirection direction, char urgDat
  *        done, set state to SESSION_DONE to generate session breakdown, else  set to
  *        SESSION_ACTIVE.
  *
- * @param direction data flow direction
- * @param data application proto data
- * @param dataLen application proto data length
- * @param tm timestamp
- * @param sd session detail
- * @param state pointer to get session state
+ * @param direction -- data flow direction
+ * @param data -- application proto data
+ * @param dataLen -- application proto data length
+ * @param tm -- timestamp
+ * @param sd -- session detail
+ * @param state -- pointer to get session state
  *
  * @return data length has been processed
  */
@@ -135,9 +135,9 @@ typedef u_int (*sessionProcessDataCB) (streamDirection direction, u_char *data, 
  * @brief Tcp reset process callback.
  *        This callback will be called when tcp connection is reset.
  *
- * @param direction data flow direction
- * @param tm timestamp
- * @param sd session detail
+ * @param direction -- data flow direction
+ * @param tm -- timestamp
+ * @param sd -- session detail
  */
 typedef void (*sessionProcessResetCB) (streamDirection direction, timeValPtr tm, void *sd);
 
@@ -147,10 +147,10 @@ typedef void (*sessionProcessResetCB) (streamDirection direction, timeValPtr tm,
  *        If session is complete, set state to SESSION_DONE, else set to
  *        SESSION_ACTIVE.
  *
- * @param direction data flow direction
- * @param tm timestamp
- * @param sd session detail
- * @param state pointer to set session state
+ * @param direction -- data flow direction
+ * @param tm -- timestamp
+ * @param sd -- session detail
+ * @param state -- pointer to set session state
  */
 typedef void (*sessionProcessFinCB) (streamDirection direction, timeValPtr tm, void *sd,
                                      sessionState *state);
@@ -160,9 +160,9 @@ typedef void (*sessionProcessFinCB) (streamDirection direction, timeValPtr tm, v
  *        This callback will be called when receive application proto data,
  *        it will check proto data and return proto name if proto detected.
  *
- * @param direction data flow direction
- * @param data application proto data
- * @param dataLen application proto data length
+ * @param direction -- data flow direction
+ * @param data -- application proto data
+ * @param dataLen -- application proto data length
  *
  * @return proto name if detected, else NULL
  */

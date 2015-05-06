@@ -25,7 +25,7 @@
 #include "icmp_process_service.h"
 #include "tcp_dispatch_service.h"
 #include "tcp_process_service.h"
-#include "session_breakdown_service.h"
+#include "analysis_record_service.h"
 #include "proto_detect_service.h"
 
 /* nTrace pid file fd */
@@ -135,10 +135,10 @@ startServices (void) {
         }
     }
 
-    /* Start sessionBreakdownService */
-    ret = newRealTask ("SessionBreakdownService", sessionBreakdownService, NULL);
+    /* Start analysisRecordService */
+    ret = newRealTask ("AnalysisRecordService", analysisRecordService, NULL);
     if (ret < 0) {
-        LOGE ("Create sessionBreakdownService error.\n");
+        LOGE ("Create analysisRecordService error.\n");
         goto stopAllTask;
     }
 

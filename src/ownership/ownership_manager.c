@@ -33,7 +33,7 @@ swapOwnershipMap (void) {
 /**
  * @brief Get ownership packet dispatch sock.
  *
- * @param hash packet hash
+ * @param hash -- packet hash
  *
  * @return pktDispatchSock of ownership
  */

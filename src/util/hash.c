@@ -212,10 +212,10 @@ hashItemDetach (hashTablePtr htbl, hashItemPtr item) {
  *        If current size is exceed limit size then recreate a new hash
  *        table and attach all items to new hash table.
  *
- * @param htbl hash table to insert
- * @param key hash key
- * @param data opaque data
- * @param func free function
+ * @param htbl -- hash table to insert
+ * @param key -- hash key
+ * @param data -- opaque data
+ * @param func -- free function
  *
  * @return 0 if success, else reutrn -1
  */
@@ -296,8 +296,8 @@ hashInsert (hashTablePtr htbl, char *key, void *data, hashItemFreeCB fun) {
  * @brief Remove hash item.
  *        Lookup item with key and delete it from hash table.
  *
- * @param htbl hash table
- * @param key hash key.
+ * @param htbl -- hash table
+ * @param key -- hash key.
  *
  * @return 0 if success else -1
  */
@@ -322,10 +322,10 @@ hashRemove (hashTablePtr htbl, char *key) {
  *        Lookup item with key, if key is present then destroy
  *        the old item and insert the new one.
  *
- * @param htbl hash table
- * @param key hash key
- * @param data new opaque data
- * @param fun data free function
+ * @param htbl -- hash table
+ * @param key -- hash key
+ * @param data -- new opaque data
+ * @param fun -- data free function
  *
  * @return 0 if success else return -1
  */
@@ -353,8 +353,8 @@ hashUpdate (hashTablePtr htbl, char *key, void *data, hashItemFreeCB fun) {
  *        Lookup hash item with key, if exists return opaque data of it
  *        else return NULL.
  *
- * @param htbl hash table
- * @param key hash key
+ * @param htbl -- hash table
+ * @param key -- hash key
  *
  * @return opaque data if success, else return NULL;
  */
@@ -377,9 +377,9 @@ hashLookup (hashTablePtr htbl, char *key) {
  * @brief Rename hash item key.
  *        Lookup hash item with old key and replace old key with new one.
  *
- * @param htbl hash table
- * @param oldKey old hash key
- * @param newKey new hash key
+ * @param htbl -- hash table
+ * @param oldKey -- old hash key
+ * @param newKey -- new hash key
  *
  * @return 0 if success, else return -1
  */
@@ -425,9 +425,9 @@ hashRename (hashTablePtr htbl, char *oldKey, char *newKey) {
 /**
  * @brief Iterate each item and apply fun to it.
  *
- * @param htbl hash table
- * @param fun callback function
- * @param args arguments of fun
+ * @param htbl -- hash table
+ * @param fun -- callback function
+ * @param args -- arguments of fun
  *
  * @return 0 if success else -1
  */
@@ -459,9 +459,9 @@ hashLoopDo (hashTablePtr htbl, hashLoopDoCB fun, void *args) {
  *        Iterate each item and do remove check, if check return ture then
  *        remove it from hash table else do nothing.
  *
- * @param htbl hash table
- * @param fun check function
- * @param args arguments for check
+ * @param htbl -- hash table
+ * @param fun -- check function
+ * @param args -- arguments for check
  */
 void
 hashLoopCheckToRemove (hashTablePtr htbl, hashLoopCheckToRemoveCB fun, void *args) {
@@ -499,7 +499,7 @@ hashLimit (hashTablePtr htbl) {
  *        If capacity is 0 then use default hash table size,
  *        else use capacity instead.
  *
- * @param capacity hash table capacity
+ * @param capacity -- hash table capacity
  *
  * @return hash table if success else NULL
  */

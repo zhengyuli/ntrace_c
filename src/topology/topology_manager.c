@@ -12,7 +12,14 @@ static pthread_rwlock_t topologyEntriesHashTableRWLock;
 /* Topology entries hash table */
 static hashTablePtr topologyEntriesHashTable = NULL;
 
-
+/**
+ * @brief Get topology entry from topology entries hash table.
+ *
+ * @param srcIp -- source ip
+ * @param destIp -- dest ip
+ *
+ * @return topology entry if success, else NULL
+ */
 topologyEntryPtr
 getTopologyEntry (char *srcIp, char *destIp) {
     char key [32];
@@ -41,6 +48,7 @@ getJsonForEachTopologyEntry (void *data, void *args) {
     return 0;
 }
 
+/* Get json from topology entries */
 json_t *
 getJsonFromTopologyEntries (void) {
     int ret;
@@ -67,6 +75,14 @@ getJsonFromTopologyEntries (void) {
     return root;
 }
 
+/**
+ * @brief Add topology entry to topology entries hash table.
+ *
+ * @param srcIp -- source ip
+ * @param destIp -- dest ip
+ *
+ * @return 0 if success, else -1
+ */
 int
 addTopologyEntry (char *srcIp, char *destIp) {
     int ret;
@@ -90,6 +106,7 @@ addTopologyEntry (char *srcIp, char *destIp) {
     return 0;
 }
 
+/* Init topology manager */
 int
 initTopologyManager (void) {
     int ret;
@@ -113,6 +130,7 @@ destroyTopologyEntriesHashTableRWLock:
     return -1;
 }
 
+/* Destroy topology manager */
 void
 destroyTopologyManager (void) {
     pthread_rwlock_destroy (&topologyEntriesHashTableRWLock);

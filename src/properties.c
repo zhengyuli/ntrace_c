@@ -27,7 +27,7 @@ newProperties (void) {
     tmp->sleepIntervalAfterScan = 0;
     tmp->autoAddService = False;
     tmp->miningEngineHost = NULL;
-    tmp->sessionBreakdownRecvPort = 0;
+    tmp->analysisRecordRecvPort = 0;
     tmp->logDir = NULL;
     tmp->logFileName = NULL;
     tmp->logLevel = LOG_ERR_LEVEL;
@@ -220,15 +220,15 @@ loadPropertiesFromConfigFile (char *configFile) {
         goto freeProperties;
     }
 
-    /* Get breakdown receive port */
-    ret = get_config_item ("MiningEngine", "sessionBreakdownRecvPort", iniConfig, &item);
+    /* Get analysis record receive port */
+    ret = get_config_item ("MiningEngine", "analysisRecordRecvPort", iniConfig, &item);
     if (ret || item == NULL) {
-        fprintf (stderr, "Get_config_item \"sessionBreakdownRecvPort\" error.\n");
+        fprintf (stderr, "Get_config_item \"analysisRecordRecvPort\" error.\n");
         goto freeProperties;
     }
-    tmp->sessionBreakdownRecvPort = get_int_config_value (item, 1, 0, &error);
+    tmp->analysisRecordRecvPort = get_int_config_value (item, 1, 0, &error);
     if (error) {
-        fprintf (stderr, "Get \"sessionBreakdownRecvPort\" error.\n");
+        fprintf (stderr, "Get \"analysisRecordRecvPort\" error.\n");
         goto freeProperties;
     }
 
@@ -419,13 +419,13 @@ updatePropertiesMiningEngineHost (char *ip) {
 }
 
 u_short
-getPropertiesSessionBreakdownRecvPort (void) {
-    return propertiesInstance->sessionBreakdownRecvPort;
+getPropertiesAnalysisRecordRecvPort (void) {
+    return propertiesInstance->analysisRecordRecvPort;
 }
 
 void
-updatePropertiesSessionBreakdownRecvPort (u_short port) {
-    propertiesInstance->sessionBreakdownRecvPort = port;
+updatePropertiesAnalysisRecordRecvPort (u_short port) {
+    propertiesInstance->analysisRecordRecvPort = port;
 }
 
 char *
@@ -476,7 +476,7 @@ displayPropertiesDetail (void) {
     LOGI ("    sleepIntervalAfterScan: %u\n", getPropertiesSleepIntervalAfterScan ());
     LOGI ("    autoAddService: %s\n", getPropertiesAutoAddService () ? "True" : "False");
     LOGI ("    miningEngineHost: %s\n", getPropertiesMiningEngineHost ());
-    LOGI ("    sessionBreakdownRecvPort: %u\n", getPropertiesSessionBreakdownRecvPort ());
+    LOGI ("    analysisRecordRecvPort: %u\n", getPropertiesAnalysisRecordRecvPort ());
     LOGI ("    logDir: %s\n", getPropertiesLogDir ());
     LOGI ("    logFileName: %s\n", getPropertiesLogFileName ());
     LOGI ("    logLevel: ");

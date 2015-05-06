@@ -9,7 +9,7 @@
 #define IP_PACKET_EXCHANGE_CHANNEL "inproc://ipPacketExchangeChannel"
 #define ICMP_PACKET_EXCHANGE_CHANNEL "inproc://icmpPacketExchangeChannel"
 #define TCP_PACKET_EXCHANGE_CHANNEL "inproc://tcpPacketExchangeChannel"
-#define SESSION_BREAKDOWN_EXCHANGE_CHANNEL "inproc://sessionBreakdownExchangeChannel"
+#define ANALYSIS_RECORD_EXCHANGE_CHANNEL "inproc://analysisRecordExchangeChannel"
 
 #define LOG_RECV_PORT 50001
 #define LOG_PUB_PORT 50002
@@ -32,15 +32,19 @@ struct _zmqHub {
     void *protoDetectionStatusSendSock; /**< Proto detection status send sock */
     void *protoDetectionStatusRecvSock; /**< Proto detection status recv sock */
 
-    void *sessionBreakdownRecvSock;     /**< Session breakdown recv sock */
-    void *sessionBreakdownPushSock;     /**< Session breakdown push sock */
+    void *analysisRecordRecvSock;       /**< Analysis record recv sock */
+    void *analysisRecordPushSock;       /**< Analysis record push sock */
+
+    void *topologyEntrySendSock;        /**< Topology entry send sock */
+
+    void *appServiceSendSock;           /**< Application service send sock */
 
     void *ipPktSendSock;                /**< Ip packet send sock */
     void *ipPktRecvSock;                /**< Ip packet recv sock */
 
     void *icmpPktSendSock;              /**< Icmp packet send sock */
     void *icmpPktRecvSock;              /**< Icmp packet recv sock */
-    void *icmpBreakdownSendSock;        /**< Icmp breakdown send sock */
+    void *icmpErrorSendSock;            /**< Icmp error send sock */
 
     void *tcpPktDispatchRecvSock;       /**< Tcp packet dispatch recv sock */
 
@@ -67,9 +71,13 @@ getProtoDetectionStatusSendSock (void);
 void *
 getProtoDetectionStatusRecvSock (void);
 void *
-getSessionBreakdownRecvSock (void);
+getAnalysisRecordRecvSock (void);
 void *
-getSessionBreakdownPushSock (void);
+getAnalysisRecordPushSock (void);
+void *
+getTopologyEntrySendSock (void);
+void *
+getAppServiceSendSock (void);
 void *
 getIpPktSendSock (void);
 void *
@@ -79,7 +87,7 @@ getIcmpPktSendSock (void);
 void *
 getIcmpPktRecvSock (void);
 void *
-getIcmpBreakdownSendSock (void);
+getIcmpErrorSendSock (void);
 void *
 getTcpPktDispatchRecvSock (void);
 u_int

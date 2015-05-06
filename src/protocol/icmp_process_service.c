@@ -7,32 +7,29 @@
 #include "task_manager.h"
 #include "ip.h"
 #include "icmp_packet.h"
+#include "analysis_record.h"
 #include "icmp_process_service.h"
 
-/* Icmp breakdown send sock */
-static __thread void *icmpBreakdownSendSock = NULL;
+/* Icmp error send sock */
+static __thread void *icmpErrorSendSock = NULL;
 
 static void
-publishIcmpBreakdown (void *args) {
-    int ret;
-    char *icmpBreakdown = (char *) args;
-    zframe_t *frame;
+icmpProcessCallback (icmpProcessCallbackArgsPtr callbackArgs) {
+    switch (callbackArgs->type) {
+        case PUBLISH_ICMP_ERROR:
+            publishAnalysisRecord (icmpErrorSendSock, (char *) callbackArgs->args);
+            break;
 
-    frame = zframe_new (icmpBreakdown, strlen (icmpBreakdown));
-    if (frame == NULL) {
-        LOGE ("Create icmp breakdown zframe error.\n");
-        return;
+        default:
+            LOGE ("Wrong icmp process callback args type.\n");
+            break;
     }
-
-    ret = zframe_send (&frame, icmpBreakdownSendSock, 0);
-    if (ret < 0)
-        LOGE ("Send icmp breakdown error.\n");
 }
 
 /*
  * Icmp packet process service.
- * Read ip packets send by ipPktProcessService, then do icmp process and
- * send session breakdown to session breakdown sink service.
+ * Read ip packets send by ipProcessService, then do icmp process and
+ * send icmp error to analysis record service.
  */
 void *
 icmpProcessService (void *args) {
@@ -44,7 +41,7 @@ icmpProcessService (void *args) {
     iphdrPtr iph;
 
     icmpPktRecvSock = getIcmpPktRecvSock ();
-    icmpBreakdownSendSock = getIcmpBreakdownSendSock ();
+    icmpErrorSendSock = getIcmpErrorSendSock ();
 
     /* Reset signals flag */
     resetSignalsFlag ();
@@ -60,7 +57,7 @@ icmpProcessService (void *args) {
     displayTaskSchedPolicyInfo ("IcmpProcessService");
 
     /* Init icmp context */
-    ret = initIcmpContext (publishIcmpBreakdown);
+    ret = initIcmpContext (icmpProcessCallback);
     if (ret < 0) {
         LOGE ("Init icmp context error.\n");
         goto destroyLogContext;

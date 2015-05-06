@@ -25,7 +25,7 @@ static int datalinkTypeForProtoDetection = -1;
 /**
  * @brief Create a pcap descriptor from pcap file.
  *
- * @param pcapFile pcap file
+ * @param pcapFile -- pcap file
  *
  * @return pcap descriptor
  */
@@ -44,7 +44,7 @@ newPcapFileDesc (char *pcapFile) {
 /**
  * @brief Create a pcap descriptor from network Interface.
  *
- * @param interface network Interface
+ * @param interface -- network Interface
  *
  * @return pcap descriptor
  */
@@ -154,9 +154,9 @@ getNetDevDatalinkTypeForProtoDetection (void) {
 /**
  * @brief Get pcapDev statistic info for sniff.
  *
- * @param pcapDev pcap descriptor
- * @param pktsRecv pointer to return packets received
- * @param pktsDrop pointer to return packets dropped
+ * @param pcapDev -- pcap descriptor
+ * @param pktsRecv -- pointer to return packets received
+ * @param pktsDrop -- pointer to return packets dropped
  *
  * @return 0 if success else -1
  */
@@ -189,8 +189,8 @@ getNetDevStatisticInfoForProtoDetection (u_int *pktsRecv, u_int *pktsDrop) {
 /**
  * @brief Update pcapDev BPF filter.
  *
- * @param pcapDev pcap descriptor
- * @param filter BPF filter to update
+ * @param pcapDev -- pcap descriptor
+ * @param filter -- BPF filter to update
  *
  * @return 0 if success else -1
  */

@@ -92,15 +92,15 @@ struct _tcpStream {
     char *proto;                        /**< Tcp application level proto name */
     protoAnalyzerPtr analyzer;          /**< Tcp Appliction level proto analyzer */
     tuple4 addr;                        /**< Tcp stream 4-tuple address */
-    uuid_t connId;                      /**< Global tcp connection id */
+    uuid_t connId;                      /**< Tcp connection id */
     tcpStreamState state;               /**< Tcp stream state */
     halfStream client;                  /**< Tcp stream client halfStream */
     halfStream server;                  /**< Tcp stream server halfStream */
-    u_long_long synTime;                /**< Syn timestamp of three handshake */
-    u_int retries;                      /**< Retries count */
-    u_long_long retriesTime;            /**< The last retry timestamp */
-    u_int dupSynAcks;                   /**< Duplicate syn/acks of three handshake */
-    u_long_long synAckTime;             /**< Syn/ack timestamp of three handshake */
+    u_long_long synTime;                /**< Tcp syn timestamp of three handshake */
+    u_int retries;                      /**< Tcp sync retries count */
+    u_long_long retriesTime;            /**< Tcp last retry timestamp */
+    u_int dupSynAcks;                   /**< Tcp duplicate syn/acks of three handshake */
+    u_long_long synAckTime;             /**< Tcp syn/ack timestamp of three handshake */
     u_long_long estbTime;               /**< Tcp establish timestamp */
     u_int mss;                          /**< Tcp MSS */
     u_int c2sBytes;                     /**< Tcp client to server bytes */
@@ -113,8 +113,8 @@ struct _tcpStream {
     u_int outOfOrderPkts;               /**< Tcp out of order packets */
     u_int zeroWindows;                  /**< Tcp zero windows */
     u_int dupAcks;                      /**< Tcp duplicate acks */
-    void *sessionDetail;                /**< Appliction session detail */
-    boolean inClosingTimeout;           /**< In closing timeout list flag */
+    void *sessionDetail;                /**< Tcp appliction session detail */
+    boolean inClosingTimeout;           /**< Tcp stream in closing timeout list flag */
     u_long_long closeTime;              /**< Tcp close timestamp */
     listHead node;                      /**< Tcp stream list node */
 };
@@ -150,10 +150,10 @@ struct _tcpBreakdown {
     u_short source;                     /**< Source port */
     struct in_addr svcIp;               /**< Service ip */
     u_short svcPort;                    /**< Service port */
-    uuid_t connId;                      /**< Global tcp connection id */
+    uuid_t connId;                      /**< Tcp connection id */
     tcpBreakdownState state;            /**< Tcp state */
-    u_int retries;                      /**< Tcp retries */
-    u_int retriesLatency;               /**< Tcp retries latency in milliseconds */
+    u_int retries;                      /**< Tcp sync retries */
+    u_int retriesLatency;               /**< Tcp sync retries latency in milliseconds */
     u_int dupSynAcks;                   /**< Tcp duplicate syn/ack packages */
     u_int rtt;                          /**< Tcp rtt */
     u_int mss;                          /**< Tcp mss (maxium segment size) */
@@ -174,9 +174,7 @@ struct _tcpBreakdown {
 };
 
 /* Tcp session breakdown json key definitions */
-#define TCP_SKBD_TIMESTAMP "timestamp"
-#define TCP_SKBD_TIMESTAMP_READABLE "timestamp_readable"
-#define TCP_SKBD_PROTOCOL "protocol"
+#define TCP_SKBD_PROTO "proto"
 #define TCP_SKBD_SOURCE_IP "source_ip"
 #define TCP_SKBD_SOURCE_PORT "source_port"
 #define TCP_SKBD_SERVICE_IP "service_ip"
@@ -202,7 +200,21 @@ struct _tcpBreakdown {
 #define TCP_SKBD_TCP_ZERO_WINDOWS "tcp_zero_windows"
 #define TCP_SKBD_TCP_DUPLICATE_ACKS "tcp_duplicate_acks"
 
-typedef void (*tcpProcessCB) (void *args);
+typedef enum {
+    PUBLISH_TOPOLOGY_ENTRY,
+    PUBLISH_APP_SERVICE,
+    PUBLISH_TCP_BREAKDOWN
+} tcpProcessCallbackArgsType;
+
+typedef struct _tcpProcessCallbackArgs tcpProcessCallbackArgs;
+typedef tcpProcessCallbackArgs *tcpProcessCallbackArgsPtr;
+
+struct _tcpProcessCallbackArgs {
+    tcpProcessCallbackArgsType type;
+    void *args;
+};
+
+typedef void (*tcpProcessCB) (tcpProcessCallbackArgsPtr callbackArgs);
 
 /*========================Interfaces definition============================*/
 void

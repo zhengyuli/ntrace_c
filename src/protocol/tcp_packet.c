@@ -19,7 +19,9 @@
 #include "tcp_options.h"
 #include "proto_analyzer.h"
 #include "app_service_manager.h"
+#include "topology_entry.h"
 #include "topology_manager.h"
+#include "analysis_record.h"
 #include "tcp_packet.h"
 
 /* Tcp stream hash key format string */
@@ -126,8 +128,8 @@ getTcpBreakdownStateName (tcpBreakdownState state) {
 /**
  * @brief Add tcp stream to global tcp stream timeout list.
  *
- * @param stream tcp stream to add
- * @param tm tcp stream closing time
+ * @param stream -- tcp stream to add
+ * @param tm -- tcp stream closing time
  */
 static void
 addTcpStreamToClosingTimeoutList (tcpStreamPtr stream, timeValPtr tm) {
@@ -152,7 +154,7 @@ addTcpStreamToClosingTimeoutList (tcpStreamPtr stream, timeValPtr tm) {
 /**
  * @brief Delete tcp stream from closing timeout list.
  *
- * @param stream tcp stream to Delete
+ * @param stream -- tcp stream to Delete
  */
 static void
 delTcpStreamFromClosingTimeoutList (tcpStreamPtr stream) {
@@ -174,7 +176,7 @@ delTcpStreamFromClosingTimeoutList (tcpStreamPtr stream) {
 /**
  * @brief Lookup tcp stream from global tcp stream hash table.
  *
- * @param addr tcp stream 4 tuple address
+ * @param addr -- tcp stream 4 tuple address
  *
  * @return Tcp stream if success else NULL
  */
@@ -194,8 +196,8 @@ lookupTcpStreamFromHash (tuple4Ptr addr) {
 /**
  * @brief Add tcp stream to global hash table.
  *
- * @param stream tcp stream to add
- * @param freeFun tcp stream free function
+ * @param stream -- tcp stream to add
+ * @param freeFun -- tcp stream free function
  *
  * @return 0 if success else -1
  */
@@ -227,14 +229,16 @@ addTcpStreamToHash (tcpStreamPtr stream, hashItemFreeCB freeFun) {
 /**
  * @brief Remove tcp stream from hash table.
  *
- * @param stream tcp stream to remove
+ * @param stream -- tcp stream to remove
  */
 static void
-delTcpStreamFromHash (tcpStreamPtr stream) {
+delTcpStreamFromHash (tcpStreamPtr stream, timeValPtr tm) {
     int ret;
     tuple4Ptr addr;
     char ipSrcStr [16], ipDestStr [16];
     char key [64];
+    char *record;
+    tcpProcessCallbackArgs callbackArgs;
 
     /* If streamCache will be deleted, reset streamCache */
     if (streamCache == stream)
@@ -253,9 +257,16 @@ delTcpStreamFromHash (tcpStreamPtr stream) {
                     LOGE ("Add new detected appService ip:%s port:%u proto: %s error.\n",
                           ipDestStr, addr->dest, stream->proto);
                 else {
-                    LOGI ("Add new detected appService ip:%s port:%u proto: %s success.\n",
+                    record = appServiceAnalysisRecord (tm, stream->proto, ipDestStr, addr->dest);
+                    if (record) {
+                        callbackArgs.type = PUBLISH_APP_SERVICE;
+                        callbackArgs.args = record;
+                        (*tcpProcessCallback) (&callbackArgs);
+
+                        free (record);
+                    }
+                    LOGD ("Add new detected appService ip:%s port:%u proto: %s success.\n",
                           ipDestStr, addr->dest, stream->proto);
-                    (*tcpProcessCallback) (NULL);
                 }
             }
         }
@@ -273,9 +284,9 @@ delTcpStreamFromHash (tcpStreamPtr stream) {
 /**
  * @brief Find tcp stream from global hash table.
  *
- * @param tcph tcp header
- * @param iph ip header
- * @param direction return stream direction
+ * @param tcph -- tcp header
+ * @param iph -- ip header
+ * @param direction -- return stream direction
  *
  * @return Tcp stream if success else NULL
  */
@@ -477,9 +488,9 @@ freeTcpStreamForHash (void *data) {
 /**
  * @brief Alloc new tcp stream and add it to tcp stream hash table.
  *
- * @param tcph tcp header for current packet
- * @param iph ip header for current packet
- * @param tm timestamp for current packet
+ * @param tcph -- tcp header for current packet
+ * @param iph -- ip header for current packet
+ * @param tm -- timestamp for current packet
  *
  * @return Tcp stream if success else NULL
  */
@@ -487,8 +498,10 @@ static tcpStreamPtr
 addNewTcpStream (tcphdrPtr tcph, iphdrPtr iph, timeValPtr tm) {
     int ret;
     char ipSrcStr [16], ipDestStr [16];
+    char *record;
     protoAnalyzerPtr analyzer;
     tcpStreamPtr stream, tmp;
+    tcpProcessCallbackArgs callbackArgs;
 
     inet_ntop (AF_INET, (void *) &iph->ipSrc, ipSrcStr, sizeof (ipSrcStr));
     inet_ntop (AF_INET, (void *) &iph->ipDest, ipDestStr, sizeof (ipDestStr));
@@ -501,8 +514,17 @@ addNewTcpStream (tcphdrPtr tcph, iphdrPtr iph, timeValPtr tm) {
             ret = addTopologyEntry (ipSrcStr, ipDestStr);
             if (ret < 0)
                 LOGE ("Add topology entry %s:%s error.\n", ipSrcStr, ipDestStr);
-            else
-                LOGI ("Add topology entry %s:%s success.\n", ipSrcStr, ipDestStr);
+            else {
+                record = topologyEntryAnalysisRecord (tm, ipSrcStr, ipDestStr);
+                if (record) {
+                    callbackArgs.type = PUBLISH_TOPOLOGY_ENTRY;
+                    callbackArgs.args = record;
+                    (*tcpProcessCallback) (&callbackArgs);
+
+                    free (record);
+                }
+                LOGD ("Add new topology entry %s:%s success.\n", ipSrcStr, ipDestStr);
+            }
         }
 
         /* Skip service has been scanned */
@@ -550,7 +572,7 @@ addNewTcpStream (tcphdrPtr tcph, iphdrPtr iph, timeValPtr tm) {
      */
     if (hashSize (tcpStreamHashTable) >= (hashLimit (tcpStreamHashTable) * 0.8)) {
         tmp = listHeadEntry (&tcpStreamList, tcpStream, node);
-        delTcpStreamFromHash (tmp);
+        delTcpStreamFromHash (tmp, tm);
     }
 
     /* Add to global tcp stream list */
@@ -566,7 +588,7 @@ addNewTcpStream (tcphdrPtr tcph, iphdrPtr iph, timeValPtr tm) {
 }
 
 static char *
-tcpBreakdown2Json (tcpStreamPtr stream, tcpBreakdownPtr tbd) {
+tcpBreakdown2AnalysisRecord (tcpStreamPtr stream, tcpBreakdownPtr tbd) {
     char *out;
     json_t *root;
     char ipStr [16];
@@ -577,15 +599,15 @@ tcpBreakdown2Json (tcpStreamPtr stream, tcpBreakdownPtr tbd) {
         LOGE ("Create js2on object error.\n");
         return NULL;
     }
-    /* Tcp breakdown timestamp */
-    json_object_set_new (root, TCP_SKBD_TIMESTAMP,
-                         json_integer (tbd->timestamp.tvSec));
-    /* Tcp breakdown timestamp */
+    /* Analysis record timestamp */
     formatLocalTimeStr (&tbd->timestamp, buf, sizeof (buf));
-    json_object_set_new (root, TCP_SKBD_TIMESTAMP_READABLE,
+    json_object_set_new (root, ANALYSIS_RECORD_TIMESTAMP,
                          json_string (buf));
-    /* Tcp application layer protocol */
-    json_object_set_new (root, TCP_SKBD_PROTOCOL,
+    /* Analysis record type */
+    json_object_set_new (root, ANALYSIS_RECORD_TYPE,
+                         json_string (ANALYSIS_RECORD_TYPE_TCP_BREAKDOWN));
+    /* Tcp application level proto type */
+    json_object_set_new (root, TCP_SKBD_PROTO,
                          json_string (tbd->proto));
     /* Tcp source ip */
     inet_ntop (AF_INET, (void *) &tbd->ipSrc, ipStr, sizeof (ipStr));
@@ -676,10 +698,11 @@ tcpBreakdown2Json (tcpStreamPtr stream, tcpBreakdownPtr tbd) {
 }
 
 static void
-generateSessionBreakdown (tcpStreamPtr stream, timeValPtr tm) {
+generateTcpBreakdown (tcpStreamPtr stream, timeValPtr tm) {
     int ret;
     tcpBreakdown tbd;
-    char *jsonStr = NULL;
+    char *record = NULL;
+    tcpProcessCallbackArgs callbackArgs;
 
     tbd.sessionBreakdown = (*stream->analyzer->newSessionBreakdown) ();
     if (tbd.sessionBreakdown == NULL) {
@@ -779,16 +802,19 @@ generateSessionBreakdown (tcpStreamPtr stream, timeValPtr tm) {
         }
     }
 
-    jsonStr = tcpBreakdown2Json (stream, &tbd);
-    if (jsonStr == NULL) {
+    record = tcpBreakdown2AnalysisRecord (stream, &tbd);
+    if (record == NULL) {
         LOGE ("SessionBreakdown2Json error.\n");
         (*stream->analyzer->freeSessionBreakdown) (tbd.sessionBreakdown);
         return;
     }
-    (*tcpProcessCallback) (jsonStr);
 
-    /* Free json string and application layer session breakdown */
-    free (jsonStr);
+    callbackArgs.type = PUBLISH_TCP_BREAKDOWN;
+    callbackArgs.args = record;
+    (*tcpProcessCallback) (&callbackArgs);
+
+    /* Free record string and application layer session breakdown */
+    free (record);
     (*stream->analyzer->freeSessionBreakdown) (tbd.sessionBreakdown);
 
     /* Reset some statistic fields of tcp stream */
@@ -808,7 +834,7 @@ generateSessionBreakdown (tcpStreamPtr stream, timeValPtr tm) {
  * @brief Check tcp stream timeout list and remove timeout
  *        tcp stream.
  *
- * @param tm timestamp for current packet
+ * @param tm -- timestamp for current packet
  */
 static void
 checkTcpStreamClosingTimeoutList (timeValPtr tm) {
@@ -822,8 +848,8 @@ checkTcpStreamClosingTimeoutList (timeValPtr tm) {
         entry->stream->state = STREAM_TIME_OUT;
         entry->stream->closeTime = timeVal2MilliSecond (tm);
         if (!doProtoDetect)
-            generateSessionBreakdown (entry->stream, tm);
-        delTcpStreamFromHash (entry->stream);
+            generateTcpBreakdown (entry->stream, tm);
+        delTcpStreamFromHash (entry->stream, tm);
     }
 }
 
@@ -839,7 +865,7 @@ handleEstb (tcpStreamPtr stream, timeValPtr tm) {
 
     if (!doProtoDetect) {
         (*stream->analyzer->sessionProcessEstb) (tm, stream->sessionDetail);
-        generateSessionBreakdown (stream, tm);
+        generateTcpBreakdown (stream, tm);
     }
 }
 
@@ -876,7 +902,7 @@ handleData (tcpStreamPtr stream, halfStreamPtr snd,
         parseCount = (*stream->analyzer->sessionProcessData) (direction, data, dataLen,
                                                               tm, stream->sessionDetail, &state);
         if (state == SESSION_DONE)
-            generateSessionBreakdown (stream, tm);
+            generateTcpBreakdown (stream, tm);
     } else {
         if (stream->proto == NULL)
             stream->proto = protoDetect (direction, tm, data, dataLen);
@@ -915,8 +941,8 @@ handleReset (tcpStreamPtr stream, halfStreamPtr snd, timeValPtr tm) {
 
     stream->closeTime = timeVal2MilliSecond (tm);
     if (!doProtoDetect)
-        generateSessionBreakdown (stream, tm);
-    delTcpStreamFromHash (stream);
+        generateTcpBreakdown (stream, tm);
+    delTcpStreamFromHash (stream, tm);
 }
 
 /* Tcp fin handler callback */
@@ -934,7 +960,7 @@ handleFin (tcpStreamPtr stream, halfStreamPtr snd, timeValPtr tm) {
         (*stream->analyzer->sessionProcessFin) (direction, tm,
                                                 stream->sessionDetail, &state);
         if (state == SESSION_DONE)
-            generateSessionBreakdown (stream, tm);
+            generateTcpBreakdown (stream, tm);
     }
 
     snd->state = TCP_FIN_PKT_SENT;
@@ -948,16 +974,16 @@ handleClose (tcpStreamPtr stream, timeValPtr tm) {
     stream->state = STREAM_CLOSED;
     stream->closeTime = timeVal2MilliSecond (tm);
     if (!doProtoDetect)
-        generateSessionBreakdown (stream, tm);
-    delTcpStreamFromHash (stream);
+        generateTcpBreakdown (stream, tm);
+    delTcpStreamFromHash (stream, tm);
 }
 
 /**
  * @brief Add data to halfStream receive buffer.
  *
- * @param rcv halfStream to receive
- * @param data data to add
- * @param dataLen data length to add
+ * @param rcv -- halfStream to receive
+ * @param data -- data to add
+ * @param dataLen -- data length to add
  *
  * @return 0 if success else -1
  */
@@ -1026,17 +1052,17 @@ addToBuf (halfStreamPtr rcv, u_char *data, u_int dataLen) {
  *        buffer. If data contains urgData, it needs to update receiver's urg
  *        data and pointer first else merge data directly.
  *
- * @param stream current tcp stream
- * @param snd tcp sender
- * @param rcv tcp receiver
- * @param data data to merge
- * @param dataLen data length
- * @param curSeq current send sequence
- * @param fin fin flag
- * @param urg urg flag
- * @param urgPtr urgPointer
- * @param push push flag
- * @param tm current timestamp
+ * @param stream -- current tcp stream
+ * @param snd -- tcp sender
+ * @param rcv -- tcp receiver
+ * @param data -- data to merge
+ * @param dataLen -- data length
+ * @param curSeq -- current send sequence
+ * @param fin -- fin flag
+ * @param urg -- urg flag
+ * @param urgPtr -- urgPointer
+ * @param push -- push flag
+ * @param tm -- current timestamp
  */
 static void
 addFromSkb (tcpStreamPtr stream,
@@ -1128,13 +1154,13 @@ addFromSkb (tcpStreamPtr stream,
  *        receive buffer directly else store it to skbuff and link it
  *        to receiver's skbuff list.
  *
- * @param stream current tcp stream
- * @param tcph tcp header
- * @param snd tcp sender
- * @param rcv tcp receiver
- * @param data data to merge
- * @param dataLen data length
- * @param tm current timestamp
+ * @param stream -- current tcp stream
+ * @param tcph -- tcp header
+ * @param snd -- tcp sender
+ * @param rcv -- tcp receiver
+ * @param data -- data to merge
+ * @param dataLen -- data length
+ * @param tm -- current timestamp
  */
 static void
 tcpQueue (tcpStreamPtr stream,
@@ -1224,8 +1250,8 @@ tcpQueue (tcpStreamPtr stream,
  *        and do tcp and application level performance analysis by
  *        calling specified proto analyzer to parse.
  *
- * @param iph ip packet header
- * @param tm packet capture timestamp
+ * @param iph -- ip packet header
+ * @param tm -- packet capture timestamp
  */
 void
 tcpProcess (iphdrPtr iph, timeValPtr tm) {
@@ -1301,7 +1327,7 @@ tcpProcess (iphdrPtr iph, timeValPtr tm) {
           stream->s2cPkts >= 20))) {
         stream->state = STREAM_CLOSED;
         stream->closeTime = timeVal2MilliSecond (tm);
-        delTcpStreamFromHash (stream);
+        delTcpStreamFromHash (stream, &timestamp);
 
         return;
     }

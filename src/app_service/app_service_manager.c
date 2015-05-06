@@ -40,8 +40,8 @@ static hashTablePtr appServiceDetectedHashTable = NULL;
  * @brief Get appService proto analyzer.
  *        Get appService proto analyzer from appService map.
  *
- * @param ip service ip
- * @param port service port
+ * @param ip -- service ip
+ * @param port -- service port
  *
  * @return protoAnalyzerPtr if success, else NULL
  */
@@ -67,8 +67,8 @@ getAppServiceProtoAnalyzer (char *ip, u_short port) {
  * @brief Get appService detected.
  *        Get appService detected from appService detected map.
  *
- * @param ip service ip
- * @param port service port
+ * @param ip -- service ip
+ * @param port -- service port
  *
  * @return appService detected if success, else NULL
  */
@@ -237,8 +237,8 @@ getJsonFromAppServicesDetected (void) {
  *        json array and retrieve each json item, then convert it to
  *        appService.
  *
- * @param root json data
- * @param appSvcNum pointer to return appServices number
+ * @param root -- json data
+ * @param appSvcNum -- pointer to return appServices number
  *
  * @return appServices pointer array if success, else NULL
  */
@@ -321,7 +321,7 @@ swapAppServiceMap (void) {
  *        Update appService map from appServices retrieved from
  *        json.
  *
- * @param root json data
+ * @param root -- json data
  *
  * @return 0 if success, else -1
  */
@@ -517,9 +517,9 @@ updateAppServices (json_t * appServices) {
 /**
  * @brief Add appService detected to appService detected map.
  *
- * @param ip appService detected ip
- * @param port appService detected port
- * @param proto appService detected proto name
+ * @param ip -- appService detected ip
+ * @param port -- appService detected port
+ * @param proto -- appService detected proto name
  *
  * @return 0 if success, else -1
  */

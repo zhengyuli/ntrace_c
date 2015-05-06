@@ -8,8 +8,8 @@
 /**
  * @brief Get tcp timestamp option.
  *
- * @param tcph tcp header
- * @param ts pointer to return time stamp
+ * @param tcph -- tcp header
+ * @param ts -- pointer to return time stamp
  *
  * @return True if time stamp option on else False
  */
@@ -50,8 +50,8 @@ getTimeStampOption (tcphdrPtr tcph, u_int *ts) {
 /**
  * @brief Get tcp window scale option.
  *
- * @param tcph tcp header
- * @param ws pointer to return window scale
+ * @param tcph -- tcp header
+ * @param ws -- pointer to return window scale
  *
  * @return True if window scale option on else False
  */
@@ -95,8 +95,8 @@ getTcpWindowScaleOption (tcphdrPtr tcph, u_short *ws) {
 /**
  * @brief Get tcp MSS option.
  *
- * @param tcph tcp header
- * @param mss pointer to return mss
+ * @param tcph -- tcp header
+ * @param mss -- pointer to return mss
  *
  * @return True if MSS option on else False
  */

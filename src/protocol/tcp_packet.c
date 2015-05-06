@@ -253,7 +253,7 @@ delTcpStreamFromHash (tcpStreamPtr stream) {
                     LOGE ("Add new detected appService ip:%s port:%u proto: %s error.\n",
                           ipDestStr, addr->dest, stream->proto);
                 else {
-                    LOGD ("Add new detected appService ip:%s port:%u proto: %s success.\n",
+                    LOGI ("Add new detected appService ip:%s port:%u proto: %s success.\n",
                           ipDestStr, addr->dest, stream->proto);
                     (*tcpProcessCallback) (NULL);
                 }
@@ -502,7 +502,7 @@ addNewTcpStream (tcphdrPtr tcph, iphdrPtr iph, timeValPtr tm) {
             if (ret < 0)
                 LOGE ("Add topology entry %s:%s error.\n", ipSrcStr, ipDestStr);
             else
-                LOGD ("Add topology entry %s:%s success.\n", ipSrcStr, ipDestStr);
+                LOGI ("Add topology entry %s:%s success.\n", ipSrcStr, ipDestStr);
         }
 
         /* Skip service has been scanned */

@@ -138,9 +138,18 @@ IF (RPMBUILD_FOUND)
   SET (CPACK_RPM_PACKAGE_NAME ${CPACK_PACKAGE_NAME})
   SET (CPACK_RPM_PACKAGE_VERSION ${PROJECT_VERSION})
   SET (CPACK_RPM_PACKAGE_LICENSE ${CPACK_RESOURCE_FILE_LICENSE})
-  SET (CPACK_RPM_PACKAGE_GROUP ${PROJECT_VENDOR})
+  SET (CPACK_RPM_PACKAGE_GROUP "Applications/Internet")
   SET (CPACK_RPM_PACKAGE_VENDOR ${PROJECT_VENDOR})
   SET (CPACK_RPM_PACKAGE_DESCRIPTION ${PROJECT_DESCRIPTION})
+  SET (CPACK_RPM_SPEC_MORE_DEFINE "%define ignore \#")
+  SET (CPACK_RPM_USER_FILELIST
+	"%ignore /etc"
+	"%ignore /etc/init.d"
+	"%ignore /usr"
+	"%ignore /usr/bin"
+	"%ignore /usr/sbin"
+	"%ignore /usr/include"
+	"%ignore /usr/share")
   SET (CPACK_RPM_PACKAGE_DEPENDS
 	"czmq >= 2.2.0, zeromq4 >= 4.0.5, libpcap >= 1.4.0, libini_config, zlib, jansson, libuuid")
   SET (CPACK_RPM_PACKAGE_REQUIRES "${CPACK_RPM_PACKAGE_DEPENDS}")

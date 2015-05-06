@@ -439,7 +439,7 @@ updateAppServicesFromCache (void) {
 
     out = json_dumps (appSvcs, JSON_INDENT (4) | JSON_PRESERVE_ORDER);
     if (out) {
-        LOGI ("Update appServices from cache success:\n%s\n", out);
+        LOGD ("Update appServices from cache success:\n%s\n", out);
         free (out);
     }
 
@@ -486,7 +486,7 @@ syncAppServicesCache (void) {
     if (ret < 0 || ret != strlen (appSvcsStr))
         LOGE ("Dump to appServices cache file error.\n");
     else
-        LOGI ("Sync appServices cache success:\n%s\n", appSvcsStr);
+        LOGD ("Sync appServices cache success:\n%s\n", appSvcsStr);
 
     close (fd);
     free (appSvcsStr);

@@ -209,9 +209,9 @@ updatePcapFilter (pcap_t *pcapDev, char *filter) {
             return -1;
         }
     } else
-        net = 0xFFFFFF00;
+        mask = PCAP_NETMASK_UNKNOWN;
 
-    ret = pcap_compile (pcapDev, &pcapFilter, filter, 1, net);
+    ret = pcap_compile (pcapDev, &pcapFilter, filter, 1, mask);
     if (ret < 0) {
         LOGE ("Pcap compile error.\n");
         return -1;
@@ -285,6 +285,12 @@ loopNetDevForSniff (void) {
  */
 int
 initNetDev (void) {
+    if (getPropertiesPcapFile () == NULL &&
+        getPropertiesInterface () == NULL) {
+        LOGE ("Property pcapFile and interface are all NULL.\n");
+        return -1;
+    }
+
     /* Create pcap descriptor instance */
     if (getPropertiesPcapFile ()) {
         pcapDescForSniff = newPcapFileDesc (getPropertiesPcapFile ());

@@ -131,7 +131,7 @@ rawCaptureService (void *args) {
         free (filter);
         goto destroyLogContext;
     }
-    LOGI ("\n"
+    LOGD ("\n"
           "============================================\n"
           "Update application services filter with:\n%s\n"
           "============================================\n\n", filter);

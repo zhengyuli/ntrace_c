@@ -55,7 +55,11 @@ handleResumeRequest (json_t *body) {
         free (filter);
     }
 
-    LOGI ("Update application services filter: %s\n", filter);
+    LOGD ("\n"
+          "============================================\n"
+          "Update application services filter with:\n%s\n"
+          "============================================\n\n", filter);
+
     free (filter);
     return 0;
 }
@@ -89,7 +93,11 @@ handlePauseRequest (json_t *body) {
         return -1;
     }
 
-    LOGI ("Update application services filter: %s\n", filter);
+    LOGD ("\n"
+          "============================================\n"
+          "Update application services filter with:\n%s\n"
+          "============================================\n\n", filter);
+
     free (filter);
     return 0;
 }
@@ -219,16 +227,16 @@ handleUpdateServicesRequest (json_t *body) {
     json_t *services;
     char *filter;
 
-    services = json_object_get (body, MANAGEMENT_REQUEST_BODY_SERVICES);
-    if ((services == NULL) || !json_is_array (services)) {
-        snprintf (errMsg, sizeof (errMsg), "Invalid format of update services request.");
+    /* Check update services permission */
+    if (getPropertiesAutoAddService ()) {
+        snprintf (errMsg, sizeof (errMsg), "Has no permission to update services.");
         LOGE ("%s\n", errMsg);
         return -1;
     }
 
-    /* Check update services permission */
-    if (getPropertiesAutoAddService ()) {
-        snprintf (errMsg, sizeof (errMsg), "Has no permission to update services.");
+    services = json_object_get (body, MANAGEMENT_REQUEST_BODY_SERVICES);
+    if ((services == NULL) || !json_is_array (services)) {
+        snprintf (errMsg, sizeof (errMsg), "Invalid format of update services request.");
         LOGE ("%s\n", errMsg);
         return -1;
     }
@@ -258,7 +266,7 @@ handleUpdateServicesRequest (json_t *body) {
         return -1;
     }
 
-    LOGI ("\n"
+    LOGD ("\n"
           "============================================\n"
           "Update application services filter with:\n%s\n"
           "============================================\n\n", filter);

@@ -33,7 +33,7 @@ updateFilterForSniff (void *args) {
             if (ret < 0)
                 LOGE ("Update application services filter error.\n");
             else
-                LOGI ("\n"
+                LOGD ("\n"
                       "============================================\n"
                       "Update application services filter with:\n%s\n"
                       "============================================\n\n", filter);

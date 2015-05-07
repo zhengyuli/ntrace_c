@@ -20,10 +20,10 @@ struct _icmpError {
 };
 
 /* Icmp error json key definitions */
-#define ICMP_ERROR_ICMP_TYPE "icmp_type"
-#define ICMP_ERROR_ICMP_CODE "icmp_code"
-#define ICMP_ERROR_ICMP_DEST_UNREACH_IP "icmp_dest_unreach_ip"
-#define ICMP_ERROR_ICMP_DEST_UNREACH_PORT "icmp_dest_unreach_port"
+#define ICMP_ERROR_TYPE "error_type"
+#define ICMP_ERROR_CODE "error_code"
+#define ICMP_ERROR_DEST_UNREACH_IP "dest_unreach_ip"
+#define ICMP_ERROR_DEST_UNREACH_PORT "dest_unreach_port"
 
 typedef enum {
     PUBLISH_ICMP_ERROR

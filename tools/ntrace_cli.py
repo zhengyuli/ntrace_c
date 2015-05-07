@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-# Time-stamp: <2015-05-05 21:43:47 Tuesday by zhengyuli>
+# Time-stamp: <2015-05-07 11:42:31 Thursday by zhengyuli>
 #
 # Author: zhengyu li
 # Created: 2015-05-02
@@ -57,17 +57,23 @@ def cmdTopologyEntriesInfo(sock):
     print sock.recv_string()
 
 def cmdUpdateServices(sock):
-    service1 = {'ip':'210.28.129.4',
-               'port':80,
-               'proto':'HTTP'}
-    serviceList = [service1]
+    try:
+        with open("services.json") as servicesFile:
+            servicesList = json.load(servicesFile)
+    except IOError:
+        print "Can't open services.json."
+    except ValueError:
+        print "Invlid format of services.json"
 
-    req = {'command':'update_services',
-           'body':{
-               'services':serviceList
-           }}
-    sock.send_json(req)
-    print sock.recv_string()
+    if isinstance(servicesList, list):
+        req = {'command':'update_services',
+               'body':{
+                   'services':servicesList
+               }}
+        sock.send_json(req)
+        print sock.recv_string()
+    else:
+        print "Wrong services format!"
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -90,33 +96,28 @@ if __name__ == '__main__':
     port = 53001 if not args.port else args.port[0]
     cmd = args.cmd
 
-    try:
-        zmqCtxt = zmq.Context.instance()
-        zmqSock = zmqCtxt.socket(zmq.REQ)
-        zmqSock.connect("tcp://" + ip + ":" + str(port))
+    zmqCtxt = zmq.Context.instance()
+    zmqSock = zmqCtxt.socket(zmq.REQ)
+    zmqSock.connect("tcp://" + ip + ":" + str(port))
 
-        if cmd == 'resume':
-            cmdResume(zmqSock)
-        elif cmd == 'pause':
-            cmdPause(zmqSock)
-        elif cmd == 'heartbeat':
-            cmdHeartbeat(zmqSock)
-        elif cmd == 'pktsStatInfo':
-            cmdPktsStatInfo(zmqSock)
-        elif cmd == 'protosInfo':
-            cmdProtosInfo(zmqSock)
-        elif cmd == 'servicesInfo':
-            cmdServicesInfo(zmqSock)
-        elif cmd == 'detectedServicesInfo':
-            cmdDetectedServicesInfo(zmqSock)
-        elif cmd == 'topologyEntriesInfo':
-            cmdTopologyEntriesInfo(zmqSock)
-        elif cmd == 'updateServices':
-            cmdUpdateServices(zmqSock)
+    if cmd == 'resume':
+        cmdResume(zmqSock)
+    elif cmd == 'pause':
+        cmdPause(zmqSock)
+    elif cmd == 'heartbeat':
+        cmdHeartbeat(zmqSock)
+    elif cmd == 'pktsStatInfo':
+        cmdPktsStatInfo(zmqSock)
+    elif cmd == 'protosInfo':
+        cmdProtosInfo(zmqSock)
+    elif cmd == 'servicesInfo':
+        cmdServicesInfo(zmqSock)
+    elif cmd == 'detectedServicesInfo':
+        cmdDetectedServicesInfo(zmqSock)
+    elif cmd == 'topologyEntriesInfo':
+        cmdTopologyEntriesInfo(zmqSock)
+    elif cmd == 'updateServices':
+        cmdUpdateServices(zmqSock)
 
-        zmqCtxt.destroy()
-    except KeyboardInterrupt:
-        exit(0)
-    except BaseException:
-        print "program encounter fatal error."
-        exit(-1)
+    zmqCtxt.destroy()
+    exit(0)

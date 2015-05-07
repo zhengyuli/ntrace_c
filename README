@@ -1,0 +1,61 @@
+This project provides an APM (Application performance management)
+system named nTrace. It can be used to monitor all kinds of network
+application performance like TCP, HTTP and MYSQL .etc.
+
+==========
+
+In order to compile and install this system do
+
+# cd ${PROJECT_ROOT_DIR}
+# mkdir build && cd build
+# cmake ..
+# make && make test && make install
+
+Please note that the pre-requisites for compilation include:
+- GNU C compiler (gcc)
+- CMake >= 2.8
+- czmq & czmq-devel >= 2.2.0
+- zeromq4 & zeromq4-devel >= 4.0.5
+- libpcap >= 1.4.0
+- libini_config
+- zlib
+- jansson
+- libuuid
+
+==========
+
+Componets provided:
+
+1. ntrace -- main program
+2. ntraced -- daemon service for ntrace
+3. logview -- log viewer of ntrace
+
+Tools provided:
+
+1. /usr/share/ntrace/tools/ntrace_cli.py
+   -- client to interact with ntrace
+
+2. /usr/share/ntrace/tools/mining_engine.py
+   -- mimic mining engine to receive analysis records
+
+==========
+
+The entire procedure of adding new protocol analyzer in detail:
+
+1. Copy template analyzer to somewhere
+   cp /usr/share/ntrace/template_analyzer ~/XX_analyzer
+
+2. Re-implement all proto analyzer interfaces, you can get detailed
+   info of every interface from /usr/include/ntrace/proto_analyzer.h
+
+3. Modify CMakeLists.txt to compile and install new proto analyzer
+   mkdir build && cd build && cmake .. && make && make install
+
+==========
+
+If you want to distribute a rpm package of nTrace do:
+
+# make package
+
+--------------------------
+May 2015 - nTrace

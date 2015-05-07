@@ -91,18 +91,18 @@ icmpError2AnalysisRecord (icmpErrorPtr error) {
     json_object_set_new (root, ANALYSIS_RECORD_TYPE,
                          json_string (ANALYSIS_RECORD_TYPE_ICMP_ERROR));
     /* Icmp error type */
-    json_object_set_new (root, ICMP_ERROR_ICMP_TYPE,
+    json_object_set_new (root, ICMP_ERROR_TYPE,
                          json_string ("ICMP_DEST_UNREACH"));
     /* Icmp error code */
-    json_object_set_new (root, ICMP_ERROR_ICMP_CODE,
+    json_object_set_new (root, ICMP_ERROR_CODE,
                          json_string (getIcmpDestUnreachCodeName (error->code)));
     /* Icmp error dest unreach ip */
     inet_ntop (AF_INET, (void *) &error->ip, ipStr, sizeof (ipStr));
-    json_object_set_new (root, ICMP_ERROR_ICMP_DEST_UNREACH_IP,
+    json_object_set_new (root, ICMP_ERROR_DEST_UNREACH_IP,
                          json_string (ipStr));
     /* Icmp error dest unreach port */
     if (error->code == ICMP_PORT_UNREACH)
-        json_object_set_new (root, ICMP_ERROR_ICMP_DEST_UNREACH_PORT,
+        json_object_set_new (root, ICMP_ERROR_DEST_UNREACH_PORT,
                              json_integer (error->port));
 
     out = json_dumps (root, JSON_COMPACT | JSON_PRESERVE_ORDER);

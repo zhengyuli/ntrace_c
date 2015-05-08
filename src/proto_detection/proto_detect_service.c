@@ -32,12 +32,9 @@ updateFilterForSniff (void) {
         LOGE ("Get application services filter error.\n");
     else {
         ret = updateNetDevFilterForSniff (filter);
+        free (filter);
         if (ret < 0)
             LOGE ("Update application services filter error.\n");
-        else
-            LOGD ("\nUpdate application services filter with:\n%s\n", filter);
-
-        free (filter);
     }
 }
 

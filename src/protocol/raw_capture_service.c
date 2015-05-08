@@ -131,7 +131,7 @@ rawCaptureService (void *args) {
         free (filter);
         goto destroyLogContext;
     }
-    LOGD ("\nUpdate application services filter with:\n%s\n", filter);
+    LOGI ("\nUpdate application services filter with:\n%s\n", filter);
     free (filter);
 
     /* Init rawPktCaptureSize and rawPktCaptureStartTime */

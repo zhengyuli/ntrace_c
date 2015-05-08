@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-# Time-stamp: <2015-05-07 11:42:31 Thursday by zhengyuli>
+# Time-stamp: <2015-05-08 11:35:30 Friday by zhengyuli>
 #
 # Author: zhengyu li
 # Created: 2015-05-02
@@ -46,6 +46,11 @@ def cmdServicesInfo(sock):
     sock.send_json(req)
     print sock.recv_string()
 
+def cmdServicesBlacklistInfo(sock):
+    req = {'command':'services_blacklist_info'}
+    sock.send_json(req)
+    print sock.recv_string()
+
 def cmdDetectedServicesInfo(sock):
     req = {'command':'detected_services_info'}
     sock.send_json(req)
@@ -75,6 +80,25 @@ def cmdUpdateServices(sock):
     else:
         print "Wrong services format!"
 
+def cmdUpdateServicesBlacklist(sock):
+    try:
+        with open("services_blacklist.json") as servicesBlacklistFile:
+            servicesBlacklist = json.load(servicesBlacklistFile)
+    except IOError:
+        print "Can't open services_blacklist.json."
+    except ValueError:
+        print "Invlid format of services_blacklist.json"
+
+    if isinstance(servicesBlacklist, list):
+        req = {'command':'update_services_blacklist',
+               'body':{
+                   'services_blacklist':servicesBlacklist
+               }}
+        sock.send_json(req)
+        print sock.recv_string()
+    else:
+        print "Wrong services blacklist format!"
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--ip", nargs=1, help="nTrace host ip")
@@ -86,9 +110,11 @@ if __name__ == '__main__':
                                  "pktsStatInfo",
                                  "protosInfo",
                                  "servicesInfo",
+                                 "servicesBlacklistInfo",
                                  "detectedServicesInfo",
                                  "topologyEntriesInfo",
-                                 "updateServices"],
+                                 "updateServices",
+                                 "updateServicesBlacklist"],
                         help="nTrace request command")
     args = parser.parse_args()
 
@@ -112,12 +138,16 @@ if __name__ == '__main__':
         cmdProtosInfo(zmqSock)
     elif cmd == 'servicesInfo':
         cmdServicesInfo(zmqSock)
+    elif cmd == 'servicesBlacklistInfo':
+        cmdServicesBlacklistInfo(zmqSock)
     elif cmd == 'detectedServicesInfo':
         cmdDetectedServicesInfo(zmqSock)
     elif cmd == 'topologyEntriesInfo':
         cmdTopologyEntriesInfo(zmqSock)
     elif cmd == 'updateServices':
         cmdUpdateServices(zmqSock)
+    elif cmd == 'updateServicesBlacklist':
+        cmdUpdateServicesBlacklist(zmqSock)
 
     zmqCtxt.destroy()
     exit(0)

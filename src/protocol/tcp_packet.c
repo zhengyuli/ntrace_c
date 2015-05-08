@@ -251,7 +251,9 @@ delTcpStreamFromHash (tcpStreamPtr stream, timeValPtr tm) {
     if (doProtoDetect) {
         if (stream->proto) {
             /* Add appService detected */
-            if (getAppServiceDetected (ipDestStr, addr->dest) == NULL) {
+            if (getAppServiceDetected (ipDestStr, addr->dest) == NULL ||
+                (getAppServiceFromBlacklist (ipDestStr, addr->dest) == NULL &&
+                 getAppServiceProtoAnalyzer (ipDestStr, addr->dest) == NULL)) {
                 ret = addAppServiceDetected (ipDestStr, addr->dest, stream->proto);
                 if (ret < 0)
                     LOGE ("Add new detected appService ip:%s port:%u proto: %s error.\n",
@@ -265,7 +267,7 @@ delTcpStreamFromHash (tcpStreamPtr stream, timeValPtr tm) {
 
                         free (record);
                     }
-                    LOGD ("Add new detected appService ip:%s port:%u proto: %s success.\n",
+                    LOGI ("Add new detected appService ip:%s port:%u proto: %s success.\n",
                           ipDestStr, addr->dest, stream->proto);
                 }
             }
@@ -523,12 +525,14 @@ addNewTcpStream (tcphdrPtr tcph, iphdrPtr iph, timeValPtr tm) {
 
                     free (record);
                 }
-                LOGD ("Add new topology entry %s:%s success.\n", ipSrcStr, ipDestStr);
+                LOGI ("Add new topology entry %s:%s success.\n", ipSrcStr, ipDestStr);
             }
         }
 
         /* Skip service has been scanned */
-        if (getAppServiceDetected (ipDestStr, ntohs (tcph->dest)))
+        if (getAppServiceDetected (ipDestStr, ntohs (tcph->dest)) &&
+            (getAppServiceProtoAnalyzer (ipDestStr, ntohs (tcph->dest)) ||
+             getAppServiceFromBlacklist (ipDestStr, ntohs (tcph->dest))))
             return NULL;
     } else {
         analyzer = getAppServiceProtoAnalyzer (ipDestStr, ntohs (tcph->dest));

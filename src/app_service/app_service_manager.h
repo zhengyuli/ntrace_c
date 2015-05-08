@@ -10,6 +10,8 @@ protoAnalyzerPtr
 getAppServiceProtoAnalyzer (char *ip, u_short port);
 appServicePtr
 getAppServiceDetected (char *ip, u_short port);
+appServicePtr
+getAppServiceFromBlacklist (char *ip, u_short port);
 char *
 getAppServicesPaddingFilter (void);
 char *
@@ -18,8 +20,12 @@ json_t *
 getJsonFromAppServices (void);
 json_t *
 getJsonFromAppServicesDetected (void);
+json_t *
+getJsonFromAppServicesBlacklist (void);
 int
 updateAppServices (json_t * appServices);
+int
+updateAppServicesBlacklist (json_t * appServicesBlacklist);
 int
 addAppServiceDetected (char *ip, u_short port, char *proto);
 int

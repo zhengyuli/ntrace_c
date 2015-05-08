@@ -36,6 +36,11 @@ static pthread_rwlock_t appServiceDetectedHashTableRWLock;
 /* AppService detected hash table */
 static hashTablePtr appServiceDetectedHashTable = NULL;
 
+/* AppService blacklist hash table rwlock */
+static pthread_rwlock_t appServiceBlacklistHashTableRWLock;
+/* AppService blacklist hash table */
+static hashTablePtr appServiceBlacklistHashTable = NULL;
+
 /**
  * @brief Get appService proto analyzer.
  *        Get appService proto analyzer from appService map.
@@ -81,6 +86,28 @@ getAppServiceDetected (char *ip, u_short port) {
     pthread_rwlock_rdlock (&appServiceDetectedHashTableRWLock);
     svc = (appServicePtr) hashLookup (appServiceDetectedHashTable, key);
     pthread_rwlock_unlock (&appServiceDetectedHashTableRWLock);
+
+    return svc;
+}
+
+/**
+ * @brief Get appService from blacklist.
+ *        Get appService from appService blacklist map.
+ *
+ * @param ip -- service ip
+ * @param port -- service port
+ *
+ * @return appService in blacklist if success, else NULL
+ */
+appServicePtr
+getAppServiceFromBlacklist (char *ip, u_short port) {
+    char key [32];
+    appServicePtr svc;
+
+    snprintf (key, sizeof (key), "%s:%u", ip, port);
+    pthread_rwlock_rdlock (&appServiceBlacklistHashTableRWLock);
+    svc = (appServicePtr) hashLookup (appServiceBlacklistHashTable, key);
+    pthread_rwlock_unlock (&appServiceBlacklistHashTableRWLock);
 
     return svc;
 }
@@ -164,6 +191,32 @@ getJsonForEachAppService (void *data, void *args) {
     return 0;
 }
 
+static int
+getJsonForEachAppServiceNotInBlacklist (void *data, void *args) {
+    json_t *root = (json_t *) args;
+    json_t *svc;
+    appServicePtr appSvc, tmp;
+    char key [32];
+
+    appSvc = (appServicePtr) data;
+
+    snprintf (key, sizeof (key), "%s:%u", appSvc->ip, appSvc->port);
+    pthread_rwlock_rdlock (&appServiceBlacklistHashTableRWLock);
+    tmp = hashLookup (appServiceBlacklistHashTable, key);
+    pthread_rwlock_unlock (&appServiceBlacklistHashTableRWLock);
+    if (tmp)
+        return 0;
+
+    svc = appService2Json (appSvc);
+    if (svc == NULL) {
+        LOGE ("Get json from appService error.\n");
+        return -1;
+    }
+
+    json_array_append_new (root, svc);
+    return 0;
+}
+
 /**
  * @brief Get json from all appServices.
  *        Get json from appService map, it will loop all
@@ -232,6 +285,73 @@ getJsonFromAppServicesDetected (void) {
 }
 
 /**
+ * @brief Get json from all appServices in blacklist.
+ *        Get json from appService blacklist map, it will
+ *        loop all appServices in blacklist and get json
+ *        from each.
+ *
+ * @return json object if success, else NULL
+ */
+json_t *
+getJsonFromAppServicesBlacklist (void) {
+    int ret;
+    json_t *root;
+
+    root = json_array ();
+    if (root == NULL) {
+        LOGE ("Create json array object error.\n");
+        return NULL;
+    }
+
+    pthread_rwlock_rdlock (&appServiceBlacklistHashTableRWLock);
+    ret = hashLoopDo (appServiceBlacklistHashTable,
+                      getJsonForEachAppService,
+                      root);
+    pthread_rwlock_unlock (&appServiceBlacklistHashTableRWLock);
+
+    if (ret < 0) {
+        LOGE ("Get appServices blacklist json from each appService blacklist error.\n");
+        json_object_clear (root);
+        return NULL;
+    }
+
+    return root;
+}
+
+/**
+ * @brief Get json from appService detected map but not in
+ *        blacklist, it will loop all appServices detected
+ *        and get json from each if not in blacklist.
+ *
+ * @return json object if success, else NULL
+ */
+static json_t *
+getJsonFromAppServicesDetectedButNotInBlacklist (void) {
+    int ret;
+    json_t *root;
+
+    root = json_array ();
+    if (root == NULL) {
+        LOGE ("Create json array object error.\n");
+        return NULL;
+    }
+
+    pthread_rwlock_rdlock (&appServiceDetectedHashTableRWLock);
+    ret = hashLoopDo (appServiceDetectedHashTable,
+                      getJsonForEachAppServiceNotInBlacklist,
+                      root);
+    pthread_rwlock_unlock (&appServiceDetectedHashTableRWLock);
+
+    if (ret < 0) {
+        LOGE ("Get appServices detected json from each appService detected error.\n");
+        json_object_clear (root);
+        return NULL;
+    }
+
+    return root;
+}
+
+/**
  * @brief Get appServices from json.
  *        Get appServices from json array, it will parse appServices
  *        json array and retrieve each json item, then convert it to
@@ -248,7 +368,8 @@ getAppServicesFromJson (json_t *root, u_int *appSvcNum) {
     json_t *tmp;
     appServicePtr svc, *appServices;
 
-    appServices = (appServicePtr *) malloc (sizeof (appServicePtr) * json_array_size (root));
+    appServices = (appServicePtr *)
+                  malloc (sizeof (appServicePtr) * json_array_size (root));
     if (appServices == NULL) {
         LOGE ("Alloc appServicePtr array error: %s\n", strerror (errno));
         *appSvcNum = 0;
@@ -288,6 +409,11 @@ addAppServiceToSlave (appServicePtr svc) {
     char key [32];
 
     snprintf (key, sizeof (key), "%s:%u", svc->ip, svc->port);
+    if (hashLookup (appServiceHashTableSlave, key)) {
+        freeAppService (svc);
+        return 0;
+    }
+
     ret = hashInsert (appServiceHashTableSlave, key, svc, freeAppServiceForHash);
     if (ret < 0) {
         LOGE ("Insert appService %s to slave appService map error\n", key);
@@ -391,6 +517,9 @@ updateAppServicesFromJson (json_t *root) {
         }
     }
 
+    /* Free appServices */
+    free (appServices);
+
     /* Swap appService map */
     swapAppServiceMap ();
 
@@ -407,6 +536,55 @@ updateAppServicesFromJson (json_t *root) {
         }
     }
 
+    /* Free appServicesCopy */
+    free (appServicesCopy);
+    return 0;
+}
+
+/**
+ * @brief Update appService blacklist map from json.
+ *        Update appService blacklist map from appServices
+ *        retrieved from json.
+ *
+ * @param root -- json data
+ *
+ * @return 0 if success, else -1
+ */
+static int
+updateAppServicesBlacklistFromJson (json_t *root) {
+    int ret;
+    u_int i, n;
+    appServicePtr svc;
+    appServicePtr *appServices;
+    u_int appServicesNum;
+    char key [32];
+
+    /* Get appServices from json */
+    appServices = getAppServicesFromJson (root, &appServicesNum);
+    if (appServices == NULL) {
+        LOGE ("Get appServices from json error.\n");
+        return -1;
+    }
+
+    /* Cleanup appService blacklist hash table */
+    hashClean (appServiceBlacklistHashTable);
+    /* Insert appServices to appService blacklist hash table */
+    for (i = 0; i < appServicesNum; i++) {
+        svc = appServices [i];
+        snprintf (key, sizeof (key), "%s:%u", svc->ip, svc->port);
+        pthread_rwlock_wrlock (&appServiceBlacklistHashTableRWLock);
+        ret = hashInsert (appServiceBlacklistHashTable, key, svc,
+                          freeAppServiceForHash);
+        pthread_rwlock_unlock (&appServiceBlacklistHashTableRWLock);
+        if (ret < 0) {
+            for (n = i + 1; n < appServicesNum; n++)
+                freeAppService (appServices [n]);
+            free (appServices);
+            return -1;
+        }
+    }
+
+    free (appServices);
     return 0;
 }
 
@@ -439,7 +617,44 @@ updateAppServicesFromCache (void) {
 
     out = json_dumps (appSvcs, JSON_INDENT (4) | JSON_PRESERVE_ORDER);
     if (out) {
-        LOGD ("Update appServices from cache success:\n%s\n", out);
+        LOGI ("Update appServices from cache success:\n%s\n", out);
+        free (out);
+    }
+
+    json_object_clear (appSvcs);
+    return 0;
+}
+
+/**
+ * @brief Update appService blacklist map from blacklist cache.
+ *        Update appService blacklist map from blacklist cache file,
+ *        it will load appServices from blacklist cache file and then
+ *        update appService blacklist map.
+ *
+ * @return 0 if success, else -1
+ */
+static int
+updateAppServicesBlacklistFromCache (void) {
+    int ret;
+    char *out;
+    json_t *appSvcs;
+    json_error_t error;
+
+    appSvcs = json_load_file (NTRACE_APP_SERVICES_BLACKLIST_CACHE,
+                              JSON_DISABLE_EOF_CHECK, &error);
+    if (appSvcs == NULL)
+        return 0;
+
+    ret = updateAppServicesBlacklistFromJson (appSvcs);
+    if (ret < 0) {
+        remove (NTRACE_APP_SERVICES_BLACKLIST_CACHE);
+        json_object_clear (appSvcs);
+        return -1;
+    }
+
+    out = json_dumps (appSvcs, JSON_INDENT (4) | JSON_PRESERVE_ORDER);
+    if (out) {
+        LOGI ("Update appServices blacklist from blacklist cache success:\n%s\n", out);
         free (out);
     }
 
@@ -493,12 +708,58 @@ syncAppServicesCache (void) {
     json_object_clear (appSvcs);
 }
 
+/**
+ * @brief Sync appServices blacklist to blacklist cache file.
+ *
+ * @return 0 if success, else -1
+ */
+static void
+syncAppServicesBlacklistCache (void) {
+    int ret;
+    int fd;
+    json_t *appSvcs;
+    char *appSvcsStr;
+
+    /* Get json from appServices blacklist */
+    appSvcs = getJsonFromAppServicesBlacklist ();
+    if (appSvcs == NULL) {
+        LOGE ("Get json from appServices blacklist error.\n");
+        return;
+    }
+
+    appSvcsStr = json_dumps (appSvcs, JSON_INDENT (4) | JSON_PRESERVE_ORDER);
+    if (appSvcsStr == NULL) {
+        LOGE ("Json dump appServices blacklist string error.\n");
+        json_object_clear (appSvcs);
+        return;
+    }
+
+    fd = open (NTRACE_APP_SERVICES_BLACKLIST_CACHE, O_WRONLY | O_TRUNC | O_CREAT, 0755);
+    if (fd < 0) {
+        LOGE ("Open appServices blacklist cache file %s error: %s\n",
+              NTRACE_APP_SERVICES_BLACKLIST_CACHE, strerror (errno));
+        free (appSvcsStr);
+        json_object_clear (appSvcs);
+        return;
+    }
+
+    ret = safeWrite (fd, appSvcsStr, strlen (appSvcsStr));
+    if (ret < 0 || ret != strlen (appSvcsStr))
+        LOGE ("Dump to appServices blacklist cache file error.\n");
+    else
+        LOGD ("Sync appServices blacklist cache success:\n%s\n", appSvcsStr);
+
+    close (fd);
+    free (appSvcsStr);
+    json_object_clear (appSvcs);
+}
+
 int
 updateAppServices (json_t * appServices) {
     int ret;
 
     if (getPropertiesAutoAddService ()) {
-        LOGE ("Can't update appServices for autoAddService mode.\n");
+        LOGE ("Can't update appServices for autoAddService=True.\n");
         return -1;
     }
 
@@ -511,6 +772,42 @@ updateAppServices (json_t * appServices) {
     /* Sync appServices cache */
     syncAppServicesCache ();
 
+    return 0;
+}
+
+int
+updateAppServicesBlacklist (json_t * appServicesBlacklist) {
+    int ret;
+    json_t *appServices;
+
+    if (!getPropertiesAutoAddService ()) {
+        LOGE ("Can't update appServices blacklist for autoAddService=False.\n");
+        return -1;
+    }
+
+    ret = updateAppServicesBlacklistFromJson (appServicesBlacklist);
+    if (ret < 0) {
+        LOGE ("Update appServices blacklist error.\n");
+        return -1;
+    }
+
+    /* Sync appServices blacklist cache */
+    syncAppServicesBlacklistCache ();
+
+    appServices = getJsonFromAppServicesDetectedButNotInBlacklist ();
+    if (appServices == NULL) {
+        LOGE ("Get json from appServices detected but not in blacklist error.\n");
+        return -1;
+    }
+
+    ret = updateAppServicesFromJson (appServices);
+    if (ret < 0) {
+        LOGE ("Update appServices error.\n");
+        return -1;
+    }
+
+    /* Sync appServices cache */
+    syncAppServicesCache ();
     return 0;
 }
 
@@ -529,24 +826,34 @@ addAppServiceDetected (char *ip, u_short port, char *proto) {
     appServicePtr svc, svcCopy;
     char key [32];
 
-    /* Add to appService detected map */
-    svc = newAppService (ip, port, proto);
-    if (svc == NULL) {
-        LOGE ("Create detected appService %s:%u proto: %s error\n",
-              ip, port, proto);
-        return -1;
-    }
-    snprintf (key, sizeof (key), "%s:%u", ip, port);
-    pthread_rwlock_wrlock (&appServiceDetectedHashTableRWLock);
-    ret = hashInsert (appServiceDetectedHashTable, key, svc,
-                      freeAppServiceForHash);
-    pthread_rwlock_unlock (&appServiceDetectedHashTableRWLock);
-    if (ret < 0) {
-        LOGE ("Insert detected appService: %s proto: %s error\n", key, proto);
-        return -1;
+    if (getAppServiceDetected (ip, port) == NULL) {
+        /* Add to appService detected map */
+        svc = newAppService (ip, port, proto);
+        if (svc == NULL) {
+            LOGE ("Create detected appService %s:%u proto: %s error\n",
+                  ip, port, proto);
+            return -1;
+        }
+        snprintf (key, sizeof (key), "%s:%u", ip, port);
+        pthread_rwlock_wrlock (&appServiceDetectedHashTableRWLock);
+        ret = hashInsert (appServiceDetectedHashTable, key, svc,
+                          freeAppServiceForHash);
+        pthread_rwlock_unlock (&appServiceDetectedHashTableRWLock);
+        if (ret < 0) {
+            LOGE ("Insert detected appService: %s proto: %s error\n", key, proto);
+            return -1;
+        }
     }
 
     if (getPropertiesAutoAddService ()) {
+        /* Check appService blacklist map */
+        pthread_rwlock_rdlock (&appServiceBlacklistHashTableRWLock);
+        svc = (appServicePtr) hashLookup (appServiceBlacklistHashTable, key);
+        pthread_rwlock_unlock (&appServiceBlacklistHashTableRWLock);
+        if (svc)
+            return 0;
+
+        /* Check appService map */
         pthread_rwlock_rdlock (&appServiceHashTableMasterRWLock);
         svc = (appServicePtr) hashLookup (appServiceHashTableMaster, key);
         pthread_rwlock_unlock (&appServiceHashTableMasterRWLock);
@@ -630,14 +937,37 @@ initAppServiceManager (void) {
         goto destroyAppServiceDetectedHashTableRWLock;
     }
 
+    ret = pthread_rwlock_init (&appServiceBlacklistHashTableRWLock, NULL);
+    if (ret) {
+        LOGE ("Init appServiceBlacklistHashTableRWLock error.\n");
+        goto destroyAppServiceDetectedHashTable;
+    }
+
+    appServiceBlacklistHashTable = hashNew (0);
+    if (appServiceBlacklistHashTable == NULL) {
+        LOGE ("Create appServiceBlacklistHashTable error.\n");
+        goto destroyAppServiceBlacklistHashTableRWLock;
+    }
+
     ret = updateAppServicesFromCache ();
     if (ret < 0) {
         LOGE ("Update appServices from cache error.\n");
-        goto destroyAppServiceDetectedHashTable;
+        goto destroyAppServiceBlacklistHashTable;
+    }
+
+    ret = updateAppServicesBlacklistFromCache ();
+    if (ret < 0) {
+        LOGE ("Update appServices blacklist from blacklist cache error.\n");
+        goto destroyAppServiceBlacklistHashTable;
     }
 
     return 0;
 
+destroyAppServiceBlacklistHashTable:
+    hashDestroy (appServiceBlacklistHashTable);
+    appServiceBlacklistHashTable = NULL;
+destroyAppServiceBlacklistHashTableRWLock:
+    pthread_rwlock_destroy (&appServiceBlacklistHashTableRWLock);
 destroyAppServiceDetectedHashTable:
     hashDestroy (appServiceDetectedHashTable);
     appServiceDetectedHashTable = NULL;
@@ -669,6 +999,14 @@ destroyAppServiceManager (void) {
     hashDestroy (appServiceDetectedHashTable);
     appServiceDetectedHashTable = NULL;
 
+    /* Destroy appService blacklist map */
+    pthread_rwlock_destroy (&appServiceBlacklistHashTableRWLock);
+    hashDestroy (appServiceBlacklistHashTable);
+    appServiceBlacklistHashTable = NULL;
+
     /* Clean appServices cache */
     remove (NTRACE_APP_SERVICES_CACHE);
+
+    /* Clean appServices blacklist cache */
+    remove (NTRACE_APP_SERVICES_BLACKLIST_CACHE);
 }

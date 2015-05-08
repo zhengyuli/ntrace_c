@@ -16,12 +16,16 @@
 #define MANAGEMENT_REQUEST_COMMAND_PACKETS_STATISTIC_INFO "packets_statistic_info"
 #define MANAGEMENT_REQUEST_COMMAND_PROTOS_INFO "protos_info"
 #define MANAGEMENT_REQUEST_COMMAND_SERVICES_INFO "services_info"
+#define MANAGEMENT_REQUEST_COMMAND_SERVICES_BLACKLIST_INFO "services_blacklist_info"
 #define MANAGEMENT_REQUEST_COMMAND_DETECTED_SERVICES_INFO "detected_services_info"
 #define MANAGEMENT_REQUEST_COMMAND_TOPOLOGY_ENTRIES_INFO "topology_entries_info"
 #define MANAGEMENT_REQUEST_COMMAND_UPDATE_SERVICES "update_services"
+#define MANAGEMENT_REQUEST_COMMAND_UPDATE_SERVICES_BLACKLIST "update_services_blacklist"
 
 /* Management request body json key definitions */
 #define MANAGEMENT_REQUEST_BODY_SERVICES "services"
+
+#define MANAGEMENT_REQUEST_BODY_SERVICES_BLACKLIST "services_blacklist"
 
 /* Management response json key definitions */
 #define MANAGEMENT_RESPONSE_CODE "code"
@@ -36,6 +40,8 @@
 #define MANAGEMENT_RESPONSE_BODY_PROTOS "protos"
 
 #define MANAGEMENT_RESPONSE_BODY_SERVICES "services"
+
+#define MANAGEMENT_RESPONSE_BODY_SERVICES_BLACKLIST "services_blacklist"
 
 #define MANAGEMENT_RESPONSE_BODY_DETECTED_SERVICES "detected_services"
 

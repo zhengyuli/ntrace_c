@@ -21,6 +21,9 @@ static protoAnalyzerInfo protoAnalyzerInformation;
 /* Services information */
 static json_t *services = NULL;
 
+/* Services blacklist information */
+static json_t *servicesBlacklist = NULL;
+
 /* Detected services information */
 static json_t *detectedServices = NULL;
 
@@ -58,7 +61,7 @@ handleResumeRequest (json_t *body) {
         free (filter);
     }
 
-    LOGD ("\nUpdate application services filter with:\n%s\n", filter);
+    LOGI ("\nUpdate application services filter with:\n%s\n", filter);
     free (filter);
     return 0;
 }
@@ -92,7 +95,7 @@ handlePauseRequest (json_t *body) {
         return -1;
     }
 
-    LOGD ("\nUpdate application services filter with:\n%s\n", filter);
+    LOGI ("\nUpdate application services filter with:\n%s\n", filter);
     free (filter);
     return 0;
 }
@@ -172,6 +175,25 @@ handleGetServicesInfoRequest (json_t *body) {
 }
 
 /**
+ * @brief Get services blacklist info request handler.
+ *
+ * @param body -- data to handle
+ *
+ * @return 0 if success else -1
+ */
+static int
+handleGetServicesBlacklistInfoRequest (json_t *body) {
+    servicesBlacklist = getJsonFromAppServicesBlacklist ();
+    if (servicesBlacklist == NULL) {
+        snprintf (errMsg, sizeof (errMsg), "Get services blacklist info error.");
+        LOGE ("%s\n", errMsg);
+        return -1;
+    }
+
+    return 0;
+}
+
+/**
  * @brief Get detected services info request handler.
  *
  * @param body -- data to handle
@@ -224,7 +246,8 @@ handleUpdateServicesRequest (json_t *body) {
 
     /* Check update services permission */
     if (getPropertiesAutoAddService ()) {
-        snprintf (errMsg, sizeof (errMsg), "Has no permission to update services.");
+        snprintf (errMsg, sizeof (errMsg),
+                  "Has no permission to update services for autoAddService=True.");
         LOGE ("%s\n", errMsg);
         return -1;
     }
@@ -261,7 +284,65 @@ handleUpdateServicesRequest (json_t *body) {
         return -1;
     }
 
-    LOGD ("\nUpdate application services filter with:\n%s\n", filter);
+    LOGI ("\nUpdate application services filter with:\n%s\n", filter);
+    free (filter);
+    return 0;
+}
+
+/**
+ * @brief Update services blacklist request handler
+ *
+ * @param body -- data to handle
+ *
+ * @return 0 if success else -1
+ */
+static int
+handleUpdateServicesBlacklistRequest (json_t *body) {
+    int ret;
+    json_t *servicesBlacklist;
+    char *filter;
+
+    /* Check update services blacklist permission */
+    if (!getPropertiesAutoAddService ()) {
+        snprintf (errMsg, sizeof (errMsg),
+                  "Has no permission to update services blacklist for autoAddService=False.");
+        LOGE ("%s\n", errMsg);
+        return -1;
+    }
+
+    servicesBlacklist = json_object_get (body, MANAGEMENT_REQUEST_BODY_SERVICES_BLACKLIST);
+    if ((servicesBlacklist == NULL) || !json_is_array (servicesBlacklist)) {
+        snprintf (errMsg, sizeof (errMsg), "Invalid format of update services blacklist request.");
+        LOGE ("%s\n", errMsg);
+        return -1;
+    }
+
+    /* Update application services blacklist */
+    ret = updateAppServicesBlacklist (servicesBlacklist);
+    if (ret < 0) {
+        snprintf (errMsg, sizeof (errMsg), "Update services blacklist error.");
+        LOGE ("%s\n", errMsg);
+        return -1;
+    }
+
+    /* Get application services filter */
+    filter = getAppServicesFilter ();
+    if (filter == NULL) {
+        snprintf (errMsg, sizeof (errMsg), "Get application services filter error.");
+        LOGE ("%s\n", errMsg);
+        return -1;
+    }
+
+    /* Update application services filter */
+    ret = updateNetDevFilterForSniff (filter);
+    if (ret < 0) {
+        snprintf (errMsg, sizeof (errMsg), "Update application services filter error.");
+        LOGE ("%s\n", errMsg);
+        free (filter);
+        return -1;
+    }
+
+    LOGI ("\nUpdate application services filter with:\n%s\n", filter);
     free (filter);
     return 0;
 }
@@ -318,6 +399,9 @@ buildManagementResponse (char *cmd, int code) {
         } else if (strEqual (cmd, MANAGEMENT_REQUEST_COMMAND_SERVICES_INFO)) {
             json_object_set_new (body, MANAGEMENT_RESPONSE_BODY_SERVICES, services);
             services = NULL;
+        } else if (strEqual (cmd, MANAGEMENT_REQUEST_COMMAND_SERVICES_BLACKLIST_INFO)) {
+            json_object_set_new (body, MANAGEMENT_RESPONSE_BODY_SERVICES_BLACKLIST, servicesBlacklist);
+            servicesBlacklist = NULL;
         } else if (strEqual (cmd, MANAGEMENT_REQUEST_COMMAND_DETECTED_SERVICES_INFO)) {
             json_object_set_new (body, MANAGEMENT_RESPONSE_BODY_DETECTED_SERVICES, detectedServices);
             detectedServices = NULL;
@@ -405,12 +489,16 @@ managementService (void *args) {
                     ret = handleGetProtosInfoRequest (body);
                 else if (strEqual (MANAGEMENT_REQUEST_COMMAND_SERVICES_INFO, cmdStr))
                     ret = handleGetServicesInfoRequest (body);
+                else if (strEqual (MANAGEMENT_REQUEST_COMMAND_SERVICES_BLACKLIST_INFO, cmdStr))
+                    ret = handleGetServicesBlacklistInfoRequest (body);
                 else if (strEqual (MANAGEMENT_REQUEST_COMMAND_DETECTED_SERVICES_INFO, cmdStr))
                     ret = handleGetDetectedServicesInfoRequest (body);
                 else if (strEqual (MANAGEMENT_REQUEST_COMMAND_TOPOLOGY_ENTRIES_INFO, cmdStr))
                     ret = handleGetTopologyEntriesInfoRequest (body);
                 else if (strEqual (MANAGEMENT_REQUEST_COMMAND_UPDATE_SERVICES, cmdStr))
                     ret = handleUpdateServicesRequest (body);
+                else if (strEqual (MANAGEMENT_REQUEST_COMMAND_UPDATE_SERVICES_BLACKLIST, cmdStr))
+                    ret = handleUpdateServicesBlacklistRequest (body);
                 else {
                     LOGE ("Unknown management request command: %s.\n", cmdStr);
                     ret = 1;

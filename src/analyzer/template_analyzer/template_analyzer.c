@@ -131,10 +131,7 @@ protoAnalyzer analyzer;
 static char *
 templateSessionProcessProtoDetect (streamDirection direction, timeValPtr tm,
                                    u_char *data, u_int dataLen) {
-    if (dataLen > 65536)
-        return analyzer.proto;
-    else
-        return NULL;
+    return NULL;
 }
 
 protoAnalyzer analyzer = {

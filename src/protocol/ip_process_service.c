@@ -171,7 +171,7 @@ ipProcessService (void *args) {
     ipPktRecvSock = getIpPktRecvSock ();
 
     /* Init ip context */
-    ret = initIpContext ();
+    ret = initIpContext (False);
     if (ret < 0) {
         LOGE ("Init ip context error.\n");
         goto destroyLogContext;
@@ -212,10 +212,9 @@ ipProcessService (void *args) {
         ret = ipDefragProcess (iph, tm, &newIph);
         if (ret < 0)
             LOGE ("Ip packet defragment error.\n");
-
-        if (newIph) {
+        else if (newIph) {
             switch (newIph->ipProto) {
-                    /* Tcp packet dispatch */
+                /* Tcp packet dispatch */
                 case IPPROTO_TCP:
                     tcpPacketDispatch (newIph, tm);
                     break;

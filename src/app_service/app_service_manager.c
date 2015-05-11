@@ -16,13 +16,10 @@
 
 /* AppService padding filter */
 #define APP_SERVICE_PADDING_BPF_FILTER "icmp"
-/* AppService ip fragment filter */
-#define APP_SERVICE_IP_FRAGMENT_BPF_FILTER                              \
-    "(tcp and (ip[6] & 0x20 != 0 or (ip[6] & 0x20 = 0 and ip[6:2] & 0x1fff != 0)))"
 /* AppService filter */
-#define APP_SERVICE_BPF_FILTER "(ip host %s and (tcp port %u or %s)) or "
+#define APP_SERVICE_BPF_FILTER "ip host %s or "
 /* AppService filter length */
-#define APP_SERVICE_BPF_FILTER_LENGTH 256
+#define APP_SERVICE_BPF_FILTER_LENGTH 64
 
 /* AppService master hash table rwlock */
 static pthread_rwlock_t appServiceHashTableMasterRWLock;
@@ -131,7 +128,7 @@ getFilterForEachAppService (void *data, void *args) {
 
     len = strlen (filter);
     snprintf (filter + len, APP_SERVICE_BPF_FILTER_LENGTH, APP_SERVICE_BPF_FILTER,
-              appSvc->ip, appSvc->port, APP_SERVICE_IP_FRAGMENT_BPF_FILTER);
+              appSvc->ip);
     return 0;
 }
 
@@ -147,7 +144,7 @@ getAppServicesFilter (void) {
     int ret;
     u_int svcNum;
     char *filter;
-    u_int filterLen;
+    u_int filterLen, len;
 
     pthread_rwlock_rdlock (&appServiceHashTableMasterRWLock);
 
@@ -161,17 +158,21 @@ getAppServicesFilter (void) {
     }
     memset (filter, 0, filterLen);
 
-    ret = hashLoopDo (appServiceHashTableMaster, getFilterForEachAppService, filter);
-    if (ret < 0) {
+    if (svcNum) {
+        strcat (filter, "((");
+        ret = hashLoopDo (appServiceHashTableMaster, getFilterForEachAppService, filter);
+        if (ret < 0) {
+            pthread_rwlock_unlock (&appServiceHashTableMasterRWLock);
+            LOGE ("Get BPF filter from each appService error.\n");
+            free (filter);
+            return NULL;
+        }
         pthread_rwlock_unlock (&appServiceHashTableMasterRWLock);
-        LOGE ("Get BPF filter from each appService error.\n");
-        free (filter);
-        return NULL;
-    }
 
-    pthread_rwlock_unlock (&appServiceHashTableMasterRWLock);
-
-    strcat (filter, APP_SERVICE_PADDING_BPF_FILTER);
+        len = strlen (filter);
+        snprintf (filter + len - 4, 32, ") and tcp) or icmp");
+    } else
+        strcat (filter, APP_SERVICE_PADDING_BPF_FILTER);
 
     return filter;
 }
@@ -701,7 +702,7 @@ syncAppServicesCache (void) {
     if (ret < 0 || ret != strlen (appSvcsStr))
         LOGE ("Dump to appServices cache file error.\n");
     else
-        LOGD ("Sync appServices cache success:\n%s\n", appSvcsStr);
+        LOGI ("Sync appServices cache success:\n%s\n", appSvcsStr);
 
     close (fd);
     free (appSvcsStr);
@@ -747,7 +748,7 @@ syncAppServicesBlacklistCache (void) {
     if (ret < 0 || ret != strlen (appSvcsStr))
         LOGE ("Dump to appServices blacklist cache file error.\n");
     else
-        LOGD ("Sync appServices blacklist cache success:\n%s\n", appSvcsStr);
+        LOGI ("Sync appServices blacklist cache success:\n%s\n", appSvcsStr);
 
     close (fd);
     free (appSvcsStr);

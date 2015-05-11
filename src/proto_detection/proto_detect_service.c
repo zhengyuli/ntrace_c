@@ -89,6 +89,9 @@ protoDetectService (void *args) {
         goto exit;
     }
 
+    /* Display task schedule policy info */
+    displayTaskSchedPolicyInfo ("ProtoDetectService");
+
     pcapDev = getNetDevPcapDescForProtoDetection ();
     datalinkType = getNetDevDatalinkTypeForProtoDetection ();
     topologyEntrySendSock = getTopologyEntrySendSock ();
@@ -102,7 +105,7 @@ protoDetectService (void *args) {
     }
 
     /* Init ip context */
-    ret = initIpContext ();
+    ret = initIpContext (True);
     if (ret < 0) {
         LOGE ("Init ip context error.\n");
         goto destroyLogContext;
@@ -157,8 +160,7 @@ protoDetectService (void *args) {
             ret = ipDefragProcess (iph, &captureTime, &newIphdr);
             if (ret < 0)
                 LOGE ("Ip packet defragment error.\n");
-
-            if (newIphdr) {
+            else if (newIphdr) {
                 switch (newIphdr->ipProto) {
                     /* Tcp packet process */
                     case IPPROTO_TCP:

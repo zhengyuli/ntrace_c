@@ -30,6 +30,9 @@ static __thread listHead ipQueueExpireTimeoutList;
 /* Ip host fragment hash table */
 static __thread hashTablePtr ipQueueHashTable = NULL;
 
+/* Ip process purpose, for proto analysis or detect */
+static __thread boolean doProtoDetect = False;
+
 static void
 displayIphdr (iphdrPtr iph) {
     u_short offset, flags;
@@ -49,6 +52,28 @@ displayIphdr (iphdrPtr iph) {
     LOGD (" src: %s ------------> dst: %s\n", ipSrcStr, ipDestStr);
     LOGD ("Ip header len: %d , ip packet len: %u, offset: %u, IP_MF: %u.\n",
           (iph->iphLen * 4), ntohs (iph->ipLen), offset, ((flags & IP_MF) ? 1 : 0));
+}
+
+/* Check ip packet to drop */
+static boolean
+ipPktShouldDrop (iphdrPtr iph) {
+    tcphdrPtr tcph;
+    char ipSrcStr [16], ipDestStr [16];
+
+    if (iph->ipProto == IPPROTO_TCP) {
+        tcph = (tcphdrPtr) ((u_char *) iph + (iph->iphLen * 4));
+
+        inet_ntop (AF_INET, (void *) &iph->ipSrc, ipSrcStr, sizeof (ipSrcStr));
+        inet_ntop (AF_INET, (void *) &iph->ipDest, ipDestStr, sizeof (ipDestStr));
+
+        if (getAppServiceProtoAnalyzer (ipSrcStr, ntohs (tcph->source)) ||
+            getAppServiceProtoAnalyzer (ipDestStr, ntohs (tcph->dest)))
+            return False;
+        else
+            return True;
+    }
+
+    return False;
 }
 
 static ipFragPtr
@@ -316,27 +341,6 @@ checkIpHeader (iphdrPtr iph) {
     return 0;
 }
 
-/* Check whether ip packet should be dropped */
-static boolean
-ipPktShouldDrop (iphdrPtr iph) {
-    tcphdrPtr tcph;
-    char ipSrcStr [16], ipDestStr [16];
-
-    if (iph->ipProto == IPPROTO_TCP) {
-        tcph = (tcphdrPtr) ((u_char *) iph + (iph->iphLen * 4));
-
-        inet_ntop (AF_INET, (void *) &iph->ipSrc, ipSrcStr, sizeof (ipSrcStr));
-        inet_ntop (AF_INET, (void *) &iph->ipDest, ipDestStr, sizeof (ipDestStr));
-
-        if (getAppServiceProtoAnalyzer (ipSrcStr, ntohs (tcph->source)) ||
-            getAppServiceProtoAnalyzer (ipDestStr, ntohs (tcph->dest)))
-            return False;
-        else
-            return True;
-    } else
-        return True;
-}
-
 /**
  * @brief Ip packet defragment processor.
  *
@@ -381,7 +385,10 @@ ipDefragProcess (iphdrPtr iph, timeValPtr tm, iphdrPtr *newIph) {
     if ((flags & IP_MF) == 0 && offset == 0) {
         if (ipq)
             delIpQueueFromHash (ipq);
-        *newIph = iph;
+        if (!doProtoDetect && ipPktShouldDrop (iph))
+            *newIph = NULL;
+        else
+            *newIph = iph;
         return 0;
     }
 
@@ -479,13 +486,11 @@ ipDefragProcess (iphdrPtr iph, timeValPtr tm, iphdrPtr *newIph) {
             return -1;
         } else {
             displayIphdr (tmpIph);
-
-            if (ipPktShouldDrop (tmpIph)) {
+            if (!doProtoDetect && ipPktShouldDrop (tmpIph)) {
                 free (tmpIph);
                 *newIph = NULL;
             } else
                 *newIph = tmpIph;
-
             return 0;
         }
     } else {
@@ -504,7 +509,9 @@ resetIpContext (void) {
 
 /* Init ip context */
 int
-initIpContext (void) {
+initIpContext (boolean protoDetectFlag) {
+    doProtoDetect = protoDetectFlag;
+
     initListHead (&ipQueueExpireTimeoutList);
 
     ipQueueHashTable = hashNew (DEFAULT_IPQUEUE_HASH_TABLE_SIZE);

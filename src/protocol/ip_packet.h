@@ -47,7 +47,7 @@ ipDefragProcess (iphdrPtr iph, timeValPtr tm, iphdrPtr *newIph);
 int
 resetIpContext (void);
 int
-initIpContext (void);
+initIpContext (boolean protoDetectFlag);
 void
 destroyIpContext (void);
 /*=======================Interfaces definition end=========================*/

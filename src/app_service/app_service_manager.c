@@ -171,8 +171,10 @@ getAppServicesFilter (void) {
 
         len = strlen (filter);
         snprintf (filter + len - 4, 32, ") and tcp) or icmp");
-    } else
+    } else {
+        pthread_rwlock_unlock (&appServiceHashTableMasterRWLock);
         strcat (filter, APP_SERVICE_PADDING_BPF_FILTER);
+    }
 
     return filter;
 }

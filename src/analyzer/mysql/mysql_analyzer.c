@@ -2798,25 +2798,28 @@ mysqlSessionBreakdown2Json (json_t *root, void *sd, void *sbd) {
     /* Mysql server version */
     json_object_set_new (root, MYSQL_SBKD_SERVER_VERSION,
                          json_string (msbd->serverVer));
+
     /* Mysql user name */
     json_object_set_new (root, MYSQL_SBKD_USER_NAME,
                          json_string (msbd->userName));
+
     /* Mysql connection id */
     json_object_set_new (root, MYSQL_SBKD_CONNECTION_ID,
                          json_integer (msbd->conId));
+
     /* Mysql request statement */
     if (msbd->reqStmt)
         json_object_set_new (root, MYSQL_SBKD_REQUEST_STATEMENT,
                              json_string (msbd->reqStmt));
-    else
-        json_object_set_new (root, MYSQL_SBKD_REQUEST_STATEMENT,
-                             json_string (""));
+
     /* Mysql state */
     json_object_set_new (root, MYSQL_SBKD_STATE,
                          json_string (getMysqlBreakdownStateName (msbd->state)));
+
     /* Mysql error code */
     json_object_set_new (root, MYSQL_SBKD_ERROR_CODE,
                          json_integer (msbd->errCode));
+
     /* Mysql sql state */
     json_object_set_new (root, MYSQL_SBKD_SQL_STATE,
                          json_integer (msbd->sqlState));
@@ -2824,21 +2827,23 @@ mysqlSessionBreakdown2Json (json_t *root, void *sd, void *sbd) {
     if (msbd->errMsg)
         json_object_set_new (root, MYSQL_SBKD_ERROR_MESSAGE,
                              json_string (msbd->errMsg));
-    else
-        json_object_set_new (root, MYSQL_SBKD_ERROR_MESSAGE,
-                             json_string (""));
+
     /* Mysql request size */
     json_object_set_new (root, MYSQL_SBKD_REQUEST_SIZE,
                          json_integer (msbd->reqSize));
+
     /* Mysql response size */
     json_object_set_new (root, MYSQL_SBKD_RESPONSE_SIZE,
                          json_integer (msbd->respSize));
+
     /* Mysql server latency */
     json_object_set_new (root, MYSQL_SBKD_SERVER_LATENCY,
                          json_integer (msbd->serverLatency));
+
     /* Mysql download latency */
     json_object_set_new (root, MYSQL_SBKD_DOWNLOAD_LATENCY,
                          json_integer (msbd->downloadLatency));
+
     /* Mysql response latency */
     json_object_set_new (root, MYSQL_SBKD_RESPONSE_LATENCY,
                          json_integer (msbd->respLatency));

@@ -14,22 +14,19 @@ struct _properties {
 
     u_short managementServicePort;      /**< Management service port */
 
-    char *interface;                    /**< Mirror interface */
+    char *interface;                    /**< Network interface */
 
     char *pcapFile;                     /**< Pcap offline file */
-    u_int loopCount;                    /**< Pcap offline file loop read count */
 
-    char *outputFile;                   /**< Analysis record output file */
+    char *outputFile;                   /**< Output file for analysis record*/
 
-    u_int packetsToScan;                /**< Packetes to scan for each proto
-                                             detection loop */
-    u_int sleepIntervalAfterScan;       /**< Sleep interval after each proto
-                                             detection loop */
+    char *splunkIndex;                  /**< Splunk index for analysis record*/
+    char *splunkSource;                 /**< Splunk source for analysis record */
+    char *splunkSourcetype;             /**< Splunk sourcetype for analysis record */
+    char *splunkAuthToken;              /**< Splunk auth token for http event collector */
+    char *splunkUrl;                    /**< Splunk url for http event collector */
+
     boolean autoAddService;             /**< Auto add detected service to sniff */
-
-    char *miningEngineHost;             /**< Mining engine host ip */
-    u_short analysisRecordRecvPort;     /**< Analysis record receive port of
-                                             mining engine */
 
     char *logDir;                       /**< Log dir */
     char *logFileName;                  /**< Log file name */
@@ -39,68 +36,38 @@ struct _properties {
 /*========================Interfaces definition============================*/
 boolean
 getPropertiesDaemonMode (void);
-void
-updatePropertiesDaemonMode (boolean daemonMode);
 boolean
 getPropertiesSchedRealtime (void);
 u_int
 getPropertiesSchedPriority (void);
-void
-updatePropertiesSchedPriority (u_int schedPriority);
 u_short
 getPropertiesManagementServicePort (void);
-void
-updatePropertiesManagementServicePort (u_short port);
 boolean
 getPropertiesSniffLive (void);
 char *
 getPropertiesInterface (void);
-void
-updatePropertiesInterface (char *interface);
 char *
 getPropertiesPcapFile (void);
-void
-updatePropertiesPcapFile (char *pcapFile);
-u_int
-getPropertiesLoopCount (void);
-void
-updatePropertiesLoopCount (u_int loopCount);
 char *
 getPropertiesOutputFile (void);
-void
-updatePropertiesOutputFile (char *outputFile);
-u_int
-getPropertiesPacketsToScan (void);
-void
-updatePropertiesPacketsToScan (u_int packetsToScan);
-u_int
-getPropertiesSleepIntervalAfterScan (void);
-void
-updatePropertiesSleepIntervalAfterScan (u_int sleepInterval);
+char *
+getPropertiesSplunkIndex (void);
+char *
+getPropertiesSplunkSource (void);
+char *
+getPropertiesSplunkSourcetype (void);
+char *
+getPropertiesSplunkAuthToken (void);
+char *
+getPropertiesSplunkUrl (void);
 boolean
 getPropertiesAutoAddService (void);
-void
-updatePropertiesAutoAddService (boolean autoAddService);
-char *
-getPropertiesMiningEngineHost (void);
-void
-updatePropertiesMiningEngineHost (char *ip);
-u_short
-getPropertiesAnalysisRecordRecvPort (void);
-void
-updatePropertiesAnalysisRecordRecvPort (u_short port);
 char *
 getPropertiesLogDir (void);
-void
-updatePropertiesLogDir (char *logDir);
 char *
 getPropertiesLogFileName (void);
-void
-updatePropertiesLogFileName (char *logFileName);
 u_int
 getPropertiesLogLevel (void);
-void
-updatePropertiesLogLevel (u_int logLevel);
 void
 displayPropertiesDetail (void);
 int

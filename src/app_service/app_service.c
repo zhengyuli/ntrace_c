@@ -232,13 +232,17 @@ appServiceAnalysisRecord (timeValPtr tm, char *proto, char *ip, u_short port) {
     formatLocalTimeStr (tm, buf, sizeof (buf));
     json_object_set_new (root, ANALYSIS_RECORD_TIMESTAMP,
                          json_string (buf));
+
     /* Analysis record type */
     json_object_set_new (root, ANALYSIS_RECORD_TYPE,
                          json_string (ANALYSIS_RECORD_TYPE_APP_SERVICE));
+
     /* AppService proto */
     json_object_set_new (root, APP_SERVICE_PROTO, json_string (proto));
+
     /* AppService ip */
     json_object_set_new (root, APP_SERVICE_IP, json_string (ip));
+
     /* AppService port */
     json_object_set_new (root, APP_SERVICE_PORT, json_integer (port));
 

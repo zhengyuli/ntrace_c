@@ -17,17 +17,25 @@ newProperties (void) {
         return NULL;
 
     tmp->daemonMode = False;
+
     tmp->schedPriority = 0;
+
     tmp->managementServicePort = 0;
+
     tmp->interface = NULL;
+
     tmp->pcapFile = NULL;
-    tmp->loopCount = 0;
+
     tmp->outputFile = NULL;
-    tmp->packetsToScan = 0;
-    tmp->sleepIntervalAfterScan = 0;
-    tmp->autoAddService = False;
-    tmp->miningEngineHost = NULL;
-    tmp->analysisRecordRecvPort = 0;
+
+    tmp->splunkIndex = NULL;
+    tmp->splunkSource = NULL;
+    tmp->splunkSourcetype = NULL;
+    tmp->splunkAuthToken = NULL;
+    tmp->splunkUrl = NULL;
+
+    tmp->autoAddService = True;
+
     tmp->logDir = NULL;
     tmp->logFileName = NULL;
     tmp->logLevel = LOG_ERR_LEVEL;
@@ -41,18 +49,70 @@ freeProperties (propertiesPtr instance) {
 
     free (instance->interface);
     instance->interface = NULL;
+
     free (instance->pcapFile);
     instance->pcapFile = NULL;
+
     free (instance->outputFile);
     instance->outputFile = NULL;
-    free (instance->miningEngineHost);
-    instance->miningEngineHost = NULL;
+
+    free (instance->splunkIndex);
+    instance->splunkIndex = NULL;
+    free (instance->splunkSource);
+    instance->splunkSource = NULL;
+    free (instance->splunkSourcetype);
+    instance->splunkSourcetype = NULL;
+    free (instance->splunkAuthToken);
+    instance->splunkAuthToken = NULL;
+    free (instance->splunkUrl);
+    instance->splunkUrl = NULL;
+
     free (instance->logDir);
     instance->logDir = NULL;
     free (instance->logFileName);
     instance->logFileName = NULL;
 
     free (instance);
+}
+
+static int
+validateProperties (propertiesPtr instance) {
+    if (instance->interface == NULL && instance->pcapFile == NULL) {
+        fprintf (stderr, "There is no input.\n");
+        return -1;
+    }
+
+    if (instance->interface && instance->pcapFile) {
+        fprintf (stderr, "Only one input should be specified.\n");
+        return -1;
+    }
+
+    if (!((instance->splunkIndex && instance->splunkSource && instance->splunkSourcetype &&
+           instance->splunkAuthToken && instance->splunkUrl) ||
+          (!instance->splunkIndex && !instance->splunkSource && !instance->splunkSourcetype &&
+           !instance->splunkAuthToken && !instance->splunkUrl))) {
+        if (instance->splunkIndex == NULL)
+            fprintf (stderr, "Missing index for splunkOutput.\n");
+        if (instance->splunkSource == NULL)
+            fprintf (stderr, "Missing source for splunkOutput.\n");
+        if (instance->splunkSourcetype == NULL)
+            fprintf (stderr, "Missing sourcetype for splunkOutput.\n");
+        if (instance->splunkAuthToken == NULL)
+            fprintf (stderr, "Missing authToken for splunkOutput.\n");
+        if (instance->splunkUrl == NULL)
+            fprintf (stderr, "Missing url for splunkOutput.\n");
+        return -1;
+    }
+
+    if (!instance->logDir || !instance->logFileName) {
+        if (instance->logDir == NULL)
+            fprintf (stderr, "Missing logDir for log.\n");
+        if (instance->logFileName == NULL)
+            fprintf (stderr, "Missing logFileName for log.\n");
+        return -1;
+    }
+
+    return 0;
 }
 
 static propertiesPtr
@@ -73,22 +133,22 @@ loadPropertiesFromConfigFile (char *configFile) {
     }
 
     /* Load properties from NTRACE_CONFIG_FILE */
-    ret = config_from_file ("Main", configFile,
+    ret = config_from_file ("main", configFile,
                             &iniConfig, INI_STOP_ON_ANY, &errorSet);
     if (ret) {
         fprintf (stderr, "Parse config file: %s error.\n", configFile);
         goto freeProperties;
     }
 
-    /* Get daemon mode */
-    ret = get_config_item ("Basic", "daemonMode", iniConfig, &item);
+    /* Get daemonMode */
+    ret = get_config_item ("default", "daemonMode", iniConfig, &item);
     if (ret && item == NULL) {
-        fprintf (stderr, "Get_config_item \"daemonMode\" error.\n");
+        fprintf (stderr, "Get_config_item \"daemonMode\" from \"default\" error.\n");
         goto freeProperties;
     }
     ret = get_bool_config_value (item, 0, &error);
     if (error) {
-        fprintf (stderr, "Get \"daemonMode\" error.\n");
+        fprintf (stderr, "Get_config_item \"daemonMode\" from \"default\" error.\n");
         goto freeProperties;
     }
     if (ret)
@@ -96,15 +156,15 @@ loadPropertiesFromConfigFile (char *configFile) {
     else
         tmp->daemonMode = False;
 
-    /* Get schedule priority */
-    ret = get_config_item ("SchedulePolicy", "schedPriority", iniConfig, &item);
+    /* Get schedulePolicy priority */
+    ret = get_config_item ("schedulePolicy", "priority", iniConfig, &item);
     if (ret || item == NULL) {
-        fprintf (stderr, "Get_config_item \"schedPriority\" error.\n");
+        fprintf (stderr, "Get_config_item \"priority\" from \"schedulePolicy\" error.\n");
         goto freeProperties;
     }
     tmp->schedPriority = get_int_config_value (item, 1, 0, &error);
     if (error) {
-        fprintf (stderr, "Get \"schedPriority\" error.\n");
+        fprintf (stderr, "Get_config_item \"priority\" from \"schedulePolicy\" error.\n");
         goto freeProperties;
     }
 
@@ -115,91 +175,107 @@ loadPropertiesFromConfigFile (char *configFile) {
         tmp->schedPriority > maxPriority)
         tmp->schedPriority = 0;
 
-    /* Get management service port */
-    ret = get_config_item ("ManagementService", "managementServicePort", iniConfig, &item);
+    /* Get managementService port */
+    ret = get_config_item ("managementService", "port", iniConfig, &item);
     if (ret || item == NULL) {
-        fprintf (stderr, "Get_config_item \"managementServicePort\" error.\n");
+        fprintf (stderr, "Get_config_item \"port\" from  \"managementService\" error.\n");
         goto freeProperties;
     }
     tmp->managementServicePort = get_int_config_value (item, 1, 0, &error);
     if (error) {
-        fprintf (stderr, "Get \"managementServicePort\" error.\n");
+        fprintf (stderr, "Get_config_item \"port\" from  \"managementService\" error.\n");
         goto freeProperties;
     }
 
-    /* Get interface */
-    ret = get_config_item ("Input", "interface", iniConfig, &item);
+    /* Get liveInput interface */
+    ret = get_config_item ("liveInput", "interface", iniConfig, &item);
     if (!ret && item) {
         tmp->interface = strdup (get_const_string_config_value (item, &error));
         if (tmp->interface == NULL) {
-            fprintf (stderr, "Get \"interface\" error.\n");
+            fprintf (stderr, "Get \"interface\" from \"liveInput\" error.\n");
             goto freeProperties;
         }
     }
 
-    /* Get pcap file */
-    ret = get_config_item ("Input", "pcapFile", iniConfig, &item);
+    /* Get offlineInput pcapFile */
+    ret = get_config_item ("offlineInput", "pcapFile", iniConfig, &item);
     if (!ret && item) {
         tmp->pcapFile = strdup (get_const_string_config_value (item, &error));
         if (tmp->pcapFile == NULL) {
-            fprintf (stderr, "Get \"pcapFile\" error.\n");
+            fprintf (stderr, "Get \"pcapFile\" from \"offlineInput\" error.\n");
             goto freeProperties;
         }
     }
 
-    /* Get loop count */
-    ret = get_config_item ("Input", "loopCount", iniConfig, &item);
-    if (!ret && item) {
-        tmp->loopCount = get_int_config_value (item, 1, 0, &error);
-        if (error) {
-            fprintf (stderr, "Get \"loopCount\" error.\n");
-            goto freeProperties;
-        }
-    }
-
-    /* Get output file */
-    ret = get_config_item ("Output", "outputFile", iniConfig, &item);
+    /* Get fileOutput outputFile */
+    ret = get_config_item ("fileOutput", "outputFile", iniConfig, &item);
     if (!ret && item) {
         tmp->outputFile = strdup (get_const_string_config_value (item, &error));
         if (tmp->outputFile == NULL) {
-            fprintf (stderr, "Get \"outputFile\" error.\n");
+            fprintf (stderr, "Get \"outputFile\" from \"fileOutput\" error.\n");
             goto freeProperties;
         }
     }
 
-    /* Get packets to scan for proto detection */
-    ret = get_config_item ("ProtoDetect", "packetsToScan", iniConfig, &item);
-    if (ret || item == NULL) {
-        fprintf (stderr, "Get_config_item \"packetsToScan\" error.\n");
-        goto freeProperties;
-    }
-    tmp->packetsToScan = get_int_config_value (item, 1, 0, &error);
-    if (error) {
-        fprintf (stderr, "Get \"packetsToScan\" error.\n");
-        goto freeProperties;
+    /* Get splunkOutput index */
+    ret = get_config_item ("splunkOutput", "index", iniConfig, &item);
+    if (!ret && item) {
+        tmp->splunkIndex = strdup (get_const_string_config_value (item, &error));
+        if (tmp->splunkIndex == NULL) {
+            fprintf (stderr, "Get \"index\" from \"splunkOutput\" error.\n");
+            goto freeProperties;
+        }
     }
 
-    /* Get sleep interval after scan for proto detection */
-    ret = get_config_item ("ProtoDetect", "sleepIntervalAfterScan", iniConfig, &item);
-    if (ret || item == NULL) {
-        fprintf (stderr, "Get_config_item \"sleepIntervalAfterScan\" error.\n");
-        goto freeProperties;
-    }
-    tmp->sleepIntervalAfterScan = get_int_config_value (item, 1, 0, &error);
-    if (error) {
-        fprintf (stderr, "Get \"sleepIntervalAfterScan\" error.\n");
-        goto freeProperties;
+    /* Get splunkOutput source */
+    ret = get_config_item ("splunkOutput", "source", iniConfig, &item);
+    if (!ret && item) {
+        tmp->splunkSource = strdup (get_const_string_config_value (item, &error));
+        if (tmp->splunkSource == NULL) {
+            fprintf (stderr, "Get \"source\" from \"splunkOutput\" error.\n");
+            goto freeProperties;
+        }
     }
 
-    /* Get auto add appService flag */
-    ret = get_config_item ("ProtoDetect", "autoAddService", iniConfig, &item);
+    /* Get splunkOutput sourcetype */
+    ret = get_config_item ("splunkOutput", "sourcetype", iniConfig, &item);
+    if (!ret && item) {
+        tmp->splunkSourcetype = strdup (get_const_string_config_value (item, &error));
+        if (tmp->splunkSourcetype == NULL) {
+            fprintf (stderr, "Get \"sourcetype\" from \"splunkOutput\" error.\n");
+            goto freeProperties;
+        }
+    }
+
+    /* Get splunkOutput authToken */
+    ret = get_config_item ("splunkOutput", "authToken", iniConfig, &item);
+    if (!ret && item) {
+        tmp->splunkAuthToken = strdup (get_const_string_config_value (item, &error));
+        if (tmp->splunkAuthToken == NULL) {
+            fprintf (stderr, "Get \"authToken\" from \"splunkOutput\" error.\n");
+            goto freeProperties;
+        }
+    }
+
+    /* Get splunkOutput url */
+    ret = get_config_item ("splunkOutput", "url", iniConfig, &item);
+    if (!ret && item) {
+        tmp->splunkUrl = strdup (get_const_string_config_value (item, &error));
+        if (tmp->splunkUrl == NULL) {
+            fprintf (stderr, "Get \"url\" from \"splunkOutput\" error.\n");
+            goto freeProperties;
+        }
+    }
+
+    /* Get protoDetect autoAddService */
+    ret = get_config_item ("protoDetect", "autoAddService", iniConfig, &item);
     if (ret || item == NULL) {
-        fprintf (stderr, "Get_config_item \"autoAddService\" error.\n");
+        fprintf (stderr, "Get_config_item \"autoAddService\" from \"protoDetect\" error.\n");
         goto freeProperties;
     }
     ret = get_bool_config_value (item, 0, &error);
     if (error) {
-        fprintf (stderr, "Get \"autoAddService\" error.\n");
+        fprintf (stderr, "Get_config_item \"autoAddService\" from \"protoDetect\" error.\n");
         goto freeProperties;
     }
     if (ret)
@@ -207,64 +283,45 @@ loadPropertiesFromConfigFile (char *configFile) {
     else
         tmp->autoAddService = False;
 
-
-    /* Get mining engine host */
-    ret = get_config_item ("MiningEngine", "miningEngineHost", iniConfig, &item);
+    /* Get log logDir */
+    ret = get_config_item ("log", "logDir", iniConfig, &item);
     if (ret || item == NULL) {
-        fprintf (stderr, "Get_config_item \"miningEngineHost\" error.\n");
-        goto freeProperties;
-    }
-    tmp->miningEngineHost = strdup (get_const_string_config_value (item, &error));
-    if (tmp->miningEngineHost == NULL) {
-        fprintf (stderr, "Get \"miningEngineHost\" error.\n");
-        goto freeProperties;
-    }
-
-    /* Get analysis record receive port */
-    ret = get_config_item ("MiningEngine", "analysisRecordRecvPort", iniConfig, &item);
-    if (ret || item == NULL) {
-        fprintf (stderr, "Get_config_item \"analysisRecordRecvPort\" error.\n");
-        goto freeProperties;
-    }
-    tmp->analysisRecordRecvPort = get_int_config_value (item, 1, 0, &error);
-    if (error) {
-        fprintf (stderr, "Get \"analysisRecordRecvPort\" error.\n");
-        goto freeProperties;
-    }
-
-    /* Get log dir */
-    ret = get_config_item ("LOG", "logDir", iniConfig, &item);
-    if (ret || item == NULL) {
-        fprintf (stderr, "Get_config_item \"logDir\" error.\n");
+        fprintf (stderr, "Get_config_item \"logDir\" from \"log\" error.\n");
         goto freeProperties;
     }
     tmp->logDir = strdup (get_const_string_config_value (item, &error));
     if (error) {
-        fprintf (stderr, "Get \"logDir\" error.\n");
+        fprintf (stderr, "Get \"logDir\" from \"log\" error.\n");
         goto freeProperties;
     }
 
-    /* Get log file name */
-    ret = get_config_item ("LOG", "logFileName", iniConfig, &item);
+    /* Get log logFileName */
+    ret = get_config_item ("log", "logFileName", iniConfig, &item);
     if (ret || item == NULL) {
-        fprintf (stderr, "Get_config_item \"logFileName\" error.\n");
+        fprintf (stderr, "Get_config_item \"logFileName\" from \"log\" error.\n");
         goto freeProperties;
     }
     tmp->logFileName = strdup (get_const_string_config_value (item, &error));
     if (error) {
-        fprintf (stderr, "Get \"logFileName\" error.\n");
+        fprintf (stderr, "Get \"logFileName\" from \"log\" error.\n");
         goto freeProperties;
     }
 
-    /* Get log level */
-    ret = get_config_item ("LOG", "logLevel", iniConfig, &item);
+    /* Get log logLevel */
+    ret = get_config_item ("log", "logLevel", iniConfig, &item);
     if (ret || item == NULL) {
-        fprintf (stderr, "Get_config_item \"logLevel\" error.\n");
+        fprintf (stderr, "Get_config_item \"logLevel\" from \"log\" error.\n");
         goto freeProperties;
     }
     tmp->logLevel = get_int_config_value (item, 1, -1, &error);
     if (error) {
-        fprintf (stderr, "Get \"logLevel\" error.\n");
+        fprintf (stderr, "Get \"logLevel\" from \"log\" error.\n");
+        goto freeProperties;
+    }
+
+    ret = validateProperties (tmp);
+    if (ret < 0) {
+        fprintf (stderr, "Validate properties error.\n");
         goto freeProperties;
     }
 
@@ -286,11 +343,6 @@ getPropertiesDaemonMode (void) {
     return propertiesInstance->daemonMode;
 }
 
-void
-updatePropertiesDaemonMode (boolean daemonMode) {
-    propertiesInstance->daemonMode = daemonMode;
-}
-
 boolean
 getPropertiesSchedRealtime (void) {
     return propertiesInstance->schedPriority ? True : False;
@@ -301,29 +353,9 @@ getPropertiesSchedPriority (void) {
     return propertiesInstance->schedPriority;
 }
 
-void
-updatePropertiesSchedPriority (u_int schedPriority) {
-    int minPriority;
-    int maxPriority;
-
-    minPriority = sched_get_priority_min (SCHED_RR);
-    maxPriority = sched_get_priority_max (SCHED_RR);
-
-    if (schedPriority < minPriority ||
-        schedPriority > maxPriority)
-        propertiesInstance->schedPriority = 0;
-    else
-        propertiesInstance->schedPriority = schedPriority;
-}
-
 u_short
 getPropertiesManagementServicePort (void) {
     return propertiesInstance->managementServicePort;
-}
-
-void
-updatePropertiesManagementServicePort (u_short port) {
-    propertiesInstance->managementServicePort = port;
 }
 
 boolean
@@ -336,31 +368,9 @@ getPropertiesInterface (void) {
     return propertiesInstance->interface;
 }
 
-void
-updatePropertiesInterface (char *interface) {
-    free (propertiesInstance->interface);
-    propertiesInstance->interface = strdup (interface);
-}
-
 char *
 getPropertiesPcapFile (void) {
     return propertiesInstance->pcapFile;
-}
-
-void
-updatePropertiesPcapFile (char *pcapFile) {
-    free (propertiesInstance->pcapFile);
-    propertiesInstance->pcapFile = strdup (pcapFile);
-}
-
-u_int
-getPropertiesLoopCount (void) {
-    return propertiesInstance->loopCount;
-}
-
-void
-updatePropertiesLoopCount (u_int loopCount) {
-    propertiesInstance->loopCount = loopCount;
 }
 
 char *
@@ -368,30 +378,29 @@ getPropertiesOutputFile (void) {
     return propertiesInstance->outputFile;
 }
 
-void
-updatePropertiesOutputFile (char *outputFile) {
-    free (propertiesInstance->outputFile);
-    propertiesInstance->outputFile = strdup (outputFile);
+char *
+getPropertiesSplunkIndex (void) {
+    return propertiesInstance->splunkIndex;
 }
 
-u_int
-getPropertiesPacketsToScan (void) {
-    return propertiesInstance->packetsToScan;
+char *
+getPropertiesSplunkSource (void) {
+    return propertiesInstance->splunkSource;
 }
 
-void
-updatePropertiesPacketsToScan (u_int packetsToScan) {
-    propertiesInstance->packetsToScan = packetsToScan;
+char *
+getPropertiesSplunkSourcetype (void) {
+    return propertiesInstance->splunkSourcetype;
 }
 
-u_int
-getPropertiesSleepIntervalAfterScan (void) {
-    return propertiesInstance->sleepIntervalAfterScan;
+char *
+getPropertiesSplunkAuthToken (void) {
+    return propertiesInstance->splunkAuthToken;
 }
 
-void
-updatePropertiesSleepIntervalAfterScan (u_int sleepInterval) {
-    propertiesInstance->sleepIntervalAfterScan = sleepInterval;
+char *
+getPropertiesSplunkUrl (void) {
+    return propertiesInstance->splunkUrl;
 }
 
 boolean
@@ -402,52 +411,14 @@ getPropertiesAutoAddService (void) {
         return propertiesInstance->autoAddService;
 }
 
-void
-updatePropertiesAutoAddService (boolean autoAddService) {
-    propertiesInstance->autoAddService = autoAddService;
-}
-
-char *
-getPropertiesMiningEngineHost (void) {
-    return propertiesInstance->miningEngineHost;
-}
-
-void
-updatePropertiesMiningEngineHost (char *ip) {
-    free (propertiesInstance->miningEngineHost);
-    propertiesInstance->miningEngineHost = strdup (ip);
-}
-
-u_short
-getPropertiesAnalysisRecordRecvPort (void) {
-    return propertiesInstance->analysisRecordRecvPort;
-}
-
-void
-updatePropertiesAnalysisRecordRecvPort (u_short port) {
-    propertiesInstance->analysisRecordRecvPort = port;
-}
-
 char *
 getPropertiesLogDir (void) {
     return propertiesInstance->logDir;
 }
 
-void
-updatePropertiesLogDir (char *logDir) {
-    free (propertiesInstance->logDir);
-    propertiesInstance->logDir = strdup (logDir);
-}
-
 char *
 getPropertiesLogFileName (void) {
     return propertiesInstance->logFileName;
-}
-
-void
-updatePropertiesLogFileName (char *logFileName) {
-    free (propertiesInstance->logFileName);
-    propertiesInstance->logFileName = strdup (logFileName);
 }
 
 u_int
@@ -456,27 +427,22 @@ getPropertiesLogLevel (void) {
 }
 
 void
-updatePropertiesLogLevel (u_int logLevel) {
-    propertiesInstance->logLevel = logLevel;
-}
-
-void
 displayPropertiesDetail (void) {
     LOGI ("Startup with properties:{\n");
     LOGI ("    daemonMode: %s\n", getPropertiesDaemonMode () ? "True" : "False");
-    LOGI ("    ScheduleRealtime: %s\n", getPropertiesSchedPriority () ? "True" : "False");
-    LOGI ("    SchedulePriority: %u\n", getPropertiesSchedPriority ());
+    LOGI ("    scheduleRealtime: %s\n", getPropertiesSchedPriority () ? "True" : "False");
+    LOGI ("    schedulePriority: %u\n", getPropertiesSchedPriority ());
     LOGI ("    managementServicePort: %u\n", getPropertiesManagementServicePort ());
     LOGI ("    sniffLiveMode : %s\n", getPropertiesSniffLive () ? "True" : "False");
     LOGI ("    interface: %s\n", getPropertiesInterface ());
     LOGI ("    pcapFile: %s\n", getPropertiesPcapFile ());
-    LOGI ("    loopCount: %u\n", getPropertiesLoopCount ());
     LOGI ("    outputFile: %s\n", getPropertiesOutputFile ());
-    LOGI ("    packetsToScan: %u\n", getPropertiesPacketsToScan ());
-    LOGI ("    sleepIntervalAfterScan: %u\n", getPropertiesSleepIntervalAfterScan ());
+    LOGI ("    splunkIndex: %s\n", getPropertiesSplunkIndex ());
+    LOGI ("    splunkSource: %s\n", getPropertiesSplunkSource ());
+    LOGI ("    splunkSourcetype: %s\n", getPropertiesSplunkSourcetype ());
+    LOGI ("    splunkAuthToken: %s\n", getPropertiesSplunkAuthToken ());
+    LOGI ("    splunkUrl: %s\n", getPropertiesSplunkUrl ());
     LOGI ("    autoAddService: %s\n", getPropertiesAutoAddService () ? "True" : "False");
-    LOGI ("    miningEngineHost: %s\n", getPropertiesMiningEngineHost ());
-    LOGI ("    analysisRecordRecvPort: %u\n", getPropertiesAnalysisRecordRecvPort ());
     LOGI ("    logDir: %s\n", getPropertiesLogDir ());
     LOGI ("    logFileName: %s\n", getPropertiesLogFileName ());
     LOGI ("    logLevel: ");

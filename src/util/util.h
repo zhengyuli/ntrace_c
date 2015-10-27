@@ -5,6 +5,9 @@
 #include <string.h>
 #include <time.h>
 
+#define LOCAL_TIME_STRING_FORMAT "%04d-%02d-%02dT%02d:%02d:%02d.%03d%c%02d:00"
+#define LOCAL_TIME_STRING_LENGTH 29
+
 typedef long long int long_long;
 typedef unsigned long long int u_long_long;
 
@@ -73,6 +76,8 @@ u_long_long
 getSysTime (void);
 void
 formatLocalTimeStr (timeValPtr timestamp, char *buf, u_int bufLen);
+time_t
+decodeLocalTimeStr (char *timeStr);
 
 u_long_long
 ntohll (u_long_long src);

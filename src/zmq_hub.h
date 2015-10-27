@@ -33,7 +33,6 @@ struct _zmqHub {
     void *protoDetectionStatusRecvSock; /**< Proto detection status recv sock */
 
     void *analysisRecordRecvSock;       /**< Analysis record recv sock */
-    void *analysisRecordPushSock;       /**< Analysis record push sock */
 
     void *topologyEntrySendSock;        /**< Topology entry send sock */
 
@@ -72,8 +71,6 @@ void *
 getProtoDetectionStatusRecvSock (void);
 void *
 getAnalysisRecordRecvSock (void);
-void *
-getAnalysisRecordPushSock (void);
 void *
 getTopologyEntrySendSock (void);
 void *

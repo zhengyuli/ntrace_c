@@ -34,6 +34,7 @@ INCLUDE_DIRECTORIES (
   analyzer/
   proto_detection/
   analysis_record/
+  analysis_record/splunk_forwarder/
   3rd_party/http_parser/
   ${PROJECT_BINARY_DIR})
 
@@ -76,13 +77,15 @@ SET (NTRACE_SOURCE_FILES
   analyzer/http/http_analyzer.c
   analyzer/mysql/mysql_analyzer.c
   analysis_record/analysis_record.c
+  analysis_record/splunk_forwarder/http_client.c
+  analysis_record/splunk_forwarder/splunk_forwarder.c
   analysis_record/analysis_record_service.c
   proto_detection/proto_detect_service.c)
 
 ADD_EXECUTABLE (ntrace ${NTRACE_SOURCE_FILES})
 TARGET_LINK_LIBRARIES (
   ntrace
-  pcap czmq pthread ini_config z jansson dl uuid)
+  pcap czmq pthread ini_config z jansson dl uuid curl)
 INSTALL (
   TARGETS ntrace
   DESTINATION ${PROJECT_SBIN_DIR})

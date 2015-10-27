@@ -14,8 +14,6 @@
 static pcap_t *pcapDescForSniff = NULL;
 /* Datalink type for sniff */
 static int datalinkTypeForSniff = -1;
-/* Pcap file load count */
-static u_int pcapFileLoadCount = 0;
 
 /* Pcap descriptor for proto detection */
 static pcap_t *pcapDescForProtoDection = NULL;
@@ -160,7 +158,7 @@ getNetDevDatalinkTypeForProtoDetection (void) {
  *
  * @return 0 if success else -1
  */
-int
+static int
 getPcapStatisticInfo (pcap_t *pcapDev, u_int *pktsRecv, u_int *pktsDrop) {
     int ret;
     struct pcap_stat ps;
@@ -202,7 +200,7 @@ updatePcapFilter (pcap_t *pcapDev, char *filter) {
     struct bpf_program pcapFilter;
     char errBuf [PCAP_ERRBUF_SIZE] = {0};
 
-    if (getPropertiesInterface ()) {
+    if (getPropertiesSniffLive ()) {
         ret = pcap_lookupnet (getPropertiesInterface (), &net, &mask, errBuf);
         if (ret < 0) {
             LOGE ("Pcap lookup net error.\n");
@@ -235,42 +233,29 @@ updateNetDevFilterForProtoDetection (char *filter) {
 }
 
 /**
- * @brief Loop netDev for sniff
- *        Loop netDev is only for pcap file, it will loop create and read
- *        pcap file until reach loop count if loop count is not zero, else
- *        loop forever.
+ * @brief Reset netDev for sniff, only for pcap file.
  *
  * @return 0 for success, -1 for error, 1 for complete
  */
 int
-loopNetDevForSniff (void) {
+resetNetDevForSniff (void) {
     pcap_t * tmp;
 
-    if (getPropertiesSniffLive ()) {
-        LOGE ("Sniff in live mode, can't loop netDev for sniff.\n");
+    if (getPropertiesSniffLive ())
+        tmp = newPcapInterfaceDesc (getPropertiesInterface ());
+    else
+        tmp = newPcapFileDesc (getPropertiesPcapFile ());
+    if (tmp == NULL) {
+        LOGE ("Create pcap descriptor for %s error.\n",
+              getPropertiesSniffLive () ? getPropertiesInterface () : getPropertiesPcapFile ());
         return -1;
     }
 
-    if (getPropertiesLoopCount () == 0 ||
-        pcapFileLoadCount < getPropertiesLoopCount ()) {
-        tmp = newPcapFileDesc (getPropertiesPcapFile ());
-        if (tmp == NULL) {
-            LOGE ("Create pcap file descriptor: %s error.\n", getPropertiesPcapFile ());
-            return -1;
-        }
+    if (pcapDescForSniff)
+        pcap_close (pcapDescForSniff);
 
-        if (pcapDescForSniff) {
-            pcap_close (pcapDescForSniff);
-            pcapDescForSniff = NULL;
-        }
-
-        pcapDescForSniff = tmp;
-        pcapFileLoadCount++;
-        return 0;
-    } else {
-        LOGI ("Loop netDev reach the max loop count.\n");
-        return 1;
-    }
+    pcapDescForSniff = tmp;
+    return 0;
 }
 
 /**
@@ -278,42 +263,13 @@ loopNetDevForSniff (void) {
  *        Init netDev for sniff and proto detection from pcap file
  *        or network interface, if pcap file is configured, it will
  *        create a pcap file descriptor, else if will create a network
- *        Interface descriptor. if none of them is configured return
- *        error.
+ *        Interface descriptor.
  *
  * @return 0 if success else -1
  */
 int
 initNetDev (void) {
-    if (getPropertiesPcapFile () == NULL &&
-        getPropertiesInterface () == NULL) {
-        LOGE ("Property pcapFile and interface are all NULL.\n");
-        return -1;
-    }
-
-    /* Create pcap descriptor instance */
-    if (getPropertiesPcapFile ()) {
-        pcapDescForSniff = newPcapFileDesc (getPropertiesPcapFile ());
-        if (pcapDescForSniff == NULL) {
-            LOGE ("Open pcap file for sniff error.\n");
-            return -1;
-        } else {
-            LOGI ("Use pcap file: %s as input for sniff.\n",
-                  getPropertiesPcapFile ());
-            pcapFileLoadCount++;
-        }
-
-        pcapDescForProtoDection = newPcapFileDesc (getPropertiesPcapFile ());
-        if (pcapDescForProtoDection == NULL) {
-            pcap_close (pcapDescForSniff);
-            pcapDescForSniff = NULL;
-            LOGE ("Open pcap file for proto detection error.\n");
-            return -1;
-        } else {
-            LOGI ("Use pcap file: %s as input for proto detection.\n",
-                  getPropertiesPcapFile ());
-        }
-    } else if (getPropertiesInterface ()) {
+    if (getPropertiesSniffLive ()) {
         pcapDescForSniff = newPcapInterfaceDesc (getPropertiesInterface ());
         if (pcapDescForSniff == NULL) {
             LOGE ("Open interface: %s for sniff error.\n",
@@ -334,9 +290,24 @@ initNetDev (void) {
             LOGI ("Use interface: %s as input for proto detection.\n",
                   getPropertiesInterface ());
     } else {
-        LOGE ("Input \"Input.Interface\" and \"Input.PcapFile\" are all empty, "
-              "please set the right input source.");
-        return -1;
+        pcapDescForSniff = newPcapFileDesc (getPropertiesPcapFile ());
+        if (pcapDescForSniff == NULL) {
+            LOGE ("Open pcap file for sniff error.\n");
+            return -1;
+        } else
+            LOGI ("Use pcap file: %s as input for sniff.\n",
+                  getPropertiesPcapFile ());
+
+        pcapDescForProtoDection = newPcapFileDesc (getPropertiesPcapFile ());
+        if (pcapDescForProtoDection == NULL) {
+            pcap_close (pcapDescForSniff);
+            pcapDescForSniff = NULL;
+            LOGE ("Open pcap file for proto detection error.\n");
+            return -1;
+        } else {
+            LOGI ("Use pcap file: %s as input for proto detection.\n",
+                  getPropertiesPcapFile ());
+        }
     }
 
     /* Get datalink type for sniff and proto detection */

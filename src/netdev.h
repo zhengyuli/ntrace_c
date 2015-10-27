@@ -22,7 +22,7 @@ updateNetDevFilterForSniff (char *filter);
 int
 updateNetDevFilterForProtoDetection (char *filter);
 int
-loopNetDevForSniff (void);
+resetNetDevForSniff (void);
 int
 initNetDev (void);
 void

@@ -607,84 +607,110 @@ tcpBreakdown2AnalysisRecord (tcpStreamPtr stream, tcpBreakdownPtr tbd) {
     formatLocalTimeStr (&tbd->timestamp, buf, sizeof (buf));
     json_object_set_new (root, ANALYSIS_RECORD_TIMESTAMP,
                          json_string (buf));
+
     /* Analysis record type */
     json_object_set_new (root, ANALYSIS_RECORD_TYPE,
                          json_string (ANALYSIS_RECORD_TYPE_TCP_BREAKDOWN));
+
     /* Tcp application level proto type */
     json_object_set_new (root, TCP_BKD_PROTO,
                          json_string (tbd->proto));
+
     /* Tcp source ip */
     inet_ntop (AF_INET, (void *) &tbd->ipSrc, ipStr, sizeof (ipStr));
     json_object_set_new (root, TCP_BKD_SOURCE_IP,
                          json_string (ipStr));
+
     /* Tcp source port */
     json_object_set_new (root, TCP_BKD_SOURCE_PORT,
                          json_integer (tbd->source));
+
     /* Tcp service ip */
     inet_ntop (AF_INET, (void *) &tbd->svcIp, ipStr, sizeof (ipStr));
     json_object_set_new (root, TCP_BKD_SERVICE_IP,
                          json_string (ipStr));
+
     /* Tcp service port */
     json_object_set_new (root, TCP_BKD_SERVICE_PORT,
                          json_integer (tbd->svcPort));
+
     /* Tcp connection id */
     uuid_unparse (tbd->connId, buf);
     json_object_set_new (root, TCP_BKD_TCP_CONNECTION_ID,
                          json_string (buf));
+
     /* Tcp state */
     json_object_set_new (root, TCP_BKD_TCP_STATE,
                          json_string (getTcpBreakdownStateName (tbd->state)));
+
     /* Tcp retries */
     json_object_set_new (root, TCP_BKD_TCP_RETRIES,
                          json_integer (tbd->retries));
+
     /* Tcp retries latency */
     json_object_set_new (root, TCP_BKD_TCP_RETRIES_LATENCY,
                          json_integer (tbd->retriesLatency));
+
     /* Tcp duplicate syn/ack packets */
     json_object_set_new (root, TCP_BKD_TCP_DUPLICATE_SYNACKS,
                          json_integer (tbd->dupSynAcks));
+
     /* Tcp RTT */
     json_object_set_new (root, TCP_BKD_TCP_RTT,
                          json_integer (tbd->rtt));
+
     /* Tcp MSS */
     json_object_set_new (root, TCP_BKD_TCP_MSS,
                          json_integer (tbd->mss));
+
     /* Tcp connection latency */
     json_object_set_new (root, TCP_BKD_TCP_CONNECTION_LATENCY,
                          json_integer (tbd->connLatency));
+
     /* Tcp c2s bytes */
     json_object_set_new (root, TCP_BKD_TCP_C2S_BYTES,
                          json_integer (tbd->c2sBytes));
+
     /* Tcp s2c bytes */
     json_object_set_new (root, TCP_BKD_TCP_S2C_BYTES,
                          json_integer (tbd->s2cBytes));
+
     /* Tcp total bytes */
     json_object_set_new (root, TCP_BKD_TCP_TOTAL_BYTES,
                          json_integer (tbd->totalBytes));
+
     /* Tcp c2s packets */
     json_object_set_new (root, TCP_BKD_TCP_C2S_PACKETS,
                          json_integer (tbd->c2sPkts));
+
     /* Tcp s2c packets */
     json_object_set_new (root, TCP_BKD_TCP_S2C_PACKETS,
                          json_integer (tbd->s2cPkts));
+
     /* Tcp total packets */
     json_object_set_new (root, TCP_BKD_TCP_TOTAL_PACKETS,
                          json_integer (tbd->totalPkts));
+
     /* Tcp tiny packets */
     json_object_set_new (root, TCP_BKD_TCP_TINY_PACKETS,
                          json_integer (tbd->tinyPkts));
+
     /* Tcp PAWS packets */
     json_object_set_new (root, TCP_BKD_TCP_PAWS_PACKETS,
                          json_integer (tbd->pawsPkts));
+
     /* Tcp retransmitted packets */
     json_object_set_new (root, TCP_BKD_TCP_RETRANSMITTED_PACKETS,
                          json_integer (tbd->retransmittedPkts));
+
     /* Tcp out of order packets */
     json_object_set_new (root, TCP_BKD_TCP_OUT_OF_ORDER_PACKETS,
                          json_integer (tbd->outOfOrderPkts));
+
     /* Tcp zero windows */
     json_object_set_new (root, TCP_BKD_TCP_ZERO_WINDOWS,
                          json_integer (tbd->zeroWindows));
+
     /* Tcp duplicate acks */
     json_object_set_new (root, TCP_BKD_TCP_DUPLICATE_ACKS,
                          json_integer (tbd->dupAcks));

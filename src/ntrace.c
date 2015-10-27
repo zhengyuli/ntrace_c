@@ -390,31 +390,21 @@ ntraceDaemon (void) {
 int
 main (int argc, char *argv []) {
     int ret;
-    char *configFile;
 
     /* Set locale */
     setlocale (LC_COLLATE, "");
 
-    /* Get config file */
-    configFile = getConfigFile (argc, argv);
-    if (configFile == NULL) {
-        fprintf (stderr, "Get config file error.\n");
-        return -1;
-    }
-
-    /* Init properties */
-    ret = initProperties (configFile);
-    if (ret < 0) {
-        fprintf (stderr, "Init properties error.\n");
-        return -1;
-    }
-
-    /* Parse command line options */
     ret = parseOptions (argc, argv);
     if (ret < 0) {
         fprintf (stderr, "Parse command line options error.\n");
         ret = -1;
-        goto destroyProperties;
+    }
+
+    /* Init properties */
+    ret = initProperties (getConfigFile ());
+    if (ret < 0) {
+        fprintf (stderr, "Init properties error.\n");
+        return -1;
     }
 
     /* Run as daemon or normal process */
@@ -423,7 +413,6 @@ main (int argc, char *argv []) {
     else
         ret = ntraceService ();
 
-destroyProperties:
     destroyProperties ();
     return ret;
 }

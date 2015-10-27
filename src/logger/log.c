@@ -6,6 +6,7 @@
 #include <czmq.h>
 #include "util.h"
 #include "zmq_hub.h"
+#include "properties.h"
 #include "log.h"
 
 #define MAX_LOG_MESSAGE_LENGTH 8192
@@ -49,9 +50,6 @@ doLog (u_char logLevel, const char *file, u_int line, const char *func, char *ms
         return;
     }
 
-    if (logLevel > logCtxtInstance->logLevel)
-        return;
-
     seconds = time (NULL);
     localTime = localtime (&seconds);
     snprintf (timeStr, sizeof (timeStr), "%04d-%02d-%02d %02d:%02d:%02d",
@@ -93,9 +91,12 @@ doLog (u_char logLevel, const char *file, u_int line, const char *func, char *ms
               timeStr, gettid (), logLevelStr, fileName, line, func, tmp);
     buf [MAX_LOG_MESSAGE_LENGTH - 1] = 0;
 
-    /* Send log to console also */
-    if (logLevel <= LOG_INFO_LEVEL)
+    /* Send log to console if doesn't run in daemon mode */
+    if (!getPropertiesDaemonMode ())
         fprintf (stdout, "%s", tmp);
+
+    if (logLevel > logCtxtInstance->logLevel)
+        return;
 
     do {
         ret = zstr_send (logCtxtInstance->logSock, buf);

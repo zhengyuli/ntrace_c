@@ -18,6 +18,9 @@
 #include "analysis_record.h"
 #include "proto_detect_service.h"
 
+#define PACKETS_OF_PROTO_DETECT_SCAN 1000
+#define INTERVAL_AFTER_PROTO_DETECT_SCAN 5
+
 __thread void *topologyEntrySendSock = NULL;
 __thread void *appServiceSendSock = NULL;
 
@@ -49,8 +52,7 @@ protoDetectCallback (tcpProcessCallbackArgsPtr callbackArgs) {
             break;
 
         case PUBLISH_APP_SERVICE:
-            if (getPropertiesSniffLive () &&
-                getPropertiesAutoAddService ())
+            if (getPropertiesSniffLive () && getPropertiesAutoAddService ())
                 updateFilterForSniff ();
             publishAnalysisRecord (appServiceSendSock, (char *) callbackArgs->args);
             break;
@@ -75,8 +77,6 @@ protoDetectService (void *args) {
     struct pcap_pkthdr *capPktHdr;
     u_char *rawPkt;
     boolean captureLive;
-    u_int packetsToScan;
-    u_int sleepIntervalAfterScan;
     u_long_long packetsScanned = 0;
     timeVal captureTime;
     iphdrPtr iph, newIphdr;
@@ -122,8 +122,6 @@ protoDetectService (void *args) {
     }
 
     captureLive = getPropertiesSniffLive ();
-    packetsToScan = getPropertiesPacketsToScan ();
-    sleepIntervalAfterScan = getPropertiesSleepIntervalAfterScan ();
 
     while (!taskShouldExit ()) {
         ret = pcap_next_ex (pcapDev, &capPktHdr, (const u_char **) &rawPkt);
@@ -134,11 +132,9 @@ protoDetectService (void *args) {
 
             packetsScanned ++;
 
-            if (captureLive &&
-                packetsToScan &&
-                packetsScanned % packetsToScan == 0) {
+            if (captureLive && packetsScanned % PACKETS_OF_PROTO_DETECT_SCAN == 0) {
                 LOGD ("Pause ProtoDetectService after scanning packets: %llu.\n", packetsScanned);
-                sleep (sleepIntervalAfterScan);
+                sleep (INTERVAL_AFTER_PROTO_DETECT_SCAN);
 
                 /* Reset ip context */
                 resetIpContext ();

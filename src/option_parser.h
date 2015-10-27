@@ -3,7 +3,7 @@
 
 /*========================Interfaces definition============================*/
 char *
-getConfigFile (int argc, char *argv []);
+getConfigFile (void);
 int
 parseOptions (int argc, char *argv []);
 /*=======================Interfaces definition end=========================*/

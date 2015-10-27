@@ -602,7 +602,6 @@ updateAppServicesBlacklistFromJson (json_t *root) {
 static int
 updateAppServicesFromCache (void) {
     int ret;
-    char *out;
     json_t *appSvcs;
     json_error_t error;
 
@@ -616,12 +615,6 @@ updateAppServicesFromCache (void) {
         remove (NTRACE_APP_SERVICES_CACHE);
         json_object_clear (appSvcs);
         return -1;
-    }
-
-    out = json_dumps (appSvcs, JSON_INDENT (4) | JSON_PRESERVE_ORDER);
-    if (out) {
-        LOGI ("Update appServices from cache success:\n%s\n", out);
-        free (out);
     }
 
     json_object_clear (appSvcs);
@@ -639,7 +632,6 @@ updateAppServicesFromCache (void) {
 static int
 updateAppServicesBlacklistFromCache (void) {
     int ret;
-    char *out;
     json_t *appSvcs;
     json_error_t error;
 
@@ -653,12 +645,6 @@ updateAppServicesBlacklistFromCache (void) {
         remove (NTRACE_APP_SERVICES_BLACKLIST_CACHE);
         json_object_clear (appSvcs);
         return -1;
-    }
-
-    out = json_dumps (appSvcs, JSON_INDENT (4) | JSON_PRESERVE_ORDER);
-    if (out) {
-        LOGI ("Update appServices blacklist from blacklist cache success:\n%s\n", out);
-        free (out);
     }
 
     json_object_clear (appSvcs);
@@ -703,8 +689,6 @@ syncAppServicesCache (void) {
     ret = safeWrite (fd, appSvcsStr, strlen (appSvcsStr));
     if (ret < 0 || ret != strlen (appSvcsStr))
         LOGE ("Dump to appServices cache file error.\n");
-    else
-        LOGI ("Sync appServices cache success:\n%s\n", appSvcsStr);
 
     close (fd);
     free (appSvcsStr);
@@ -749,8 +733,6 @@ syncAppServicesBlacklistCache (void) {
     ret = safeWrite (fd, appSvcsStr, strlen (appSvcsStr));
     if (ret < 0 || ret != strlen (appSvcsStr))
         LOGE ("Dump to appServices blacklist cache file error.\n");
-    else
-        LOGI ("Sync appServices blacklist cache success:\n%s\n", appSvcsStr);
 
     close (fd);
     free (appSvcsStr);

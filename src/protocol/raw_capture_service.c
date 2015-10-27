@@ -17,26 +17,19 @@
 static pcap_t *pcapDev = NULL;
 static int datalinkType = -1;
 
-/* NetDev loop complete flag */
-static boolean loopComplete = False;
-
 static u_long_long rawPktCaptureSize = 0;
 static u_long_long rawPktCaptureStartTime = 0;
 static u_long_long rawPktCaptureEndTime = 0;
 
 static int
-loopPcapDev (void) {
+resetPcapDev (void) {
     int ret;
     char *filter;
 
-    ret = loopNetDevForSniff ();
+    ret = resetNetDevForSniff ();
     if (ret < 0) {
-        LOGE ("Loop netDev error.\n");
+        LOGE ("Reset netDev error.\n");
         return -1;
-    } else if (ret == 1) {
-        LOGI ("Loop netDev complete.\n");
-        loopComplete = True;
-        return 1;
     }
 
     filter = getAppServicesFilter ();
@@ -182,7 +175,7 @@ rawCaptureService (void *args) {
         } else if (ret == -1) {
             LOGE ("Capture raw packets for sniff with fatal error.\n");
             break;
-        } else if (ret == -2 && loopPcapDev ())
+        } else if (ret == -2 && resetPcapDev () < 0)
             break;
     }
 
@@ -193,9 +186,7 @@ rawCaptureService (void *args) {
 destroyLogContext:
     destroyLogContext ();
 exit:
-    if (loopComplete)
-        sendTaskStatus (TASK_STATUS_EXIT_NORMALLY);
-    else if (!taskShouldExit ())
+    if (!taskShouldExit ())
         sendTaskStatus (TASK_STATUS_EXIT_ABNORMALLY);
 
     return NULL;

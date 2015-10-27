@@ -57,7 +57,7 @@ typedef httpSessionDetailNode *httpSessionDetailNodePtr;
 struct _httpSessionDetailNode {
     char *reqVer;                       /**< Http protocol request version */
     char *method;                       /**< Http request method */
-    char *url;                          /**< Http request url */
+    char *uri;                          /**< Http request uri */
     char *host;                         /**< Http server host */
     char *userAgent;                    /**< Http request user agent */
     char *referer;                      /**< Http request referer url */
@@ -111,7 +111,7 @@ typedef httpSessionBreakdown *httpSessionBreakdownPtr;
 struct _httpSessionBreakdown {
     char *reqVer;                       /**< Http protocol request version */
     char *method;                       /**< Http request method */
-    char *url;                          /**< Http request url */
+    char *uri;                          /**< Http request uri */
     char *host;                         /**< Http server host */
     char *userAgent;                    /**< Http request user agent */
     char *referer;                      /**< Http request referer url */
@@ -139,7 +139,7 @@ struct _httpSessionBreakdown {
 /* Http session breakdown json key definitions */
 #define HTTP_SBKD_REQUEST_VERSION "http_request_version"
 #define HTTP_SBKD_METHOD "http_method"
-#define HTTP_SBKD_URL "http_url"
+#define HTTP_SBKD_URI "http_uri"
 #define HTTP_SBKD_HOST "http_host"
 #define HTTP_SBKD_REQUEST_LINE "http_request_line"
 #define HTTP_SBKD_USER_AGENT "http_user_agent"

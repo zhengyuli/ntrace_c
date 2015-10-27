@@ -48,10 +48,32 @@ formatLocalTimeStr (timeValPtr timestamp, char *buf, u_int bufLen) {
     localTime = localtime (&seconds);
     tmGMTOff = localTime->tm_gmtoff / 3600;
     snprintf (buf, bufLen,
-              "%04d-%02d-%02dT%02d:%02d:%02d.%03d%c%02d:00",
+              LOCAL_TIME_STRING_FORMAT,
               (localTime->tm_year + 1900), localTime->tm_mon + 1, localTime->tm_mday,
               localTime->tm_hour, localTime->tm_min, localTime->tm_sec,
               (int) (timestamp->tvUsec / 1000), tmGMTOff > 0 ? '+' : '-', abs (tmGMTOff));
+}
+
+time_t
+decodeLocalTimeStr (char *timeStr) {
+    struct tm localTime;
+    char tmp;
+    int tm_year, tm_mon, tm_mday, tm_hour, tm_min, tm_sec, miniSec, zone;
+
+    sscanf (timeStr, LOCAL_TIME_STRING_FORMAT,
+            &tm_year, &tm_mon, &tm_mday, &tm_hour, &tm_min, &tm_sec,
+            &miniSec, &tmp, &zone);
+    tm_year -= 1900;
+    tm_mon -= 1;
+
+    localTime.tm_year = tm_year;
+    localTime.tm_mon = tm_mon;
+    localTime.tm_mday = tm_mday;
+    localTime.tm_hour = tm_hour;
+    localTime.tm_min = tm_min;
+    localTime.tm_sec = tm_sec;
+
+    return mktime (&localTime);
 }
 
 /* ========================================================================== */

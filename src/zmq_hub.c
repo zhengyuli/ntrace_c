@@ -49,11 +49,6 @@ getAnalysisRecordRecvSock (void) {
 }
 
 void *
-getAnalysisRecordPushSock (void) {
-    return zmqHubIntance->analysisRecordPushSock;
-}
-
-void *
 getTopologyEntrySendSock (void) {
     return zmqHubIntance->topologyEntrySendSock;
 }
@@ -253,21 +248,6 @@ initZmqHub (void) {
     if (ret < 0) {
         LOGE ("Bind analysisRecordRecvSock to %s error.\n",
               ANALYSIS_RECORD_EXCHANGE_CHANNEL);
-        goto destroyZmqCtxt;
-    }
-
-    /* Create analysis record push sock */
-    zmqHubIntance->analysisRecordPushSock = zsocket_new (zmqHubIntance->zmqCtxt, ZMQ_PUSH);
-    if (zmqHubIntance->analysisRecordPushSock == NULL) {
-        LOGE ("Create analysisRecordPushSock error.\n");
-        goto destroyZmqCtxt;
-    }
-    zsocket_set_sndhwm (zmqHubIntance->analysisRecordPushSock, 500000);
-    ret = zsocket_connect (zmqHubIntance->analysisRecordPushSock, "tcp://%s:%u",
-                           getPropertiesMiningEngineHost (), getPropertiesAnalysisRecordRecvPort ());
-    if (ret < 0) {
-        LOGE ("Connect analysisRecordPushSock to tcp://%s:%u error.\n",
-              getPropertiesMiningEngineHost (), getPropertiesAnalysisRecordRecvPort ());
         goto destroyZmqCtxt;
     }
 

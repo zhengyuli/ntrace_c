@@ -74,6 +74,7 @@ defaultSessionBreakdown2Json (json_t *root, void *sd, void *sbd) {
 
     json_object_set_new (root, DEFAULT_SBKD_EXCHANGE_SIZE,
                          json_integer (dsbd->exchangeSize));
+
     json_object_set_new (root, DEFAULT_SBKD_SERVER_LATENCY,
                          json_integer (dsbd->serverLatency));
 }

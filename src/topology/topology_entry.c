@@ -105,11 +105,14 @@ topologyEntryAnalysisRecord (timeValPtr tm, char *srcIp, char *destIp) {
     formatLocalTimeStr (tm, buf, sizeof (buf));
     json_object_set_new (root, ANALYSIS_RECORD_TIMESTAMP,
                          json_string (buf));
+
     /* Analysis record type */
     json_object_set_new (root, ANALYSIS_RECORD_TYPE,
                          json_string (ANALYSIS_RECORD_TYPE_TOPOLOGY_ENTRY));
+
     /* Topology entry source ip */
     json_object_set_new (root, TOPOLOGY_ENTRY_SOURCE_IP, json_string (srcIp));
+
     /* Topology entry dest ip */
     json_object_set_new (root, TOPOLOGY_ENTRY_DEST_IP, json_string (destIp));
 

@@ -2,6 +2,7 @@
 #include <string.h>
 #include <errno.h>
 #include <czmq.h>
+#include <unistd.h>
 #include "list.h"
 #include "util.h"
 #include "properties.h"
@@ -9,6 +10,8 @@
 #include "log.h"
 #include "zmq_hub.h"
 #include "task_manager.h"
+#include "http_client.h"
+#include "splunk_forwarder.h"
 #include "analysis_record_service.h"
 
 /* Analysis record output devices list */
@@ -117,56 +120,127 @@ writeAnalysisRecordOutputFile (void *analysisRecord, u_int len,
 
 /*===========================AnalysisRecord output file dev===========================*/
 
-/*============================AnalysisRecord output net dev===========================*/
+/*==========================AnalysisRecord output splunk dev==========================*/
 
-typedef struct _analysisRecordOutputNet analysisRecordOutputNet;
-typedef analysisRecordOutputNet *analysisRecordOutputNetPtr;
+typedef struct _analysisRecordOutputSplunk analysisRecordOutputSplunk;
+typedef analysisRecordOutputSplunk *analysisRecordOutputSplunkPtr;
 
-struct _analysisRecordOutputNet {
-    void *pushSock;
+struct _analysisRecordOutputSplunk {
+    char index [128];
+    char host [128];
+    char source [128];
+    char sourcetype [128];
+    char authToken [128];
+    char url [128];
+
+    httpHandlerPtr handler;
+    httpHeaderPtr header;
+    splunkEventEntryPtr entry;
 };
 
 static int
-initAnalysisRecordOutputNet (analysisRecordOutputDevPtr dev) {
-    analysisRecordOutputNetPtr outputNet =
-            (analysisRecordOutputNetPtr) malloc (sizeof (analysisRecordOutputNet));
-    if (outputNet == NULL) {
-        LOGE ("Malloc analysisRecordOutputNet error.\n");
+initAnalysisRecordOutputSplunk (analysisRecordOutputDevPtr dev) {
+    int ret;
+    char tmp [128];
+
+    analysisRecordOutputSplunkPtr outputSplunk = (analysisRecordOutputSplunkPtr)
+                                                 malloc (sizeof (analysisRecordOutputSplunk));
+    if (outputSplunk == NULL) {
+        LOGE ("Malloc outputSplunk error.\n");
         return -1;
     }
 
-    outputNet->pushSock = getAnalysisRecordPushSock ();
+    snprintf (outputSplunk->index, sizeof (outputSplunk->index), "%s",
+              getPropertiesSplunkIndex ());
+    ret = gethostname (outputSplunk->host, sizeof (outputSplunk->host));
+    if (ret < 0) {
+        LOGE ("Get host name error.\n");
+        return -1;
+    }
+    snprintf (outputSplunk->source, sizeof (outputSplunk->source), "%s",
+              getPropertiesSplunkSource ());
+    snprintf (outputSplunk->sourcetype, sizeof (outputSplunk->sourcetype), "%s",
+              getPropertiesSplunkSourcetype ());
+    snprintf (outputSplunk->authToken, sizeof (outputSplunk->authToken), "%s",
+              getPropertiesSplunkAuthToken ());
+    snprintf (outputSplunk->url, sizeof (outputSplunk->url), "%s", getPropertiesSplunkUrl ());
 
-    dev->data = outputNet;
+    outputSplunk->handler = newHttp ();
+    if (outputSplunk->handler == NULL) {
+        LOGE ("Create http handler error.\n");
+        free (outputSplunk);
+        return -1;
+    }
+
+    outputSplunk->header = newHttpHeader ();
+    if (outputSplunk->header == NULL) {
+        LOGE ("Create http header error.\n");
+        freeHttp (outputSplunk->handler);
+        free (outputSplunk);
+        return -1;
+    }
+    snprintf (tmp, sizeof (tmp), "Splunk %s", outputSplunk->authToken);
+    addHttpHeader (outputSplunk->header, "Authorization", tmp);
+
+    outputSplunk->entry = newSplunkEventEntry ();
+    if (outputSplunk->entry == NULL) {
+        LOGE ("Create splunk event entry error.\n");
+        freeHttpHeader (outputSplunk->header);
+        freeHttp (outputSplunk->handler);
+        free (outputSplunk);
+        return -1;
+    }
+
+    ret = initSplunkEventEntry (outputSplunk->entry, outputSplunk->index, outputSplunk->host,
+                                outputSplunk->source, outputSplunk->sourcetype, NULL, NULL, 0);
+    if (ret < 0) {
+        LOGE ("Init splunk event entry error.\n");
+        freeSplunkEventEntry (outputSplunk->entry);
+        freeHttpHeader (outputSplunk->header);
+        freeHttp (outputSplunk->handler);
+        free (outputSplunk);
+        return -1;
+    }
+
+    dev->data = outputSplunk;
     return 0;
 }
 
 static void
-destroyAnalysisRecordOutputNet (analysisRecordOutputDevPtr dev) {
-    return;
+destroyAnalysisRecordOutputSplunk (analysisRecordOutputDevPtr dev) {
+    analysisRecordOutputSplunkPtr outputSplunk = (analysisRecordOutputSplunkPtr) dev->data;
+    freeSplunkEventEntry (outputSplunk->entry);
+    freeHttpHeader (outputSplunk->header);
+    freeHttp (outputSplunk->handler);
+    free (outputSplunk);
 }
 
 static void
-writeAnalysisRecordOutputNet (void *analysisRecord, u_int len,
-                              analysisRecordOutputDevPtr dev) {
+writeAnalysisRecordOutputSplunk (void *analysisRecord, u_int len,
+                                 analysisRecordOutputDevPtr dev) {
     int ret;
-    analysisRecordOutputNetPtr outputNet;
-    zframe_t *frame;
+    char timestamp [LOCAL_TIME_STRING_LENGTH + 1] = {0};
+    time_t seconds;
+    analysisRecordOutputSplunkPtr outputSplunk;
 
-    outputNet = (analysisRecordOutputNetPtr) dev->data;
+    memcpy (timestamp, analysisRecord + 14, LOCAL_TIME_STRING_LENGTH);
+    seconds = decodeLocalTimeStr (timestamp);
+    snprintf(timestamp, sizeof (timestamp), "%u", (u_int) seconds);
 
-    frame = zframe_new (analysisRecord, len);
-    if (frame == NULL) {
-        LOGE ("Create analysis record zframe error.\n");
-        return;
-    }
-
-    ret = zframe_send (&frame, outputNet->pushSock, 0);
+    outputSplunk = (analysisRecordOutputSplunkPtr) dev->data;
+    ret = initSplunkEventEntry (outputSplunk->entry, NULL, NULL, NULL, NULL, timestamp,
+                                (char *) analysisRecord, len);
     if (ret < 0)
-        LOGE ("Send analysis record error.\n");
+        LOGE ("Init splunk event entry error.\n");
+    else {
+        ret = doWriteSplunkEventEntry (outputSplunk->handler, outputSplunk->url,
+                                       outputSplunk->header, outputSplunk->entry);
+        if (ret < 0)
+            LOGE ("Send splunk event entry error.\n");
+    }
 }
 
-/*============================AnalysisRecord output net dev===========================*/
+/*==========================AnalysisRecord output splunk dev==========================*/
 
 static int
 analysisRecordOutputDevAdd (analysisRecordOutputDevPtr dev) {
@@ -200,8 +274,12 @@ analysisRecordOutputDevWrite (listHeadPtr analysisRecordOutputDevices,
     analysisRecordOutputDevPtr dev;
     listHeadPtr pos;
 
-    listForEachEntry (dev, pos, analysisRecordOutputDevices, node) {
-        dev->write (analysisRecord, len, dev);
+    if (listIsEmpty (analysisRecordOutputDevices))
+        LOGI ("%s\n", analysisRecord);
+    else {
+        listForEachEntry (dev, pos, analysisRecordOutputDevices, node) {
+            dev->write (analysisRecord, len, dev);
+        }
     }
 }
 
@@ -234,12 +312,12 @@ analysisRecordService (void *args) {
         .write = writeAnalysisRecordOutputFile,
     };
 
-    /* Init analysis record output net dev */
-    analysisRecordOutputDev analysisRecordOutputNetDev = {
+    /* Init analysis record output splunk dev */
+    analysisRecordOutputDev analysisRecordOutputSplunkDev = {
         .data = NULL,
-        .init = initAnalysisRecordOutputNet,
-        .destroy = destroyAnalysisRecordOutputNet,
-        .write = writeAnalysisRecordOutputNet,
+        .init = initAnalysisRecordOutputSplunk,
+        .destroy = destroyAnalysisRecordOutputSplunk,
+        .write = writeAnalysisRecordOutputSplunk,
     };
 
     initListHead (&analysisRecordOutputDevices);
@@ -251,10 +329,12 @@ analysisRecordService (void *args) {
             goto destroyAnalysisRecordOutputDev;
     }
 
-    /* Add analysis record output net dev */
-    ret = analysisRecordOutputDevAdd (&analysisRecordOutputNetDev);
-    if (ret < 0)
-        goto destroyAnalysisRecordOutputDev;
+    /* Add analysis record output splunk dev */
+    if (getPropertiesSplunkIndex ()) {
+        ret = analysisRecordOutputDevAdd (&analysisRecordOutputSplunkDev);
+        if (ret < 0)
+            goto destroyAnalysisRecordOutputDev;
+    }
 
     /* Get analysisRecordRecvSock */
     analysisRecordRecvSock = getAnalysisRecordRecvSock ();

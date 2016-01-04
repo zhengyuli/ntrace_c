@@ -1,0 +1,114 @@
+						   ━━━━━━━━━━━━━━━━━
+							ANALYSIS RECORD
+
+
+							   zhengyu li
+						   ━━━━━━━━━━━━━━━━━
+
+
+Table of Contents
+─────────────────
+
+1 Analysis record
+.. 1.1 Tcp breakdown common fields
+.. 1.2 Http breakdown fields
+.. 1.3 Mysql breakdown fields
+
+
+
+
+
+1 Analysis record
+═════════════════
+
+1.1 Tcp breakdown common fields
+───────────────────────────────
+
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   key                       │ description
+  ───────────────────────────┼────────────────────────────────────────────────────────────────────────────────
+   timestamp                 │ Timestamp readable string
+   type                      │ Analysis record type: [TOPOLOGY_ENTRY, APP_SERVICE, ICMP_ERROR, TCP_BREAKDOWN]
+   proto                     │ Tcp application level protocol type
+   source_ip                 │ Source ip
+   source_port               │ Source port
+   service_ip                │ Service ip
+   service_port              │ Service port
+   tcp_connection_id         │ Tcp connection id
+   tcp_state                 │ Tcp state
+   tcp_retries               │ Tcp sync retries
+   tcp_retries_latency       │ Tcp sync retries latency in milliseconds
+   tcp_duplicate_synacks     │ Tcp duplicate syn/ack packages
+   tcp_rtt                   │ Tcp RTT
+   tcp_mss                   │ Tcp mss (maxium segment size)
+   tcp_connection_latency    │ Tcp connection latency in milliseconds
+   tcp_c2s_bytes             │ Tcp client to server bytes
+   tcp_s2c_bytes             │ Tcp server to client bytes
+   tcp_total_bytes           │ Tcp total bytes
+   tcp_c2s_packets           │ Tcp client to server packets
+   tcp_s2c_packets           │ Tcp server to client packets
+   tcp_total_packets         │ Tcp total packets
+   tcp_tiny_packets          │ Tcp tiny packets
+   tcp_paws_packets          │ Tcp PAWS (Protect Against Wrapped Sequence numbers) packets
+   tcp_retransmitted_packets │ Tcp retransmitted packets
+   tcp_out_of_order_packets  │ Tcp out of order packets
+   tcp_zero_windows          │ Tcp zero windows
+   tcp_duplicate_acks        │ Tcp duplicate acks
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+1.2 Http breakdown fields
+─────────────────────────
+
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   name                      │ description
+  ───────────────────────────┼───────────────────────────────────
+   http_request_version      │ Http protocol request version
+   http_method               │ Http request method
+   http_url                  │ Http request url
+   http_host                 │ Http server host
+   http_request_line         │ Http request method + host + url
+   http_user_agent           │ Http request user agent
+   http_referer              │ Http request referer
+   http_accept               │ Http request accept sourses
+   http_accept_language      │ Http request accept language
+   http_accept_encoding      │ Http request accept encoding
+   http_x_forwarded_for      │ Http request x forwarded for
+   http_request_connection   │ Http request connection
+   http_response_version     │ Http protocol response version
+   http_content_type         │ Http response content type
+   http_content_disposition  │ Http response content disposition
+   http_transfer_encoding    │ Http response transfer encoding
+   http_response_connection  │ Http response connection
+   http_state                │ Http state
+   http_status_code          │ Http status code
+   http_request_header_size  │ Http request header size
+   http_request_body_size    │ Http request body size
+   http_response_header_size │ Http response header size
+   http_response_body_size   │ Http response body size
+   http_server_latency       │ Http server latency
+   http_download_latency     │ Http download latency
+   http_response_latency     │ Http response latency
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+1.3 Mysql breakdown fields
+──────────────────────────
+
+  ━━━━━━━━━━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━
+   breakdown name          │ description
+  ─────────────────────────┼─────────────────────────
+   mysql_server_version    │ Mysql server version
+   mysql_user_name         │ Mysql user name
+   mysql_connection_id     │ Mysql connection id
+   mysql_request_statement │ Mysql request statement
+   mysql_state             │ Mysql state
+   mysql_error_code        │ Mysql error code
+   mysql_sql_state         │ Mysql sql state
+   mysql_error_message     │ Mysql error message
+   mysql_request_size      │ Mysql request size
+   mysql_response_size     │ Mysql response size
+   mysql_server_latency    │ Mysql server latency
+   mysql_download_latency  │ Mysql download latency
+   mysql_response_latency  │ Mysql response latency
+  ━━━━━━━━━━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━

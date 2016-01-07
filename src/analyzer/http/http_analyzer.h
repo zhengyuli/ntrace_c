@@ -141,6 +141,7 @@ struct _httpSessionBreakdown {
 #define HTTP_SBKD_METHOD "http_method"
 #define HTTP_SBKD_URI "http_uri"
 #define HTTP_SBKD_HOST "http_host"
+#define HTTP_SBKD_REQUEST_URL "http_request_url"
 #define HTTP_SBKD_REQUEST_LINE "http_request_line"
 #define HTTP_SBKD_USER_AGENT "http_user_agent"
 #define HTTP_SBKD_REFERER "http_referer"

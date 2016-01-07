@@ -841,10 +841,18 @@ httpSessionBreakdown2Json (json_t *root, void *sd, void *sbd) {
             json_object_set_new (root, HTTP_SBKD_HOST,
                                  json_string (hsbd->host));
 
+        /* Http request url */
         if (hsbd->uri && hsbd->host) {
-            /* Http request line */
-            snprintf (buf, sizeof (buf), "%s http://%s%s",
-                      hsbd->method, hsbd->host, hsbd->uri);
+            snprintf (buf, sizeof (buf), "http://%s%s",
+                      hsbd->host, hsbd->uri);
+            json_object_set_new (root, HTTP_SBKD_REQUEST_URL,
+                                 json_string (buf));
+        }
+
+        /* Http request line */
+        if (hsbd->reqVer && hsbd->method && hsbd->uri && hsbd->host) {
+            snprintf (buf, sizeof (buf), "%s http://%s%s %s",
+                      hsbd->method, hsbd->host, hsbd->uri, hsbd->reqVer);
             json_object_set_new (root, HTTP_SBKD_REQUEST_LINE,
                                  json_string (buf));
         }
